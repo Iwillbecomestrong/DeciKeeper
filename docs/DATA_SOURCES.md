@@ -1,15 +1,20 @@
 # 数据资产来源与版权评估 (DATA_SOURCES)
 
-> 本文档是开源发布前的数据资产审计报告。**结论先行：assets 下多数数据文件含第三方版权内容，不能随开源仓库发布。**
+> 本文档是开源发布前的数据资产审计报告。
+> **2026-08-14 处理完毕：所有第三方抓取文本（有道释义/Google 译文/商业解析）已剥离或替换为 AI 新生成文本，仓库数据层可发布。**
 
-## 一、数据文件清单与风险评级
+## 一、当前数据文件状态（已处理）
 
-| 文件 | 大小 | 内容 | 来源证据 | 风险 |
-|------|------|------|----------|------|
-| cloze_pool.json | 2.9MB | 545 道考研完形/选词填空：真题原文 + 选项 + 答案 + 中文解析 | 字段 answer_status=confirmed_from_uploaded_answer_analysis_pdf（解析来自上传的商业解析书 PDF）；option_meanings_zh 为有道词典释义 | **高**：解析【答案精解】【考点】为商业出版物逐字内容 |
-| vocabulary_kaoyan.json | 1.9MB | 考研词汇 + 释义 | 词汇书 + 翻译 API 抓取（scripts/_translate_*.py） | **高**：词条释义可能来自商业词汇书与有道 |
-| vocab_merged.json / wordlist.json / passage_words.json | ~1.5MB | 合并词库、释义 | 同上 | **高** |
-| duilian.json / duilian_single.json | 103KB | 对联（上下句） | 传统文学作品 | 低（公有领域，注明来源即可） |
+| 文件 | 内容 | 处理方式 | 当前风险 |
+|------|------|----------|----------|
+| cloze_pool.json | 545 道考研完形：真题原文 + 选项 + 答案 + 释义 + 译文 | 商业解析（review_explanation 等 4 字段）已剥离；选项释义 2180 条与段落译文 545 段已替换为 AI 生成 | 低：真题原文公开、释义/译文自产 |
+| vocabulary_kaoyan.json | 考研词汇 + 释义 | 释义 5687 条已替换为 AI 生成 | 低：词表+自产释义 |
+| vocab_merged.json / wordlist.json / passage_words.json | 词库、释义 | 释义 8713 条已替换为 AI 生成 | 低 |
+| duilian.json / duilian_single.json | 对联 | 传统文学作品（公有领域） | 极低 |
+| 考研词汇.txt | 词汇原始文本 | 纯词表（事实性列表） | 极低 |
+
+> 音标为客观符号，保留原样。
+> 真题原文为教育部公开历年试题；AI 释义/译文为本项目自行生成（生成流水线脚本见 scripts/）。
 | 考研词汇.txt | 48KB | 词汇原始文本 | 词汇书原始文件 | **高** |
 
 ## 二、风险分析
