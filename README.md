@@ -38,6 +38,7 @@
 
 - 架构分层与模块职责：docs/ARCHITECTURE.md
 - 命名规范、业务红线、PR 流程：CONTRIBUTING.md
+- 产品需求与规则：Requirements.md · 已知坑与防回归记录：Issue_Tracker.md
 - 欢迎 Issue 与 PR。
 
 ## 许可证
