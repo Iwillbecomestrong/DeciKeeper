@@ -1,0 +1,11 @@
+{
+  "sourceFile": "docs/superpowers/specs/2026-07-15-ironwill-penalty-reclock-logfix-references/2026-07-15-device-log.txt",
+  "totalLines": 594,
+  "dispositionCounts": {
+    "NORMAL_EVENT": 545,
+    "OUT_OF_SCOPE": 24,
+    "REMOVE": 24,
+    "UNCLASSIFIED": 1
+  },
+  "unclassified": []
+}

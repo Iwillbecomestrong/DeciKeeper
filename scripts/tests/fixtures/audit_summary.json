@@ -1,0 +1,104 @@
+{
+  "sourceFile": "docs/superpowers/specs/2026-07-15-ironwill-penalty-reclock-logfix-references/2026-07-15-device-log.txt",
+  "totalKept": 591,
+  "declaredKept": 591,
+  "declaredTotal": 36549,
+  "ironWillPidCount": 317,
+  "sourceCounts": {
+    "info": 1,
+    "ironwill_canonical_event": 311,
+    "ironwill_legacy_raw": 20,
+    "ironwill_pid_line": 6,
+    "unknown": 253
+  },
+  "topTags": [
+    {
+      "tag": "DEFERRED",
+      "count": 113
+    },
+    {
+      "tag": "EXPIRY_LOCK",
+      "count": 111
+    },
+    {
+      "tag": "FG_DECISION",
+      "count": 33
+    },
+    {
+      "tag": "PENALTY",
+      "count": 22
+    },
+    {
+      "tag": "FG_END",
+      "count": 11
+    },
+    {
+      "tag": "LOCK_RESULT",
+      "count": 4
+    },
+    {
+      "tag": "CLEAR",
+      "count": 2
+    },
+    {
+      "tag": "COOLDOWN_START",
+      "count": 2
+    },
+    {
+      "tag": "FOREGROUND_TRANSITION",
+      "count": 2
+    },
+    {
+      "tag": "PROTECTION_STATE_CHANGE",
+      "count": 2
+    },
+    {
+      "tag": "EMERGENCY_ACCESS_END",
+      "count": 1
+    },
+    {
+      "tag": "EMERGENCY_ACCESS_START",
+      "count": 1
+    },
+    {
+      "tag": "EMERGENCY_RELOCK",
+      "count": 1
+    },
+    {
+      "tag": "LOCK_EXIT",
+      "count": 1
+    },
+    {
+      "tag": "OK",
+      "count": 1
+    },
+    {
+      "tag": "REST_QUOTA_CHANGE",
+      "count": 1
+    },
+    {
+      "tag": "TEMP_ACCESS_COOLDOWN_END",
+      "count": 1
+    },
+    {
+      "tag": "TEMP_ACCESS_END",
+      "count": 1
+    },
+    {
+      "tag": "TEMP_ACCESS_START",
+      "count": 1
+    }
+  ],
+  "duplicateKeys": [],
+  "round3Audit": {
+    "sourceFile": "G:\\IronWIl0329\\IronWill\\.claude\\worktrees\\agent-ad1f5c7db01030ea9\\scripts\\tests\\..\\..\\docs\\superpowers\\specs\\2026-07-15-ironwill-penalty-reclock-logfix-references\\2026-07-15-device-log.txt",
+    "totalLines": 594,
+    "dispositionCounts": {
+      "NORMAL_EVENT": 545,
+      "OUT_OF_SCOPE": 24,
+      "REMOVE": 24,
+      "UNCLASSIFIED": 1
+    },
+    "unclassified": []
+  }
+}
