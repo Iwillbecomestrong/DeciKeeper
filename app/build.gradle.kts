@@ -80,6 +80,11 @@ tasks.withType<Test>().configureEach {
         val asciiRoot = file("C:/GradleAsciiTestClasspath/${project.name}/$variant")
         val asciiTestDir = file("${asciiRoot.absolutePath}/tests")
         val asciiMainJar = file("${asciiRoot.absolutePath}/main/classes.jar")
+        // [Fix: 幽灵测试] 复制前清空目标目录。旧实现只增不删:
+        // 已从仓库删除的测试源码, 其陈旧 .class 会永久残留在 ASCII 目录里,
+        // 被测试任务当作仍然存在的测试反复执行(仓库无源码, 报告却有失败)。
+        // 清空后每次运行只包含当前源码编译出的测试类, 新克隆也不受影响。
+        delete(asciiRoot)
         asciiTestDir.mkdirs()
         asciiMainJar.parentFile?.mkdirs()
 
