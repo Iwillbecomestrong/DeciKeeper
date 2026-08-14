@@ -1,0 +1,1332 @@
+[
+  {
+    "id": 1,
+    "display_text": "【请填上句】，天涯若比邻",
+    "expected_answer": "海内存知己"
+  },
+  {
+    "id": 2,
+    "display_text": "无为在歧路，【请填下句】",
+    "expected_answer": "儿女共沾巾"
+  },
+  {
+    "id": 3,
+    "display_text": "【请填上句】，闻道龙标过五溪",
+    "expected_answer": "杨花落尽子规啼"
+  },
+  {
+    "id": 4,
+    "display_text": "我寄愁心与明月，【请填下句】",
+    "expected_answer": "随君直到夜郎西"
+  },
+  {
+    "id": 5,
+    "display_text": "【请填上句】，玉盘珍羞直万钱",
+    "expected_answer": "金樽清酒斗十千"
+  },
+  {
+    "id": 6,
+    "display_text": "停杯投箸不能食，【请填下句】",
+    "expected_answer": "拔剑四顾心茫然"
+  },
+  {
+    "id": 7,
+    "display_text": "【请填上句】，直挂云帆济沧海",
+    "expected_answer": "长风破浪会有时"
+  },
+  {
+    "id": 8,
+    "display_text": "造化钟神秀，【请填下句】",
+    "expected_answer": "阴阳割昏晓"
+  },
+  {
+    "id": 9,
+    "display_text": "【请填上句】，决眦入归鸟",
+    "expected_answer": "荡胸生曾云"
+  },
+  {
+    "id": 10,
+    "display_text": "会当凌绝顶，【请填下句】",
+    "expected_answer": "一览众山小"
+  },
+  {
+    "id": 11,
+    "display_text": "【请填上句】，城春草木深",
+    "expected_answer": "国破山河在"
+  },
+  {
+    "id": 12,
+    "display_text": "感时花溅泪，【请填下句】",
+    "expected_answer": "恨别鸟惊心"
+  },
+  {
+    "id": 13,
+    "display_text": "【请填上句】，家书抵万金",
+    "expected_answer": "烽火连三月"
+  },
+  {
+    "id": 14,
+    "display_text": "孤山寺北贾亭西，【请填下句】",
+    "expected_answer": "水面初平云脚低"
+  },
+  {
+    "id": 15,
+    "display_text": "【请填上句】，谁家新燕啄春泥",
+    "expected_answer": "几处早莺争暖树"
+  },
+  {
+    "id": 16,
+    "display_text": "乱花渐欲迷人眼，【请填下句】",
+    "expected_answer": "浅草才能没马蹄"
+  },
+  {
+    "id": 17,
+    "display_text": "【请填上句】，属国过居延",
+    "expected_answer": "单车欲问边"
+  },
+  {
+    "id": 18,
+    "display_text": "征蓬出汉塞，【请填下句】",
+    "expected_answer": "归雁入胡天"
+  },
+  {
+    "id": 19,
+    "display_text": "【请填上句】，长河落日圆",
+    "expected_answer": "大漠孤烟直"
+  },
+  {
+    "id": 20,
+    "display_text": "昔人已乘黄鹤去，【请填下句】",
+    "expected_answer": "此地空余黄鹤楼"
+  },
+  {
+    "id": 21,
+    "display_text": "【请填上句】，白云千载空悠悠",
+    "expected_answer": "黄鹤一去不复返"
+  },
+  {
+    "id": 22,
+    "display_text": "晴川历历汉阳树，【请填下句】",
+    "expected_answer": "芳草萋萋鹦鹉洲"
+  },
+  {
+    "id": 23,
+    "display_text": "【请填上句】，烟波江上使人愁",
+    "expected_answer": "日暮乡关何处是"
+  },
+  {
+    "id": 24,
+    "display_text": "渡远荆门外，【请填下句】",
+    "expected_answer": "来从楚国游"
+  },
+  {
+    "id": 25,
+    "display_text": "【请填上句】，江入大荒流",
+    "expected_answer": "山随平野尽"
+  },
+  {
+    "id": 26,
+    "display_text": "月下飞天镜，【请填下句】",
+    "expected_answer": "云生结海楼"
+  },
+  {
+    "id": 27,
+    "display_text": "【请填上句】，心忧炭贱愿天寒",
+    "expected_answer": "可怜身上衣正单"
+  },
+  {
+    "id": 28,
+    "display_text": "忽如一夜春风来，【请填下句】",
+    "expected_answer": "千树万树梨花开"
+  },
+  {
+    "id": 29,
+    "display_text": "【请填上句】，风掣红旗冻不翻",
+    "expected_answer": "纷纷暮雪下辕门"
+  },
+  {
+    "id": 30,
+    "display_text": "山回路转不见君，【请填下句】",
+    "expected_answer": "雪上空留马行处"
+  },
+  {
+    "id": 31,
+    "display_text": "【请填上句】，二十三年弃置身",
+    "expected_answer": "巴山楚水凄凉地"
+  },
+  {
+    "id": 32,
+    "display_text": "沉舟侧畔千帆过，【请填下句】",
+    "expected_answer": "病树前头万木春"
+  },
+  {
+    "id": 33,
+    "display_text": "【请填上句】，自将磨洗认前朝",
+    "expected_answer": "折戟沉沙铁未销"
+  },
+  {
+    "id": 34,
+    "display_text": "东风不与周郎便，【请填下句】",
+    "expected_answer": "铜雀春深锁二乔"
+  },
+  {
+    "id": 35,
+    "display_text": "【请填上句】，夜泊秦淮近酒家",
+    "expected_answer": "烟笼寒水月笼沙"
+  },
+  {
+    "id": 36,
+    "display_text": "商女不知亡国恨，【请填下句】",
+    "expected_answer": "隔江犹唱后庭花"
+  },
+  {
+    "id": 37,
+    "display_text": "【请填上句】，巴山夜雨涨秋池",
+    "expected_answer": "君问归期未有期"
+  },
+  {
+    "id": 38,
+    "display_text": "何当共剪西窗烛，【请填下句】",
+    "expected_answer": "却话巴山夜雨时"
+  },
+  {
+    "id": 39,
+    "display_text": "【请填上句】，东风无力百花残",
+    "expected_answer": "相见时难别亦难"
+  },
+  {
+    "id": 40,
+    "display_text": "春蚕到死丝方尽，【请填下句】",
+    "expected_answer": "蜡炬成灰泪始干"
+  },
+  {
+    "id": 41,
+    "display_text": "【请填上句】，夜吟应觉月光寒",
+    "expected_answer": "晓镜但愁云鬓改"
+  },
+  {
+    "id": 42,
+    "display_text": "塞下秋来风景异，【请填下句】",
+    "expected_answer": "衡阳雁去无留意"
+  },
+  {
+    "id": 43,
+    "display_text": "【请填上句】，燕然未勒归无计",
+    "expected_answer": "浊酒一杯家万里"
+  },
+  {
+    "id": 44,
+    "display_text": "明月几时有？【请填下句】",
+    "expected_answer": "把酒问青天"
+  },
+  {
+    "id": 45,
+    "display_text": "【请填上句】，今夕是何年",
+    "expected_answer": "不知天上宫阙"
+  },
+  {
+    "id": 46,
+    "display_text": "我欲乘风归去，【请填下句】",
+    "expected_answer": "又恐琼楼玉宇"
+  },
+  {
+    "id": 47,
+    "display_text": "【请填上句】，何似在人间",
+    "expected_answer": "起舞弄清影"
+  },
+  {
+    "id": 48,
+    "display_text": "不应有恨，【请填下句】",
+    "expected_answer": "何事长向别时圆"
+  },
+  {
+    "id": 49,
+    "display_text": "【请填上句】，月有阴晴圆缺",
+    "expected_answer": "人有悲欢离合"
+  },
+  {
+    "id": 50,
+    "display_text": "但愿人长久，【请填下句】",
+    "expected_answer": "千里共婵娟"
+  },
+  {
+    "id": 51,
+    "display_text": "【请填上句】，星河欲转千帆舞",
+    "expected_answer": "天接云涛连晓雾"
+  },
+  {
+    "id": 52,
+    "display_text": "醉里挑灯看剑，【请填下句】",
+    "expected_answer": "梦回吹角连营"
+  },
+  {
+    "id": 53,
+    "display_text": "【请填上句】，五十弦翻塞外声",
+    "expected_answer": "八百里分麾下炙"
+  },
+  {
+    "id": 54,
+    "display_text": "马作的卢飞快，【请填下句】",
+    "expected_answer": "弓如霹雳弦惊"
+  },
+  {
+    "id": 55,
+    "display_text": "【请填上句】，赢得生前身后名",
+    "expected_answer": "了却君王天下事"
+  },
+  {
+    "id": 56,
+    "display_text": "辛苦遭逢起一经，【请填下句】",
+    "expected_answer": "干戈寥落四周星"
+  },
+  {
+    "id": 57,
+    "display_text": "【请填上句】，身世浮沉雨打萍",
+    "expected_answer": "山河破碎风飘絮"
+  },
+  {
+    "id": 58,
+    "display_text": "惶恐滩头说惶恐，【请填下句】",
+    "expected_answer": "零丁洋里叹零丁"
+  },
+  {
+    "id": 59,
+    "display_text": "【请填上句】，留取丹心照汗青",
+    "expected_answer": "人生自古谁无死？"
+  },
+  {
+    "id": 60,
+    "display_text": "枯藤老树昏鸦，【请填下句】",
+    "expected_answer": "小桥流水人家"
+  },
+  {
+    "id": 61,
+    "display_text": "【请填上句】，断肠人在天涯",
+    "expected_answer": "夕阳西下"
+  },
+  {
+    "id": 62,
+    "display_text": "伤心秦汉经行处，【请填下句】",
+    "expected_answer": "宫阙万间都做了土"
+  },
+  {
+    "id": 63,
+    "display_text": "【请填上句】，吟鞭东指即天涯",
+    "expected_answer": "浩荡离愁白日斜"
+  },
+  {
+    "id": 64,
+    "display_text": "落红不是无情物，【请填下句】",
+    "expected_answer": "化作春泥更护花"
+  },
+  {
+    "id": 65,
+    "display_text": "【请填上句】，西市买鞍鞯",
+    "expected_answer": "东市买骏马"
+  },
+  {
+    "id": 66,
+    "display_text": "万里赴戎机，【请填下句】",
+    "expected_answer": "关山度若飞"
+  },
+  {
+    "id": 67,
+    "display_text": "【请填上句】，寒光照铁衣",
+    "expected_answer": "朔气传金柝"
+  },
+  {
+    "id": 68,
+    "display_text": "将军百战死，【请填下句】",
+    "expected_answer": "壮士十年归"
+  },
+  {
+    "id": 69,
+    "display_text": "【请填上句】，雌兔眼迷离",
+    "expected_answer": "雄兔脚扑朔"
+  },
+  {
+    "id": 70,
+    "display_text": "故人具鸡黍，【请填下句】",
+    "expected_answer": "邀我至田家"
+  },
+  {
+    "id": 71,
+    "display_text": "【请填上句】，青山郭外斜",
+    "expected_answer": "绿树村边合"
+  },
+  {
+    "id": 72,
+    "display_text": "开轩面场圃，【请填下句】",
+    "expected_answer": "把酒话桑麻"
+  },
+  {
+    "id": 73,
+    "display_text": "【请填上句】，禅房花木深",
+    "expected_answer": "曲径通幽处"
+  },
+  {
+    "id": 74,
+    "display_text": "山光悦鸟性，【请填下句】",
+    "expected_answer": "潭影空人心"
+  },
+  {
+    "id": 75,
+    "display_text": "【请填上句】，崔九堂前几度闻",
+    "expected_answer": "岐王宅里寻常见"
+  },
+  {
+    "id": 76,
+    "display_text": "正是江南好风景，【请填下句】",
+    "expected_answer": "落花时节又逢君"
+  },
+  {
+    "id": 77,
+    "display_text": "【请填上句】，草色遥看近却无",
+    "expected_answer": "天街小雨润如酥"
+  },
+  {
+    "id": 78,
+    "display_text": "最是一年春好处，【请填下句】",
+    "expected_answer": "绝胜烟柳满皇都"
+  },
+  {
+    "id": 79,
+    "display_text": "【请填上句】，甲光向日金鳞开",
+    "expected_answer": "黑云压城城欲摧"
+  },
+  {
+    "id": 80,
+    "display_text": "角声满天秋色里，【请填下句】",
+    "expected_answer": "塞上燕脂凝夜紫"
+  },
+  {
+    "id": 81,
+    "display_text": "【请填上句】，提携玉龙为君死",
+    "expected_answer": "报君黄金台上意"
+  },
+  {
+    "id": 82,
+    "display_text": "一曲新词酒一杯，【请填下句】",
+    "expected_answer": "去年天气旧亭台"
+  },
+  {
+    "id": 83,
+    "display_text": "【请填上句】，似曾相识燕归来",
+    "expected_answer": "无可奈何花落去"
+  },
+  {
+    "id": 84,
+    "display_text": "飞来山上千寻塔，【请填下句】",
+    "expected_answer": "闻说鸡鸣见日升"
+  },
+  {
+    "id": 85,
+    "display_text": "【请填上句】，自缘身在最高层",
+    "expected_answer": "不畏浮云遮望眼"
+  },
+  {
+    "id": 86,
+    "display_text": "莫笑农家腊酒浑，【请填下句】",
+    "expected_answer": "丰年留客足鸡豚"
+  },
+  {
+    "id": 87,
+    "display_text": "【请填上句】，柳暗花明又一村",
+    "expected_answer": "山重水复疑无路"
+  },
+  {
+    "id": 88,
+    "display_text": "黄梅时节家家雨，【请填下句】",
+    "expected_answer": "青草池塘处处蛙"
+  },
+  {
+    "id": 89,
+    "display_text": "【请填上句】，闲敲棋子落灯花",
+    "expected_answer": "有约不来过夜半"
+  },
+  {
+    "id": 90,
+    "display_text": "桃之夭夭，【请填下句】",
+    "expected_answer": "灼灼其华"
+  },
+  {
+    "id": 91,
+    "display_text": "【请填上句】，后不见来者",
+    "expected_answer": "前不见古人"
+  },
+  {
+    "id": 92,
+    "display_text": "念天地之悠悠，【请填下句】",
+    "expected_answer": "独怆然而涕下"
+  },
+  {
+    "id": 93,
+    "display_text": "【请填上句】，弹琴复长啸",
+    "expected_answer": "独坐幽篁里"
+  },
+  {
+    "id": 94,
+    "display_text": "深林人不知，【请填下句】",
+    "expected_answer": "明月来相照"
+  },
+  {
+    "id": 95,
+    "display_text": "【请填上句】，散入春风满洛城",
+    "expected_answer": "谁家玉笛暗飞声"
+  },
+  {
+    "id": 96,
+    "display_text": "此夜曲中闻折柳，【请填下句】",
+    "expected_answer": "何人不起故园情"
+  },
+  {
+    "id": 97,
+    "display_text": "【请填上句】，双袖龙钟泪不干",
+    "expected_answer": "故园东望路漫漫"
+  },
+  {
+    "id": 98,
+    "display_text": "马上相逢无纸笔，【请填下句】",
+    "expected_answer": "凭君传语报平安"
+  },
+  {
+    "id": 99,
+    "display_text": "【请填上句】，百般红紫斗芳菲",
+    "expected_answer": "草树知春不久归"
+  },
+  {
+    "id": 100,
+    "display_text": "杨花榆荚无才思，【请填下句】",
+    "expected_answer": "惟解漫天作雪飞"
+  },
+  {
+    "id": 101,
+    "display_text": "【请填上句】，我言秋日胜春朝",
+    "expected_answer": "自古逢秋悲寂寥"
+  },
+  {
+    "id": 102,
+    "display_text": "晴空一鹤排云上，【请填下句】",
+    "expected_answer": "便引诗情到碧霄"
+  },
+  {
+    "id": 103,
+    "display_text": "【请填上句】，其叶沃若",
+    "expected_answer": "桑之未落"
+  },
+  {
+    "id": 104,
+    "display_text": "桑之落矣，【请填下句】",
+    "expected_answer": "其黄而陨"
+  },
+  {
+    "id": 105,
+    "display_text": "【请填上句】，不思其反",
+    "expected_answer": "信誓旦旦"
+  },
+  {
+    "id": 106,
+    "display_text": "昔我往矣，【请填下句】",
+    "expected_answer": "杨柳依依"
+  },
+  {
+    "id": 107,
+    "display_text": "【请填上句】，雨雪霏霏",
+    "expected_answer": "今我来思"
+  },
+  {
+    "id": 108,
+    "display_text": "长太息以掩涕兮，【请填下句】",
+    "expected_answer": "哀民生之多艰"
+  },
+  {
+    "id": 109,
+    "display_text": "【请填上句】，虽九死其犹未悔",
+    "expected_answer": "亦余心之所善兮"
+  },
+  {
+    "id": 110,
+    "display_text": "路漫漫其修远兮，【请填下句】",
+    "expected_answer": "吾将上下而求索"
+  },
+  {
+    "id": 111,
+    "display_text": "【请填上句】，人生几何",
+    "expected_answer": "对酒当歌"
+  },
+  {
+    "id": 112,
+    "display_text": "青青子衿，【请填下句】",
+    "expected_answer": "悠悠我心"
+  },
+  {
+    "id": 113,
+    "display_text": "【请填上句】，何时可掇",
+    "expected_answer": "明明如月"
+  },
+  {
+    "id": 114,
+    "display_text": "月明星稀，【请填下句】",
+    "expected_answer": "乌鹊南飞"
+  },
+  {
+    "id": 115,
+    "display_text": "【请填上句】，海不厌深",
+    "expected_answer": "山不厌高"
+  },
+  {
+    "id": 116,
+    "display_text": "周公吐哺，【请填下句】",
+    "expected_answer": "天下归心"
+  },
+  {
+    "id": 117,
+    "display_text": "【请填上句】，性本爱丘山",
+    "expected_answer": "少无适俗韵"
+  },
+  {
+    "id": 118,
+    "display_text": "羁鸟恋旧林，【请填下句】",
+    "expected_answer": "池鱼思故渊"
+  },
+  {
+    "id": 119,
+    "display_text": "【请填上句】，虚室有余闲",
+    "expected_answer": "户庭无尘杂"
+  },
+  {
+    "id": 120,
+    "display_text": "久在樊笼里，【请填下句】",
+    "expected_answer": "复得返自然"
+  },
+  {
+    "id": 121,
+    "display_text": "【请填上句】，天气晚来秋",
+    "expected_answer": "空山新雨后"
+  },
+  {
+    "id": 122,
+    "display_text": "明月松间照，【请填下句】",
+    "expected_answer": "清泉石上流"
+  },
+  {
+    "id": 123,
+    "display_text": "【请填上句】，莲动下渔舟",
+    "expected_answer": "竹喧归浣女"
+  },
+  {
+    "id": 124,
+    "display_text": "随意春芳歇，【请填下句】",
+    "expected_answer": "王孙自可留"
+  },
+  {
+    "id": 125,
+    "display_text": "【请填上句】，难于上青天",
+    "expected_answer": "蜀道之难"
+  },
+  {
+    "id": 126,
+    "display_text": "西当太白有鸟道，【请填下句】",
+    "expected_answer": "可以横绝峨眉巅"
+  },
+  {
+    "id": 127,
+    "display_text": "【请填上句】，然后天梯石栈相钩连",
+    "expected_answer": "地崩山摧壮士死"
+  },
+  {
+    "id": 128,
+    "display_text": "黄鹤之飞尚不得过，【请填下句】",
+    "expected_answer": "猿猱欲度愁攀援"
+  },
+  {
+    "id": 129,
+    "display_text": "【请填上句】，枯松倒倚绝壁",
+    "expected_answer": "连峰去天不盈尺"
+  },
+  {
+    "id": 130,
+    "display_text": "飞湍瀑流争喧豗，【请填下句】",
+    "expected_answer": "砯崖转石万壑雷"
+  },
+  {
+    "id": 131,
+    "display_text": "【请填上句】，势拔五岳掩赤城",
+    "expected_answer": "天姥连天向天横"
+  },
+  {
+    "id": 132,
+    "display_text": "熊咆龙吟殷岩泉，【请填下句】",
+    "expected_answer": "栗深林兮惊层巅"
+  },
+  {
+    "id": 133,
+    "display_text": "【请填上句】，水澹澹兮生烟",
+    "expected_answer": "云青青兮欲雨"
+  },
+  {
+    "id": 134,
+    "display_text": "世间行乐亦如此，【请填下句】",
+    "expected_answer": "古来万事东流水"
+  },
+  {
+    "id": 135,
+    "display_text": "【请填上句】，使我不得开心颜",
+    "expected_answer": "安能摧眉折腰事权贵"
+  },
+  {
+    "id": 136,
+    "display_text": "丞相祠堂何处寻，【请填下句】",
+    "expected_answer": "锦官城外柏森森"
+  },
+  {
+    "id": 137,
+    "display_text": "【请填上句】，隔叶黄鹂空好音",
+    "expected_answer": "映阶碧草自春色"
+  },
+  {
+    "id": 138,
+    "display_text": "三顾频烦天下计，【请填下句】",
+    "expected_answer": "两朝开济老臣心"
+  },
+  {
+    "id": 139,
+    "display_text": "【请填上句】，长使英雄泪满襟",
+    "expected_answer": "出师未捷身先死"
+  },
+  {
+    "id": 140,
+    "display_text": "风急天高猿啸哀，【请填下句】",
+    "expected_answer": "渚清沙白鸟飞回"
+  },
+  {
+    "id": 141,
+    "display_text": "【请填上句】，不尽长江滚滚来",
+    "expected_answer": "无边落木萧萧下"
+  },
+  {
+    "id": 142,
+    "display_text": "万里悲秋常作客，【请填下句】",
+    "expected_answer": "百年多病独登台"
+  },
+  {
+    "id": 143,
+    "display_text": "【请填上句】，潦倒新停浊酒杯",
+    "expected_answer": "艰难苦恨繁霜鬓"
+  },
+  {
+    "id": 144,
+    "display_text": "千呼万唤始出来，【请填下句】",
+    "expected_answer": "犹抱琵琶半遮面"
+  },
+  {
+    "id": 145,
+    "display_text": "【请填上句】，小弦切切如私语",
+    "expected_answer": "大弦嘈嘈如急雨"
+  },
+  {
+    "id": 146,
+    "display_text": "嘈嘈切切错杂弹，【请填下句】",
+    "expected_answer": "大珠小珠落玉盘"
+  },
+  {
+    "id": 147,
+    "display_text": "【请填上句】，幽咽泉流冰下难",
+    "expected_answer": "间关莺语花底滑"
+  },
+  {
+    "id": 148,
+    "display_text": "别有幽愁暗恨生，【请填下句】",
+    "expected_answer": "此时无声胜有声"
+  },
+  {
+    "id": 149,
+    "display_text": "【请填上句】，相逢何必曾相识",
+    "expected_answer": "同是天涯沦落人"
+  },
+  {
+    "id": 150,
+    "display_text": "座中泣下谁最多？【请填下句】",
+    "expected_answer": "江州司马青衫湿"
+  },
+  {
+    "id": 151,
+    "display_text": "【请填上句】，一弦一柱思华年",
+    "expected_answer": "锦瑟无端五十弦"
+  },
+  {
+    "id": 152,
+    "display_text": "庄生晓梦迷蝴蝶，【请填下句】",
+    "expected_answer": "望帝春心托杜鹃"
+  },
+  {
+    "id": 153,
+    "display_text": "【请填上句】，蓝田日暖玉生烟",
+    "expected_answer": "沧海月明珠有泪"
+  },
+  {
+    "id": 154,
+    "display_text": "此情可待成追忆，【请填下句】",
+    "expected_answer": "只是当时已惘然"
+  },
+  {
+    "id": 155,
+    "display_text": "【请填上句】，往事知多少",
+    "expected_answer": "春花秋月何时了？"
+  },
+  {
+    "id": 156,
+    "display_text": "小楼昨夜又东风，【请填下句】",
+    "expected_answer": "故国不堪回首月明中"
+  },
+  {
+    "id": 157,
+    "display_text": "【请填上句】，只是朱颜改",
+    "expected_answer": "雕栏玉砌应犹在"
+  },
+  {
+    "id": 158,
+    "display_text": "问君能有几多愁？【请填下句】",
+    "expected_answer": "恰似一江春水向东流"
+  },
+  {
+    "id": 159,
+    "display_text": "【请填上句】，竟无语凝噎",
+    "expected_answer": "执手相看泪眼"
+  },
+  {
+    "id": 160,
+    "display_text": "多情自古伤离别，【请填下句】",
+    "expected_answer": "更那堪冷落清秋节"
+  },
+  {
+    "id": 161,
+    "display_text": "【请填上句】，一时多少豪杰",
+    "expected_answer": "江山如画"
+  },
+  {
+    "id": 162,
+    "display_text": "人生如梦，【请填下句】",
+    "expected_answer": "一尊还酹江月"
+  },
+  {
+    "id": 163,
+    "display_text": "【请填上句】，英雄无觅孙仲谋处",
+    "expected_answer": "千古江山"
+  },
+  {
+    "id": 164,
+    "display_text": "舞榭歌台，【请填下句】",
+    "expected_answer": "风流总被雨打风吹去"
+  },
+  {
+    "id": 165,
+    "display_text": "【请填上句】，气吞万里如虎",
+    "expected_answer": "金戈铁马"
+  },
+  {
+    "id": 166,
+    "display_text": "凭谁问：廉颇老矣，【请填下句】",
+    "expected_answer": "尚能饭否"
+  },
+  {
+    "id": 167,
+    "display_text": "【请填上句】，怎一个愁字了得",
+    "expected_answer": "这次第"
+  },
+  {
+    "id": 168,
+    "display_text": "金风玉露一相逢，【请填下句】",
+    "expected_answer": "便胜却人间无数"
+  },
+  {
+    "id": 169,
+    "display_text": "【请填上句】，又岂在朝朝暮暮",
+    "expected_answer": "两情若是久长时"
+  },
+  {
+    "id": 170,
+    "display_text": "峨眉山月半轮秋，【请填下句】",
+    "expected_answer": "影入平羌江水流"
+  },
+  {
+    "id": 171,
+    "display_text": "【请填上句】，水村山郭酒旗风",
+    "expected_answer": "千里莺啼绿映红"
+  },
+  {
+    "id": 172,
+    "display_text": "南朝四百八十寺，【请填下句】",
+    "expected_answer": "多少楼台烟雨中"
+  },
+  {
+    "id": 173,
+    "display_text": "【请填上句】，受降城外月如霜",
+    "expected_answer": "回乐烽前沙似雪"
+  },
+  {
+    "id": 174,
+    "display_text": "不知何处吹芦管，【请填下句】",
+    "expected_answer": "一夜征人尽望乡"
+  },
+  {
+    "id": 175,
+    "display_text": "【请填上句】，尚思为国戍轮台",
+    "expected_answer": "僵卧孤村不自哀"
+  },
+  {
+    "id": 176,
+    "display_text": "夜阑卧听风吹雨，【请填下句】",
+    "expected_answer": "铁马冰河入梦来"
+  },
+  {
+    "id": 177,
+    "display_text": "【请填上句】，一山放出一山拦",
+    "expected_answer": "正入万山圈子里"
+  },
+  {
+    "id": 178,
+    "display_text": "常记溪亭日暮，【请填下句】",
+    "expected_answer": "沉醉不知归路"
+  },
+  {
+    "id": 179,
+    "display_text": "【请填上句】，误入藕花深处",
+    "expected_answer": "兴尽晚回舟"
+  },
+  {
+    "id": 180,
+    "display_text": "树树皆秋色，【请填下句】",
+    "expected_answer": "山山唯落晖"
+  },
+  {
+    "id": 181,
+    "display_text": "【请填上句】，涵虚混太清",
+    "expected_answer": "八月湖水平"
+  },
+  {
+    "id": 182,
+    "display_text": "气蒸云梦泽，【请填下句】",
+    "expected_answer": "波撼岳阳城"
+  },
+  {
+    "id": 183,
+    "display_text": "【请填上句】，徒有羡鱼情",
+    "expected_answer": "坐观垂钓者"
+  },
+  {
+    "id": 184,
+    "display_text": "一封朝奏九重天，【请填下句】",
+    "expected_answer": "夕贬潮州路八千"
+  },
+  {
+    "id": 185,
+    "display_text": "【请填上句】，肯将衰朽惜残年",
+    "expected_answer": "欲为圣明除弊事"
+  },
+  {
+    "id": 186,
+    "display_text": "云横秦岭家何在？【请填下句】",
+    "expected_answer": "雪拥蓝关马不前"
+  },
+  {
+    "id": 187,
+    "display_text": "【请填上句】，好收吾骨瘴江边",
+    "expected_answer": "知汝远来应有意"
+  },
+  {
+    "id": 188,
+    "display_text": "晨起动征铎，【请填下句】",
+    "expected_answer": "客行悲故乡"
+  },
+  {
+    "id": 189,
+    "display_text": "【请填上句】，人迹板桥霜",
+    "expected_answer": "鸡声茅店月"
+  },
+  {
+    "id": 190,
+    "display_text": "一上高城万里愁，【请填下句】",
+    "expected_answer": "蒹葭杨柳似汀洲"
+  },
+  {
+    "id": 191,
+    "display_text": "【请填上句】，山雨欲来风满楼",
+    "expected_answer": "溪云初起日沉阁"
+  },
+  {
+    "id": 192,
+    "display_text": "戍鼓断人行，【请填下句】",
+    "expected_answer": "边秋一雁声"
+  },
+  {
+    "id": 193,
+    "display_text": "【请填上句】，月是故乡明",
+    "expected_answer": "露从今夜白"
+  },
+  {
+    "id": 194,
+    "display_text": "有弟皆分散，【请填下句】",
+    "expected_answer": "无家问死生"
+  },
+  {
+    "id": 195,
+    "display_text": "【请填上句】，万古惟留楚客悲",
+    "expected_answer": "三年谪宦此栖迟"
+  },
+  {
+    "id": 196,
+    "display_text": "秋草独寻人去后，【请填下句】",
+    "expected_answer": "寒林空见日斜时"
+  },
+  {
+    "id": 197,
+    "display_text": "【请填上句】，举杯消愁愁更愁",
+    "expected_answer": "抽刀断水水更流"
+  },
+  {
+    "id": 198,
+    "display_text": "人生在世不称意，【请填下句】",
+    "expected_answer": "明朝散发弄扁舟"
+  },
+  {
+    "id": 199,
+    "display_text": "【请填上句】，卷我屋上三重茅",
+    "expected_answer": "八月秋高风怒号"
+  },
+  {
+    "id": 200,
+    "display_text": "安得广厦千万间，【请填下句】",
+    "expected_answer": "大庇天下寒士俱欢颜"
+  },
+  {
+    "id": 201,
+    "display_text": "【请填上句】，北风吹雁雪纷纷",
+    "expected_answer": "千里黄云白日曛"
+  },
+  {
+    "id": 202,
+    "display_text": "莫愁前路无知己，【请填下句】",
+    "expected_answer": "天下谁人不识君"
+  },
+  {
+    "id": 203,
+    "display_text": "【请填上句】，画楼西畔桂堂东",
+    "expected_answer": "昨夜星辰昨夜风"
+  },
+  {
+    "id": 204,
+    "display_text": "身无彩凤双飞翼，【请填下句】",
+    "expected_answer": "心有灵犀一点通"
+  },
+  {
+    "id": 205,
+    "display_text": "【请填上句】，客舍青青柳色新",
+    "expected_answer": "渭城朝雨浥轻尘"
+  },
+  {
+    "id": 206,
+    "display_text": "劝君更尽一杯酒，【请填下句】",
+    "expected_answer": "西出阳关无故人"
+  },
+  {
+    "id": 207,
+    "display_text": "【请填上句】，平明送客楚山孤",
+    "expected_answer": "寒雨连江夜入吴"
+  },
+  {
+    "id": 208,
+    "display_text": "洛阳亲友如相问，【请填下句】",
+    "expected_answer": "一片冰心在玉壶"
+  },
+  {
+    "id": 209,
+    "display_text": "【请填上句】，万里长征人未还",
+    "expected_answer": "秦时明月汉时关"
+  },
+  {
+    "id": 210,
+    "display_text": "但使龙城飞将在，【请填下句】",
+    "expected_answer": "不教胡马度阴山"
+  },
+  {
+    "id": 211,
+    "display_text": "【请填上句】，一片孤城万仞山",
+    "expected_answer": "黄河远上白云间"
+  },
+  {
+    "id": 212,
+    "display_text": "羌笛何须怨杨柳，【请填下句】",
+    "expected_answer": "春风不度玉门关"
+  },
+  {
+    "id": 213,
+    "display_text": "【请填上句】，欲饮琵琶马上催",
+    "expected_answer": "葡萄美酒夜光杯"
+  },
+  {
+    "id": 214,
+    "display_text": "醉卧沙场君莫笑，【请填下句】",
+    "expected_answer": "古来征战几人回"
+  },
+  {
+    "id": 215,
+    "display_text": "【请填上句】，每逢佳节倍思亲",
+    "expected_answer": "独在异乡为异客"
+  },
+  {
+    "id": 216,
+    "display_text": "遥知兄弟登高处，【请填下句】",
+    "expected_answer": "遍插茱萸少一人"
+  },
+  {
+    "id": 217,
+    "display_text": "【请填上句】，钟山只隔数重山",
+    "expected_answer": "京口瓜洲一水间"
+  },
+  {
+    "id": 218,
+    "display_text": "春风又绿江南岸，【请填下句】",
+    "expected_answer": "明月何时照我还"
+  },
+  {
+    "id": 219,
+    "display_text": "【请填上句】，死亦为鬼雄",
+    "expected_answer": "生当作人杰"
+  },
+  {
+    "id": 220,
+    "display_text": "至今思项羽，【请填下句】",
+    "expected_answer": "不肯过江东"
+  },
+  {
+    "id": 221,
+    "display_text": "【请填上句】，而无车马喧",
+    "expected_answer": "结庐在人境"
+  },
+  {
+    "id": 222,
+    "display_text": "问君何能尔？【请填下句】",
+    "expected_answer": "心远地自偏"
+  },
+  {
+    "id": 223,
+    "display_text": "【请填上句】，悠然见南山",
+    "expected_answer": "采菊东篱下"
+  },
+  {
+    "id": 224,
+    "display_text": "山气日夕佳，【请填下句】",
+    "expected_answer": "飞鸟相与还"
+  },
+  {
+    "id": 225,
+    "display_text": "【请填上句】，碧水东流至此回",
+    "expected_answer": "天门中断楚江开"
+  },
+  {
+    "id": 226,
+    "display_text": "两岸青山相对出，【请填下句】",
+    "expected_answer": "孤帆一片日边来"
+  },
+  {
+    "id": 227,
+    "display_text": "【请填上句】，奔流到海不复回",
+    "expected_answer": "君不见黄河之水天上来"
+  },
+  {
+    "id": 228,
+    "display_text": "君不见高堂明镜悲白发，【请填下句】",
+    "expected_answer": "朝如青丝暮成雪"
+  },
+  {
+    "id": 229,
+    "display_text": "【请填上句】，莫使金樽空对月",
+    "expected_answer": "人生得意须尽欢"
+  },
+  {
+    "id": 230,
+    "display_text": "天生我材必有用，【请填下句】",
+    "expected_answer": "千金散尽还复来"
+  },
+  {
+    "id": 231,
+    "display_text": "【请填上句】，惟有饮者留其名",
+    "expected_answer": "古来圣贤皆寂寞"
+  },
+  {
+    "id": 232,
+    "display_text": "回眸一笑百媚生，【请填下句】",
+    "expected_answer": "六宫粉黛无颜色"
+  },
+  {
+    "id": 233,
+    "display_text": "【请填上句】，在地愿为连理枝",
+    "expected_answer": "在天愿作比翼鸟"
+  },
+  {
+    "id": 234,
+    "display_text": "天长地久有时尽，【请填下句】",
+    "expected_answer": "此恨绵绵无绝期"
+  },
+  {
+    "id": 235,
+    "display_text": "【请填上句】，胡骑凭陵杂风雨",
+    "expected_answer": "山川萧条极边土"
+  },
+  {
+    "id": 236,
+    "display_text": "战士军前半死生，【请填下句】",
+    "expected_answer": "美人帐下犹歌舞"
+  },
+  {
+    "id": 237,
+    "display_text": "【请填上句】，孤城落日斗兵稀",
+    "expected_answer": "大漠穷秋塞草腓"
+  },
+  {
+    "id": 238,
+    "display_text": "女娲炼石补天处，【请填下句】",
+    "expected_answer": "石破天惊逗秋雨"
+  },
+  {
+    "id": 239,
+    "display_text": "【请填上句】，芙蓉泣露香兰笑",
+    "expected_answer": "昆山玉碎凤凰叫"
+  },
+  {
+    "id": 240,
+    "display_text": "一骑红尘妃子笑，【请填下句】",
+    "expected_answer": "无人知是荔枝来"
+  },
+  {
+    "id": 241,
+    "display_text": "【请填上句】，中原北望气如山",
+    "expected_answer": "早岁那知世事艰"
+  },
+  {
+    "id": 242,
+    "display_text": "楼船夜雪瓜洲渡，【请填下句】",
+    "expected_answer": "铁马秋风大散关"
+  },
+  {
+    "id": 243,
+    "display_text": "【请填上句】，镜中衰鬓已先斑",
+    "expected_answer": "塞上长城空自许"
+  },
+  {
+    "id": 244,
+    "display_text": "出师一表真名世，【请填下句】",
+    "expected_answer": "千载谁堪伯仲间"
+  },
+  {
+    "id": 245,
+    "display_text": "【请填上句】，深巷明朝卖杏花",
+    "expected_answer": "小楼一夜听春雨"
+  },
+  {
+    "id": 246,
+    "display_text": "念桥边红药，【请填下句】",
+    "expected_answer": "年年知为谁生"
+  },
+  {
+    "id": 247,
+    "display_text": "【请填上句】，海上明月共潮生",
+    "expected_answer": "春江潮水连海平"
+  },
+  {
+    "id": 248,
+    "display_text": "江天一色无纤尘，【请填下句】",
+    "expected_answer": "皎皎空中孤月轮"
+  },
+  {
+    "id": 249,
+    "display_text": "【请填上句】，江月何年初照人",
+    "expected_answer": "江畔何人初见月？"
+  },
+  {
+    "id": 250,
+    "display_text": "人生代代无穷已，【请填下句】",
+    "expected_answer": "江月年年望相似"
+  },
+  {
+    "id": 251,
+    "display_text": "【请填上句】，但见长江送流水",
+    "expected_answer": "不知江月待何人"
+  },
+  {
+    "id": 252,
+    "display_text": "昔闻洞庭水，【请填下句】",
+    "expected_answer": "今上岳阳楼"
+  },
+  {
+    "id": 253,
+    "display_text": "【请填上句】，乾坤日夜浮",
+    "expected_answer": "吴楚东南坼"
+  },
+  {
+    "id": 254,
+    "display_text": "亲朋无一字，【请填下句】",
+    "expected_answer": "老病有孤舟"
+  },
+  {
+    "id": 255,
+    "display_text": "【请填上句】，凭轩涕泗流",
+    "expected_answer": "戎马关山北"
+  },
+  {
+    "id": 256,
+    "display_text": "花径不曾缘客扫，【请填下句】",
+    "expected_answer": "蓬门今始为君开"
+  },
+  {
+    "id": 257,
+    "display_text": "【请填上句】，山长水阔知何处",
+    "expected_answer": "欲寄彩笺兼尺素"
+  },
+  {
+    "id": 258,
+    "display_text": "离愁渐远渐无穷，【请填下句】",
+    "expected_answer": "迢迢不断如春水"
+  },
+  {
+    "id": 259,
+    "display_text": "【请填上句】，行人更在春山外",
+    "expected_answer": "平芜尽处是春山"
+  },
+  {
+    "id": 260,
+    "display_text": "照花前后镜，【请填下句】",
+    "expected_answer": "花面交相映"
+  },
+  {
+    "id": 261,
+    "display_text": "【请填上句】，澄江一道月分明",
+    "expected_answer": "落木千山天远大"
+  },
+  {
+    "id": 262,
+    "display_text": "三十功名尘与土，【请填下句】",
+    "expected_answer": "八千里路云和月"
+  },
+  {
+    "id": 263,
+    "display_text": "【请填上句】，笑谈渴饮匈奴血",
+    "expected_answer": "壮志饥餐胡虏肉"
+  },
+  {
+    "id": 264,
+    "display_text": "遥怜故园菊，【请填下句】",
+    "expected_answer": "应傍战场开"
+  },
+  {
+    "id": 265,
+    "display_text": "【请填上句】，冷露无声湿桂花",
+    "expected_answer": "中庭地白树栖鸦"
+  },
+  {
+    "id": 266,
+    "display_text": "今夜月明人尽望，【请填下句】",
+    "expected_answer": "不知秋思落谁家"
+  }
+]

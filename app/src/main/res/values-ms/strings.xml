@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">Perkhidmatan Teras IronWill. Melindungi status disiplin diri anda dan menghalang penyahpasangan secara tidak sengaja. Sila biarkan didayakan untuk memastikan perlindungan.</string>
+
+    <string name="anti_uninstall_title">🛡️ Perlindungan Anti-Penyahpasangan</string>
+    <string name="anti_uninstall_message">Cubaan menyahpasang, menghentikan IronWill atau mematikan perkhidmatan kebolehaksesan dikesan. Tindakan disekat.\n\nUntuk meneruskan, sila matikan Perlindungan Anti-Penyahpasangan di dalam aplikasi terlebih dahulu.</string>
+    <string name="btn_got_it">Faham</string>
+    <string name="btn_back">Kembali</string>
+</resources>

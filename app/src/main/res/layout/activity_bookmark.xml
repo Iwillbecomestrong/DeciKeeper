@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5"
+    android:fitsSystemWindows="true">
+
+    <!-- 顶部标题栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#FFFFFF"
+        android:elevation="2dp"
+        android:paddingHorizontal="8dp">
+
+        <Button
+            android:id="@+id/btn_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:text="←"
+            android:textSize="18sp"
+            android:textColor="#37474F"
+            android:backgroundTint="#00000000"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#00838F"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <!-- Tab 切换栏 -->
+    <LinearLayout
+        android:id="@+id/tab_bar"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:background="#FFFFFF"
+        android:elevation="1dp"
+        android:paddingHorizontal="8dp">
+
+        <Button
+            android:id="@+id/btn_tab_poems"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="📜 诗词"
+            android:textSize="14sp"
+            android:textColor="#004D40"
+            android:backgroundTint="#00000000"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp" />
+
+        <Button
+            android:id="@+id/btn_tab_words"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="📖 单词"
+            android:textSize="14sp"
+            android:textColor="#004D40"
+            android:backgroundTint="#00000000"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp" />
+
+        <Button
+            android:id="@+id/btn_tab_clozes"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="📚 选词填空"
+            android:textSize="14sp"
+            android:textColor="#004D40"
+            android:backgroundTint="#00000000"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp" />
+    </LinearLayout>
+
+    <!-- 搜索框 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#FFFFFF"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="12dp">
+
+        <EditText
+            android:id="@+id/et_search"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="输入关键词搜索…"
+            android:textSize="14sp"
+            android:textColor="#424242"
+            android:textColorHint="#90A4AE"
+            android:background="#ECEFF1"
+            android:paddingHorizontal="12dp"
+            android:maxLines="1"
+            android:inputType="text" />
+
+        <!-- 排序方式 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="排序"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#004D40" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/btn_sort_skip"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:text="跳过次数"
+                android:textSize="12sp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="12dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="0dp" />
+
+            <Button
+                android:id="@+id/btn_sort_time"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:text="收藏时间"
+                android:textSize="12sp"
+                android:layout_marginStart="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="12dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="0dp" />
+        </LinearLayout>
+
+        <!-- 时间过滤 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="时间"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#004D40" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/btn_range_all"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:text="全部"
+                android:textSize="12sp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="0dp" />
+
+            <Button
+                android:id="@+id/btn_range_7d"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:text="近7天"
+                android:textSize="12sp"
+                android:layout_marginStart="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="0dp" />
+
+            <Button
+                android:id="@+id/btn_range_30d"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:text="近30天"
+                android:textSize="12sp"
+                android:layout_marginStart="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="0dp" />
+
+            <Button
+                android:id="@+id/btn_range_90d"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:text="近90天"
+                android:textSize="12sp"
+                android:layout_marginStart="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="0dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 列表区域 -->
+    <ScrollView
+        android:id="@+id/scroll_list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="12dp">
+
+        <LinearLayout
+            android:id="@+id/container_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+</LinearLayout>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- 解锁流程 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="解锁流程"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#004D40"
+        android:layout_marginBottom="8dp" />
+
+    <RadioGroup
+        android:id="@+id/rg_default_unlock_mode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <RadioButton
+            android:id="@+id/rb_default_unlock_single"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="单次"
+            android:textSize="14sp"
+            android:textColor="#004D40" />
+
+        <RadioButton
+            android:id="@+id/rb_default_unlock_two_stage"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="双阶段"
+            android:textSize="14sp"
+            android:textColor="#004D40" />
+    </RadioGroup>
+
+    <!-- 分隔线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#DDDDDD"
+        android:layout_marginBottom="12dp" />
+
+    <!-- 第一关解锁方式 -->
+    <TextView
+        android:id="@+id/tv_default_stage1_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="第一关挑战类型"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#004D40"
+        android:layout_marginBottom="6dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <CheckBox
+            android:id="@+id/cb_default_s1_qr"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="扫码"
+            android:textSize="13sp"
+            android:textColor="#004D40" />
+        <CheckBox
+            android:id="@+id/cb_default_s1_math"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="数学"
+            android:textSize="13sp"
+            android:textColor="#004D40" />
+        <CheckBox
+            android:id="@+id/cb_default_s1_poem"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="诗词"
+            android:textSize="13sp"
+            android:textColor="#004D40" />
+        <CheckBox
+            android:id="@+id/cb_default_s1_word"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="单词"
+            android:textSize="13sp"
+            android:textColor="#004D40" />
+    </LinearLayout>
+
+    <!-- 第二关解锁方式 -->
+    <TextView
+        android:id="@+id/tv_default_stage2_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="第二关挑战类型"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#004D40"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="6dp" />
+
+    <LinearLayout
+        android:id="@+id/layout_default_stage2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <CheckBox
+            android:id="@+id/cb_default_s2_qr"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="扫码"
+            android:textSize="13sp"
+            android:textColor="#004D40" />
+        <CheckBox
+            android:id="@+id/cb_default_s2_math"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="数学"
+            android:textSize="13sp"
+            android:textColor="#004D40" />
+        <CheckBox
+            android:id="@+id/cb_default_s2_poem"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="诗词"
+            android:textSize="13sp"
+            android:textColor="#004D40" />
+        <CheckBox
+            android:id="@+id/cb_default_s2_word"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="单词"
+            android:textSize="13sp"
+            android:textColor="#004D40" />
+    </LinearLayout>
+
+</LinearLayout>

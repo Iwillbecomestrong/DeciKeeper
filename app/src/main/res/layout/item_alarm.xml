@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/card_alarm_item"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="3dp"
+    app:cardBackgroundColor="#E8F5E9"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="?android:attr/selectableItemBackground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Row 1: Time + Backup controls + Delete -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_alarm_time"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="07:30"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#1B5E20" />
+
+            <TextView
+                android:id="@+id/tv_system_backup_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="备份"
+                android:textSize="12sp"
+                android:textColor="#1565C0"
+                android:layout_marginEnd="4dp" />
+
+            <ImageButton
+                android:id="@+id/btn_system_backup_help"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:backgroundTint="#E3F2FD"
+                android:src="@android:drawable/ic_menu_help"
+                android:scaleType="centerInside"
+                android:padding="4dp"
+                app:tint="#1976D2"
+                android:contentDescription="备份说明"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/btn_system_backup_action"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:text="同步"
+                android:textSize="10sp"
+                android:textColor="#0D47A1"
+                android:backgroundTint="#E3F2FD"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:includeFontPadding="false"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp" />
+
+            <ImageButton
+                android:id="@+id/btn_delete_alarm"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:backgroundTint="#FFE0E0"
+                android:src="@android:drawable/ic_menu_delete"
+                android:scaleType="centerInside"
+                android:padding="4dp"
+                app:tint="#D32F2F"
+                android:contentDescription="删除" />
+        </LinearLayout>
+
+        <!-- Row 2: Days badge + Switch -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_alarm_days"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="周一 周二 周三"
+                android:textSize="13sp"
+                android:textColor="#2E7D32" />
+
+            <Switch
+                android:id="@+id/switch_alarm_item"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Row 3: Challenge entry button -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp"
+            android:gravity="end">
+
+            <Button
+                android:id="@+id/btn_challenge_alarm"
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
+                android:text="挑战"
+                android:textSize="11sp"
+                android:textColor="#FFFFFF"
+                android:background="#4CAF50"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="0dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

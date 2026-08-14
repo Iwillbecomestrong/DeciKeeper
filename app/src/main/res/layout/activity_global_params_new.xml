@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_global_params"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_sea_surface"
+    android:fitsSystemWindows="true"
+    android:fillViewport="true"
+    android:clipToPadding="false"
+    android:scrollbars="vertical"
+    android:overScrollMode="never"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="16dp"
+        android:paddingBottom="80dp">
+
+        <!-- Banner Header -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚙️ 全局参数配置"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:textColor="#004D40"
+                android:shadowColor="#40000000"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2" />
+        </RelativeLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="设置 IronWill 的核心运行参数与防护强度"
+            android:textSize="14sp"
+            android:textColor="#006064"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- 📝 待生效修改提示卡片 -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_pending_changes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFF8E1">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/tv_lockout_hint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#E65100"
+                    android:lineSpacingExtra="4dp"
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone"/>
+
+                <TextView
+                    android:id="@+id/tv_pending_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⏳ 延迟生效表"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#F57C00"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/tv_pending_changes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#795548"
+                    android:lineSpacingExtra="4dp"/>
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Group 1: 次周生效 (每周特权) -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:visibility="visible"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#F1F8E9">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:text="📅 次周生效 (每周特权)"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#33691E"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="利好立即生效，不利修改(增加次数)下周生效"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="16dp"/>
+
+                <!-- Weekly Privilege Limit -->
+                <TextView
+                    android:text="💎 每周特权次数 ≤3次"
+                    android:textColor="#2E7D32"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="本周可使用的特权总次数"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <EditText
+                    android:id="@+id/et_weekly_privilege_limit"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="number"
+                    android:textColor="#2E7D32"
+                    android:hint="默认 3次"
+                    android:layout_marginBottom="16dp"/>
+
+                <!-- Weekly Privilege Duration -->
+                <TextView
+                    android:text="⏳ 每周特权总时长 (分钟) ≤600"
+                    android:textColor="#2E7D32"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="本周可使用的特权总分钟数 (默认600)"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <EditText
+                    android:id="@+id/et_weekly_privilege_duration"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="number"
+                    android:textColor="#2E7D32"
+                    android:hint="默认 600分 (10h)"
+                    android:layout_marginBottom="16dp"/>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Group 2: 次日生效 (核心规则) -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:text="📅 次日生效 (核心规则)"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#00695C"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+
+                 <TextView
+                     android:text="利好立即生效，不利修改次日生效"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="16dp"/>
+
+                <!-- Privilege Usage Time Window -->
+                <TextView
+                    android:text="🕐 特权可用时间范围"
+                    android:textColor="#00695C"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="限制特权只能在指定时段内使用，防止睡眠/凌晨时段滥用"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <LinearLayout
+                    android:id="@+id/layout_privilege_window_inputs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+                    <EditText
+                        android:id="@+id/et_privilege_window_start"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input_field"
+                        android:paddingHorizontal="12dp"
+                        android:inputType="time"
+                        android:textColor="#00695C"
+                        android:hint="开始 (默认 07:00)"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="50dp"
+                        android:text="~"
+                        android:textSize="20sp"
+                        android:gravity="center"
+                        android:textColor="#546E7A"/>
+                    <EditText
+                        android:id="@+id/et_privilege_window_end"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input_field"
+                        android:paddingHorizontal="12dp"
+                        android:inputType="time"
+                        android:textColor="#00695C"
+                        android:hint="结束 (默认 24:00)"
+                        android:layout_marginStart="8dp"/>
+                </LinearLayout>
+
+                <!-- Borrow Percentage -->
+                <TextView
+                    android:text="💸 下阶段借用比例 (%)"
+                    android:textColor="#546E7A"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="允许从下一个时段透支的时间/次数百分比"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                    <EditText
+                        android:id="@+id/et_borrow_percentage"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input_field"
+                        android:paddingHorizontal="12dp"
+                        android:inputType="number"
+                        android:textColor="#333333"
+                        android:hint="默认 60秒"
+                        android:layout_marginBottom="20dp"/>
+
+                <!-- Temporary Restricted App Max Duration -->
+                <TextView
+                    android:text="⏱️ 临时使用受限应用时长上限 (分钟) ≤3.0"
+                    android:textColor="#546E7A"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                    android:text="超级临时放行时，单次可输入的最大分钟数（默认0.5分钟）"
+                    android:textSize="12sp"
+                    android:textColor="#90A4AE"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"/>
+                <EditText
+                    android:id="@+id/et_temp_restricted_access_max_seconds"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="numberDecimal"
+                    android:textColor="#333333"
+                    android:hint="默认 0.5分钟"
+                    android:layout_marginBottom="20dp"/>
+
+                <!-- Cool Down Gap -->
+                <TextView
+                    android:text="❄️ 空档冷却时长 (秒)"
+                    android:textColor="#546E7A"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="从空档期归来或空档期违规后的强制冷静时间"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <EditText
+                    android:id="@+id/et_cool_down_gap"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="number"
+                    android:textColor="#333333"
+                    android:hint="默认 300秒"
+                    android:layout_marginBottom="20dp"/>
+
+                <!-- Cool Down Rest -->
+                <TextView
+                    android:text="❄️ 休息冷却时长 (秒)"
+                    android:textColor="#546E7A"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="从休息/工作锁定状态归来后的强制冷静时间"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <EditText
+                    android:id="@+id/et_cool_down_rest"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="number"
+                    android:textColor="#333333"
+                    android:hint="默认 60秒"
+                    android:layout_marginBottom="20dp"/>
+
+                <!-- Cool Down Blacklist -->
+                <TextView
+                    android:text="🚫 黑名单惩罚时长 (秒) 10-300"
+                    android:textColor="#546E7A"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="检测到黑名单应用后的极速惩罚强制锁机时间"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:visibility="gone"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <EditText
+                    android:id="@+id/et_cool_down_blacklist"
+                    android:visibility="gone"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="number"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="20dp"/>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Group 3: 立即生效 (预警设置) -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:text="🔔 立即生效 (预警设置)"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#E65100"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"/>
+
+                <!-- Entry Warning - Far -->
+                <!-- Effective Time (Renamed from Refresh Time) -->
+                <TextView
+                    android:text="🕐 每日生效时间 07:00-23:59"
+                    android:textColor="#546E7A"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="新一天的开始时间 [07:00-23:59]"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_refresh_sync"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="跟随最早结束时段 (自动同步)"
+                    android:textSize="14sp"
+                    android:textColor="#333333"
+                    android:checked="false"
+                    android:layout_marginBottom="8dp"/>
+                <TextView
+                    android:id="@+id/tv_refresh_sync_hint"
+                    android:text="开启后，生效时间将跟随 06:00–10:00 内最早结束的时段。若窗口内无匹配时段，默认 08:00。"
+                    android:textSize="12sp"
+                    android:textColor="#78909C"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone"/>
+
+                <EditText
+                    android:id="@+id/et_refresh_time"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="time"
+                    android:textColor="#333333"
+                    android:hint="默认 07:00" 
+                    android:layout_marginBottom="20dp"/>
+
+                <TextView
+                    android:text="📣 监管远期预警 (分钟)"
+                    android:textColor="#546E7A"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="监管时段开始前多久发出第一次弹窗提醒"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <EditText
+                    android:id="@+id/et_notify_entry_far"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="number"
+                    android:textColor="#333333"
+                    android:hint="默认 20分钟"
+                    android:layout_marginBottom="20dp"/>
+
+                <!-- Entry Warning - Near -->
+                <TextView
+                    android:text="📣 监管近期预警 (分钟)"
+                    android:textColor="#546E7A"
+                    android:textStyle="bold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"/>
+                <TextView
+                     android:text="监管时段开始前多久发出震动+弹窗最后通牒"
+                     android:textSize="12sp"
+                     android:textColor="#90A4AE"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginBottom="8dp"/>
+                <EditText
+                    android:id="@+id/et_notify_entry_near"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="12dp"
+                    android:inputType="number"
+                    android:textColor="#333333"
+                    android:hint="默认 5分钟"
+                    android:layout_marginBottom="8dp"/>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+
+
+
+
+
+        <!-- 保存按钮 -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="#00838F">
+
+            <Button
+                android:id="@+id/btn_save"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:text="保存配置"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@android:color/transparent"
+                android:stateListAnimator="@null"/>
+
+        </androidx.cardview.widget.CardView>
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>

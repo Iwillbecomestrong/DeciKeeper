@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill 핵심 서비스. 자기 규율 상태를 보호하고 실수로 인한 삭제를 방지합니다. 보호를 위해 활성화 상태를 유지해 주세요.</string>
+
+    <string name="anti_uninstall_title">🛡️ 삭제 방지 보호</string>
+    <string name="anti_uninstall_message">IronWill 삭제, 중지 또는 접근성 서비스 비활성화 시도가 감지되었습니다. 작업이 차단되었습니다.\n\n계속하려면 먼저 앱 내에서 삭제 방지 보호를 꺼주세요.</string>
+    <string name="btn_got_it">알겠습니다</string>
+    <string name="btn_back">뒤로</string>
+</resources>

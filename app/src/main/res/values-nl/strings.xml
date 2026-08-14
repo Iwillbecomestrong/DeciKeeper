@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill Kernservice. Beschermt uw zelfdisciplinestatus en voorkomt onbedoelde verwijdering. Laat ingeschakeld om bescherming te garanderen.</string>
+
+    <string name="anti_uninstall_title">🛡️ Bescherming tegen verwijdering</string>
+    <string name="anti_uninstall_message">Poging gedetecteerd om IronWill te verwijderen, te stoppen of de toegankelijkheidsservice uit te schakelen. Actie geblokkeerd.\n\nOm door te gaan, schakelt u eerst Bescherming tegen verwijdering uit in de app.</string>
+    <string name="btn_got_it">Begrepen</string>
+    <string name="btn_back">Terug</string>
+</resources>

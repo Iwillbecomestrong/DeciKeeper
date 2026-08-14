@@ -1,0 +1,856 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0B1114"
+    android:keepScreenOn="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/tv_alarm_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="闹铃响了"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/tv_alarm_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="请完成以下任一挑战，或扫码关闭闹钟"
+            android:textSize="14sp"
+            android:textColor="#90A4AE"
+            android:layout_marginTop="6dp" />
+
+        <TextView
+            android:id="@+id/tv_alarm_vibration_intensity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="#FF9800"
+            android:layout_marginTop="4dp"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/tv_alarm_ring_intensity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="#4CAF50"
+            android:layout_marginBottom="8dp"
+            android:text="" />
+
+        <!-- 任务列表容器（动态隐藏/显示各选项） -->
+        <ScrollView
+            android:id="@+id/sv_alarm_challenges"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingBottom="200dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- 阶段冷却倒计时 -->
+                <TextView
+                    android:id="@+id/tv_stage_cooldown"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:textColor="#FF9800"
+                    android:gravity="center"
+                    android:padding="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
+                <!-- 数学题模块 -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cv_alarm_math"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#102A2F">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/tv_math_progress"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="数学挑战 (0/2)"
+                            android:textSize="14sp"
+                            android:textColor="#80DEEA"
+                            android:layout_marginBottom="6dp" />
+
+                        <TextView
+                            android:id="@+id/tv_math_question"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="000 × 00 = ?"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF"
+                            android:layout_marginBottom="8dp" />
+
+                        <EditText
+                            android:id="@+id/et_math_answer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:textColor="#FFFFFF"
+                            android:textColorHint="#78909C"
+                            android:hint="输入答案"
+                            android:backgroundTint="#4DD0E1" />
+
+                        <Button
+                            android:id="@+id/btn_math_submit"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="提交答案"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF"
+                            android:layout_marginTop="8dp"
+                            android:backgroundTint="#00838F" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- 诗词题模块 -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cv_alarm_poem"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#2A1B10">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/tv_poem_progress"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="诗词挑战 (0/3)"
+                            android:textSize="14sp"
+                            android:textColor="#FFCC80"
+                            android:layout_marginBottom="6dp" />
+
+                        <TextView
+                            android:id="@+id/tv_poem_question"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="白日依山尽..."
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF"
+                            android:layout_marginBottom="8dp"
+                            android:maxLines="10"
+                            android:ellipsize="end" />
+
+                        <EditText
+                            android:id="@+id/et_poem_answer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textNoSuggestions"
+                            android:textColor="#FFFFFF"
+                            android:textColorHint="#78909C"
+                            android:hint="接下句（或上句），不带标点"
+                            android:backgroundTint="#FFB74D" />
+
+                        <!-- 诗词提示显示区域 -->
+                        <TextView
+                            android:id="@+id/tv_poem_hint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="14sp"
+                            android:textColor="#FFAB91"
+                            android:background="#1E3A2F"
+                            android:padding="10dp"
+                            android:gravity="center"
+                            android:layout_marginTop="6dp"
+                            android:visibility="gone" />
+
+                        <!-- 第一行：提示 + 跳过 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="6dp">
+
+                            <Button
+                                android:id="@+id/btn_poem_hint"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="💡 提示"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
+                                android:backgroundTint="#6D4C41"
+                                android:layout_marginEnd="6dp" />
+
+                            <Button
+                                android:id="@+id/btn_poem_skip"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="跳过"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
+                                android:backgroundTint="#5D4037" />
+                        </LinearLayout>
+
+                        <!-- 第二行：收藏并跳过 + 提交 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="6dp">
+
+                            <Button
+                                android:id="@+id/btn_poem_bookmark_skip"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="📚 收藏并跳过"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
+                                android:backgroundTint="#4E342E"
+                                android:layout_marginEnd="6dp" />
+
+                            <Button
+                                android:id="@+id/btn_poem_submit"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="提交"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#E65100" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- 英语单词模块 -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cv_alarm_word"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#102030">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/tv_word_progress"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="单词挑战 (0/10)"
+                            android:textSize="14sp"
+                            android:textColor="#90CAF9"
+                            android:layout_marginBottom="6dp" />
+
+                        <TextView
+                            android:id="@+id/tv_word_question"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="n. 苹果 [æpl]"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF"
+                            android:layout_marginBottom="8dp" />
+
+                        <EditText
+                            android:id="@+id/et_word_answer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textNoSuggestions|textVisiblePassword"
+                            android:textColor="#FFFFFF"
+                            android:textColorHint="#78909C"
+                            android:hint="拼写英文单词"
+                            android:backgroundTint="#64B5F6" />
+
+                        <!-- 单词提示显示区域 -->
+                        <TextView
+                            android:id="@+id/tv_word_hint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="14sp"
+                            android:textColor="#81D4FA"
+                            android:background="#1A2A3A"
+                            android:padding="10dp"
+                            android:gravity="center"
+                            android:layout_marginTop="6dp"
+                            android:visibility="gone" />
+
+                        <!-- 第一行：提示音标 + 跳过 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="6dp">
+
+                            <Button
+                                android:id="@+id/btn_word_hint"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="💡 提示音标"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
+                                android:backgroundTint="#455A64"
+                                android:layout_marginEnd="6dp" />
+
+                            <Button
+                                android:id="@+id/btn_word_skip"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="跳过"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
+                                android:backgroundTint="#263238" />
+                        </LinearLayout>
+
+                        <!-- 第二行：收藏并跳过 + 提交 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="6dp">
+
+                            <Button
+                                android:id="@+id/btn_word_bookmark_skip"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="📚 收藏并跳过"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
+                                android:backgroundTint="#37474F"
+                                android:layout_marginEnd="6dp" />
+
+                            <Button
+                                android:id="@+id/btn_word_submit"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="提交"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1565C0" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- 选词填空模块（cloze） -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cv_alarm_cloze"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#102030">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/tv_cloze_progress"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="选词填空 (0/5)"
+                            android:textSize="14sp"
+                            android:textColor="#90CAF9"
+                            android:layout_marginBottom="6dp" />
+
+                        <!-- Req-1: 长按题目中任意英文单词可查词+收藏 → 自定义 TextView -->
+                        <com.ironwill.app.WordLookupTextView
+                            android:id="@+id/tv_cloze_passage"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="她每天早起背单词，正是这份[    ]让她顺利通过了考研。"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF"
+                            android:layout_marginBottom="4dp" />
+
+                        <!-- 长按单词查词提示 (R6/R7), 默认隐藏 -->
+                        <TextView
+                            android:id="@+id/tv_cloze_word_hint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="13sp"
+                            android:textColor="#FFE082"
+                            android:background="#1A2A3A"
+                            android:padding="8dp"
+                            android:visibility="gone"
+                            android:layout_marginBottom="8dp" />
+
+                        <!-- 提示按钮 + 提示文字（默认隐藏，点击显示目标词释义） -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp"
+                            android:gravity="center_vertical">
+
+                            <Button
+                                android:id="@+id/btn_cloze_hint"
+                                android:layout_width="wrap_content"
+                                android:layout_height="36dp"
+                                android:text="💡 提示"
+                                android:textSize="12sp"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#00695C"
+                                android:minWidth="0dp"
+                                android:paddingStart="12dp"
+                                android:paddingEnd="12dp"
+                                android:layout_marginEnd="8dp" />
+
+                            <TextView
+                                android:id="@+id/tv_cloze_hint"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textSize="13sp"
+                                android:textColor="#81D4FA"
+                                android:background="#1A2A3A"
+                                android:padding="8dp"
+                                android:visibility="gone" />
+                        </LinearLayout>
+
+                        <!-- 选项 2x2 网格 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="6dp">
+
+                            <Button
+                                android:id="@+id/btn_cloze_a"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="A"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1565C0"
+                                android:textAllCaps="false"
+                                android:layout_marginEnd="6dp" />
+
+                            <Button
+                                android:id="@+id/btn_cloze_b"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="B"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1565C0"
+                                android:textAllCaps="false" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="6dp">
+
+                            <Button
+                                android:id="@+id/btn_cloze_c"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="C"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1565C0"
+                                android:textAllCaps="false"
+                                android:layout_marginEnd="6dp" />
+
+                            <Button
+                                android:id="@+id/btn_cloze_d"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1"
+                                android:text="D"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1565C0"
+                                android:textAllCaps="false" />
+                        </LinearLayout>
+
+                        <!-- 收藏并跳过 + 跳过 按钮（4 选项点击即判定，无需提交按钮） -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="2dp">
+
+                            <Button
+                                android:id="@+id/btn_cloze_bookmark"
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:text="📚 收藏并跳过"
+                                android:textSize="13sp"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#E65100"
+                                android:textAllCaps="false"
+                                android:layout_marginEnd="4dp" />
+
+                            <Button
+                                android:id="@+id/btn_cloze_skip"
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:text="⏭ 跳过"
+                                android:textSize="13sp"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#37474F"
+                                android:textAllCaps="false"
+                                android:layout_marginStart="4dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- 扫码模块 -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cv_alarm_qr"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#122226">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="扫码关闭"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="#E0F7FA"
+                            android:layout_marginBottom="8dp" />
+
+                        <Button
+                            android:id="@+id/btn_alarm_scan"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="打开扫码"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF"
+                            android:backgroundTint="#00796B" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- 底部空白占位，键盘弹起时由代码动态增大，键盘收起时保持基础留白 -->
+                <View
+                    android:id="@+id/v_bottom_spacer"
+                    android:layout_width="match_parent"
+                    android:layout_height="10dp"
+                    android:visibility="invisible" />
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- 复习回顾区域（完成所有挑战后显示，固定标题+切换按钮，卡片列表可滚动） -->
+        <LinearLayout
+            android:id="@+id/layout_alarm_review"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:id="@+id/tv_review_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📋 复习回顾"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="0dp" />
+
+            <!-- Tab 切换按钮（仅诗词和单词都有数据时显示） -->
+            <LinearLayout
+                android:id="@+id/layout_review_tabs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                android:layout_marginBottom="12dp">
+
+                <Button
+                    android:id="@+id/btn_review_tab_poem"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:text="📜 诗词"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#E65100"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btn_review_tab_word"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:text="📖 单词"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#90CAF9"
+                    android:backgroundTint="#102030"
+                    android:layout_marginStart="4dp" />
+
+                <Button
+                    android:id="@+id/btn_review_tab_cloze"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:text="✏️ 选词"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#90CAF9"
+                    android:backgroundTint="#102030"
+                    android:layout_marginStart="4dp" />
+            </LinearLayout>
+
+            <!-- v3.1 Bug-2: 三种都做了时, 在 tabs 旁显示"📝 选词填空"快捷按钮 -->
+            <Button
+                android:id="@+id/btn_review_jump_cloze"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="📝 选词填空 (1 / 1)"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#1565C0"
+                android:visibility="gone"
+                android:layout_marginBottom="8dp" />
+
+            <!-- 复习卡片滚动区域 (诗词 / 单词, 单页 ScrollView 不分页) -->
+            <ScrollView
+                android:id="@+id/sv_review_cards"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:clipToPadding="false"
+                android:paddingBottom="120dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- 诗词复习卡片容器 (单页 ScrollView, 不分页) -->
+                    <LinearLayout
+                        android:id="@+id/container_review_poems"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="visible" />
+
+                    <!-- 单词复习卡片容器 (单页 ScrollView, 不分页) -->
+                    <LinearLayout
+                        android:id="@+id/container_review_words"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </ScrollView>
+
+            <!-- v3.1.1 Bug-Fix: 选词填空分页区 (ViewPager2 + 指示器 + 左右箭头)
+                 必须放在 ScrollView 外, 直接挂 layout_alarm_review, 否则子页 layout 崩.
+                 v3.1.2 fix: 指示器挪到底部, 卡片(滚动区)放最上面紧贴标题, 消除"复习回顾与滚动框之间空白". -->
+            <LinearLayout
+                android:id="@+id/layout_review_cloze_pager"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <androidx.viewpager2.widget.ViewPager2
+                    android:id="@+id/vp_review_cloze"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="0dp">
+
+                    <Button
+                        android:id="@+id/btn_review_cloze_prev"
+                        android:layout_width="48dp"
+                        android:layout_height="36dp"
+                        android:text="◀"
+                        android:textSize="18sp"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#37474F"
+                        android:enabled="false" />
+
+                    <TextView
+                        android:id="@+id/tv_review_cloze_indicator"
+                        android:layout_width="0dp"
+                        android:layout_height="36dp"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="1 / 1"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btn_review_cloze_next"
+                        android:layout_width="48dp"
+                        android:layout_height="36dp"
+                        android:text="▶"
+                        android:textSize="18sp"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#37474F"
+                        android:enabled="false" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_alarm_actions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="64dp"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/btn_alarm_close"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="关闭闹钟"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#D32F2F" />
+
+            <Button
+                android:id="@+id/btn_alarm_snooze"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="稍后再响"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#455A64" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/layout_alarm_scan"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#0B1114"
+        android:visibility="gone">
+
+        <com.journeyapps.barcodescanner.DecoratedBarcodeView
+            android:id="@+id/barcode_alarm_scanner"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:zxing_framing_rect_width="260dp"
+            app:zxing_framing_rect_height="260dp"
+            app:zxing_viewfinder_laser_visibility="false" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:background="#CC0B1114">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="扫码关闭"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="对准任意二维码"
+                android:textSize="14sp"
+                android:textColor="#B0BEC5"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_alarm_scan_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_gravity="bottom"
+            android:layout_margin="24dp"
+            android:text="返回答题"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#455A64" />
+    </FrameLayout>
+</FrameLayout>

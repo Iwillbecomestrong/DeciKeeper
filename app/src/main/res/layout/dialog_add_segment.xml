@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!--
+      页面名称: 添加时段弹窗
+      文件路径: app/src/main/res/layout/dialog_add_segment.xml
+      描述:
+      - 弹窗布局，用于让用户输入新的勿扰时段信息
+      - 包含:
+        - 时段名称 (如: 午休)
+        - 起止时间 (如: 12:00 - 14:00)
+        - 休息时长限制 (分钟)
+        - 退出次数限制 (次)
+    -->
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="时段名称"
+        android:textSize="14sp"
+        android:textColor="#00838F"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/et_new_name"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_sea_bubble"
+        android:paddingHorizontal="16dp"
+        android:textSize="12sp"
+        android:textColor="#004D40"
+        android:textColorHint="#80DEEA"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="时间范围"
+        android:textSize="14sp"
+        android:textColor="#00838F"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <EditText
+            android:id="@+id/et_new_start"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_sea_bubble"
+            android:gravity="center"
+            android:inputType="text"
+            android:maxLength="5"
+            android:textSize="14sp"
+            android:textColor="#004D40"
+            android:textColorHint="#80DEEA"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  -  "
+            android:textSize="18sp"
+            android:textColor="#006064"/>
+
+        <EditText
+            android:id="@+id/et_new_end"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_sea_bubble"
+            android:gravity="center"
+            android:inputType="text"
+            android:maxLength="5"
+            android:textSize="14sp"
+            android:textColor="#004D40"
+            android:textColorHint="#80DEEA"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" 点"
+            android:textSize="14sp"
+            android:textColor="#006064"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+    <!-- 3. Limit (休息时长) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:baselineAligned="false"
+        android:layout_marginBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="休息时长 (分钟)"
+                android:textSize="14sp"
+                android:textColor="#00838F"
+                android:layout_marginBottom="8dp"/>
+
+            <EditText
+                android:id="@+id/et_new_limit"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:paddingHorizontal="16dp"
+                android:inputType="number"
+                android:textSize="14sp"
+                android:textColor="#004D40"
+                android:textColorHint="#80DEEA"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 4. Effective Days -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="生效周期"
+        android:textSize="14sp"
+        android:textColor="#00838F"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btn_new_days"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:backgroundTint="#E0F7FA"
+        android:textColor="#006064"
+        android:text="每天"
+        android:gravity="center"
+        android:textAllCaps="false"/>
+
+</LinearLayout>

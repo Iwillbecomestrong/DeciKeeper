@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="gentle_sunset_orange">#F57C00</color>
+    <color name="gentle_forest_green">#2E7D32</color>
+    <color name="gentle_night_bg">#121212</color>
+    <color name="gentle_text_warm">#5D4037</color>
+    <color name="gentle_text_light">#E0E0E0</color>
+    <color name="sea_card_mid">#FF1A2332</color>
+    <color name="sea_card_light">#08FFFFFF</color>
+</resources>

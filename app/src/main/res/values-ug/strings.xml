@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill يادرولۇق مۇلازىمىتى، سىزنىڭ ئۆز-ئۆزىڭىزنى كونترول قىلىش ھالىتىڭىزنى قوغداش ۋە ئەپنىڭ تاسادىپىي ئۆچۈرۈلۈپ كېتىشىنىڭ ئالدىنى ئېلىش ئۈچۈن ئىشلىتىلىدۇ. قوغداشنىڭ كۈچكە ئىگە بولۇشى ئۈچۈن ئوچۇق ھالەتتە ساقلاڭ.</string>
+
+    <string name="anti_uninstall_title">🛡️ ئۆچۈرۈشنىڭ ئالدىنى ئېلىش</string>
+    <string name="anti_uninstall_message">IronWill نى ئۆچۈرۈش، توختىتىش ياكى توسالغۇسىز مۇلازىمەتنى تاقاش ھەرىكىتى بايقالدى، ئاپتوماتىك توسۇۋېلىندى.\n\nقولدا مەشغۇلات قىلماقچى بولسىڭىز، ئالدى بىلەن ئەپ ئىچىدە ئۆچۈرۈشنىڭ ئالدىنى ئېلىش ئىقتىدارىنى تاقاڭ.</string>
+    <string name="btn_got_it">بىلدىم</string>
+    <string name="btn_back">قايتىش</string>
+</resources>

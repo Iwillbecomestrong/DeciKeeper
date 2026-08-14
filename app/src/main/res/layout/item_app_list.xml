@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="12dp"
+    android:background="?android:attr/selectableItemBackground">
+
+    <!--
+      组件名称: 应用列表项 (Item)
+      文件路径: app/src/main/res/layout/item_app_list.xml
+      描述:
+      - 用于 ListView / RecyclerView 的单个应用条目
+      - 包含:
+        - 应用图标 (ImageView)
+        - 应用名称 (TextView)
+        - 勾选框 (CheckBox)
+    -->
+
+    <ImageView
+        android:id="@+id/img_app_icon"
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:src="@mipmap/ic_launcher"
+        android:contentDescription="App Icon" />
+
+    <TextView
+        android:id="@+id/tv_app_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="8dp"
+        android:text="App Name"
+        android:textSize="11sp"
+        android:textColor="#333333"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <CheckBox
+        android:id="@+id/cb_app_select"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:buttonTint="#009688"
+        android:focusable="false"
+        android:clickable="false" />
+
+</LinearLayout>

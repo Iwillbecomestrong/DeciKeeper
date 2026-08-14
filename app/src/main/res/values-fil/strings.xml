@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">Pangunahing Serbisyo ng IronWill. Pinoprotektahan ang iyong status ng self-discipline at pinipigilan ang hindi sinasadyang pag-uninstall. Mangyaring panatilihing nakagana.</string>
+
+    <string name="anti_uninstall_title">🛡️ Proteksyon sa Pag-uninstall</string>
+    <string name="anti_uninstall_message">Natukoy ang pagtatangkang i-uninstall, ihinto ang IronWill, o i-off ang accessibility service. Hinarang ang aksyon.\n\nUpang magpatuloy, mangyaring i-off muna ang Proteksyon sa Pag-uninstall sa loob ng app.</string>
+    <string name="btn_got_it">Naintindihan</string>
+    <string name="btn_back">Bumalik</string>
+</resources>

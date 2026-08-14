@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill मुख्य सेवा। आपकी आत्म-अनुशासन स्थिति की रक्षा करती है और आकस्मिक अनइंस्टॉल को रोकती है। सुरक्षा सुनिश्चित करने के लिए कृपया सक्षम रखें।</string>
+
+    <string name="anti_uninstall_title">🛡️ अनइंस्टॉल सुरक्षा</string>
+    <string name="anti_uninstall_message">अनइंस्टॉल करने, IronWill को रोकने, या एक्सेसिबिलिटी सेवा को बंद करने का प्रयास पता चला। कार्रवाई अवरुद्ध।\n\nजारी रखने के लिए, कृपया पहले ऐप के अंदर अनइंस्टॉल सुरक्षा बंद करें।</string>
+    <string name="btn_got_it">समझ गया</string>
+    <string name="btn_back">वापस</string>
+</resources>

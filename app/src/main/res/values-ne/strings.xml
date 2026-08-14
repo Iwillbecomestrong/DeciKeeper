@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill कोर सेवा। तपाईंको आत्म-अनुशासन स्थितिलाई सुरक्षित गर्दछ र आकस्मिक अनइन्स्टल रोक्छ। सुरक्षा सुनिश्चित गर्न कृपया सक्षम राख्नुहोस्।</string>
+
+    <string name="anti_uninstall_title">🛡️ एन्टि-अनइन्स्टल सुरक्षा</string>
+    <string name="anti_uninstall_message">अनइन्स्टल गर्ने, IronWill र् रोक्ने वा पहुँच सेवा बन्द गर्ने प्रयास पत्ता लाग्यो। कार्य अवरुद्ध गरियो।\n\nअगाडि बढ्नको लागि, कृपया पहिले एप भित्र एन्टि-अनइन्स्टल सुरक्षा बन्द गर्नुहोस्।</string>
+    <string name="btn_got_it">बुझें</string>
+    <string name="btn_back">फर्कनुहोस्</string>
+</resources>

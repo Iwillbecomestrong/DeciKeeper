@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingVertical="4dp"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/tvTimeRange"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="19:30 - 21:00"
+        android:textColor="#00796B"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:fontFamily="monospace"/>
+
+    <View
+        android:layout_width="1dp"
+        android:layout_height="12dp"
+        android:background="#E0E0E0"
+        android:layout_marginHorizontal="8dp"/>
+
+    <TextView
+        android:id="@+id/tvDays"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="每天"
+        android:textSize="12sp"
+        android:textColor="#616161"/>
+
+    <TextView
+        android:id="@+id/tvSource"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="来源: 娱乐软件"
+        android:textSize="10sp"
+        android:textColor="#9E9E9E"/>
+
+</LinearLayout>

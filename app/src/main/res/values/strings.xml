@@ -1,0 +1,46 @@
+﻿<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill 核心服务，用于保护您的自律状态并防止应用被意外卸载。请保持开启以确保保护生效。</string>
+
+    <!-- Anti-Uninstall Warning -->
+    <string name="anti_uninstall_title">防卸载保护</string>
+    <string name="anti_uninstall_message">检测到尝试卸载、停止 IronWill 或关闭无障碍服务的行为，已自动拦截保护。\n\n如需手动操作，请先在 App 内关闭防卸载保护。</string>
+    <string name="btn_got_it">我知道了</string>
+    <string name="btn_back">返回桌面</string>
+
+    <!-- Privacy Space Guard (TASK-02: 第二套独立开关 UI 文案, 仅新增, 不删旧) -->
+    <string name="privacy_space_guard_title">隐私空间拦截</string>
+    <string name="privacy_space_guard_summary">阻止将 IronWill 添加进隐私空间</string>
+    <string name="privacy_space_guard_status_off">已关闭</string>
+    <string name="privacy_space_guard_status_active">已生效</string>
+    <string name="privacy_space_guard_status_pending">次日生效，当前仍拦截</string>
+    <string name="privacy_space_guard_enable_guide_title">🔒 开启隐私空间拦截</string>
+    <string name="privacy_space_guard_enable_guide_body">「隐私空间拦截」通过无障碍服务监控「添加应用」页面，阻止 IronWill 被移入隐私空间。\n\n请先在系统中开启 IronWill 的无障碍服务后再开启本开关。</string>
+    <string name="privacy_space_guard_enable_guide_open_a11y">前往开启无障碍</string>
+    <string name="privacy_space_guard_toast_enabled">✅ 隐私空间拦截已开启</string>
+    <string name="privacy_space_guard_toast_pending">⏳ 已申请关闭隐私空间拦截（明日生效，可与防卸载同次提交）</string>
+    <string name="privacy_space_guard_toast_adaptation_off">✅ 适应期内，隐私空间拦截已立即关闭</string>
+    <string name="privacy_space_guard_toast_need_a11y">⚠️ 请先开启无障碍服务</string>
+
+    <!-- Lock Penalty Dialog -->
+    <string name="penalty_dialog_title">IronWill 强制干预</string>
+    <string name="penalty_reason_consecutive">非休息/空档期内，黑名单或非时间窗应用连续触发达到3次要进行一次强制锁机了</string>
+    <string name="penalty_reason_tolerance">本时段所有的休息时间（含借用）都用完了，现在点击黑名单软件就要开始强制锁机了</string>
+    <string name="penalty_message_template">拦截到黑名单应用：%1$s\n\n触发原因：%2$s\n\n已进入强制锁机冷静期\n\n提示：下次请先点击「回到桌面」关闭小窗或应用，避免再次触发锁机</string>
+
+    <!-- REQ-5: 用户协议 + 隐私政策 -->
+    <string name="privacy_consent_title">请阅读并同意</string>
+    <string name="privacy_consent_intro">欢迎使用 IronWill。在使用之前，请阅读并同意《用户协议》与《隐私政策》。</string>
+    <string name="privacy_consent_accept">同意</string>
+    <string name="privacy_consent_decline">不同意/退出</string>
+    <string name="privacy_consent_disclaimer">占位合规文本，待法务 review</string>
+    <string name="about_section_title">关于我们</string>
+    <string name="about_section_subtitle">合规与法律文档</string>
+    <string name="about_entry_user_agreement">用户协议</string>
+    <string name="about_entry_privacy_policy">隐私政策</string>
+    <string name="about_entry_third_party_sdk">第三方 SDK 清单</string>
+    <string name="about_entry_personal_info">已收集个人信息清单</string>
+    <string name="about_entry_sharing">与第三方共享信息清单</string>
+    <string name="about_entry_account_deletion">账号注销入口</string>
+    <string name="about_entry_contact">联系和投诉方式</string>
+</resources>

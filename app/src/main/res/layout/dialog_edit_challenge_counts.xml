@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@drawable/bg_sea_surface">
+
+    <!-- 数学题 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="数学题:"
+            android:textSize="15sp"
+            android:textColor="#00838F" />
+
+        <EditText
+            android:id="@+id/et_challenge_math"
+            android:layout_width="52dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:inputType="number"
+            android:gravity="center"
+            android:textSize="15sp"
+            android:textColor="#004D40"
+            android:textColorHint="#80CBC4"
+            android:background="@drawable/bg_sea_bubble" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" 道 (3位数×2位数)"
+            android:textSize="14sp"
+            android:textColor="#006064"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <!-- 唐诗填空 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="唐诗填空:"
+            android:textSize="15sp"
+            android:textColor="#00838F" />
+
+        <EditText
+            android:id="@+id/et_challenge_poem"
+            android:layout_width="52dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:inputType="number"
+            android:gravity="center"
+            android:textSize="15sp"
+            android:textColor="#004D40"
+            android:textColorHint="#80CBC4"
+            android:background="@drawable/bg_sea_bubble" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" 句"
+            android:textSize="14sp"
+            android:textColor="#006064"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <!-- 英语单词 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="英语单词:"
+            android:textSize="15sp"
+            android:textColor="#00838F" />
+
+        <EditText
+            android:id="@+id/et_challenge_word"
+            android:layout_width="52dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:inputType="number"
+            android:gravity="center"
+            android:textSize="15sp"
+            android:textColor="#004D40"
+            android:textColorHint="#80CBC4"
+            android:background="@drawable/bg_sea_bubble" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" 个"
+            android:textSize="14sp"
+            android:textColor="#006064"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/layout_home"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_sea_surface"
+    android:fitsSystemWindows="true"
+    android:clipToPadding="false"
+    android:visibility="visible">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+            android:padding="16dp"
+            android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🛡️ IRON WILL"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_marginTop="0dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="有所不为，而后可以有为"
+            android:textSize="14sp"
+            android:textColor="#888888"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/btn_help"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="📘 使用说明"
+            android:textSize="14sp"
+            android:backgroundTint="#FF9800"
+            android:paddingHorizontal="20dp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- 🚀 航行准备清单 (Setup Checklist) -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_setup_guide"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginBottom="16dp"
+            android:backgroundTint="#FFFFFF"
+            android:visibility="gone"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🚀 航行准备清单"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- Item 1: Permissions -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="8dp">
+                    <TextView
+                        android:id="@+id/tv_setup_icon_perm"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:text="⭕"
+                        android:gravity="center"
+                        android:textSize="14sp"/>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:text="基础权限设置 (必要)"
+                        android:textColor="#333333"
+                        android:textSize="14sp"/>
+                    <TextView
+                        android:id="@+id/btn_setup_go_perm"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="去开启 >"
+                        android:textColor="#1976D2"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:padding="4dp"/>
+                </LinearLayout>
+
+                <!-- Item 2: Blacklist -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="8dp">
+                    <TextView
+                        android:id="@+id/tv_setup_icon_blacklist"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:text="⭕"
+                        android:gravity="center"
+                        android:textSize="14sp"/>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:text="配置监管黑名单 (必要)"
+                        android:textColor="#333333"
+                        android:textSize="14sp"/>
+                    <TextView
+                        android:id="@+id/btn_setup_go_blacklist"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="去勾选 >"
+                        android:textColor="#1976D2"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:padding="4dp"/>
+                </LinearLayout>
+
+                <!-- Item 3: DND Segments -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="8dp">
+                    <TextView
+                        android:id="@+id/tv_setup_icon_dnd"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:text="⭕"
+                        android:gravity="center"
+                        android:textSize="14sp"/>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:text="设置勿扰时间段 (必要)"
+                        android:textColor="#333333"
+                        android:textSize="14sp"/>
+                    <TextView
+                        android:id="@+id/btn_setup_go_dnd"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="去添加 >"
+                        android:textColor="#1976D2"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:padding="4dp"/>
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 适应期提示卡片 -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_adaptation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginBottom="16dp"
+            android:backgroundTint="#E0F7FA"
+            android:visibility="gone"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✨ 当前处于适应期"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#006064"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="设置将立即生效，安装24小时后或手动结束后进入严格模式。"
+                    android:textSize="12sp"
+                    android:textColor="#00838F"/>
+                <Button
+                    android:id="@+id/btn_end_adaptation"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="32dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_gravity="end"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="手动结束适应期"
+                    android:textSize="12sp"
+                    android:backgroundTint="#00838F"
+                    android:textColor="#FFFFFF"
+                    app:cornerRadius="16dp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dp"
+            android:backgroundTint="#FFFFFF"
+            app:cardCornerRadius="16dp"
+            android:elevation="4dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tv_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="状态：未激活"
+                    android:textSize="18sp"
+                    android:textColor="#FF0000"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tv_protection_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="• 无障碍服务：检查中...\n• 耗电保护：检查中...\n• 自启动权限：检查中..."
+                    android:textSize="13sp"
+                    android:textColor="#666666"
+                    android:gravity="start"
+                    android:lineSpacingExtra="2dp"/>
+
+                <Button
+                    android:id="@+id/btn_open_permission"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="15dp"
+                    android:backgroundTint="#263238"
+                    android:text="⚙️ 设置必要权限"
+                    android:textColor="#FFFFFF"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 配额双卡片（与锁屏一致的暗色半透明风格） -->
+        <LinearLayout
+            android:id="@+id/layout_quota_bubble"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_sea_bubble"
+            android:backgroundTint="#FF1A2332"
+            android:paddingHorizontal="0dp"
+            android:paddingVertical="0dp">
+
+            <!-- 📊 当前段卡片（实线边框） -->
+            <LinearLayout
+                android:id="@+id/layout_current_segment_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_sea_bubble"
+                android:backgroundTint="#0DFFFFFF"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="16dp"
+                android:layout_margin="12dp"
+                android:layout_marginBottom="6dp">
+
+                <!-- 当前段标题 -->
+                <TextView
+                    android:id="@+id/tv_current_segment_range"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="本阶段 (08:00 - 12:00)"
+                    android:textColor="#80DEEA"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_marginBottom="14dp"/>
+
+                <!-- 双栏大数字 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="4dp">
+
+                    <!-- 可用时间栏 -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="时长"
+                            android:textColor="#CCCCCC"
+                            android:textSize="10sp"
+                            android:layout_marginBottom="2dp"/>
+
+                        <TextView
+                            android:id="@+id/tv_stat_time_big"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="--"
+                            android:textColor="#FFFFFF"
+                            android:textSize="28sp"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace"/>
+                    </LinearLayout>
+
+                    <!-- 分隔线 -->
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="40dp"
+                        android:background="#15FFFFFF"/>
+
+                    <!-- 可用次数栏 -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="次数"
+                            android:textColor="#CCCCCC"
+                            android:textSize="10sp"
+                            android:layout_marginBottom="2dp"/>
+
+                        <TextView
+                            android:id="@+id/tv_usable_count_big"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="--"
+                            android:textColor="#FFFFFF"
+                            android:textSize="28sp"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 明细行 -->
+                <TextView
+                    android:id="@+id/tv_stat_time_detail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="#B0B0B0"
+                    android:textSize="10sp"
+                    android:layout_marginTop="4dp"
+                    android:alpha="0.8"/>
+
+                <!-- 结余/借用行（条件显示） -->
+                <TextView
+                    android:id="@+id/tv_surplus_borrow_line"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="#81C784"
+                    android:textSize="10sp"
+                    android:gravity="center"
+                    android:layout_marginTop="6dp"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="3dp"
+                    android:visibility="gone"/>
+
+                <!-- 休息倒计时（条件显示） -->
+                <TextView
+                    android:id="@+id/tv_rest_countdown_in_card"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="#4CAF50"
+                    android:textSize="10sp"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone"/>
+            </LinearLayout>
+
+            <!-- 📅 下一段卡片（虚线/浅色边框） -->
+            <LinearLayout
+                android:id="@+id/layout_next_segment_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_sea_bubble"
+                android:backgroundTint="#08FFFFFF"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="14dp"
+                android:layout_marginHorizontal="12dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:id="@+id/tv_next_segment_info"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="下一阶段: 计算中..."
+                    android:textColor="#80CBC4"
+                    android:textSize="11sp"
+                    android:gravity="center"
+                    android:textAlignment="center"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 🚀 弹性调度按钮 -->
+        <Button
+            android:id="@+id/btn_flexible_schedule"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="12dp"
+            android:text="⏰ 弹性调度 (±15分钟)"
+            android:textSize="14sp"
+            android:backgroundTint="#7E57C2"
+            android:textColor="#FFFFFF"
+            app:cornerRadius="24dp"/>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_weekly_privilege_entry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="#E8F5E9"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💎 每周特权"
+                    android:textColor="#1B5E20"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tv_weekly_privilege_entry_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="本周剩余：--/--min，--/--次"
+                    android:textColor="#2E7D32"
+                    android:textSize="13sp"/>
+
+                <Button
+                    android:id="@+id/btn_weekly_privilege_entry"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:text="启用特权"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#FF7043"
+                    app:cornerRadius="24dp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 可用时间状态区域 (始终可用，但在自由状态下显示不同内容) -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_free_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="16dp"
+            android:backgroundTint="#E8F5E9"
+            android:visibility="gone"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:gravity="center_horizontal">
+
+                <TextView
+                    android:id="@+id/tv_free_time_countdown"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🟢 休息中 还剩 20 min 30 s"
+                    android:textColor="#1B5E20"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:fontFamily="monospace"
+                    android:gravity="center"/>
+
+                <Button
+                    android:id="@+id/btn_stop_free_time"
+                    android:layout_width="180dp"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="12dp"
+                    android:text="⏹ 停止休息"
+                    android:textSize="15sp"
+                    android:backgroundTint="#EF5350"
+                    android:textColor="#FFFFFF"
+                    app:cornerRadius="22dp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+
+
+
+        <TextView
+            android:id="@+id/tv_countdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="32dp"
+            android:padding="10dp"
+            android:text="当前状态：监管中"
+            android:textSize="16sp"
+            android:textColor="#666666"
+            android:gravity="center"/>
+        <TextView
+            android:id="@+id/tv_temp_access_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            android:padding="10dp"
+            android:text=""
+            android:textSize="14sp"
+            android:textColor="#888888"
+            android:gravity="center"
+            android:visibility="gone"/>
+        
+    </LinearLayout>
+</ScrollView>

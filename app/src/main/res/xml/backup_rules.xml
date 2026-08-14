@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+   REQ-5: 排除隐私同意状态 prefs（privacy_consent_prefs）。
+   原因: 该 prefs 保存"用户是否已同意《用户协议》和《隐私政策》"的本地状态。
+         若被云备份 / 换机迁移，恢复到新设备后可能跳过首次同意页，
+         造成"默认勾选同意"或"同意前开始收集"的合规风险。
+
+   不显式 include 任何 domain —— Android 默认会备份全部 domain
+   （sharedpref / database / file / external / root），再用 exclude 把
+   privacy_consent_prefs.xml 单独排除。这样不会把全局自动备份范围收窄到
+   "仅 sharedpref"，保留 CrashRecorder / LogExporter 等 filesDir 持久化数据
+   的默认备份行为。
+
+   Note: This file is ignored for devices older than API 31.
+   See https://developer.android.com/about/versions/12/backup-restore
+-->
+<full-backup-content>
+    <!-- REQ-5: 同意状态不参与备份/恢复 -->
+    <exclude domain="sharedpref" path="privacy_consent_prefs.xml"/>
+</full-backup-content>

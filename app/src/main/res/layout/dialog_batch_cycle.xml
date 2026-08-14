@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+    
+    <!-- CheckBoxes Container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Row 1: Mon - Thu -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <CheckBox android:id="@+id/cbMon" android:text="周一" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            <CheckBox android:id="@+id/cbTue" android:text="周二" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            <CheckBox android:id="@+id/cbWed" android:text="周三" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            <CheckBox android:id="@+id/cbThu" android:text="周四" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- Row 2: Fri - Sun -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <CheckBox android:id="@+id/cbFri" android:text="周五" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            <CheckBox android:id="@+id/cbSat" android:text="周六" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            <CheckBox android:id="@+id/cbSun" android:text="周日" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            <!-- Spacer to align with 4-column grid -->
+            <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Preset Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
+        android:gravity="center">
+
+        <Button
+            android:id="@+id/btnPresetWorkdays"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="工作日 (周一至五)"
+            android:textSize="12sp"/>
+
+        <Space
+            android:layout_width="16dp"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/btnPresetWeekend"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="周末 (周六日)" 
+            android:textSize="12sp"/>
+    </LinearLayout>
+    
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="提示: 点击预设按钮将自动勾选对应日期"
+        android:textSize="12sp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:layout_marginTop="8dp"
+        android:layout_gravity="center_horizontal"/>
+
+</LinearLayout>

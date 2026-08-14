@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_time_config"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_sea_surface"
+    android:fillViewport="true"
+    android:scrollbars="vertical"
+    android:overScrollMode="never">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:paddingBottom="80dp">
+
+        <!-- Header: Title -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🌙 勿扰时段设置"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:textColor="#004D40"
+                android:shadowColor="#40000000"
+                android:shadowDx="1"
+                android:shadowRadius="2" />
+
+            <Button
+                android:id="@+id/btn_header_preview"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="勿扰时段预览"
+                android:textStyle="bold"
+                android:textColor="#00796B" />
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="配置早中晚睡觉的分段隔离计划"
+            android:textSize="14sp"
+            android:textColor="#006064"
+            android:layout_marginBottom="12dp"/>
+
+        <!-- 📝 待生效修改提示卡片 -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_pending_changes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFF8E1">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/tv_lockout_hint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#E65100"
+                    android:lineSpacingExtra="4dp"
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone"/>
+
+                <TextView
+                    android:id="@+id/tv_pending_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⏳ 延迟生效表"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#F57C00"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/tv_pending_changes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#795548"
+                    android:lineSpacingExtra="4dp"/>
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- 时段列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_segments"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- 添加/批量/一键设置 按钮行 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <!-- 添加时段 -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#B2DFDB">
+
+                <Button
+                    android:id="@+id/btn_add_segment"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="添加时段"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#00695C"
+                    android:background="@android:color/transparent"
+                    android:stateListAnimator="@null"/>
+            </androidx.cardview.widget.CardView>
+
+            <!-- 批量设置 -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#E1BEE7">
+
+                <Button
+                    android:id="@+id/btn_batch_repetition"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="批量设置周期"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#4A148C"
+                    android:background="@android:color/transparent"
+                    android:stateListAnimator="@null"/>
+            </androidx.cardview.widget.CardView>
+
+            <!-- 一键设置 -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#FFE0B2">
+
+                <Button
+                    android:id="@+id/btn_preset_segments"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="一键设置"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#E65100"
+                    android:background="@android:color/transparent"
+                    android:stateListAnimator="@null"/>
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:layout_marginTop="24dp"
+            android:text="IronWill 系统将根据此设置自动执行勿扰计划"
+            android:textColor="#006064"
+            android:textSize="12sp"
+            android:alpha="0.8"/>
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>

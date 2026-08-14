@@ -1,0 +1,15 @@
+/**
+ * 文件路径: app/src/main/java/com/ironwill/app/CreditManager.kt
+ * 文件说明: 积分与拦截管理器。负责拦截逻辑、应用黑名单、休息时间(氧气)和适应期的管理。
+ * 主要功能:
+ * - 管理黑名单数据的存储 (SharedPreferences)。
+ * - shouldBlockApp: 核心判断逻辑，结合黑名单规则，判断某应用是否应该被拦截。
+ * - 判定应用是否为“危险应用” (如 Launcher、Settings)。
+ * - 计算剩余休息时间 (氧气)、剩余退出次数。
+ * - 处理“明日生效”的暂存逻辑 (Pending Logic)。
+ * - 处理“借用”下一时段额度的逻辑。
+ * - saveBlacklistApps / stagePendingBlacklistApps: 保存黑名单 (立即生效/次日生效)。
+ * - applyPendingAppsToActive: 将暂存的明日黑名单应用到正式列表 (通常在每日0点调用)。
+ * - isInAdaptationPeriod: 判断当前是否处于刚安装的24小时适应期内。
+ */
+package com.ironwill.app

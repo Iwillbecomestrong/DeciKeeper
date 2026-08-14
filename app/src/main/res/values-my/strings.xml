@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill ပင်မဝန်ဆောင်မှု။ သင်၏ မိမိကိုယ်ကို ထိန်းချုပ်နိုင်စွမ်းအခြေအနေကို ကာကွယ်ပေးပြီး မတော်တဆ ဖြုတ်ချခြင်းကို တားဆီးပေးသည်။ အကာအကွယ်ရရှိစေရန် ကျေးဇူးပြု၍ ဖွင့်ထားပါ။</string>
+
+    <string name="anti_uninstall_title">🛡️ ဖြုတ်ချခြင်း ကာကွယ်မှု</string>
+    <string name="anti_uninstall_message">IronWill ကို ဖြုတ်ချရန်၊ ရပ်တန့်ရန် သို့မဟုတ် accessibility ဝန်ဆောင်မှုကို ပိတ်ရန် ကြိုးပမ်းမှုကို တွေ့ရှိရသည်။ လုပ်ဆောင်ချက်ကို ပိတ်ပင်ထားသည်။\n\nဆက်လက်လုပ်ဆောင်ရန်၊ ကျေးဇူးပြု၍ အက်ပ်အတွင်းရှိ ဖြုတ်ချခြင်း ကာကွယ်မှုကို ဦးစွာ ပိတ်ပါ။</string>
+    <string name="btn_got_it">နားလည်ပါပြီ</string>
+    <string name="btn_back">ပြန်သွားရန်</string>
+</resources>

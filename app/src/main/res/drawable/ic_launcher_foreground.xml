@@ -1,0 +1,52 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- 背景圆形 - 深青色 -->
+    <path
+        android:fillColor="#006064"
+        android:pathData="M54,54m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0"/>
+    
+    <!-- 锚的主体 - 中心竖杆 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M51,30 L57,30 L57,68 L51,68 Z"/>
+    
+    <!-- 锚的横杆 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,48 L66,48 L66,54 L42,54 Z"/>
+    
+    <!-- 锚的圆环 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#006064"
+        android:strokeWidth="3"
+        android:pathData="M54,32m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0"/>
+    
+    <!-- 左下锚爪 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,68 Q 38,72 38,77 L38,77 Q 38,80 41,80 L45,80 Q 48,80 48,77 L48,70 L42,70 Z"/>
+    
+    <!-- 右下锚爪 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,68 Q 70,72 70,77 L70,77 Q 70,80 67,80 L63,80 Q 60,80 60,77 L60,70 L66,70 Z"/>
+    
+    <!-- 装饰性波浪线 - 顶部 -->
+    <path
+        android:strokeColor="#80DEEA"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M20,22 Q 30,18 40,22 T 60,22 T 80,22"/>
+    
+    <!-- 装饰性波浪线 - 底部 -->
+    <path
+        android:strokeColor="#80DEEA"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M20,86 Q 30,82 40,86 T 60,86 T 80,86"/>
+</vector>

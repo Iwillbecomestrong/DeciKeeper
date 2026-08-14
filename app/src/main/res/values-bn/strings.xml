@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill কোর পরিষেবা। আপনার আত্মনিয়ন্ত্রণ স্থিতি রক্ষা করে এবং দুর্ঘটনাক্রমে আনইনস্টল প্রতিরোধ করে। সুরক্ষা নিশ্চিত করতে দয়া করে সক্ষম রাখুন।</string>
+
+    <string name="anti_uninstall_title">🛡️ আনইনস্টল সুরক্ষা</string>
+    <string name="anti_uninstall_message">আনইনস্টল করার, IronWill বন্ধ করার বা অ্যাক্সেসিবিলিটি পরিষেবা বন্ধ করার প্রচেষ্টা সনাক্ত হয়েছে। ক্রিয়া অবরুদ্ধ।\n\nচালিয়ে যেতে, দয়া করে প্রথমে অ্যাপের মধ্যে আনইনস্টল সুরক্ষা বন্ধ করুন।</string>
+    <string name="btn_got_it">বুঝেছি</string>
+    <string name="btn_back">ফিরে যান</string>
+</resources>

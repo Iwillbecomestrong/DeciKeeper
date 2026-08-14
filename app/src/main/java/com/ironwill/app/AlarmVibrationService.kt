@@ -1,0 +1,666 @@
+/**
+ * =================================================================================
+ * [Context Header]
+ * @file: AlarmVibrationService.kt
+ * @role: Domain Skill
+ * @description: Foreground service managing alarm vibration independently of UI lifecycle.
+ * @responsibilities:
+ * 1. 独立管理闹钟震动，不受 Activity/Overlay 生命周期影响。
+ * 2. 熄屏后自动重新触发震动（解决 Vivo 等 OEM 熄屏切断震动问题）。
+ * 3. 通过 WakeLock 保持 CPU 唤醒。
+ * @context:
+ * - 上游: LockWindowManager (start/stop)
+ * - 下游: Vibrator, PowerManager
+ * =================================================================================
+ */
+package com.ironwill.app
+
+import android.annotation.SuppressLint
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.os.Build
+import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.util.Log
+import androidx.core.app.NotificationCompat
+
+class AlarmVibrationService : Service() {
+
+    companion object {
+        private const val TAG = "AlarmVibrationService"
+        private const val NOTIFICATION_ID = 1001
+        private const val CHANNEL_ID = "alarm_channel_v3"
+        internal const val OVERLAY_RESTORE_DELAY_MS = 300L
+        const val EXTRA_ALARM_ID = "alarm_vibration_alarm_id"
+    const val EXTRA_PRE_WARM = "alarm_vibration_pre_warm"
+
+        /** 当前有效震动强度（1-10），供 UI 层读取显示 */
+        @Volatile
+        var currentDisplayIntensity: Int = 0
+        @Volatile
+        var currentDisplayVolume: Int = 0
+
+        /** 当前震动模式，供 UI 层读取显示 */
+        @Volatile
+        var currentVibrationMode: String = "fixed"
+        @Volatile
+        var isRunning = false
+
+        /** 当前铃声模式，供 UI 层读取显示（VIBRATE_AND_RING / VIBRATE_ONLY / RING_ONLY） */
+        @Volatile
+        var currentAlarmMode: String = "VIBRATE_AND_RING"
+
+
+        internal fun shouldRestoreOverlayForAction(action: String?): Boolean {
+            return action == Intent.ACTION_SCREEN_ON || action == Intent.ACTION_USER_PRESENT
+        }
+
+        @JvmStatic
+        fun start(context: Context, alarmId: Int) {
+            val intent = Intent(context, AlarmVibrationService::class.java).apply {
+                putExtra(EXTRA_ALARM_ID, alarmId)
+            }
+            context.startForegroundService(intent)
+        }
+
+        @JvmStatic
+        fun startPreWarm(context: Context, alarmId: Int) {
+            val intent = Intent(context, AlarmVibrationService::class.java).apply {
+                putExtra(EXTRA_ALARM_ID, alarmId)
+                putExtra(EXTRA_PRE_WARM, true)
+            }
+            context.startForegroundService(intent)
+        }
+
+        @JvmStatic
+        fun stop(context: Context) {
+            context.stopService(Intent(context, AlarmVibrationService::class.java))
+        }
+    }
+
+    private var vibrator: Vibrator? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var alarmId: Int = -1
+    private var ringtoneUri: String? = null
+    private var alarmMode: AlarmScheduler.AlarmMode = AlarmScheduler.AlarmMode.VIBRATE_AND_RING
+    private var ringVolume: Int = 7
+    private var serviceStartTime: Long = 0L
+    private var fixedAmplitude = 0
+    private var lockedFinalIntensity = 0
+    // 铃声播放（使用 MediaPlayer + USAGE_MEDIA，音量完全由 app 控制）
+    private var mediaPlayer: android.media.MediaPlayer? = null
+
+    // [音量锁定] 播放铃声时锁定 STREAM_MUSIC 到最大值，
+    // 用户按音量键后立刻被还原，让音量键对闹钟铃声"失效"。
+    // app 内 ringVolume (1-10) → setVolume(0.1~1.0) 成为唯一音量控制。
+    private var volumeLocked = false
+
+    private val screenOffReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    Log.d(TAG, "Screen off detected, scheduling vibration retries")
+                    handler.postDelayed({ startVibrationImpl() }, 300)
+                    handler.postDelayed({ startVibrationImpl() }, 800)
+                    handler.postDelayed({ startVibrationImpl() }, 1500)
+                }
+                Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
+                    if (alarmId >= 0) {
+                        Log.d(TAG, "${intent.action} detected, restoring alarm overlay in ${OVERLAY_RESTORE_DELAY_MS}ms")
+                        handler.postDelayed({
+                            LockWindowManager.showAlarmOverlayIfHidden()
+                        }, OVERLAY_RESTORE_DELAY_MS)
+                    }
+                }
+            }
+        }
+    }
+
+    // 周期性地重新触发震动，防止系统闹钟或其他应用取消震动后 IronWill 震动停止
+    // 不设超时——闹钟持续响铃直到用户完成挑战（扫码关闭）
+    private val vibrationKeepAliveRunnable = object : Runnable {
+        override fun run() {
+            if (vibrator != null) {
+                Log.d(TAG, "Vibration keep-alive: re-triggering")
+                startVibrationImpl()
+            }
+            handler.postDelayed(this, 3000)
+        }
+    }
+
+    /** 铃声音量显示更新定时器，每秒刷新一次，保证渐进音量显示平滑 */
+    private val ringDisplayUpdateRunnable = object : Runnable {
+        override fun run() {
+            if (!isRunning) return
+            val shouldRing = alarmMode != AlarmScheduler.AlarmMode.VIBRATE_ONLY
+            if (shouldRing) {
+                val alarmEntry = AlarmScheduler.findAlarm(this@AlarmVibrationService, alarmId)
+                val testMode = LockWindowManager.testVibrationMode
+                val mode = testMode ?: alarmEntry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE
+                val elapsedSec = ((System.currentTimeMillis() - serviceStartTime) / 1000L).toInt().coerceAtLeast(0)
+                val stagePassed = AlarmScheduler.isFirstStagePassed(this@AlarmVibrationService)
+                updateRingVolumeDisplay(mode, elapsedSec, stagePassed)
+            }
+            handler.postDelayed(this, 1000)
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        // [Fix: process restart] 从 SharedPreferences 恢复 serviceStartTime，
+        // 确保进程重启后震动渐进等级基于原始时间计算，而非从0开始。
+        val savedStartTime = AlarmScheduler.getVibrationStartTime(this)
+        serviceStartTime = if (savedStartTime > 0) savedStartTime else System.currentTimeMillis()
+        if (savedStartTime == 0L) {
+            AlarmScheduler.saveVibrationStartTime(this, serviceStartTime)
+        }
+        // 恢复锁定强度（第一关通过后的半强度值）
+        lockedFinalIntensity = AlarmScheduler.getVibrationLockedIntensity(this)
+        try {
+            createNotificationChannel()
+            startForeground(NOTIFICATION_ID, buildNotification())
+        } catch (e: Exception) {
+            // Direct Boot 模式下通知可能不可用，不影响核心震动功能
+            Log.w(TAG, "Failed to start foreground, but vibration will continue: ${e.message}")
+        }
+        try {
+            registerReceiver(
+                screenOffReceiver,
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                    addAction(Intent.ACTION_SCREEN_ON)
+                    addAction(Intent.ACTION_USER_PRESENT)
+                }
+            )
+        } catch (e: Exception) {
+            Log.w("AlarmVibrationService", "Failed to register screen state receiver", e)
+        }
+        isRunning = true
+        Log.d(TAG, "Service created")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val newAlarmId = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: -1
+
+        // 读取铃声设置
+        val entry = if (newAlarmId > 0) AlarmScheduler.findAlarm(this, newAlarmId) else null
+        ringtoneUri = LockWindowManager.testRingtoneUri ?: entry?.ringtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(this)
+        alarmMode = LockWindowManager.testAlarmMode ?: entry?.alarmMode ?: AlarmScheduler.getDefaultAlarmMode(this)
+        ringVolume = LockWindowManager.testRingVolume ?: entry?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(this)
+        currentAlarmMode = alarmMode.name
+        Log.d(TAG, "[RING-DIAG] onStartCommand: newAlarmId=$newAlarmId, alarmMode=$alarmMode, ringtoneUri=$ringtoneUri, ringVolume=$ringVolume, testMode=${LockWindowManager.testAlarmMode}, testUri=${LockWindowManager.testRingtoneUri}")
+
+        // [Pre-Warm] 预热水模式：只保活不震动。前台服务 + WakeLock 防止 Vivo 杀进程，
+        // 确保主闹钟准时到达。主闹钟到达后再次调用 start() 时进入正常震动。
+        // 🛑 [Fix: 提前响] PreWarm 不能复用 updateForegroundNotification():它带 setFullScreenIntent + PRIORITY_MAX,
+        // Vivo 会把它当闹钟类通知,提前 3 分钟就开始响+震动。改用极简通知(无 fullScreenIntent, PRIORITY_MIN)。
+        if (intent?.getBooleanExtra(EXTRA_PRE_WARM, false) == true) {
+            if (vibrator == null) {
+                this.alarmId = newAlarmId
+                acquireWakeLock()
+                startForegroundWithMinimalNotification()
+                LogExporter.i("Alarm", "🔥 预热保活 | id=$newAlarmId | mode=MIN (无 fullScreenIntent, 避免 Vivo 提前响)")
+            }
+            return START_STICKY
+        }
+        // [防御性代码] 如果服务已在运行且正在震动，只需更新 alarmId，
+        // 避免重复创建前台服务通知被系统识别为异常频繁启动。
+        if (vibrator != null && this.alarmId >= 0) {
+            Log.i(TAG, "Service already running, updating alarmId: ${this.alarmId} -> $newAlarmId")
+            this.alarmId = newAlarmId
+            AlarmScheduler.setAlarmActive(this, alarmId)
+            updateForegroundNotification()
+            // [Fix: scan-screen-off] 服务已运行时仍需重新触发震动。
+            // 扫码模式下熄屏后系统可能取消震动，亮屏时 AlarmActivity.onResume()
+            // 再次调用 start()，此时 vibrator 对象还在但震动已停止，必须显式重启。
+            startVibrationImpl()
+            // 重新调度保活循环
+            handler.removeCallbacks(vibrationKeepAliveRunnable)
+            handler.postDelayed(vibrationKeepAliveRunnable, 5000)
+            return START_STICKY
+        }
+
+        this.alarmId = newAlarmId
+        AlarmScheduler.setAlarmActive(this, alarmId)
+        updateForegroundNotification()
+        fixedAmplitude = 0
+        // [Fix: process restart] 不从 SharedPreferences 恢复的 lockedFinalIntensity，
+        // 已在 onCreate() 中恢复。此处不清零以维持进程重启后的正确锁定强度。
+        Log.i(TAG, "Vibration started, setAlarmActive(alarmId=$alarmId, lockedIntensity=$lockedFinalIntensity)")
+        startVibrationImpl()
+        // 启动震动保活循环，防止系统闹钟取消震动后 IronWill 震动停止
+        handler.removeCallbacks(vibrationKeepAliveRunnable)
+        handler.postDelayed(vibrationKeepAliveRunnable, 5000)
+        // 启动铃声音量显示更新（1秒刷新，保证渐进音量显示平滑）
+        handler.removeCallbacks(ringDisplayUpdateRunnable)
+        handler.postDelayed(ringDisplayUpdateRunnable, 1000)
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacks(vibrationKeepAliveRunnable)
+        handler.removeCallbacks(ringDisplayUpdateRunnable)
+        AlarmScheduler.clearAlarmActive(this)
+        Log.i(TAG, "Vibration stopped, clearAlarmActive")
+        stopRingtone()
+        stopVibration()
+        try {
+            unregisterReceiver(screenOffReceiver)
+        } catch (_: Exception) {
+        }
+        isRunning = false
+        Log.d(TAG, "Service destroyed")
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    @SuppressLint("MissingPermission")
+    private fun startVibrationImpl() {
+        val alarmEntry = AlarmScheduler.findAlarm(this, alarmId)
+        val testMode = LockWindowManager.testVibrationMode
+        val testIntensity = LockWindowManager.testVibrationIntensity
+        val testProgMin = LockWindowManager.testProgressiveMinIntensity
+        val testProgMax = LockWindowManager.testProgressiveMaxIntensity
+        val mode = testMode ?: alarmEntry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE
+        val baseIntensity = testIntensity ?: alarmEntry?.vibrationIntensity ?: AlarmScheduler.getDefaultVibrationIntensity(this)
+        // 渐进式最小/最大强度（第二关回到最小强度）
+        val progMin = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
+            (testProgMin ?: alarmEntry?.progressiveMinIntensity ?: AlarmScheduler.getDefaultProgressiveMinIntensity(this)).coerceIn(1, 10)
+        } else 1
+        val progMax = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
+            (testProgMax ?: alarmEntry?.progressiveMaxIntensity ?: AlarmScheduler.getDefaultProgressiveMaxIntensity(this)).coerceIn(1, 10)
+        } else 10
+
+        val autoEscalate = alarmEntry?.autoEscalate ?: false
+        val elapsedSec = ((System.currentTimeMillis() - serviceStartTime) / 1000L).toInt().coerceAtLeast(0)
+        val stagePassed = AlarmScheduler.isFirstStagePassed(this)
+
+        // --- 铃声（RING_ONLY 和 VIBRATE_AND_RING；音量显示由 ringDisplayUpdateRunnable 独立更新）---
+        val shouldRing = alarmMode != AlarmScheduler.AlarmMode.VIBRATE_ONLY
+        Log.d(TAG, "[RING-DIAG] startVibrationImpl: alarmMode=$alarmMode, shouldRing=$shouldRing, ringtoneUri=$ringtoneUri")
+        if (shouldRing) {
+            startRingtone()
+        }
+
+        // --- 震动（VIBRATE_ONLY 和 VIBRATE_AND_RING；RING_ONLY 跳过）---
+        if (alarmMode == AlarmScheduler.AlarmMode.RING_ONLY) return
+        if (vibrator == null) {
+            vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        acquireWakeLock()
+
+        // 复用前面已计算的值（alarmEntry, mode, baseIntensity, elapsedSec, stagePassed）
+        // progressive: 从 progMin 开始，每 10 秒递增 1
+        // - 前 5 分钟：上限 progMax
+        // - 5 分钟后（autoEscalate 开启）：突破 progMax 继续递增，上限 10
+        val effectiveMax = if (autoEscalate && elapsedSec > 300) 10 else progMax
+        val progressiveIntensity = (progMin + elapsedSec / 10).coerceIn(progMin, effectiveMax)
+        // fixed: 保持设定强度
+        // - 5 分钟后（autoEscalate 开启）：从设定强度开始，每 10 秒 +1，上限 10
+        val rawIntensity = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
+            progressiveIntensity
+        } else {
+            if (autoEscalate && elapsedSec > 300) {
+                (baseIntensity + (elapsedSec - 300) / 10).coerceIn(baseIntensity, 10)
+            } else {
+                baseIntensity.coerceIn(1, 10)
+            }
+        }
+
+        val finalIntensity: Int
+        if (stagePassed) {
+            if (lockedFinalIntensity == 0) {
+                // 第二关：渐进模式回到最小强度，固定模式用默认强度
+                lockedFinalIntensity = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) progMin
+                    else AlarmScheduler.getDefaultVibrationIntensity(this)
+                // [Fix: process restart] 持久化锁定强度，进程重启后恢复正确值
+                AlarmScheduler.saveVibrationLockedIntensity(this, lockedFinalIntensity)
+                AlarmScheduler.saveVibrationStartTime(this, serviceStartTime)
+            }
+            finalIntensity = lockedFinalIntensity
+        } else {
+            lockedFinalIntensity = 0
+            finalIntensity = rawIntensity
+        }
+
+        val amplitude = (finalIntensity * 25.5).toInt().coerceIn(1, 255)
+        if (fixedAmplitude != 0 && stagePassed) {
+            // 第一关后保持半强度稳定
+        } else if (stagePassed) {
+            fixedAmplitude = amplitude
+        }
+        val stableAmplitude = if (stagePassed && fixedAmplitude > 0) fixedAmplitude else amplitude
+
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .build()
+
+        val pattern = longArrayOf(0, 1000, 1000)
+        val amplitudes = intArrayOf(0, stableAmplitude, 0)
+        val effect = VibrationEffect.createWaveform(pattern, amplitudes, 0)
+        vibrator?.vibrate(effect, audioAttributes)
+
+        // 更新震动显示值供 UI 层读取
+        currentDisplayIntensity = finalIntensity
+        currentVibrationMode = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) "progressive" else "fixed"
+
+        Log.d(TAG, "Alarm vibration started/restarted (mode=$mode, intensity=$finalIntensity, amplitude=$stableAmplitude, stagePassed=$stagePassed)")
+    }
+
+    /** 铃声音量等级(1-10) → MediaPlayer浮点音量，使用三次方曲线拉开低强度差距 */
+    private fun ringVolumeToFloat(level: Int): Float {
+        val v = level.coerceIn(1, 10) / 10f
+        return v * v * v  // 三次方：1→0.001, 2→0.008, 5→0.125, 7→0.343, 10→1.0
+    }
+
+    /** 更新铃声强度显示值 + 实际 MediaPlayer 音量（RING_ONLY 和 VIBRATE_AND_RING 都需要） */
+    private fun updateRingVolumeDisplay(mode: AlarmScheduler.VibrationMode, elapsedSec: Int, stagePassed: Boolean) {
+        val alarmEntry = AlarmScheduler.findAlarm(this, alarmId)
+        val testProgMin = LockWindowManager.testProgressiveMinIntensity
+        val testProgMaxRing = LockWindowManager.testProgressiveMaxRingVolume
+        // 铃声渐进：起始为 1（固定），上限为用户设置的铃声最大强度
+        val ringMin = 1
+        val ringMax = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
+            (testProgMaxRing ?: alarmEntry?.progressiveMaxRingVolume ?: AlarmScheduler.getDefaultProgressiveMaxRingVolume(this)).coerceIn(1, 10)
+        } else 10
+        val volume = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
+            (ringMin + elapsedSec / 10).coerceIn(ringMin, ringMax)
+        } else {
+            ringVolume.coerceIn(1, 10)
+        }
+        if (stagePassed) {
+            // 第二关：渐进模式回到最小强度 1
+            currentDisplayVolume = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) ringMin
+                else ringVolume.coerceIn(1, 10)
+        } else {
+            currentDisplayVolume = volume.coerceIn(1, 10)
+        }
+        // 同步更新 MediaPlayer 实际音量（1-10 → 二次方曲线，拉开低强度差距）
+        val mpVol = ringVolumeToFloat(currentDisplayVolume)
+        mediaPlayer?.setVolume(mpVol, mpVol)
+        Log.d(TAG, "[RING_VOL] display update: mode=$mode, ringVolume=$ringVolume, volume=$volume, stagePassed=$stagePassed, currentDisplayVolume=$currentDisplayVolume, mpVol=$mpVol")
+    }
+
+    /**
+     * 启动铃声播放。使用 MediaPlayer + USAGE_MEDIA（STREAM_MUSIC），
+     * 与系统闹钟音量完全隔离。音量由 ringVolume (1-10) 通过 setVolume() 直接控制，
+     * 系统音量键只影响媒体音量，不影响 app 闹钟音量。
+     */
+    @SuppressLint("MissingPermission")
+    private fun startRingtone() {
+        val alreadyPlaying = mediaPlayer?.isPlaying == true
+        Log.d(TAG, "[RING-DIAG] startRingtone called, ringtoneUri=$ringtoneUri, alarmMode=$alarmMode, alreadyPlaying=$alreadyPlaying, mediaPlayerObj=${mediaPlayer != null}")
+
+        // 已经在播放 → 音量由 updateRingVolumeDisplay() 每秒渐进控制，不在此处覆盖
+        if (alreadyPlaying) {
+            Log.d(TAG, "[RING-DIAG] MediaPlayer already playing, volume managed by ringDisplayUpdateRunnable")
+            return
+        }
+
+        // 解析铃声 URI（优先用户自选，fallback 到系统默认闹钟铃声）
+        val isCustom = !ringtoneUri.isNullOrBlank()
+        val uri = if (isCustom) {
+            Log.d(TAG, "[RING-DIAG] Using CUSTOM ringtone: $ringtoneUri")
+            android.net.Uri.parse(ringtoneUri)
+        } else {
+            val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            Log.d(TAG, "[RING-DIAG] No custom ringtone set, using SYSTEM DEFAULT: $defaultUri")
+            defaultUri
+        }
+        if (uri == null) {
+            Log.w(TAG, "[RING-DIAG] No ringtone URI available, skipping")
+            return
+        }
+
+        // 停止并释放旧的 MediaPlayer（如果存在）
+        releaseMediaPlayer()
+
+        try {
+            // 渐进模式：从 1 开始，与 updateRingVolumeDisplay 计算逻辑一致
+            val alarmEntry = AlarmScheduler.findAlarm(this, alarmId)
+            val mode = LockWindowManager.testVibrationMode ?: alarmEntry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE
+            val initialVolume = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
+                val elapsedSec = ((System.currentTimeMillis() - serviceStartTime) / 1000L).toInt().coerceAtLeast(0)
+                val ringMax = (LockWindowManager.testProgressiveMaxRingVolume
+                    ?: alarmEntry?.progressiveMaxRingVolume
+                    ?: AlarmScheduler.getDefaultProgressiveMaxRingVolume(this)).coerceIn(1, 10)
+                (1 + elapsedSec / 10).coerceIn(1, ringMax)
+            } else {
+                ringVolume.coerceIn(1, 10)
+            }
+            val vol = ringVolumeToFloat(initialVolume)
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(this@AlarmVibrationService, uri)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                isLooping = true
+                setVolume(vol, vol)
+                prepare()
+                start()
+            }
+            Log.d(TAG, "[RING-DIAG] MediaPlayer created and started, initialVolume=$initialVolume, vol=$vol, uri=$uri")
+            startVolumeLock()
+        } catch (e: Exception) {
+            Log.e(TAG, "[RING-DIAG] Failed to start MediaPlayer: ${e.message}", e)
+            releaseMediaPlayer()
+        }
+    }
+
+    /** 安全释放 MediaPlayer 资源 */
+    private fun releaseMediaPlayer() {
+        mediaPlayer?.let { mp ->
+            try {
+                if (mp.isPlaying) mp.stop()
+            } catch (_: Exception) {}
+            try {
+                mp.reset()
+            } catch (_: Exception) {}
+            try {
+                mp.release()
+            } catch (_: Exception) {}
+        }
+        mediaPlayer = null
+    }
+
+    /**
+     * 停止铃声并释放 MediaPlayer 资源。
+     */
+    private fun stopRingtone() {
+        Log.d(TAG, "[RING-DIAG] stopRingtone called, wasPlaying=${mediaPlayer?.isPlaying}")
+        releaseMediaPlayer()
+        stopVolumeLock()
+    }
+
+    /**
+     * 锁定 STREAM_MUSIC 到最大值，让音量键对闹钟铃声"失效"。
+     * 每 200ms 检测一次，用户按音量键后立刻被还原，
+     * MediaPlayer.setVolume() 成为唯一音量控制。
+     */
+    private var volumeLockRunnable: Runnable? = null
+    private var volumeLockMaxVol: Int = 0
+
+    private fun startVolumeLock() {
+        if (volumeLocked) return
+        val audioMgr = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val maxVol = audioMgr.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        // 锁定到80%而非100%，给MediaPlayer.setVolume()留出足够的动态范围
+        // 否则在最大系统音量上，即使0.008的MediaPlayer音量通过扬声器出来仍然很大声
+        volumeLockMaxVol = (maxVol * 0.8f).toInt().coerceAtLeast(1)
+        audioMgr.setStreamVolume(AudioManager.STREAM_MUSIC, volumeLockMaxVol, 0)
+        volumeLocked = true
+
+        volumeLockRunnable = object : Runnable {
+            override fun run() {
+                if (!volumeLocked) return
+                val cur = audioMgr.getStreamVolume(AudioManager.STREAM_MUSIC)
+                if (cur != volumeLockMaxVol) {
+                    Log.d(TAG, "[VOL-LOCK] volume changed $cur → $volumeLockMaxVol, restoring")
+                    audioMgr.setStreamVolume(AudioManager.STREAM_MUSIC, volumeLockMaxVol, 0)
+                }
+                handler.postDelayed(this, 200)
+            }
+        }
+        handler.postDelayed(volumeLockRunnable!!, 200)
+        Log.d(TAG, "[VOL-LOCK] STREAM_MUSIC locked to 80% ($volumeLockMaxVol / $maxVol)")
+    }
+
+    private fun stopVolumeLock() {
+        if (!volumeLocked) return
+        volumeLocked = false
+        volumeLockRunnable?.let { handler.removeCallbacks(it) }
+        volumeLockRunnable = null
+        Log.d(TAG, "[VOL-LOCK] released")
+    }
+
+    private fun stopVibration() {
+        vibrator?.cancel()
+        vibrator = null
+        releaseWakeLock()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+            "IronWill:AlarmVibrationService"
+        ).apply {
+            setReferenceCounted(false)
+            acquire(30 * 60 * 1000L) // 30 minutes max
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            wakeLock?.let {
+                if (it.isHeld) it.release()
+            }
+        } catch (_: Exception) {
+        } finally {
+            wakeLock = null
+        }
+    }
+
+    private fun createNotificationChannel() {
+        val nm = getSystemService(NotificationManager::class.java)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "闹钟",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "闹钟触发时显示挑战界面"
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            enableVibration(false)
+            // 铃声由 MediaPlayer 独立控制，通知 channel 永远不设声音
+            setSound(null, null)
+        }
+        nm.createNotificationChannel(channel)
+    }
+
+    private fun buildNotification(): Notification {
+        val intent = Intent(this, AlarmActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
+            putExtra("is_locked_screen", true)
+        }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        val fullScreenIntent = PendingIntent.getActivity(
+            this,
+            4100 + alarmId.coerceAtLeast(0),
+            intent,
+            flags
+        )
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("闹钟震动中")
+            .setContentText("完成挑战后关闭")
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setOngoing(true)
+            .setCategory(Notification.CATEGORY_SERVICE)  // 前台服务通知，不用 CATEGORY_ALARM 避免 Vivo 自动播放系统闹钟声
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(fullScreenIntent)
+            .setFullScreenIntent(fullScreenIntent, true)
+            .setSilent(true)  // 铃声由 MediaPlayer 独立控制，通知必须静默（Vivo 等 OEM 会忽略 setSound(null)）
+
+        // 根据铃声模式设置 vibration（铃声由 MediaPlayer 独立控制，通知不设声音）
+        when (alarmMode) {
+            AlarmScheduler.AlarmMode.RING_ONLY -> {
+                builder.setSound(null)
+                builder.setVibrate(longArrayOf(0))
+            }
+            AlarmScheduler.AlarmMode.VIBRATE_ONLY -> {
+                builder.setSound(null)
+            }
+            AlarmScheduler.AlarmMode.VIBRATE_AND_RING -> {
+                builder.setSound(null)
+            }
+        }
+        return builder.build()
+    }
+
+    private fun updateForegroundNotification() {
+        try {
+            createNotificationChannel()
+            startForeground(NOTIFICATION_ID, buildNotification())
+            LogExporter.logEvent("AlarmOverlay", "FULL_SCREEN_NOTIFICATION_UPDATED id=$alarmId")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to update full-screen notification: ${e.message}")
+            LogExporter.logEvent("AlarmOverlay", "FULL_SCREEN_NOTIFICATION_FAILED id=$alarmId error=${e.javaClass.simpleName}:${e.message}")
+        }
+    }
+
+    /**
+     * 🛑 [Fix: 提前响] PreWarm 用的极简前台服务通知。
+     *
+     * 与 buildNotification() 的关键差异:
+     * - 不调用 setFullScreenIntent:Vivo 把带此 flag 的高优先级通知当闹钟,提前响+震动
+     * - PRIORITY_MIN:不会弹横幅、不会进头部
+     * - 无 setCategory:避免任何 OEM 触发"闹钟类通知"特殊行为
+     *
+     * PreWarm 的唯一目的是保活,不需要任何 UI 暴露给用户。
+     */
+    private fun buildMinimalKeepAliveNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("IronWill")
+            .setContentText("闹钟预热中...")
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setSilent(true)
+            .build()
+    }
+
+    private fun startForegroundWithMinimalNotification() {
+        try {
+            createNotificationChannel()
+            // 用 NOTIFICATION_ID 同一个槽位:主闹钟到达时 updateForegroundNotification() 会覆盖它,
+            // 不需要在主闹钟路径里再清旧通知。
+            startForeground(NOTIFICATION_ID, buildMinimalKeepAliveNotification())
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to start foreground with minimal notification: ${e.message}")
+        }
+    }
+}

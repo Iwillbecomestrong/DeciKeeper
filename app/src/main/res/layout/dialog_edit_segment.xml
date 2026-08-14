@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@drawable/bg_sea_surface">
+
+    <!-- 时段名称 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="时段名称"
+        android:textSize="14sp"
+        android:textColor="#00838F"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/et_edit_name"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_sea_bubble"
+        android:paddingHorizontal="16dp"
+        android:textSize="12sp"
+        android:textColor="#004D40"
+        android:textColorHint="#80DEEA"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- 时间范围 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="时间范围"
+        android:textSize="14sp"
+        android:textColor="#00838F"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/btn_edit_start"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:backgroundTint="#E0F7FA"
+            android:textColor="#006064"
+            android:text="08:00"
+            android:gravity="center"
+            android:textAllCaps="false"
+            android:textSize="16sp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  -  "
+            android:textSize="18sp"
+            android:textColor="#006064"/>
+
+        <Button
+            android:id="@+id/btn_edit_end"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:backgroundTint="#E0F7FA"
+            android:textColor="#006064"
+            android:text="12:00"
+            android:gravity="center"
+            android:textAllCaps="false"
+            android:textSize="16sp"/>
+    </LinearLayout>
+
+    <!-- 休息时长 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:baselineAligned="false"
+        android:layout_marginBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="休息时长 (分钟)"
+                android:textSize="14sp"
+                android:textColor="#00838F"
+                android:layout_marginBottom="8dp"/>
+
+            <EditText
+                android:id="@+id/et_edit_limit"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:paddingHorizontal="16dp"
+                android:inputType="number"
+                android:textSize="14sp"
+                android:textColor="#004D40"
+                android:textColorHint="#80DEEA"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 🆕 可用次数 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔢 可用次数"
+            android:textSize="14sp"
+            android:textColor="#00838F"
+            android:layout_marginBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/et_edit_usable_count"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_sea_bubble"
+            android:paddingHorizontal="16dp"
+            android:inputType="number"
+            android:textSize="14sp"
+            android:textColor="#004D40"
+            android:textColorHint="#80DEEA"
+            android:hint="留空=自动计算"/>
+
+        <TextView
+            android:id="@+id/tv_usable_count_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="默认 = 时长 ÷ 30min = X 次"
+            android:textColor="#9E9E9E"
+            android:textSize="11sp"
+            android:layout_marginTop="2dp"/>
+    </LinearLayout>
+
+    <!-- 生效周期 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="生效周期"
+        android:textSize="14sp"
+        android:textColor="#00838F"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btn_edit_days"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:backgroundTint="#E0F7FA"
+        android:textColor="#006064"
+        android:text="每天"
+        android:gravity="center"
+        android:textAllCaps="false"/>
+
+    <!-- 🛡 本时段黑名单 (TASK-05)：入口按钮 + 状态摘要；新增弹窗中隐藏此节 -->
+    <LinearLayout
+        android:id="@+id/ll_segment_list_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="16dp">
+
+        <Button
+            android:id="@+id/btn_edit_segment_list"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:backgroundTint="#1565C0"
+            android:textColor="#FFFFFF"
+            android:text="🛡 本时段黑名单"
+            android:gravity="center"
+            android:textAllCaps="false"
+            android:textSize="15sp"/>
+
+        <TextView
+            android:id="@+id/tv_segment_list_summary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="跟随全局黑名单"
+            android:textColor="#00838F"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- Title is handled by Dialog.setTitle, but we can have a sub-header if needed -->
+    
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:minHeight="200dp">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <CheckBox android:id="@+id/cb_sun" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="周日" android:textSize="16sp" android:paddingVertical="8dp"/>
+            <CheckBox android:id="@+id/cb_mon" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="周一" android:textSize="16sp" android:paddingVertical="8dp"/>
+            <CheckBox android:id="@+id/cb_tue" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="周二" android:textSize="16sp" android:paddingVertical="8dp"/>
+            <CheckBox android:id="@+id/cb_wed" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="周三" android:textSize="16sp" android:paddingVertical="8dp"/>
+            <CheckBox android:id="@+id/cb_thu" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="周四" android:textSize="16sp" android:paddingVertical="8dp"/>
+            <CheckBox android:id="@+id/cb_fri" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="周五" android:textSize="16sp" android:paddingVertical="8dp"/>
+            <CheckBox android:id="@+id/cb_sat" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="周六" android:textSize="16sp" android:paddingVertical="8dp"/>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#EEEEEE"
+        android:layout_marginVertical="12dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/btn_select_workdays"
+            style="@style/Widget.AppCompat.Button.Borderless.Colored"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="仅工作日"
+            android:textColor="#009688"/>
+
+        <Button
+            android:id="@+id/btn_select_everyday"
+            style="@style/Widget.AppCompat.Button.Borderless.Colored"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="每天"
+            android:textColor="#009688"/>
+    </LinearLayout>
+
+</LinearLayout>

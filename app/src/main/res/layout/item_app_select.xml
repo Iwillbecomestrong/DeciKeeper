@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="15dp"
+    android:gravity="center_vertical"
+    android:background="?android:attr/selectableItemBackground">
+
+    <!--
+      组件名称: 黑名单选择列表项 (Item)
+      文件路径: app/src/main/res/layout/item_app_select.xml
+      描述:
+      - 复用了 item_app_list.xml 的类似结构，但样式微调
+      - 用于 AppSelectionActivity 中的列表显示
+    -->
+
+    <ImageView
+        android:id="@+id/img_app_icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@android:drawable/sym_def_app_icon"/>
+
+    <TextView
+        android:id="@+id/tv_app_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="15dp"
+        android:text="微信"
+        android:textSize="16sp"
+        android:textColor="#333333"/>
+
+    <CheckBox
+        android:id="@+id/cb_app_selected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clickable="false"
+        android:focusable="false"/>
+
+</LinearLayout>

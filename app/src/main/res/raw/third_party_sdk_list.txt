@@ -1,0 +1,89 @@
+第三方 SDK 清单
+
+版本：v0.1.0-2026-07-05
+状态：占位合规文本，待法务 review
+依据：app/build.gradle.kts 实际依赖审计（commit efe533d0）
+
+==============================================
+概述
+==============================================
+
+  1. 本应用 **不接入任何"会主动收集个人信息"的第三方 SDK**（无统计、无广告、无推送、无社交登录、无崩溃上报平台）。
+  2. 项目仅依赖以下 Android 开源基础库与少量 Java 工具库。它们不涉及个人信息的主动收集，仅用于支撑应用本身的 UI 与本地功能。
+  3. 区分原则：
+     - "第三方库" = 提供本地功能、不主动收集个人信息。
+     - "会收集个人信息的 SDK" = 包含统计、广告、推送、社交登录、崩溃上报等行为。
+     - 本项目当前 **仅含第三方库，无会收集个人信息的 SDK**。
+
+==============================================
+第三方库（不收集个人信息）
+==============================================
+
+【1】AndroidX AppCompat
+   - 作用：兼容旧版本 Android 系统的 UI 基础组件
+   - 收集个人信息：否
+   - 官网：https://developer.android.com/jetpack/androidx/releases/appcompat
+
+【2】AndroidX Core KTX
+   - 作用：Kotlin 语法糖扩展
+   - 收集个人信息：否
+   - 官网：https://developer.android.com/jetpack/androidx/releases/core
+
+【3】AndroidX Activity
+   - 作用：Activity 结果 API 与生命周期
+   - 收集个人信息：否
+
+【4】AndroidX ConstraintLayout
+   - 作用：声明式布局
+   - 收集个人信息：否
+
+【5】Google Material Components for Android
+   - 作用：Material Design UI 组件
+   - 收集个人信息：否
+   - 官网：https://github.com/material-components/material-components-android
+
+【6】AndroidX GridLayout
+   - 作用：网格布局
+   - 收集个人信息：否
+
+【7】AndroidX WorkManager
+   - 作用：后台任务调度
+   - 收集个人信息：否
+   - 官网：https://developer.android.com/jetpack/androidx/releases/work
+
+【8】MPAndroidChart
+   - 作用：图表渲染（统计页用）
+   - 收集个人信息：否
+   - 官网：https://github.com/PhilJay/MPAndroidChart
+
+【9】ZXing Android Embedded
+   - 作用：二维码扫描与生成（仅在用户主动触发"扫码导入"时调用）
+   - 收集个人信息：否（仅读取用户镜头指向的二维码，**不上传任何数据**）
+   - 官网：https://github.com/journeyapps/zxing-android-embedded
+
+==============================================
+会收集个人信息的 SDK
+==============================================
+
+  无。
+
+  本项目目前未集成任何统计、广告、推送、社交登录、崩溃上报、行为分析等可能主动收集个人信息的第三方 SDK。
+
+==============================================
+后续接入与公示承诺
+==============================================
+
+  1. 如未来版本新增任何会收集个人信息的 SDK，本清单会同步更新版本号、生效日期与下列信息：
+     - SDK 名称、版本号、开发者主体；
+     - 收集的个人信息字段与目的；
+     - 处理的合法基础（同意 / 合同必要 / 法律义务 / 重大利益等）；
+     - 是否涉及跨境传输；
+     - 用户如何关闭 / 撤回。
+  2. 同时会在「设置 → 关于我们 → 与第三方共享信息清单」中补充。
+
+==============================================
+
+开发者：[待法务填写]
+联系邮箱：[待法务填写]
+审计日期：2026-07-05
+依据：app/build.gradle.kts commit efe533d0

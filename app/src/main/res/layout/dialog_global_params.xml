@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- 🟢 1. 次周生效 (特权) -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#FAFAFA"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:contentPadding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📅 次周生效 (每周特权)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#2E7D32"
+                android:layout_marginBottom="4dp"/>
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="利好立即生效，不利修改下周生效"
+                android:textSize="12sp"
+                android:textColor="#757575"
+                android:layout_marginBottom="12dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💎 每周特权次数"
+                android:textSize="14sp"
+                android:textColor="#00838F"
+                android:layout_marginBottom="8dp"/>
+
+            <EditText
+                android:id="@+id/et_weekly_privilege_limit"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:paddingHorizontal="16dp"
+                android:hint="默认 3次"
+                android:inputType="number"
+                android:textSize="14sp"
+                android:textColor="#2E7D32"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- 🟢 2. 次日生效 (核心规则) -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#FAFAFA"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:contentPadding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📅 次日生效 (核心规则)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#1565C0"
+                android:layout_marginBottom="4dp"/>
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="利好立即生效，不利修改次日生效"
+                android:textSize="12sp"
+                android:textColor="#757575"
+                android:layout_marginBottom="12dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🕐 次日/次周生效时间 [06:00-23:59]"
+                android:textSize="14sp"
+                android:textColor="#00838F"
+                android:layout_marginBottom="8dp"/>
+
+            <EditText
+                android:id="@+id/et_refresh_time"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:paddingHorizontal="16dp"
+                android:hint="默认 06:00"
+                android:inputType="time"
+                android:textSize="14sp"
+                android:textColor="#1565C0"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💸 下阶段借用比例 (%)"
+                android:textSize="14sp"
+                android:textColor="#00838F"
+                android:layout_marginBottom="8dp"/>
+
+            <EditText
+                android:id="@+id/et_borrow_percentage"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:paddingHorizontal="16dp"
+                android:hint="默认 50%"
+                android:inputType="number"
+                android:textSize="14sp"
+                android:textColor="#E65100"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="❄️ 冷静/空档冷却时长 (秒)"
+                android:textSize="14sp"
+                android:textColor="#00838F"
+                android:layout_marginBottom="8dp"/>
+
+            <EditText
+                android:id="@+id/et_cool_down"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:paddingHorizontal="16dp"
+                android:hint="休息:60 / 空挡:60"
+                android:inputType="number"
+                android:textSize="14sp"
+                android:textColor="#004D40"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🚨 黑名单锁机时长 (秒)"
+                android:textSize="14sp"
+                android:textColor="#00838F"
+                android:layout_marginBottom="8dp"/>
+
+            <EditText
+                android:id="@+id/et_strict_penalty_duration"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:paddingHorizontal="16dp"
+                android:hint="默认 15秒"
+                android:inputType="number"
+                android:textSize="14sp"
+                android:textColor="#C62828"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- 🟢 3. 立即生效 (预警设置) -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#FAFAFA"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:contentPadding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔔 立即生效 (预警设置)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#E65100"
+                android:layout_marginBottom="12dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚠️ 结束前预警 (分钟)"
+                android:textSize="14sp"
+                android:textColor="#00838F"
+                android:layout_marginBottom="8dp"/>
+
+            <EditText
+                android:id="@+id/et_notify_advance"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_sea_bubble"
+                android:paddingHorizontal="16dp"
+                android:hint="默认 5分钟"
+                android:inputType="number"
+                android:textSize="14sp"
+                android:textColor="#004D40"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <RadioGroup
+        android:id="@+id/rg_strict_mode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"/>
+
+</LinearLayout>
+

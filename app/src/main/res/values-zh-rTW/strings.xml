@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">IronWill</string>
+    <string name="accessibility_description">IronWill 核心服務，用於保護您的自律狀態並防止應用被意外移除。請保持開啟以確保保護生效。</string>
+
+    <!-- Anti-Uninstall Warning -->
+    <string name="anti_uninstall_title">🛡️ 防移除保護</string>
+    <string name="anti_uninstall_message">檢測到嘗試移除、停止 IronWill 或關閉無障礙服務的行為，已自動攔截保護。\n\n如需手動操作，請先在 App 內關閉防移除保護。</string>
+    <string name="btn_got_it">我知道了</string>
+    <string name="btn_back">返回</string>
+</resources>
