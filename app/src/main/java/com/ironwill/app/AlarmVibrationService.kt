@@ -106,6 +106,24 @@ class AlarmVibrationService : Service() {
     // 铃声播放（使用 MediaPlayer + USAGE_MEDIA，音量完全由 app 控制）
     private var mediaPlayer: android.media.MediaPlayer? = null
 
+    // Event-driven logging bridge (task-6). 震动服务对桥决策无权威——
+    // 仅在铃声"实际开始/停止播放"这个已完成事实发生时各记录一次事件。
+    private val alarmProtectionNormalEventLogger by lazy {
+        NormalEventLogger(
+            renderer = DefaultNormalEventRenderer,
+            sinks = listOf(LogExporter.normalEventSink(), AndroidLogcatNormalEventSink())
+        )
+    }
+    private val alarmProtectionEventBridge by lazy {
+        AlarmProtectionEventBridge(
+            clock = SystemEventClock,
+            emit = alarmProtectionNormalEventLogger::emit,
+            debugConfig = DefaultLogDebugConfig
+        )
+    }
+    /** 铃声实际开始播放的时间戳；0 表示当前会话未响铃。用于 RING_END 的 durationMs 与防重复发射 */
+    private var ringStartedAtMs: Long = 0L
+
     // [音量锁定] 播放铃声时锁定 STREAM_MUSIC 到最大值，
     // 用户按音量键后立刻被还原，让音量键对闹钟铃声"失效"。
     // app 内 ringVolume (1-10) → setVolume(0.1~1.0) 成为唯一音量控制。
@@ -461,6 +479,14 @@ class AlarmVibrationService : Service() {
             }
             Log.d(TAG, "[RING-DIAG] MediaPlayer created and started, initialVolume=$initialVolume, vol=$vol, uri=$uri")
             startVolumeLock()
+            // 铃声实际开始播放: 发射一次 ALARM_RING_START。startRingtone() 在
+            // alreadyPlaying 时提前返回, 所以同一播放会话内不会重复发射;
+            // AlarmReceiver 触发时的 RING_START 是"闹钟触发了"这一事实,
+            // 此处是"铃声真的响了"这一事实, 两者语义不同, 均为契约要求。
+            if (ringStartedAtMs == 0L) {
+                ringStartedAtMs = System.currentTimeMillis()
+                alarmProtectionEventBridge.recordAlarmRingStart(alarmId = alarmId.toString())
+            }
         } catch (e: Exception) {
             Log.e(TAG, "[RING-DIAG] Failed to start MediaPlayer: ${e.message}", e)
             releaseMediaPlayer()
@@ -488,6 +514,17 @@ class AlarmVibrationService : Service() {
      */
     private fun stopRingtone() {
         Log.d(TAG, "[RING-DIAG] stopRingtone called, wasPlaying=${mediaPlayer?.isPlaying}")
+        // 铃声物理停止: 发射一次 ALARM_RING_END。reason 采用服务视角的分类
+        // (服务停止), 用户动作层面的 DISMISS/SNOOZE/扫码完成已由锁屏覆盖层簇
+        // 单独发射 ALARM_DISMISS/ALARM_SNOOZE, 此处不做跨组件推断。
+        if (ringStartedAtMs > 0L) {
+            alarmProtectionEventBridge.recordAlarmRingEnd(
+                alarmId = alarmId.toString(),
+                reason = "SERVICE_STOPPED",
+                durationMs = (System.currentTimeMillis() - ringStartedAtMs).toString()
+            )
+            ringStartedAtMs = 0L
+        }
         releaseMediaPlayer()
         stopVolumeLock()
     }
