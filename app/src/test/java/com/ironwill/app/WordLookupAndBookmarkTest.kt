@@ -1,11 +1,16 @@
 package com.ironwill.app
 
 import android.content.SharedPreferences
+import com.ironwill.app.manager.AlarmChallengeManager
+import com.ironwill.app.ui.findWordAtIndex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+
+
+
 
 /** Req-1 修正：长按题目任意单词查词 + 星星收藏/取消收藏 测试。 */
 class WordLookupAndBookmarkTest {

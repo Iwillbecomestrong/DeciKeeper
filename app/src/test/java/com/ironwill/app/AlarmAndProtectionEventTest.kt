@@ -1,16 +1,35 @@
 package com.ironwill.app
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import com.ironwill.app.data.DefaultNormalEventRenderer
+import com.ironwill.app.data.EventClock
+import com.ironwill.app.data.LogDebugConfig
+import com.ironwill.app.data.LogExporter
+import com.ironwill.app.data.NormalEventDraft
+import com.ironwill.app.data.NormalEventLogger
+import com.ironwill.app.data.NormalEventSink
+import com.ironwill.app.data.NormalEvents
+import com.ironwill.app.manager.AlarmProtectionEventBridge
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.nio.charset.StandardCharsets
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+
+
+
+
+
+
+
+
+
 
 /**
  * RED contract for alarm, protection, and service-state outcome events.
@@ -197,7 +216,7 @@ class AlarmAndProtectionEventTest {
         assertFields(captured[0], "action" to "RECOVERED_BY_WORK_MANAGER")
 
         // caller's polling loop MUST NOT call any periodic bridge method - prove by reflection-style inspection
-        val bridgeSrc = source("app/src/main/java/com/ironwill/app/AlarmProtectionEventBridge.kt")
+        val bridgeSrc = source("app/src/main/java/com/ironwill/app/manager/AlarmProtectionEventBridge.kt")
         assertFalse(
             "bridge must not expose a periodic tick/heartbeat method",
             bridgeSrc.contains("fun recordAlarmHeartbeat") ||
@@ -235,7 +254,7 @@ class AlarmAndProtectionEventTest {
 
         // the bridge has no recordProtectionHeartbeat / periodic-poll method - in-process polling
         // must be classified as state-changes rather than a periodic summary
-        val bridgeSrc = source("app/src/main/java/com/ironwill/app/AlarmProtectionEventBridge.kt")
+        val bridgeSrc = source("app/src/main/java/com/ironwill/app/manager/AlarmProtectionEventBridge.kt")
         assertFalse(
             "protection bridge must not expose a periodic poll method",
             bridgeSrc.contains("fun recordProtectionHeartbeat") ||
@@ -280,9 +299,9 @@ class AlarmAndProtectionEventTest {
 
     @Test
     fun productionAlarmSchedulerAndOverlayWireTheBridge() {
-        val schedulerSrc = source("app/src/main/java/com/ironwill/app/AlarmScheduler.kt")
-        val receiverSrc = source("app/src/main/java/com/ironwill/app/AlarmReceiver.kt")
-        val bridgeSrc = source("app/src/main/java/com/ironwill/app/AlarmProtectionEventBridge.kt")
+        val schedulerSrc = source("app/src/main/java/com/ironwill/app/manager/AlarmScheduler.kt")
+        val receiverSrc = source("app/src/main/java/com/ironwill/app/receiver/AlarmReceiver.kt")
+        val bridgeSrc = source("app/src/main/java/com/ironwill/app/manager/AlarmProtectionEventBridge.kt")
 
         assertTrue(
             "AlarmScheduler.scheduleNext must emit ALARM_SCHEDULE through AlarmProtectionEventBridge",
@@ -310,9 +329,9 @@ class AlarmAndProtectionEventTest {
 
     @Test
     fun productionWatchdogSilencesIdleHeartbeat() {
-        val watchdogSrc = source("app/src/main/java/com/ironwill/app/AlarmWatchdogService.kt")
-        val receiverSrc = source("app/src/main/java/com/ironwill/app/AlarmReceiver.kt")
-        val bridgeSrc = source("app/src/main/java/com/ironwill/app/AlarmProtectionEventBridge.kt")
+        val watchdogSrc = source("app/src/main/java/com/ironwill/app/service/AlarmWatchdogService.kt")
+        val receiverSrc = source("app/src/main/java/com/ironwill/app/receiver/AlarmReceiver.kt")
+        val bridgeSrc = source("app/src/main/java/com/ironwill/app/manager/AlarmProtectionEventBridge.kt")
 
         // alarm receiver must convert recovery into a single ALARM_RECOVERY event rather than
         // firing a heartbeat loop

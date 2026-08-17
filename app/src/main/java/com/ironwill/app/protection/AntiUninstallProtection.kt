@@ -26,11 +26,16 @@ import android.util.Log
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.ironwill.app.AntiUninstallManager
-import com.ironwill.app.AccessibilityControlManager
-import com.ironwill.app.LogExporter
-import com.ironwill.app.PrivacyProtectionManager
 import com.ironwill.app.R
+import com.ironwill.app.data.LogExporter
+import com.ironwill.app.manager.AccessibilityControlManager
+import com.ironwill.app.manager.AntiUninstallManager
+import com.ironwill.app.manager.PrivacyProtectionManager
+
+
+
+
+
 
 class AntiUninstallProtection(private val context: Context) {
 
@@ -1452,10 +1457,10 @@ class AntiUninstallProtection(private val context: Context) {
                             // Show Selection Dialog
                             android.app.AlertDialog.Builder(context)
                                 .setTitle("瀵煎嚭鏃ュ織 (闃插嵏杞?")
-                                .setItems(com.ironwill.app.LogExporter.LOG_OPTIONS) { _, which ->
-                                    val duration = com.ironwill.app.LogExporter.LOG_DURATIONS[which]
-                                    val label = com.ironwill.app.LogExporter.LOG_OPTIONS[which]
-                                    com.ironwill.app.LogExporter.exportAndShareRecent(context, duration, com.ironwill.app.LogExporter.DEFAULT_RECIPIENT, "IronWill 闃插嵏杞芥棩蹇?($label)")
+                                .setItems(com.ironwill.app.data.LogExporter.LOG_OPTIONS) { _, which ->
+                                    val duration = com.ironwill.app.data.LogExporter.LOG_DURATIONS[which]
+                                    val label = com.ironwill.app.data.LogExporter.LOG_OPTIONS[which]
+                                    com.ironwill.app.data.LogExporter.exportAndShareRecent(context, duration, com.ironwill.app.data.LogExporter.DEFAULT_RECIPIENT, "IronWill 闃插嵏杞芥棩蹇?($label)")
                                 }
                                 .show()
                         }

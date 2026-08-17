@@ -20,12 +20,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+
 class MainActivityFallbackPendingExtrasTest {
 
     private fun readMainActivitySource(): String {
         val candidates = listOf(
-            java.io.File("src/main/java/com/ironwill/app/MainActivity.kt"),
-            java.io.File("app/src/main/java/com/ironwill/app/MainActivity.kt")
+            java.io.File("src/main/java/com/ironwill/app/ui/MainActivity.kt"),
+            java.io.File("app/src/main/java/com/ironwill/app/ui/MainActivity.kt")
         )
         for (f in candidates) {
             if (f.exists()) return f.readText(Charsets.UTF_8)

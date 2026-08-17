@@ -19,19 +19,87 @@
 package com.ironwill.app
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.content.Intent
+import android.content.SharedPreferences
+import android.util.Log
+import com.ironwill.app.data.AnalysisResult
+import com.ironwill.app.data.LogExporter
+import com.ironwill.app.data.SegmentAdverseAnalysis
+import com.ironwill.app.data.TimeSegment
+import com.ironwill.app.manager.AccessibilityControlManager
+import com.ironwill.app.manager.AlarmScheduler
+import com.ironwill.app.manager.AntiUninstallManager
+import com.ironwill.app.manager.AppWindowManager
+import com.ironwill.app.manager.AppWindowManager.AppWindowRule
+import com.ironwill.app.manager.ChangeLogManager
+import com.ironwill.app.manager.ConfigPendingManager
+import com.ironwill.app.manager.CreditManager
+import com.ironwill.app.manager.EffectiveActivationPolicyManager
+import com.ironwill.app.manager.ManualPermissionRecoveryManager
+import com.ironwill.app.manager.PermissionManager
+import com.ironwill.app.manager.PrivacyProtectionManager
+import com.ironwill.app.manager.ProbationManager
+import com.ironwill.app.manager.PwaBypassManager
+import com.ironwill.app.manager.SettingsBackupManager
+import com.ironwill.app.manager.StartupProtectionManager
+import com.ironwill.app.manager.TimeRuleManager
+import com.ironwill.app.protection.AccessibilityProtection
+import com.ironwill.app.protection.AntiUninstallProtection
+import com.ironwill.app.service.A11yGuardService
+import com.ironwill.app.service.AlarmVibrationService
+import com.ironwill.app.service.CoreService
+import com.ironwill.app.service.MonitorLoopScheduleGate
+import com.ironwill.app.service.MonitorService
+import com.ironwill.app.ui.AppWindowFragment
+import com.ironwill.app.ui.AppWindowPreviewActivity
+import com.ironwill.app.ui.HomeFragment
+import com.ironwill.app.ui.LockWindowManager
+import com.ironwill.app.ui.RulesFragment
+import com.ironwill.app.ui.SchedulePreviewActivity
+import com.ironwill.app.ui.TimeConfigFragment
+import com.ironwill.app.ui.isTemporaryAccessMinuteInputValid
+import com.ironwill.app.ui.temporaryAccessMinutesToSeconds
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import org.json.JSONArray
 import org.json.JSONObject
-import android.util.Log
-import com.ironwill.app.AppWindowManager.AppWindowRule
-import com.ironwill.app.protection.AccessibilityProtection
-import com.ironwill.app.A11yGuardService
-import com.ironwill.app.protection.AntiUninstallProtection
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * 场景测试管理器 (TestScenarioManager)
@@ -6345,7 +6413,7 @@ object TestScenarioManager {
         
         try {
             // Static Reflection Check to verify method existence
-            val kClass = Class.forName("com.ironwill.app.LogExporter")
+            val kClass = Class.forName("com.ironwill.app.data.LogExporter")
             // Check for exportAndShareRecent(Context, Long, String, String)
             val method = kClass.getMethod("exportAndShareRecent", Context::class.java, Long::class.java, String::class.java, String::class.java)
             if (method != null) {
@@ -8252,8 +8320,8 @@ object TestScenarioManager {
         // ---- Part D: LOG_OPTIONS 和 LOG_DURATIONS 一致性 ----
         log("\n--- Part D: 日志选项配置验证 ---")
         
-        val logOptions = com.ironwill.app.LogExporter.LOG_OPTIONS
-        val logDurations = com.ironwill.app.LogExporter.LOG_DURATIONS
+        val logOptions = com.ironwill.app.data.LogExporter.LOG_OPTIONS
+        val logDurations = com.ironwill.app.data.LogExporter.LOG_DURATIONS
         
         // Case D-1: 数组长度一致
         val lengthMatch = logOptions.size == logDurations.size
@@ -11864,7 +11932,7 @@ object TestScenarioManager {
         // --- Test 9: show() 悬浮窗权限降级 fallback ---
         // Expected Input: 无 SYSTEM_ALERT_WINDOW 权限或 showAlarmOverlay 抛出异常。
         // Expected Output: AlarmWindowManager 存在 fallbackToActivity 私有方法，降级启动 AlarmActivity。
-        val alarmWindowManagerClass = Class.forName("com.ironwill.app.AlarmWindowManager")
+        val alarmWindowManagerClass = Class.forName("com.ironwill.app.manager.AlarmWindowManager")
         val hasFallbackMethod = alarmWindowManagerClass.declaredMethods.any { it.name == "fallbackToActivity" }
         assertPass(
             hasFallbackMethod,

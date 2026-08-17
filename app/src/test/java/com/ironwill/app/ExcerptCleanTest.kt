@@ -1,8 +1,11 @@
 package com.ironwill.app
 
+import com.ironwill.app.manager.AlarmChallengeManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
 
 /**
  * Plan-E/A 相关纯函数测试：

@@ -21,6 +21,8 @@
 package com.ironwill.app
 
 import android.content.Context
+import com.ironwill.app.manager.PrivacyProtectionManager
+import com.ironwill.app.ui.RulesFragment
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,6 +34,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+
+
+
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])

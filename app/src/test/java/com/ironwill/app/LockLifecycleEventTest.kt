@@ -1,15 +1,30 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.EventClock
+import com.ironwill.app.data.LogDebugConfig
+import com.ironwill.app.data.NormalEventDraft
+import com.ironwill.app.ui.LifecycleCooldownSettlement
+import com.ironwill.app.ui.LifecycleTerminalState
+import com.ironwill.app.ui.LockLifecycleEventBridge
+import com.ironwill.app.util.ForegroundTransition
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.charset.StandardCharsets
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+
+
+
+
+
+
+
+
 
 /**
  * RED contract for lifecycle facts that are already decided by LockWindowManager and
@@ -276,8 +291,8 @@ class LockLifecycleEventTest {
 
     @Test
     fun productionLifecycleEntrypointsRecordRealRejectionsAndSettleAllReturnDesktopOutcomes() {
-        val lockWindow = source("app/src/main/java/com/ironwill/app/LockWindowManager.kt")
-        val monitor = source("app/src/main/java/com/ironwill/app/MonitorService.kt")
+        val lockWindow = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
+        val monitor = source("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
 
         assertTrue(lockWindow.split("recordRestRejected(").size > 2)
         assertTrue(lockWindow.split("recordPrivilegeRejected(").size > 2)
@@ -292,9 +307,9 @@ class LockLifecycleEventTest {
 
     @Test
     fun privilegeFalseResultsAreRejectedAtCreditManagerBoundaryForLockAndHomeCallers() {
-        val creditManager = source("app/src/main/java/com/ironwill/app/CreditManager.kt")
-        val lockWindow = source("app/src/main/java/com/ironwill/app/LockWindowManager.kt")
-        val homeFragment = source("app/src/main/java/com/ironwill/app/HomeFragment.kt")
+        val creditManager = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
+        val lockWindow = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
+        val homeFragment = source("app/src/main/java/com/ironwill/app/ui/HomeFragment.kt")
 
         val startBody = creditManager.substringAfter("fun startWeeklyPrivilege")
             .substringBefore("fun isInPrivilegeAdjustmentWindow")

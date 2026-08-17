@@ -1,9 +1,16 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.ForegroundDetectionLogCompressor
+import com.ironwill.app.data.ForegroundDetectionLogState
+import com.ironwill.app.data.buildForegroundDetectionLogDetail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
+
+
 
 class ForegroundDetectionLogTest {
 

@@ -1,10 +1,15 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.ForegroundDetectionLogCompressor
+import com.ironwill.app.data.ForegroundDetectionLogState
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+
+
+
 
 class LogEventMigrationInventoryTest {
 
@@ -305,9 +310,9 @@ class LogEventMigrationInventoryTest {
      */
     @Test
     fun approvedRemoveCallSitesNoLongerExistInProductSource() {
-        val lockMgr = read("app/src/main/java/com/ironwill/app/LockWindowManager.kt")
-        val monitor = read("app/src/main/java/com/ironwill/app/MonitorService.kt")
-        val creditMgr = read("app/src/main/java/com/ironwill/app/CreditManager.kt")
+        val lockMgr = read("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
+        val monitor = read("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
+        val creditMgr = read("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
 
         // 1. Chinese `惩罚: 扣费` Chinese LogExporter call must NOT exist in production code.
         assertFalse(
@@ -386,11 +391,11 @@ class LogEventMigrationInventoryTest {
      */
     @Test
     fun exportDropPatternsRemainByteForByteUnchanged() {
-        val logExporter = File("app/src/main/java/com/ironwill/app/LogExporter.kt").let { file ->
+        val logExporter = File("app/src/main/java/com/ironwill/app/data/LogExporter.kt").let { file ->
             generateSequence(File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
                 .map { File(it, file.path) }
                 .firstOrNull { it.isFile }
-                ?: error("找不到 app/src/main/java/com/ironwill/app/LogExporter.kt")
+                ?: error("找不到 app/src/main/java/com/ironwill/app/data/LogExporter.kt")
         }
         val onDiskBytes = logExporter.readBytes()
         val onDiskText = String(onDiskBytes, Charsets.UTF_8)
@@ -439,7 +444,7 @@ class LogEventMigrationInventoryTest {
         // (from the git object) while the on-disk file may have CRLF line terminators. We normalize
         // both sides to LF before comparison so the test is portable across host OS settings.
         val gitShowText = String(
-            runGit("show", "HEAD:app/src/main/java/com/ironwill/app/LogExporter.kt"),
+            runGit("show", "HEAD:app/src/main/java/com/ironwill/app/data/LogExporter.kt"),
             Charsets.UTF_8
         )
         val normalizedDisk = onDiskText.replace("\r\n", "\n")
@@ -470,8 +475,8 @@ class LogEventMigrationInventoryTest {
      */
     @Test
     fun samePackageAndDecisionEmitsNoSecondStableStateRecord() {
-        val fdl = read("app/src/main/java/com/ironwill/app/ForegroundDetectionLog.kt")
-        val monitor = read("app/src/main/java/com/ironwill/app/MonitorService.kt")
+        val fdl = read("app/src/main/java/com/ironwill/app/data/ForegroundDetectionLog.kt")
+        val monitor = read("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
 
         // 1. ForegroundDetectionLog.lastStableKey must exist (T2 deliverable, retained).
         assertTrue(
@@ -593,7 +598,7 @@ class LogEventMigrationInventoryTest {
         // Cross-check: MonitorService source still produces its `EventLog.fgDecision(...)` on transition.
         // Since fgDecision is gated by `foregroundRaw`, we verify the `guardChanged` dedup is intact
         // (default true at switch boundary — emits canonically when transition occurs).
-        val monitor = read("app/src/main/java/com/ironwill/app/MonitorService.kt")
+        val monitor = read("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
         assertTrue(
             "MonitorService must keep `guardChanged` short-circuit using lastFgGuardDecision (transition gate, T2 deliverable)",
             monitor.contains("lastFgGuardDecision != guardDecision")

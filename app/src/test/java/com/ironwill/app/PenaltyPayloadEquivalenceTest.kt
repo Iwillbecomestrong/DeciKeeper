@@ -1,5 +1,9 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.EventClock
+import com.ironwill.app.data.LogDebugConfig
+import com.ironwill.app.data.NormalEventDraft
+import com.ironwill.app.manager.QuotaConfigEventBridge
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -7,6 +11,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
+
+
+
 
 /**
  * Boundary 3 — canonical penalty receipt contract.
@@ -103,8 +112,8 @@ class PenaltyPayloadEquivalenceTest {
      */
     @Test
     fun allThreeChargeBranchesEmitEquivalentFieldShape() {
-        val credit = source("app/src/main/java/com/ironwill/app/CreditManager.kt")
-        val bridgeSrc = source("app/src/main/java/com/ironwill/app/QuotaConfigEventBridge.kt")
+        val credit = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
+        val bridgeSrc = source("app/src/main/java/com/ironwill/app/manager/QuotaConfigEventBridge.kt")
 
         // The bridge must expose all 7 detail parameters in recordPenalty's signature.
         listOf(
@@ -169,7 +178,7 @@ class PenaltyPayloadEquivalenceTest {
      */
     @Test
     fun penaltyTypeRemainsPenalty() {
-        val bridgeSrc = source("app/src/main/java/com/ironwill/app/QuotaConfigEventBridge.kt")
+        val bridgeSrc = source("app/src/main/java/com/ironwill/app/manager/QuotaConfigEventBridge.kt")
 
         assertTrue(
             "bridge must still type= PENALTY for penalty receipts",

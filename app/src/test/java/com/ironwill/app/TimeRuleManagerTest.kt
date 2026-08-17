@@ -1,8 +1,13 @@
 package com.ironwill.app
 
-import org.junit.Test
-import org.junit.Assert.*
+import com.ironwill.app.data.SegmentAdverseAnalysis
+import com.ironwill.app.data.TimeSegment
 import java.util.Calendar
+import org.junit.Assert.*
+import org.junit.Test
+
+
+
 
 /**
  * =================================================================================

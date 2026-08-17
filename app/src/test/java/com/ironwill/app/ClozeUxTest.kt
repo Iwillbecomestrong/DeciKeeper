@@ -2,12 +2,15 @@ package com.ironwill.app
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.ironwill.app.manager.AlarmChallengeManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+
+
 
 /**
  * 选词填空 (cloze) UX 逻辑单元测试。

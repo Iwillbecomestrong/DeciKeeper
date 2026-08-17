@@ -23,11 +23,12 @@
  */
 package com.ironwill.app
 
+import java.io.File
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
+
 
 /**
  * TASK-03 退休契约。
@@ -198,7 +199,7 @@ class PrivacyProtectionRetirementContractTest {
     // =========================================================================
     @Test
     fun privacyProtectionManager_and_isEnforcing_alive() {
-        val manager = readMain("java/com/ironwill/app/PrivacyProtectionManager.kt")
+        val manager = readMain("java/com/ironwill/app/manager/PrivacyProtectionManager.kt")
         assertTrue(
             "PrivacyProtectionManager object must still exist",
             manager.contains("object PrivacyProtectionManager")

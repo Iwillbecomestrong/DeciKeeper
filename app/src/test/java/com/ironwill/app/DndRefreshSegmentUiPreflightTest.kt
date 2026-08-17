@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+
 /**
  * WP-04-T02 — DA-D1 segment save UI preflight contract (V13).
  *
@@ -45,7 +46,7 @@ class DndRefreshSegmentUiPreflightTest {
      */
     @Test
     fun v13_dialog_message_literal_is_in_time_config_save_path() {
-        val src = read("app/src/main/java/com/ironwill/app/TimeConfigFragment.kt")
+        val src = read("app/src/main/java/com/ironwill/app/ui/TimeConfigFragment.kt")
         assertTrue(
             "TimeConfigFragment.kt must carry V13 message '时段端点不能跨 refresh time'",
             src.contains("时段端点不能跨 refresh time")
@@ -67,7 +68,7 @@ class DndRefreshSegmentUiPreflightTest {
      */
     @Test
     fun rejected_segment_branch_precedes_analyzeAndSave() {
-        val src = read("app/src/main/java/com/ironwill/app/TimeConfigFragment.kt")
+        val src = read("app/src/main/java/com/ironwill/app/ui/TimeConfigFragment.kt")
         assertTrue(
             "TimeConfigFragment.kt must reference MinuteBoundary.isSegmentLegal",
             src.contains("MinuteBoundary.isSegmentLegal")
@@ -111,7 +112,7 @@ class DndRefreshSegmentUiPreflightTest {
      */
     @Test
     fun v13_literal_marker_exact_match() {
-        val src = read("app/src/main/java/com/ironwill/app/TimeConfigFragment.kt")
+        val src = read("app/src/main/java/com/ironwill/app/ui/TimeConfigFragment.kt")
         val marker = "时段端点不能跨 refresh time"
         val occurrences = countOccurrences(src, marker)
         assertEquals(

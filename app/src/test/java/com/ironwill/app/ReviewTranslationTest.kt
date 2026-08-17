@@ -1,5 +1,6 @@
 package com.ironwill.app
 
+import com.ironwill.app.manager.AlarmChallengeManager
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -7,6 +8,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
 
 /**
  * v3.1 复习回顾翻译 — 纯函数 + parseOneClozeItem 单测

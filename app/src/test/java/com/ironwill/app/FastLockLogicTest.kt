@@ -18,8 +18,11 @@
  */
 package com.ironwill.app
 
-import org.junit.Test
+import com.ironwill.app.manager.StartupProtectionManager
 import org.junit.Assert.*
+import org.junit.Test
+
+
 
 class FastLockLogicTest {
 

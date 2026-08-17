@@ -1,6 +1,11 @@
 package com.ironwill.app
 
 import android.content.Context
+import com.ironwill.app.data.SegmentBlacklist
+import com.ironwill.app.data.TimeSegment
+import com.ironwill.app.manager.AppWindowManager
+import com.ironwill.app.manager.CreditManager
+import com.ironwill.app.manager.TimeRuleManager
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -9,6 +14,12 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+
+
+
+
+
+
 
 /**
  * TASK-03 (segment-blacklist) RED — billing 一致性（SPEC §2.7 / §6 S7）。

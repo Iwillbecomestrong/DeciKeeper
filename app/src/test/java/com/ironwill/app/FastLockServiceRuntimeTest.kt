@@ -21,8 +21,13 @@
 package com.ironwill.app
 
 import android.content.Intent
+import com.ironwill.app.manager.StartupProtectionManager
+import com.ironwill.app.service.FastLockService
 import org.junit.Assert.*
 import org.junit.Test
+
+
+
 
 /**
  * FastLockService 运行时行为的服务级测试（近似版）。

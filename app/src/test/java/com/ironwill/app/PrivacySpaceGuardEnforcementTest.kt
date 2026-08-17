@@ -24,7 +24,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.ironwill.app.manager.AntiUninstallManager
+import com.ironwill.app.manager.PrivacyProtectionManager
 import com.ironwill.app.protection.AntiUninstallProtection
+import java.lang.reflect.Field
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -37,7 +40,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import java.lang.reflect.Field
+
+
+
 
 /**
  * TASK-01 端到端单元测试。

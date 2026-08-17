@@ -1,6 +1,9 @@
 package com.ironwill.app
 
 import android.content.Context
+import com.ironwill.app.data.TimeSegment
+import com.ironwill.app.manager.CreditManager
+import com.ironwill.app.manager.TimeRuleManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -9,6 +12,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+
+
+
+
 
 /**
  * Boundary 6 — atomic penalty commit that writes time AND count halves in one
@@ -337,7 +344,7 @@ class ConsumePenaltySecondsEpisodeTest {
      */
     @Test
     fun invalidKeyOrCapacityCommitsNothing() {
-        val src = java.io.File("src/main/java/com/ironwill/app/CreditManager.kt")
+        val src = java.io.File("src/main/java/com/ironwill/app/manager/CreditManager.kt")
             .readText()
 
         // The pre-compute block must guard against any null count key with
@@ -423,7 +430,7 @@ class ConsumePenaltySecondsEpisodeTest {
      */
     @Test
     fun allThreeSuccessPathsReturnSameReceiptShape() {
-        val src = java.io.File("src/main/java/com/ironwill/app/CreditManager.kt")
+        val src = java.io.File("src/main/java/com/ironwill/app/manager/CreditManager.kt")
             .readText()
 
         // Exactly one production recordPenalty call site (helper centralizes).

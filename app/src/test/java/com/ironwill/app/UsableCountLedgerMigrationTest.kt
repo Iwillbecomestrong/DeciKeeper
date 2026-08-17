@@ -1,8 +1,11 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.UsableCountLedgerMigration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+
+
 
 class UsableCountLedgerMigrationTest {
     @Test fun migratesLegacyWholeCountsOnce() {

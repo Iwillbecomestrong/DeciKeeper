@@ -18,10 +18,13 @@
  */
 package com.ironwill.app
 
+import com.ironwill.app.manager.PrivacyConsentManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
 
 class PrivacyConsentDecisionTest {
 

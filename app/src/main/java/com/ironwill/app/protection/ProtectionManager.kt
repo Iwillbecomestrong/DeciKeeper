@@ -23,6 +23,7 @@ import android.content.Context
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
+
 /**
  * Manager to handle various protection mechanisms:
  * 1. Anti-Uninstall (Prevent uninstallation of IronWill)

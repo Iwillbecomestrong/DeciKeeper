@@ -5,12 +5,13 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+
 class QuotaProductionMigrationTest {
     @Test
     fun quotaProductionUsesScopedRawLogsAndCompletedOutcomeEvents() {
-        val credit = source("app/src/main/java/com/ironwill/app/CreditManager.kt")
-        val lock = source("app/src/main/java/com/ironwill/app/LockWindowManager.kt")
-        val home = source("app/src/main/java/com/ironwill/app/HomeFragment.kt")
+        val credit = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
+        val lock = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
+        val home = source("app/src/main/java/com/ironwill/app/ui/HomeFragment.kt")
 
         assertFalse(credit.contains("fun logDailyStatus("))
         assertFalse(lock.contains("CreditManager.logDailyStatus("))

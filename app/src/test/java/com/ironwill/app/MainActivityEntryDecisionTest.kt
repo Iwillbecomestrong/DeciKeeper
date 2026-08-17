@@ -24,12 +24,12 @@
  */
 package com.ironwill.app
 
+import com.ironwill.app.ui.MainActivityEntry.CallSource
+import com.ironwill.app.ui.MainActivityEntry.EntryAction
+import com.ironwill.app.ui.MainActivityEntry.decideMainActivityEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
-import com.ironwill.app.MainActivityEntry.CallSource
-import com.ironwill.app.MainActivityEntry.EntryAction
-import com.ironwill.app.MainActivityEntry.decideMainActivityEntry
 
 class MainActivityEntryDecisionTest {
 

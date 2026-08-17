@@ -1,6 +1,10 @@
 package com.ironwill.app
 
 import android.content.Context
+import com.ironwill.app.data.TimeSegment
+import com.ironwill.app.manager.CreditManager
+import com.ironwill.app.manager.TimeRuleManager
+import java.util.Calendar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -13,7 +17,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import java.util.Calendar
+
+
+
+
 
 /**
  * TASK WP-01-T02 (v3 RED) — DND refresh time 边界 / 原子拒绝契约。

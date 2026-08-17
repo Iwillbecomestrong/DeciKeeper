@@ -19,6 +19,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+
 class BackupRulesExcludesConsentOnlyTest {
 
     private fun readResource(path: String): String {

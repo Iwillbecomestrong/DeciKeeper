@@ -1,12 +1,21 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.EventClock
+import com.ironwill.app.data.LogDebugConfig
+import com.ironwill.app.data.NormalEventDraft
+import com.ironwill.app.manager.QuotaConfigEventBridge
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Paths
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.charset.StandardCharsets
+
+
+
+
+
 
 /**
  * RED contract for quota and configuration outcome events. The bridge has no authority to
@@ -190,9 +199,9 @@ class QuotaConfigEventTest {
 
     @Test
     fun productionSaveBlacklistAndSaveGlobalParamsRouteThroughTheBridge() {
-        val credit = source("app/src/main/java/com/ironwill/app/CreditManager.kt")
-        val timeRule = source("app/src/main/java/com/ironwill/app/TimeRuleManager.kt")
-        val bridgeFile = source("app/src/main/java/com/ironwill/app/QuotaConfigEventBridge.kt")
+        val credit = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
+        val timeRule = source("app/src/main/java/com/ironwill/app/manager/TimeRuleManager.kt")
+        val bridgeFile = source("app/src/main/java/com/ironwill/app/manager/QuotaConfigEventBridge.kt")
 
         assertTrue(
             "saveBlacklistApps must invoke the CONFIG_CHANGE bridge call site",
@@ -210,8 +219,8 @@ class QuotaConfigEventTest {
 
     @Test
     fun productionBorrowAndPenaltySitesRecordActualOutcomesNotIntent() {
-        val credit = source("app/src/main/java/com/ironwill/app/CreditManager.kt")
-        val bridgeFile = source("app/src/main/java/com/ironwill/app/QuotaConfigEventBridge.kt")
+        val credit = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
+        val bridgeFile = source("app/src/main/java/com/ironwill/app/manager/QuotaConfigEventBridge.kt")
 
         assertTrue(
             "CreditManager must invoke QuotaConfigEventBridge.recordBorrow on successful borrow path",

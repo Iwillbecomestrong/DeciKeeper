@@ -4,17 +4,18 @@ import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+
 class AlarmProductionMigrationTest {
     @Test
     fun remainingAlarmAndProtectionProductionSitesUseTheBridge() {
-        val worker = source("app/src/main/java/com/ironwill/app/AlarmHeartbeatWorker.kt")
-        val guardian = source("app/src/main/java/com/ironwill/app/AlarmGuardianService.kt")
-        val window = source("app/src/main/java/com/ironwill/app/AlarmWindowManager.kt")
-        val activity = source("app/src/main/java/com/ironwill/app/AlarmActivity.kt")
-        val vibration = source("app/src/main/java/com/ironwill/app/AlarmVibrationService.kt")
-        val lock = source("app/src/main/java/com/ironwill/app/LockWindowManager.kt")
-        val lockAlarm = source("app/src/main/java/com/ironwill/app/LockAlarmOverlay.kt")
-        val core = source("app/src/main/java/com/ironwill/app/CoreService.kt")
+        val worker = source("app/src/main/java/com/ironwill/app/worker/AlarmHeartbeatWorker.kt")
+        val guardian = source("app/src/main/java/com/ironwill/app/service/AlarmGuardianService.kt")
+        val window = source("app/src/main/java/com/ironwill/app/manager/AlarmWindowManager.kt")
+        val activity = source("app/src/main/java/com/ironwill/app/ui/AlarmActivity.kt")
+        val vibration = source("app/src/main/java/com/ironwill/app/service/AlarmVibrationService.kt")
+        val lock = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
+        val lockAlarm = source("app/src/main/java/com/ironwill/app/ui/LockAlarmOverlay.kt")
+        val core = source("app/src/main/java/com/ironwill/app/service/CoreService.kt")
 
         assertGuarded(worker, "心跳(worker)", "DefaultLogDebugConfig.protectionVerbose")
         assertGuarded(guardian, "💓 心跳", "DefaultLogDebugConfig.protectionVerbose")

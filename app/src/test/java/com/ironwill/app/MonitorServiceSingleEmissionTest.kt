@@ -5,11 +5,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+
 class MonitorServiceSingleEmissionTest {
     @Test
     fun normalForegroundAndLifecycleFactsHaveNoLegacyDuplicate() {
-        val monitor = source("app/src/main/java/com/ironwill/app/MonitorService.kt")
-        val core = source("app/src/main/java/com/ironwill/app/CoreService.kt")
+        val monitor = source("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
+        val core = source("app/src/main/java/com/ironwill/app/service/CoreService.kt")
 
         assertFalse(monitor.contains("fun logForegroundResolution("))
         assertFalse(monitor.contains("[锁机] Blacklist app"))

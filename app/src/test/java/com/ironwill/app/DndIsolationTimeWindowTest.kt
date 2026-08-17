@@ -1,6 +1,8 @@
 package com.ironwill.app
 
 import android.content.Context
+import com.ironwill.app.manager.CreditManager
+import java.util.Calendar
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Ignore
@@ -9,7 +11,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import java.util.Calendar
+
+
 
 /**
  * TASK-01 RED — 自然日 5 秒窗与清除契约单元测试。

@@ -1,7 +1,12 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.buildSurplusSnapshotIdentity
+import com.ironwill.app.data.calculateQuotaDetail
 import org.junit.Assert.assertEquals
 import org.junit.Test
+
+
+
 
 class QuotaDetailModelTest {
     @Test

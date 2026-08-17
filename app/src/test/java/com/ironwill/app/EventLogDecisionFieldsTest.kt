@@ -1,9 +1,12 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.EventLog
 import java.io.File
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
 
 /**
  * RB-03: FG_DECISION 追加 3 字段 (usageEventsStatus, accessibilityWindowsCount, conflictReason).
@@ -46,7 +49,7 @@ class EventLogDecisionFieldsTest {
         // 不会抛出异常即证明编译通过 + 运行时安全 (appContext null 时 LogExporter 静默返回)
 
         // 源文件分析: 确认所有旧 key + 3 新字段都在 EventLog.fgDecision 的 emit map 中
-        val eventLog = source("app/src/main/java/com/ironwill/app/EventLog.kt")
+        val eventLog = source("app/src/main/java/com/ironwill/app/data/EventLog.kt")
         val fgDecisionBlock = extractFgDecisionBody(eventLog)
         assertTrue("fgDecision must have fgDecision function", fgDecisionBlock.isNotBlank())
 
@@ -117,7 +120,7 @@ class EventLogDecisionFieldsTest {
         )
 
         // MonitorService 两个调用点必须计算并传入 3 新字段
-        val monitor = source("app/src/main/java/com/ironwill/app/MonitorService.kt")
+        val monitor = source("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
 
         // 两个调用点都必须有 usageEventsStatus, accessibilityWindowsCount, conflictReason
         // 在 fgDecision( 调用之前

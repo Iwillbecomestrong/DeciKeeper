@@ -1,9 +1,12 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.LogExporter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
 
 /**
  * LogExporter.compactLogsForExport 中"状态播报多行块"去重的单元测试。

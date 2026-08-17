@@ -1,5 +1,7 @@
 package com.ironwill.app
 
+import com.ironwill.app.manager.AlarmChallengeManager
+import java.io.File
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -7,7 +9,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
+
+
 
 /**
  * Cloze 题库加载/解析测试

@@ -1,10 +1,23 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.DefaultNormalEventRenderer
+import com.ironwill.app.data.EventClock
+import com.ironwill.app.data.NormalEvent
+import com.ironwill.app.data.NormalEventDraft
+import com.ironwill.app.ui.LockLifecycleEventBridge
+import com.ironwill.app.util.ForegroundTransition
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
+
+
+
+
+
 
 class LockExitEvidenceDedupTest {
     @Test
@@ -30,7 +43,7 @@ class LockExitEvidenceDedupTest {
         assertEquals(1, Regex("""(?:^|\s)evidence=""").findAll(text).count())
         assertTrue(text.contains("evidence=DESKTOP_NOT_CONFIRMED|EVENTS"))
 
-        val source = source("app/src/main/java/com/ironwill/app/LockWindowManager.kt")
+        val source = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
         assertFalse(source.contains("LogExporter.i(\"LockScreen\", \"解锁:"))
         assertFalse(source.contains("LogExporter.i(\"LockScreen\", \"🏠 回到桌面"))
         assertFalse(source.contains("LogExporter.i(\"TempAccess\", \"临时解锁:"))

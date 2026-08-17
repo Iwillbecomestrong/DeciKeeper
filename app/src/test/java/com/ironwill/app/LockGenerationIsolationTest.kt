@@ -1,7 +1,12 @@
 package com.ironwill.app
 
+import com.ironwill.app.service.CoreService
+import com.ironwill.app.ui.LockWindowManager
 import org.junit.Assert.assertEquals
 import org.junit.Test
+
+
+
 
 /**
  * =================================================================================

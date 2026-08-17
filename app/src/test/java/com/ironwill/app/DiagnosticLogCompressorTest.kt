@@ -9,10 +9,19 @@
  */
 package com.ironwill.app
 
+import com.ironwill.app.util.DiagnosticCompressor
+import com.ironwill.app.util.FgBypassStableKey
+import com.ironwill.app.util.ShouldBlockStableKey
+import com.ironwill.app.util.VisCheckStableKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
+
+
+
 
 class DiagnosticLogCompressorTest {
 

@@ -1,8 +1,59 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.AccessibilityForegroundSnapshot
+import com.ironwill.app.data.DefaultNormalEventRenderer
+import com.ironwill.app.data.EventClock
+import com.ironwill.app.data.ForegroundBusinessAction
+import com.ironwill.app.data.ForegroundCandidate
+import com.ironwill.app.data.ForegroundDiagnosticCycle
+import com.ironwill.app.data.ForegroundReportOutcome
+import com.ironwill.app.data.ForegroundSourceSnapshot
+import com.ironwill.app.data.ForegroundSourceStatus
+import com.ironwill.app.data.ForegroundVote
+import com.ironwill.app.data.NormalEvent
+import com.ironwill.app.data.NormalEventDraft
+import com.ironwill.app.util.ForegroundAtomicReport
+import com.ironwill.app.util.ForegroundFreshConfirmation
+import com.ironwill.app.util.ForegroundLockEvidence
+import com.ironwill.app.util.ForegroundLockResultSettlementTracker
+import com.ironwill.app.util.ForegroundNormalEventBridge
+import com.ironwill.app.util.ForegroundNormalEventStateTracker
+import com.ironwill.app.util.ForegroundReportDetail
+import com.ironwill.app.util.ForegroundReportFormatter
+import com.ironwill.app.util.ForegroundResultEvidence
+import com.ironwill.app.util.ForegroundSourceEvidence
+import com.ironwill.app.util.ForegroundStateEvidence
+import com.ironwill.app.util.ForegroundTransition
+import com.ironwill.app.util.ForegroundUsageStatsSnapshotTracker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * Contract tests for the normal, atomic foreground-event renderer.
@@ -445,7 +496,7 @@ class ForegroundNormalEventTest {
     }
 
     private fun findLockWindowManagerSource(): java.io.File {
-        val relative = "app/src/main/java/com/ironwill/app/LockWindowManager.kt"
+        val relative = "app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt"
         return generateSequence(java.io.File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
             .map { java.io.File(it, relative) }
             .firstOrNull { it.isFile }

@@ -1,8 +1,9 @@
 
 package com.ironwill.app
 
-import org.junit.Test
 import org.junit.Assert.*
+import org.junit.Test
+
 
 class AntiUninstallLogicTest {
 

@@ -24,6 +24,29 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.ironwill.app.data.CrashRecorder
+import com.ironwill.app.data.LogExporter
+import com.ironwill.app.manager.AlarmScheduler
+import com.ironwill.app.manager.CreditManager
+import com.ironwill.app.manager.PrivacyConsentManager
+import com.ironwill.app.manager.RecentTasksHideManager
+import com.ironwill.app.manager.StartupA11yCache
+import com.ironwill.app.manager.StartupProtectionManager
+import com.ironwill.app.manager.TimeRuleManager
+import com.ironwill.app.service.AlarmVibrationService
+import com.ironwill.app.service.CoreService
+
+
+
+
+
+
+
+
+
+
+
+
 
 class MyApplication : Application() {
 

@@ -21,8 +21,17 @@ package com.ironwill.app
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
+import com.ironwill.app.data.LogExporter
+import com.ironwill.app.manager.AppWindowManager
+import com.ironwill.app.manager.CreditManager
+import com.ironwill.app.manager.TimeRuleManager
 import java.io.File
 import java.io.FileOutputStream
+
+
+
+
+
 
 object TestScenarioRunner {
 

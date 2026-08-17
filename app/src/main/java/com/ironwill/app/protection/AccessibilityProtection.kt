@@ -23,9 +23,10 @@ import android.content.Context
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.ironwill.app.A11ySelfDisableAuthorization
-import com.ironwill.app.AccessibilityControlManager
-import com.ironwill.app.LogExporter
+import com.ironwill.app.data.LogExporter
+import com.ironwill.app.manager.A11ySelfDisableAuthorization
+
+
 
 class AccessibilityProtection(private val context: Context) {
 

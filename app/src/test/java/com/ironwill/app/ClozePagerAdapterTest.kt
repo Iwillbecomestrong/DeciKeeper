@@ -4,6 +4,8 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.widget.NestedScrollView
+import com.ironwill.app.manager.AlarmChallengeManager
+import com.ironwill.app.ui.LockWindowManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -12,6 +14,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+
+
+
 
 /**
  * v3.1.1 Bug-Fix 防回归: ClozePagerAdapter 子页 LayoutParams 必须 MATCH_PARENT.
@@ -49,7 +54,7 @@ class ClozePagerAdapterTest {
         )
         val entries = listOf(LockWindowManager.SessionClozeEntry(cloze, "correct"))
         // 反射访问 private 嵌套类 (因为 object LockWindowManager 内不能用 inner class)
-        val adapterClass = Class.forName("com.ironwill.app.LockWindowManager\$ClozePagerAdapter")
+        val adapterClass = Class.forName("com.ironwill.app.ui.LockWindowManager\$ClozePagerAdapter")
         val constructor = adapterClass.getDeclaredConstructors().first()
         constructor.isAccessible = true
         val adapter = constructor.newInstance(ctx, entries, 1.0f)
@@ -88,7 +93,7 @@ class ClozePagerAdapterTest {
             sourceRepo = ""
         )
         val entries = listOf(LockWindowManager.SessionClozeEntry(cloze, "correct"))
-        val adapterClass = Class.forName("com.ironwill.app.LockWindowManager\$ClozePagerAdapter")
+        val adapterClass = Class.forName("com.ironwill.app.ui.LockWindowManager\$ClozePagerAdapter")
         val constructor = adapterClass.getDeclaredConstructors().first()
         constructor.isAccessible = true
         val adapter = constructor.newInstance(ctx, entries, 1.0f)
@@ -124,7 +129,7 @@ class ClozePagerAdapterTest {
             sourceRepo = ""
         )
         val entries = listOf(LockWindowManager.SessionClozeEntry(cloze, "correct"))
-        val adapterClass = Class.forName("com.ironwill.app.LockWindowManager\$ClozePagerAdapter")
+        val adapterClass = Class.forName("com.ironwill.app.ui.LockWindowManager\$ClozePagerAdapter")
         val constructor = adapterClass.getDeclaredConstructors().first()
         constructor.isAccessible = true
         val adapter = constructor.newInstance(ctx, entries, 1.0f)
@@ -171,7 +176,7 @@ class ClozePagerAdapterTest {
             sourceRepo = ""
         )
         val entries = (1..3).map { LockWindowManager.SessionClozeEntry(cloze, "skipped") }
-        val adapterClass = Class.forName("com.ironwill.app.LockWindowManager\$ClozePagerAdapter")
+        val adapterClass = Class.forName("com.ironwill.app.ui.LockWindowManager\$ClozePagerAdapter")
         val constructor = adapterClass.getDeclaredConstructors().first()
         constructor.isAccessible = true
         val adapter = constructor.newInstance(ctx, entries, 1.0f)
@@ -203,7 +208,7 @@ class ClozePagerAdapterTest {
             sourceRepo = ""
         )
         val entries = listOf(LockWindowManager.SessionClozeEntry(cloze, "correct"))
-        val adapterClass = Class.forName("com.ironwill.app.LockWindowManager\$ClozePagerAdapter")
+        val adapterClass = Class.forName("com.ironwill.app.ui.LockWindowManager\$ClozePagerAdapter")
         val constructor = adapterClass.getDeclaredConstructors().first()
         constructor.isAccessible = true
         val adapter = constructor.newInstance(ctx, entries, 1.0f)

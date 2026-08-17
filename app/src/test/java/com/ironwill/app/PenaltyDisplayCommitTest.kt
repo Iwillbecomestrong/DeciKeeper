@@ -7,6 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+
 /**
  * Boundary 2 — RED fixture until real-display hit authority lands in `LockWindowManager`.
  *

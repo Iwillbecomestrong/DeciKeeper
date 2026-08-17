@@ -19,8 +19,13 @@
  */
 package com.ironwill.app
 
+import com.ironwill.app.manager.StartupProtectionManager
+import com.ironwill.app.service.FastLockService
 import org.junit.Assert.*
 import org.junit.Test
+
+
+
 
 class FastLockCountdownLogicTest {
 

@@ -1,5 +1,7 @@
 package com.ironwill.app
 
+import com.ironwill.app.manager.LockScreenRequestOutcome
+
 /**
  * Boundary 1 — pure-JVM mirror of the production expiry state machine.
  *

@@ -1,8 +1,11 @@
 package com.ironwill.app
 
+import com.ironwill.app.manager.resolveAutomaticRestrictionRelease
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
 
 class AutomaticRestrictionReleasePolicyTest {
     @Test

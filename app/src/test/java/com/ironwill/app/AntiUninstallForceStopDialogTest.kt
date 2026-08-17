@@ -24,7 +24,9 @@ package com.ironwill.app
 import android.content.Context
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.ironwill.app.manager.PrivacyProtectionManager
 import com.ironwill.app.protection.AntiUninstallProtection
+import java.lang.reflect.Field
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -34,7 +36,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import java.lang.reflect.Field
+
+
 
 /**
  * WP-2 端到端单元测试。

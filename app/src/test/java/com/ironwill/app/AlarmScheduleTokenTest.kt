@@ -1,7 +1,10 @@
 package com.ironwill.app
 
+import com.ironwill.app.manager.AlarmScheduler
 import org.junit.Assert.*
 import org.junit.Test
+
+
 
 /**
  * 核心测试：scheduleToken/PendingIntent 身份/Receiver 校验逻辑

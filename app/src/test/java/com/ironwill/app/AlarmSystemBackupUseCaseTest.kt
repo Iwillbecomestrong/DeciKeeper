@@ -4,6 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
+import com.ironwill.app.manager.ActivityStarter
+import com.ironwill.app.manager.AlarmSystemBackupUseCase
+import com.ironwill.app.manager.BackupLaunchPlan
+import com.ironwill.app.manager.ClockPackageResolver
+import java.lang.reflect.Method
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -12,7 +17,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Ignore
 import org.junit.Test
-import java.lang.reflect.Method
+
+
+
+
+
 
 /**
  * REQ-4 同步系统闹钟启动计划策略单测。

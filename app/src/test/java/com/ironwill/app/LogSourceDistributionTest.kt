@@ -8,6 +8,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+
 /**
  * Boundary 0 baseline — Bug 3 source distribution guard.
  *

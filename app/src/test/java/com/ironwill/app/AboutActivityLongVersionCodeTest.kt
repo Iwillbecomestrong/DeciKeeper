@@ -14,16 +14,19 @@
  */
 package com.ironwill.app
 
+import com.ironwill.app.ui.AboutActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
 
 class AboutActivityLongVersionCodeTest {
 
     private fun readSourceFile(): String {
         val candidates = listOf(
-            java.io.File("src/main/java/com/ironwill/app/AboutActivity.kt"),
-            java.io.File("app/src/main/java/com/ironwill/app/AboutActivity.kt")
+            java.io.File("src/main/java/com/ironwill/app/ui/AboutActivity.kt"),
+            java.io.File("app/src/main/java/com/ironwill/app/ui/AboutActivity.kt")
         )
         for (file in candidates) {
             if (file.exists()) return file.readText(Charsets.UTF_8)

@@ -1,7 +1,10 @@
 package com.ironwill.app
 
+import com.ironwill.app.manager.AlarmChallengeManager
 import org.junit.Assert.assertEquals
 import org.junit.Test
+
+
 
 /**
  * Cloze 选词填空核心纯函数单元测试。

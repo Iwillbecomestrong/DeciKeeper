@@ -1,9 +1,10 @@
 package com.ironwill.app
 
+import java.io.File
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
+
 
 /**
  * TASK WP-01-T03 (v3) — DA-C structural survival/removal fixture。
@@ -58,8 +59,8 @@ class DndRefreshStructuralFixture {
      */
     @Test
     fun obsolete_branches_removed() {
-        val activity = source("app/src/main/java/com/ironwill/app/GlobalParamsActivity.kt")
-        val fragment = source("app/src/main/java/com/ironwill/app/TimeConfigFragment.kt")
+        val activity = source("app/src/main/java/com/ironwill/app/ui/GlobalParamsActivity.kt")
+        val fragment = source("app/src/main/java/com/ironwill/app/ui/TimeConfigFragment.kt")
 
         assertFalse(
             "GlobalParamsActivity.kt 仍含废弃锁定完整死代码分支(应由 WP-04/05 移除)",
@@ -84,7 +85,7 @@ class DndRefreshStructuralFixture {
      */
     @Test
     fun compatibility_method_survives() {
-        val manager = source("app/src/main/java/com/ironwill/app/TimeRuleManager.kt")
+        val manager = source("app/src/main/java/com/ironwill/app/manager/TimeRuleManager.kt")
 
         assertTrue(
             "TimeRuleManager 兼容方法签名 isInSettingsLockoutPeriod(context: Context): Boolean 必须保留",

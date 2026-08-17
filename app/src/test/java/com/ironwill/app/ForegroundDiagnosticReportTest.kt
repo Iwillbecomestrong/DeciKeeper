@@ -1,10 +1,47 @@
 package com.ironwill.app
 
+import com.ironwill.app.data.ForegroundBusinessAction
+import com.ironwill.app.data.ForegroundCandidate
+import com.ironwill.app.data.ForegroundDiagnosticCycle
+import com.ironwill.app.data.ForegroundEnforcementDisposition
+import com.ironwill.app.data.ForegroundFaultSnapshotFactory
+import com.ironwill.app.data.ForegroundReportAssessmentFactory
+import com.ironwill.app.data.ForegroundReportDecision
+import com.ironwill.app.data.ForegroundReportEmission
+import com.ironwill.app.data.ForegroundReportGate
+import com.ironwill.app.data.ForegroundReportOutcome
+import com.ironwill.app.data.ForegroundReportTrigger
+import com.ironwill.app.data.ForegroundSourceRelation
+import com.ironwill.app.data.ForegroundSourceSnapshot
+import com.ironwill.app.data.ForegroundSourceStatus
+import com.ironwill.app.data.ForegroundVote
+import com.ironwill.app.data.resolveAccessibilityFailureClass
+import com.ironwill.app.service.CoreService
+import com.ironwill.app.util.ForegroundReportFormatter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 class ForegroundDiagnosticReportTest {
 
