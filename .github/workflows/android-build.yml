@@ -1,4 +1,4 @@
-name: Android Build
+name: Android Build (Self-hosted Windows)
 
 on:
   pull_request:
@@ -10,12 +10,29 @@ permissions:
 
 jobs:
   build-debug-apk:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 30
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Detect Android SDK from adb
+        shell: powershell
+        run: |
+          $adbCommand = Get-Command adb -ErrorAction Stop
+          $adb = $adbCommand.Definition
+          if (-not $adb -or -not (Test-Path $adb)) {
+            throw "adb executable path could not be resolved from PowerShell alias definition"
+          }
+          $sdkRoot = Split-Path (Split-Path $adb -Parent) -Parent
+          Write-Host "adb=$adb"
+          Write-Host "Detected Android SDK root=$sdkRoot"
+          if (-not (Test-Path (Join-Path $sdkRoot "platforms\android-36"))) {
+            throw "Android SDK 36 not found under detected SDK root: $sdkRoot"
+          }
+          "ANDROID_HOME=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -23,20 +40,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-
-      - name: Make Gradle wrapper executable
-        run: chmod +x ./gradlew
+      - name: Check Gradle wrapper
+        shell: powershell
+        run: .\gradlew.bat --version
 
       - name: Build debug APK
-        run: ./gradlew --no-daemon assembleDebug
+        shell: powershell
+        run: .\gradlew.bat --no-daemon assembleDebug
 
       - name: Upload debug APK
         if: success()
