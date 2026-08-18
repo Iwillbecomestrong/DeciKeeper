@@ -43,7 +43,7 @@
 
         <!-- 核心无障碍服务 -->
         <service
-            android:name=".CoreService"
+            android:name=".service.CoreService"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true"
@@ -59,7 +59,7 @@
 
         <!-- 基础锁机服务 (基于 usage stats) -->
         <service
-            android:name=".MonitorService"
+            android:name=".service.MonitorService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse">
@@ -68,7 +68,7 @@
 
         <!-- 🛡️ 无障碍守护服务 (A11yGuardService) -->
         <service
-            android:name=".A11yGuardService"
+            android:name=".service.A11yGuardService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse">
@@ -76,7 +76,7 @@
         </service>
 
         <service
-            android:name=".FastLockService"
+            android:name=".service.FastLockService"
             android:enabled="true"
             android:exported="false"
             android:directBootAware="true"
@@ -86,7 +86,7 @@
 
         <!-- 闹钟震动前台服务 (独立于 UI 生命周期) -->
         <service
-            android:name=".AlarmVibrationService"
+            android:name=".service.AlarmVibrationService"
             android:enabled="true"
             android:exported="false"
             android:directBootAware="true"
@@ -95,7 +95,7 @@
         </service>
 
         <service
-            android:name=".AlarmWatchdogService"
+            android:name=".service.AlarmWatchdogService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse">
@@ -104,7 +104,7 @@
 
         <!-- 实验性：小窗通知监听（观察 Vivo 是否发"正在其他应用上层显示"通知） -->
         <service
-            android:name=".PresenceNotificationListener"
+            android:name=".service.PresenceNotificationListener"
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
@@ -116,7 +116,7 @@
         <!-- REQ-5: 首次启动的 launcher 改为 PrivacyConsentActivity，
              未同意时拦截进入 MainActivity；同意后由 PrivacyConsentActivity 跳 MainActivity -->
         <activity
-            android:name=".PrivacyConsentActivity"
+            android:name=".ui.PrivacyConsentActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.IronWill">
@@ -127,47 +127,47 @@
         </activity>
 
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize" />
 
         <!-- REQ-5: "设置 → 关于我们" 主入口 -->
         <activity
-            android:name=".AboutActivity"
+            android:name=".ui.AboutActivity"
             android:exported="false"
             android:label="关于我们" />
 
         <!-- REQ-5: 统一法务长文本文档渲染器 -->
         <activity
-            android:name=".LegalDocumentActivity"
+            android:name=".ui.LegalDocumentActivity"
             android:exported="false" />
 
         <activity
-            android:name=".AppSelectionActivity"
+            android:name=".ui.AppSelectionActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".SchedulePreviewActivity"
+            android:name=".ui.SchedulePreviewActivity"
             android:exported="false"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
             
         <activity
-            android:name=".AppWindowPreviewActivity"
+            android:name=".ui.AppWindowPreviewActivity"
             android:exported="false"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
 
         <activity
-            android:name=".BookmarkActivity"
+            android:name=".ui.BookmarkActivity"
             android:exported="false" />
 
         <activity
-            android:name=".HelpActivity"
+            android:name=".ui.HelpActivity"
             android:exported="false"
             android:label="使用说明" />
 
         <activity
-            android:name=".AlarmActivity"
+            android:name=".ui.AlarmActivity"
             android:exported="false"
             android:theme="@style/Theme.IronWill.Alarm"
             android:showWhenLocked="true"
@@ -177,13 +177,13 @@
 
 
         <activity
-            android:name=".GlobalParamsActivity"
+            android:name=".ui.GlobalParamsActivity"
             android:exported="false"
             android:label="全局参数"
             android:windowSoftInputMode="adjustResize" />
 
         <receiver
-            android:name=".BootReceiver"
+            android:name=".receiver.BootReceiver"
             android:enabled="true"
             android:exported="true"
             android:directBootAware="true">
@@ -199,7 +199,7 @@
 
         <!-- 新装 App 自动加入黑名单（四大类别：社交/短视频/游戏/浏览器） -->
         <receiver
-            android:name=".PackageInstallReceiver"
+            android:name=".receiver.PackageInstallReceiver"
             android:enabled="true"
             android:exported="false"
             android:directBootAware="true">
@@ -212,7 +212,7 @@
 
         <!-- 探测自启动/后台唤醒的占位广播 -->
         <receiver
-            android:name=".AutoStartTestReceiver"
+            android:name=".receiver.AutoStartTestReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
@@ -221,17 +221,17 @@
         </receiver>
 
         <receiver
-            android:name=".AlarmReceiver"
+            android:name=".receiver.AlarmReceiver"
             android:exported="false" />
 
         <!-- 💓 AlarmManager 高频心跳接收器（拉起 Guardian 进程并调度下次） -->
         <receiver
-            android:name=".AlarmHeartbeatReceiver"
+            android:name=".receiver.AlarmHeartbeatReceiver"
             android:exported="false" />
 
         <!-- 🛡️ 设备管理器 (防卸载) -->
         <receiver
-            android:name=".DeviceAdmin"
+            android:name=".receiver.DeviceAdmin"
             android:label="@string/app_name"
             android:description="@string/app_name"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
