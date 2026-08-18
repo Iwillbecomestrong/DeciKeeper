@@ -20,7 +20,7 @@ jobs:
       - name: Detect Android SDK from adb
         shell: powershell
         run: |
-          $adb = (Get-Command adb -ErrorAction Stop).Source
+          $adb = (Get-Command adb -ErrorAction Stop).Path
           $sdkRoot = Split-Path (Split-Path $adb -Parent) -Parent
           Write-Host "adb=$adb"
           Write-Host "Detected Android SDK root=$sdkRoot"
