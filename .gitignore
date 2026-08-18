@@ -94,3 +94,9 @@ scripts/.ai_translation/
 
 # Codex CLI runtime outputs (不受 git 跟踪;orchestrator 流程产物)
 .codex-runtime/
+
+# 本地调试产物（不上传云端）
+device_*.txt
+ironwill_event_log*.txt
+upslide.apk
+*.bak_*
