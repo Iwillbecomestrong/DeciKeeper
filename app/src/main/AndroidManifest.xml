@@ -94,6 +94,15 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="alarm_vibration"/>
         </service>
 
+        <!-- 闹钟挑战期间应急白名单守护 -->
+        <service
+            android:name=".service.AlarmChallengeEmergencyGuardService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="alarm_challenge_emergency_guard"/>
+        </service>
+
         <service
             android:name=".service.AlarmWatchdogService"
             android:enabled="true"
@@ -182,6 +191,11 @@
             android:label="全局参数"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".ui.AlarmEmergencyWhitelistPickerActivity"
+            android:exported="false"
+            android:label="闹钟挑战应急白名单" />
+
         <receiver
             android:name=".receiver.BootReceiver"
             android:enabled="true"
@@ -244,6 +258,12 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_DISABLED" />
             </intent-filter>
         </receiver>
+
+        <!-- 自动向全局参数页注入闹钟挑战应急白名单设置卡片 -->
+        <provider
+            android:name=".ui.AlarmEmergencyWhitelistUiProvider"
+            android:authorities="${applicationId}.alarmEmergencyWhitelistUi"
+            android:exported="false" />
 
         <!-- 📂 FileProvider for Log Sharing -->
         <provider

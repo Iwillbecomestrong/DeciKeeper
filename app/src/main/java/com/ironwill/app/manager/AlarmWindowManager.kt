@@ -37,6 +37,7 @@ import com.ironwill.app.data.DefaultNormalEventRenderer
 import com.ironwill.app.data.LogExporter
 import com.ironwill.app.data.NormalEventLogger
 import com.ironwill.app.data.SystemEventClock
+import com.ironwill.app.service.AlarmChallengeEmergencyGuardService
 import com.ironwill.app.service.AlarmVibrationService
 import com.ironwill.app.ui.AlarmActivity
 import com.ironwill.app.ui.LockWindowManager
@@ -103,6 +104,7 @@ object AlarmWindowManager {
         LogExporter.logEvent("AlarmOverlay", "AlarmWindowManager.show id=$alarmId")
 
         ensureScreenOffRecoveryRegistered(context)
+        AlarmChallengeEmergencyGuardService.start(context.applicationContext)
         // 先点亮并保持屏幕，再决定走 Activity 还是 WindowManager。
         // 锁屏分支如果不先拿 WakeLock，Activity 可能已启动但用户仍看不到。
         refreshScreenWake(context, "SHOW")
@@ -174,6 +176,7 @@ object AlarmWindowManager {
         Log.i(TAG, "CHALLENGE_REENTER_REQUEST id=$alarmId inline=${LockWindowManager.isCurrentOverlayInline()}")
         LogExporter.logEvent("AlarmOverlay", "CHALLENGE_REENTER_REQUEST id=$alarmId inline=${LockWindowManager.isCurrentOverlayInline()}")
         ensureScreenOffRecoveryRegistered(context)
+        AlarmChallengeEmergencyGuardService.start(context.applicationContext)
         refreshScreenWake(context, "USER_REENTER")
         AlarmVibrationService.start(context.applicationContext, alarmId)
 
@@ -223,6 +226,7 @@ object AlarmWindowManager {
         Log.i(TAG, "dismiss: releasing wake lock")
         releaseWakeLock()
         unregisterScreenOffRecovery()
+        runCatching { AlarmChallengeEmergencyGuardService.stop(MyApplication.instance) }
         if (activeOverlayAlarmId > 0) {
             val dismissedId = activeOverlayAlarmId
             activeOverlayAlarmId = -1
