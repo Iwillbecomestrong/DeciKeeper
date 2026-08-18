@@ -23,6 +23,7 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
+    <!-- 查询所有可启动的应用 -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -40,6 +41,7 @@
         android:theme="@style/Theme.IronWill"
         tools:targetApi="31">
 
+        <!-- 核心无障碍服务 -->
         <service
             android:name=".service.CoreService"
             android:label="@string/app_name"
@@ -55,47 +57,150 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <service android:name=".service.MonitorService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse">
+        <!-- 基础锁机服务 (基于 usage stats) -->
+        <service
+            android:name=".service.MonitorService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="usage_monitor"/>
         </service>
-        <service android:name=".service.A11yGuardService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse">
+
+        <!-- 🛡️ 无障碍守护服务 (A11yGuardService) -->
+        <service
+            android:name=".service.A11yGuardService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="service_guard"/>
         </service>
-        <service android:name=".service.FastLockService" android:enabled="true" android:exported="false" android:directBootAware="true" android:foregroundServiceType="specialUse">
+
+        <service
+            android:name=".service.FastLockService"
+            android:enabled="true"
+            android:exported="false"
+            android:directBootAware="true"
+            android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="lock_screen_overlay"/>
         </service>
-        <service android:name=".service.AlarmVibrationService" android:enabled="true" android:exported="false" android:directBootAware="true" android:foregroundServiceType="specialUse">
+
+        <!-- 闹钟震动前台服务 (独立于 UI 生命周期) -->
+        <service
+            android:name=".service.AlarmVibrationService"
+            android:enabled="true"
+            android:exported="false"
+            android:directBootAware="true"
+            android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="alarm_vibration"/>
         </service>
-        <service android:name=".service.AlarmChallengeEmergencyGuardService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse">
+
+        <!-- 闹钟挑战期间应急白名单守护 -->
+        <service
+            android:name=".service.AlarmChallengeEmergencyGuardService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="alarm_challenge_emergency_guard"/>
         </service>
-        <service android:name=".service.AlarmWatchdogService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse">
+
+        <service
+            android:name=".service.AlarmWatchdogService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="alarm_watchdog"/>
         </service>
-        <service android:name=".service.PresenceNotificationListener" android:enabled="true" android:exported="true" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+
+        <!-- 实验性：小窗通知监听（观察 Vivo 是否发"正在其他应用上层显示"通知） -->
+        <service
+            android:name=".service.PresenceNotificationListener"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
 
-        <activity android:name=".ui.PrivacyConsentActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.IronWill">
+        <!-- REQ-5: 首次启动的 launcher 改为 PrivacyConsentActivity，
+             未同意时拦截进入 MainActivity；同意后由 PrivacyConsentActivity 跳 MainActivity -->
+        <activity
+            android:name=".ui.PrivacyConsentActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.IronWill">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ui.MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".ui.AboutActivity" android:exported="false" android:label="关于我们" />
-        <activity android:name=".ui.LegalDocumentActivity" android:exported="false" />
-        <activity android:name=".ui.AppSelectionActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".ui.SchedulePreviewActivity" android:exported="false" android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
-        <activity android:name=".ui.AppWindowPreviewActivity" android:exported="false" android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
-        <activity android:name=".ui.BookmarkActivity" android:exported="false" />
-        <activity android:name=".ui.HelpActivity" android:exported="false" android:label="使用说明" />
-        <activity android:name=".ui.AlarmActivity" android:exported="false" android:theme="@style/Theme.IronWill.Alarm" android:showWhenLocked="true" android:turnScreenOn="true" android:screenOrientation="portrait" />
-        <activity android:name=".ui.GlobalParamsActivity" android:exported="false" android:label="全局参数" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".ui.AlarmEmergencyWhitelistPickerActivity" android:exported="false" android:label="闹钟挑战应急白名单" />
 
-        <receiver android:name=".receiver.BootReceiver" android:enabled="true" android:exported="true" android:directBootAware="true">
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- REQ-5: "设置 → 关于我们" 主入口 -->
+        <activity
+            android:name=".ui.AboutActivity"
+            android:exported="false"
+            android:label="关于我们" />
+
+        <!-- REQ-5: 统一法务长文本文档渲染器 -->
+        <activity
+            android:name=".ui.LegalDocumentActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.AppSelectionActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.SchedulePreviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
+            
+        <activity
+            android:name=".ui.AppWindowPreviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".ui.BookmarkActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.HelpActivity"
+            android:exported="false"
+            android:label="使用说明" />
+
+        <activity
+            android:name=".ui.AlarmActivity"
+            android:exported="false"
+            android:theme="@style/Theme.IronWill.Alarm"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:screenOrientation="portrait" />
+
+
+
+        <activity
+            android:name=".ui.GlobalParamsActivity"
+            android:exported="false"
+            android:label="全局参数"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.AlarmEmergencyWhitelistPickerActivity"
+            android:exported="false"
+            android:label="闹钟挑战应急白名单" />
+
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
@@ -105,34 +210,72 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
-        <receiver android:name=".receiver.PackageInstallReceiver" android:enabled="true" android:exported="false" android:directBootAware="true">
+
+        <!-- 新装 App 自动加入黑名单（四大类别：社交/短视频/游戏/浏览器） -->
+        <receiver
+            android:name=".receiver.PackageInstallReceiver"
+            android:enabled="true"
+            android:exported="false"
+            android:directBootAware="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.PACKAGE_ADDED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
                 <data android:scheme="package" />
             </intent-filter>
         </receiver>
-        <receiver android:name=".receiver.AutoStartTestReceiver" android:enabled="true" android:exported="true">
-            <intent-filter><action android:name="com.ironwill.app.ACTION_TEST_AUTO_START" /></intent-filter>
+
+        <!-- 探测自启动/后台唤醒的占位广播 -->
+        <receiver
+            android:name=".receiver.AutoStartTestReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.ironwill.app.ACTION_TEST_AUTO_START" />
+            </intent-filter>
         </receiver>
-        <receiver android:name=".receiver.AlarmReceiver" android:exported="false" />
-        <receiver android:name=".receiver.AlarmHeartbeatReceiver" android:exported="false" />
-        <receiver android:name=".receiver.DeviceAdmin" android:label="@string/app_name" android:description="@string/app_name" android:permission="android.permission.BIND_DEVICE_ADMIN" android:exported="true">
-            <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin" />
+
+        <receiver
+            android:name=".receiver.AlarmReceiver"
+            android:exported="false" />
+
+        <!-- 💓 AlarmManager 高频心跳接收器（拉起 Guardian 进程并调度下次） -->
+        <receiver
+            android:name=".receiver.AlarmHeartbeatReceiver"
+            android:exported="false" />
+
+        <!-- 🛡️ 设备管理器 (防卸载) -->
+        <receiver
+            android:name=".receiver.DeviceAdmin"
+            android:label="@string/app_name"
+            android:description="@string/app_name"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
                 <action android:name="android.app.action.DEVICE_ADMIN_DISABLED" />
             </intent-filter>
         </receiver>
 
+        <!-- 自动向全局参数页注入闹钟挑战应急白名单设置卡片 -->
         <provider
             android:name=".ui.AlarmEmergencyWhitelistUiProvider"
             android:authorities="${applicationId}.alarmEmergencyWhitelistUi"
             android:exported="false" />
 
-        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
-            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        <!-- 📂 FileProvider for Log Sharing -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
         </provider>
 
     </application>
+
 </manifest>
