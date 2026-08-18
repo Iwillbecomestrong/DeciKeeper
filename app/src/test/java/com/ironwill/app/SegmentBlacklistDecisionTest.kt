@@ -73,6 +73,12 @@ class SegmentBlacklistDecisionTest {
     private val phone = "com.android.phone"
     private val contacts = "com.android.contacts"
     private val messaging = "com.google.android.apps.messaging"
+    private val systemui = "com.android.systemui"
+    private val vivoSystemUiPlugin = "com.vivo.systemuiplugin"
+    private val vivoUpslide = "com.vivo.upslide" // vivo 系统导航（System navigation）
+    private val traceur = "com.android.traceur"
+    private val clock = "com.android.BBKClock"
+    private val deskclock = "com.android.deskclock"
 
     @Before
     fun setUp() {
@@ -197,6 +203,12 @@ class SegmentBlacklistDecisionTest {
         assertTrue("电话必须硬剔除", SegmentBlacklist.isHardExempt(context, phone))
         assertTrue("联系人必须硬剔除", SegmentBlacklist.isHardExempt(context, contacts))
         assertTrue("短信必须硬剔除", SegmentBlacklist.isHardExempt(context, messaging))
+        assertTrue("系统导航 SystemUI 必须硬剔除", SegmentBlacklist.isHardExempt(context, systemui))
+        assertTrue("vivo systemuiplugin 必须硬剔除", SegmentBlacklist.isHardExempt(context, vivoSystemUiPlugin))
+        assertTrue("vivo upslide(系统导航) 必须硬剔除", SegmentBlacklist.isHardExempt(context, vivoUpslide))
+        assertTrue("系统跟踪 traceur 必须硬剔除", SegmentBlacklist.isHardExempt(context, traceur))
+        assertTrue("闹钟时钟 BBKClock 必须硬剔除", SegmentBlacklist.isHardExempt(context, clock))
+        assertTrue("桌面时钟 deskclock 必须硬剔除", SegmentBlacklist.isHardExempt(context, deskclock))
 
         assertFalse("普通应用不得硬剔除", SegmentBlacklist.isHardExempt(context, normalGame))
         assertFalse("普通应用不得硬剔除", SegmentBlacklist.isHardExempt(context, qq))
@@ -205,7 +217,7 @@ class SegmentBlacklistDecisionTest {
     @Test
     fun effectiveList_excludesHardExemptAppsEvenWhenInList() {
         val seg = fullDaySegment(
-            listApps = listOf(normalGame, launcher, settings, ime, phone, contacts, messaging, context.packageName)
+            listApps = listOf(normalGame, launcher, settings, ime, phone, contacts, messaging, systemui, vivoSystemUiPlugin, context.packageName)
         )
 
         assertEquals(

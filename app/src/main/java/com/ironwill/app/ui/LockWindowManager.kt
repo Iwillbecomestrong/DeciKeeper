@@ -749,6 +749,18 @@ object LockWindowManager {
         private set
     @Volatile
     private var homeClickPendingSetAt = 0L
+    // 🚀 [回到桌面宽限] 返回桌面后 3s 内不因小窗/浮窗触发锁屏（用户要求 2026-08-15）
+    private const val DESKTOP_RETURN_GRACE_MS = 3000L
+    private var desktopReturnGraceUntil = 0L
+
+    /** 回到桌面：启动 3s 小窗锁宽限。 */
+    fun setDesktopReturnGrace(now: Long = System.currentTimeMillis()) {
+        desktopReturnGraceUntil = now + DESKTOP_RETURN_GRACE_MS
+    }
+
+    /** 是否处于回到桌面后的 3s 小窗锁宽限期。 */
+    fun isInDesktopReturnGrace(now: Long = System.currentTimeMillis()): Boolean =
+        now < desktopReturnGraceUntil
 
     // 🚀 Helper to check service state safely
     fun isServiceActive(): Boolean {
@@ -2133,9 +2145,12 @@ object LockWindowManager {
     private fun dismissObsoleteBlacklistLockIfNaturallyFree(context: Context): Boolean {
         if (!isBlacklistLock) return false
         val targetPackage = lastBlockedPackageName ?: return false
-        val isRawBlacklisted = CreditManager.getBlacklistApps(context)
-            .any { it.equals(targetPackage, ignoreCase = true) }
-        val isDndBlocked = TimeRuleManager.getCurrentSegment(context) != null && isRawBlacklisted
+        val currentSeg = TimeRuleManager.getCurrentSegment(context)
+        // 【独立黑名单覆盖】勿扰时段名单命中语义唯一来源是 SegmentBlacklist：
+        // 时段独立名单（listApps != null）必须覆盖全局黑名单，否则"时段名单有、
+        // 全局名单无"的应用会在锁上后被 AUTO_RELEASE 立即解除（用户可见的锁屏闪退 bug）。
+        val isDndBlocked = currentSeg != null &&
+            SegmentBlacklist.isSubjectToBlock(context, currentSeg, targetPackage)
         val isAppWindowBlocked = AppWindowManager.isManaged(context, targetPackage) &&
             !AppWindowManager.isAppAllowed(context, targetPackage)
         val decision = resolveAutomaticRestrictionRelease(
@@ -2289,6 +2304,8 @@ object LockWindowManager {
             mDismissUntil = System.currentTimeMillis() + graceTime
             homeClickPendingPackage = lastBlockedPackageName
             homeClickPendingSetAt = now
+            // 🚀 [回到桌面宽限] 启动 3s 小窗锁宽限，期间不因小窗/浮窗再锁
+            setDesktopReturnGrace(now)
             recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
             clearBlacklistHitDebounceForUserAction()
 

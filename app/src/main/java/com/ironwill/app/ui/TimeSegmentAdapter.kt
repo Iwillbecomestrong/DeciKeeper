@@ -97,8 +97,8 @@ class TimeSegmentAdapter(
         val effectiveCount = formatUsableCountHalfUnits(segment.getEffectiveUsableCountLimitHalfUnits())
         holder.tvLimitInfo.text = "休息 ${segment.limitMins}min | ${effectiveCount}次"
 
-        // 第三行：本时段黑名单摘要（三态，与应用时间窗第三行结构一致）
-        holder.tvListSummary.text = TimeConfigFragment.segmentListSummary(segment.listApps)
+        // 第三行：本时段黑名单摘要（模式感知：白名单显示"白名单 N 应用"）
+        holder.tvListSummary.text = TimeConfigFragment.segmentListSummary(holder.itemView.context, segment)
 
         // Switch
         val isEnabled = segment.isEnabled && !isPendingDeletion(segment)

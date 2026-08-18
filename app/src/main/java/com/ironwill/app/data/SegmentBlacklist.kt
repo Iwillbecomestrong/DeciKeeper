@@ -16,6 +16,49 @@ import com.ironwill.app.manager.TimeRuleManager
  */
 object SegmentBlacklist {
 
+    const val LIST_MODE_BLACKLIST = "blacklist"
+    const val LIST_MODE_WHITELIST = "whitelist"
+
+    /**
+     * 名单页可勾选的全集：所有带启动入口的应用（与 AppSelectionActivity.loadInstalledApps 一致）。
+     * 白名单模式的补集以此为准。
+     */
+    fun allLaunchablePackages(context: Context): Set<String> {
+        return runCatching {
+            val pm = context.packageManager
+            pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA)
+                .filter { runCatching { pm.getLaunchIntentForPackage(it.packageName) != null }.getOrDefault(false) }
+                .map { it.packageName }
+                .toSet()
+        }.getOrDefault(emptySet())
+    }
+
+    /**
+     * 把用户在名单页勾选的集合（白名单模式=允许列表）转成「有效黑名单集合」。
+     * 存储层始终以「有效黑名单」为准：白名单模式取补集（全集 − 勾选 − 硬豁免），
+     * 因此判定（isSubjectToBlock）与不利分析（扩/缩）无需感知模式。
+     */
+    fun toEffectiveBlockedSet(context: Context, mode: String, selection: Set<String>): Set<String> {
+        return if (mode == LIST_MODE_WHITELIST) {
+            allLaunchablePackages(context)
+                .filterNot { selection.contains(it) || isHardExempt(context, it) }
+                .toSet()
+        } else {
+            selection.filterNot { isHardExempt(context, it) }.toSet()
+        }
+    }
+
+    /** 把「有效黑名单集合」转回名单页勾选集合（白名单模式取补集，供 UI 展示）。 */
+    fun toDisplaySelection(context: Context, mode: String, blockedSet: Set<String>): Set<String> {
+        return if (mode == LIST_MODE_WHITELIST) {
+            allLaunchablePackages(context)
+                .filterNot { blockedSet.contains(it) || isHardExempt(context, it) }
+                .toSet()
+        } else {
+            blockedSet.filterNot { isHardExempt(context, it) }.toSet()
+        }
+    }
+
     /**
      * 硬剔除：这些应用永不可被「本时段名单」锁定（判定与 UI 共用）。
      *
@@ -32,6 +75,16 @@ object SegmentBlacklist {
         if (p == "com.android.settings") return true
         // 输入法
         if (CreditManager.isInputMethod(context, p)) return true
+        // 系统导航 / SystemUI：手势导航栏、状态栏、最近任务等系统组件，永不锁（红线）。
+        // vivo 的 systemuiplugin 属于同一系统界面体系，一并豁免。
+        // com.vivo.upslide = vivo「系统导航」(System navigation) 上滑手势服务（2026-08-15 用户报告仍在名单中）。
+        if (p == "com.android.systemui" || p.contains("systemui") || p == "com.vivo.systemuiplugin" ||
+            p == "com.vivo.upslide") return true
+        // 系统跟踪（开发者工具 System Tracing）：系统组件，永不锁。
+        if (p == "com.android.traceur") return true
+        // 闹钟 / 时钟：系统级（vivo BBK 时钟、AOSP 桌面时钟、vivo 梦境时钟、关机闹钟），永不锁。
+        if (p == "com.android.bbkclock" || p == "com.android.deskclock" || p.contains("deskclock") ||
+            p == "com.vivo.dream.clock" || p == "com.qualcomm.qti.poweroffalarm") return true
         // 电话 / 拨号 / 联系人
         if (p == "com.android.phone" ||
             p.contains("dialer") ||

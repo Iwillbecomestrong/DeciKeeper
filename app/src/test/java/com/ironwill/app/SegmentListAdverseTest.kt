@@ -3,6 +3,7 @@ package com.ironwill.app
 import android.content.Context
 import com.ironwill.app.data.AnalysisResult
 import com.ironwill.app.data.SegmentAdverseAnalysis
+import com.ironwill.app.data.SegmentBlacklist
 import com.ironwill.app.data.TimeSegment
 import com.ironwill.app.manager.CreditManager
 import com.ironwill.app.manager.TimeRuleManager
@@ -16,6 +17,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+
 
 
 
@@ -290,5 +292,22 @@ class SegmentListAdverseTest {
             selectable = { it }
         )
         assertTrue("恢复跟随全局（旧名单非空）= 放松 → 不利延迟", adverse)
+    }
+
+    @Test
+    fun modeOnlySwitch_isNotAdverse() {
+        val old = TimeSegment(startHour = 8, startMinute = 0, endHour = 12, endMinute = 0, limitMins = 30,
+            name = "x", listApps = listOf("com.a", "com.b"), listMode = SegmentBlacklist.LIST_MODE_BLACKLIST)
+        val new = old.copy(listMode = SegmentBlacklist.LIST_MODE_WHITELIST)
+        assertFalse("纯模式切换（拦截集合不变）不得判为不利",
+            SegmentAdverseAnalysis.analyzeSingleSegmentChange(old, new, null).isAnyAdverse())
+    }
+
+    @Test
+    fun isSingleSegmentEqual_modeDifference_isNotEqual() {
+        val a = TimeSegment(startHour = 8, startMinute = 0, endHour = 12, endMinute = 0, limitMins = 30,
+            name = "x", listApps = listOf("com.a"), listMode = SegmentBlacklist.LIST_MODE_BLACKLIST)
+        val b = a.copy(listMode = SegmentBlacklist.LIST_MODE_WHITELIST)
+        assertFalse("listMode 不同应判定为不相等", SegmentAdverseAnalysis.isSingleSegmentEqual(a, b))
     }
 }

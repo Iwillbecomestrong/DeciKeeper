@@ -96,6 +96,7 @@ class AppSelectionActivity : AppCompatActivity() {
     private var isReadOnly = false
     private var followGlobal = false // TASK-05: segment_blacklist 模式是否恢复跟随全局黑名单
     private var restoreRequested = false // [FIX TASK-05-review] 用户显式点击"恢复为全局黑名单"
+    private var listMode = SegmentBlacklist.LIST_MODE_BLACKLIST // 黑/白名单模式
 
     private val PREF_LOCKOUT_DIALOG_LAST_SHOWN = "lockout_dialog_last_shown_blacklist"
 
@@ -148,6 +149,8 @@ class AppSelectionActivity : AppCompatActivity() {
         currentMode = intent.getStringExtra("EXTRA_MODE") ?: "blacklist"
         val initialSelectionExtra = intent.getStringArrayListExtra("EXTRA_INITIAL_SELECTION")
         followGlobal = intent.getBooleanExtra("EXTRA_FOLLOW_GLOBAL", false)
+        // 黑/白名单模式：调用方显式传入则用之，否则读全局模式（继承态）。
+        listMode = intent.getStringExtra("EXTRA_LIST_MODE") ?: CreditManager.getBlacklistMode(this)
 
         // 🚀 [NEW] Settings Lockout Period Check (Only for Blacklist Mode)
         // If in Result Mode (e.g. App Window), we might allow editing? App Window has its own checks.
@@ -176,13 +179,15 @@ class AppSelectionActivity : AppCompatActivity() {
         // 加载现有配置
         if (currentMode == "blacklist") {
             val pendingSet = CreditManager.getPendingBlacklistApps(this)
-            val savedSet = if (pendingSet != null && pendingSet.isNotEmpty()) {
+            val savedBlocked = if (pendingSet != null && pendingSet.isNotEmpty()) {
                 pendingSet
             } else {
                 CreditManager.getBlacklistApps(this)
             }
-            selectedApps.addAll(savedSet)
-            originalSelection.addAll(savedSet) // 🚀 Track
+            // 名单页展示"勾选集合"：白名单模式取补集还原为允许列表。
+            val display = SegmentBlacklist.toDisplaySelection(this, listMode, savedBlocked)
+            selectedApps.addAll(display)
+            originalSelection.addAll(display) // 🚀 Track
             
             btnSave.text = "💾 保存配置"
             
@@ -195,13 +200,15 @@ class AppSelectionActivity : AppCompatActivity() {
         } else if (currentMode == "segment_blacklist") {
             // TASK-05: 本时段黑名单模式。初始勾选来源：followGlobal → 全局黑名单；否则独立名单。
             val globalBlacklist = CreditManager.getBlacklistApps(this)
-            val rawInitial = initialSelectionFor(
+            val rawBlocked = initialSelectionFor(
                 if (followGlobal) null else initialSelectionExtra?.toList(),
                 globalBlacklist
             )
-            val filteredInitial = filterHardExempt(this, rawInitial)
-            selectedApps.addAll(filteredInitial)
-            originalSelection.addAll(filteredInitial) // 🚀 Track
+            val filteredBlocked = filterHardExempt(this, rawBlocked)
+            // 名单页展示"勾选集合"：白名单模式取补集还原为允许列表。
+            val display = SegmentBlacklist.toDisplaySelection(this, listMode, filteredBlocked)
+            selectedApps.addAll(display)
+            originalSelection.addAll(display) // 🚀 Track
 
             btnSave.text = "💾 保存名单"
 
@@ -238,6 +245,8 @@ class AppSelectionActivity : AppCompatActivity() {
 
         loadInstalledApps()
 
+        setupListModeSwitch()
+
         // ...
         // Quick Import Button
         findViewById<Button>(R.id.btn_quick_import).setOnClickListener {
@@ -262,7 +271,10 @@ class AppSelectionActivity : AppCompatActivity() {
 
     private fun returnResult() {
         val resultIntent = Intent()
-        resultIntent.putStringArrayListExtra("EXTRA_RESULT_SELECTION", ArrayList(selectedApps))
+        // 名单页返回「有效黑名单集合」+ 模式（白名单模式已在此转成补集）。
+        val blockedSet = SegmentBlacklist.toEffectiveBlockedSet(this, listMode, selectedApps.toSet())
+        resultIntent.putStringArrayListExtra("EXTRA_RESULT_SELECTION", ArrayList(blockedSet))
+        resultIntent.putExtra("EXTRA_LIST_MODE", listMode)
         // [FIX TASK-05-review] 跟随态进入后只要勾选变化过就脱钩；否则保持原状态
         resultIntent.putExtra(
             "EXTRA_FOLLOW_GLOBAL",
@@ -303,6 +315,38 @@ class AppSelectionActivity : AppCompatActivity() {
             }
             .setNegativeButton("取消", null)
             .show()
+    }
+
+    // ── 黑/白名单模式切换 ──
+    private fun setupListModeSwitch() {
+        val switch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_list_mode)
+        // 仅 blacklist（全局）与 segment_blacklist（本时段）两种模式支持黑/白切换；result 模式隐藏。
+        if (currentMode != "blacklist" && currentMode != "segment_blacklist") {
+            switch.visibility = View.GONE
+            return
+        }
+        switch.isChecked = listMode == SegmentBlacklist.LIST_MODE_WHITELIST
+        switch.setOnCheckedChangeListener { _, isChecked ->
+            val newMode = if (isChecked) SegmentBlacklist.LIST_MODE_WHITELIST else SegmentBlacklist.LIST_MODE_BLACKLIST
+            if (newMode == listMode) return@setOnCheckedChangeListener
+            // 切换模式：保持"有效黑名单"不变，仅重新推导展示勾选集合。
+            val currentBlocked = SegmentBlacklist.toEffectiveBlockedSet(this, listMode, selectedApps.toSet())
+            listMode = newMode
+            val newDisplay = SegmentBlacklist.toDisplaySelection(this, newMode, currentBlocked)
+            selectedApps.clear()
+            selectedApps.addAll(newDisplay)
+            syncSelectionState()
+            updateLists()
+            refreshModeLabels()
+        }
+        refreshModeLabels()
+    }
+
+    private fun refreshModeLabels() {
+        val isWhite = listMode == SegmentBlacklist.LIST_MODE_WHITELIST
+        findViewById<TextView>(R.id.tv_selected_title)?.text = if (isWhite) "✅ 白名单" else "🚫 黑名单"
+        val switch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_list_mode)
+        switch.text = if (isWhite) "⚪ 白名单模式 (勾选=放行)" else "⚫ 黑名单模式 (勾选=拦截)"
     }
 
     // 🚀 [NEW] Quick Import Dialog
@@ -431,7 +475,10 @@ class AppSelectionActivity : AppCompatActivity() {
     }
 
     private fun saveAppSelection() {
-        val result = CreditManager.analyzeAndSaveBlacklistApps(this, selectedApps)
+        // 保存前把勾选集合转成有效黑名单集合，并落库模式（白名单模式取补集）。
+        val blockedSet = SegmentBlacklist.toEffectiveBlockedSet(this, listMode, selectedApps.toSet())
+        CreditManager.setBlacklistMode(this, listMode)
+        val result = CreditManager.analyzeAndSaveBlacklistApps(this, blockedSet)
         
         AdverseAnalysis.showAnalysisDialog(this, result) {
             doFinish()
@@ -561,8 +608,8 @@ class AppSelectionActivity : AppCompatActivity() {
                 // 只显示有入口的APP
                 hasLaunchIntent(it.packageName)
             }.filter {
-                // TASK-05: segment_blacklist 模式下硬剔除项完全不显示（桌面/输入法/电话/短信/设置/IronWill）。
-                currentMode != "segment_blacklist" || !SegmentBlacklist.isHardExempt(this, it.packageName)
+                // 硬剔除项（桌面/输入法/电话/短信/设置/系统导航/时钟/系统跟踪/IronWill）在所有名单页永不显示。
+                !SegmentBlacklist.isHardExempt(this, it.packageName)
             }.map {
                 val appName = it.loadLabel(pm).toString()
                 val pkgName = it.packageName

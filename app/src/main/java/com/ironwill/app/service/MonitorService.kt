@@ -184,6 +184,8 @@ class MonitorService : Service() {
     private var mPresentLockedPkg: String? = null
     private var mPresentLockedAtMs: Long = 0L
     private var mRequireFastRecheck = false
+    // 🚀 [回到桌面宽限] 上一轮 effective 是否桌面（用于检测"非桌面→桌面"过渡）
+    private var lastEffectiveWasLauncher = false
     private var mPresenceStaleConfirmCount = 0
     private val PRESENCE_VISIBLE_WINDOW_MS = 2000L
     private val PRESENCE_CONFIRM_CYCLES = 2
@@ -1305,7 +1307,7 @@ class MonitorService : Service() {
             }
 
             val isBlocked = try {
-                CreditManager.shouldBlockApp(this, pkg, "")
+                SegmentBlacklist.shouldLock(this, pkg)
             } catch (e: Exception) { false }
 
             if (isBlocked) {
@@ -1643,7 +1645,7 @@ class MonitorService : Service() {
         // (detected via CoreService's live window set), then it's a real visible window (e.g. small window/PIP),
         // not a stale UsageStats lag event! In this case, we MUST clear the pending suppression immediately
         // so that the block is not bypassed, and the lock screen remains active.
-        if (CoreService.isServiceActive) {
+        if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
             val pendingPkg = LockWindowManager.homeClickPendingPackage
             if (pendingPkg != null && CoreService.lastVisiblePackagesFromWindows.contains(pendingPkg)) {
                 Log.w(TAG, "[Anti-Deadlock] Pending pkg $pendingPkg is physically visible on screen, clearing suppression!")
@@ -1665,16 +1667,25 @@ class MonitorService : Service() {
         // If Accessibility is enabled, and the current effective app is a safe app (like Launcher),
         // but a blacklisted app is actually visible on screen (e.g. as a small window/PIP),
         // we override effectivePackageName with that blacklisted package to ensure it gets locked!
-        if (CoreService.isServiceActive) {
+        if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
             val visiblePkgs = CoreService.lastVisiblePackagesFromWindows
             val visibleBlacklistedPkg = visiblePkgs.firstOrNull { pkg ->
-                pkg != this.packageName && CreditManager.shouldBlockApp(this, pkg, "")
+                pkg != this.packageName && SegmentBlacklist.shouldLock(this, pkg)
             }
             if (visibleBlacklistedPkg != null) {
                 effectivePackageName = visibleBlacklistedPkg
                 Log.d(TAG, "[MiniWindowOverrider] Overriding effectivePackageName with visible blacklisted small window: $effectivePackageName")
             }
         }
+
+        // 🚀 [回到桌面宽限] 非桌面 → 桌面 过渡时启动 3s 小窗锁宽限
+        // （覆盖系统 Home 键/手势返回桌面；锁屏"回到桌面"按钮已在 LockWindowManager 内启动；
+        // 已在宽限期内则不续期，防止桌面/误报抖动无限延长宽限）
+        val isEffLauncher = CreditManager.isLauncher(effectivePackageName)
+        if (isEffLauncher && !lastEffectiveWasLauncher && !LockWindowManager.isInDesktopReturnGrace(now)) {
+            LockWindowManager.setDesktopReturnGrace(now)
+        }
+        lastEffectiveWasLauncher = isEffLauncher
 
         if (activeRestrictionTarget == null &&
             applyAutomaticRestrictionRelease(now, currentSeg, effectivePackageName, isPrivilege)
@@ -1937,7 +1948,10 @@ class MonitorService : Service() {
         // 🚀 [Fix] Re-add missing classification logic
         val isSafe = CreditManager.isLauncher(effectivePackageName) || 
                  effectivePackageName == "com.android.settings" ||
-                 CreditManager.isInputMethod(this, effectivePackageName)
+                 CreditManager.isInputMethod(this, effectivePackageName) ||
+                 // 系统导航 / SystemUI 属于系统组件，永不拦截（红线，见 SegmentBlacklist.isHardExempt）
+                 effectivePackageName.contains("systemui", ignoreCase = true) ||
+                 effectivePackageName.equals("com.vivo.systemuiplugin", ignoreCase = true)
 
         // 3. 双锁判定：勿扰锁优先拦截，勿扰解锁后再检查时间窗；特权绕过两把锁
         val segmentDecoupled = currentSeg != null && currentSeg.listApps != null
@@ -2227,7 +2241,7 @@ class MonitorService : Service() {
         val isBlockable = if (isPrivilege) {
             false
         } else if (isDndLocked) {
-            CreditManager.shouldBlockApp(this, candidatePkg, "") || isManaged
+            SegmentBlacklist.isSubjectToBlock(this, TimeRuleManager.getCurrentSegment(this), candidatePkg) || isManaged
         } else {
             isManaged && !AppWindowManager.isAppAllowed(this, candidatePkg)
         }

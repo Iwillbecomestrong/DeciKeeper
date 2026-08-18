@@ -33,6 +33,7 @@ import com.ironwill.app.data.DefaultLogDebugConfig
 import com.ironwill.app.data.DefaultNormalEventRenderer
 import com.ironwill.app.data.LogExporter
 import com.ironwill.app.data.NormalEventLogger
+import com.ironwill.app.data.SegmentBlacklist
 import com.ironwill.app.data.SystemEventClock
 import com.ironwill.app.data.TemporaryAccessQuotaPlan
 import com.ironwill.app.data.TemporaryAccessRefundPlan
@@ -54,6 +55,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
+
 
 
 
@@ -194,6 +196,9 @@ object CreditManager {
 
         // 0.5. 豁免自己
         if (pkg == context.packageName) return false
+
+        // 0.6. 硬豁免（桌面/设置/输入法/电话/短信/系统导航/时钟/系统跟踪等系统组件）永不拦截
+        if (SegmentBlacklist.isHardExempt(context, pkg)) return false
         
         // 4. 输入法 (Always Safe)
         if (isInputMethod(context, pkg)) return false
@@ -281,6 +286,21 @@ object CreditManager {
     // --- Blacklist Management ---
 
     fun getBlacklistApps(context: Context): Set<String> = BlacklistStore.getBlacklistApps(context)
+
+    // --- 全局黑名单模式（blacklist/whitelist）---
+    // 存储的「黑名单集合」始终是有效黑名单；模式仅决定名单页如何展示/编辑。
+    fun getBlacklistMode(context: Context): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("blacklist_mode", SegmentBlacklist.LIST_MODE_BLACKLIST)
+            ?: SegmentBlacklist.LIST_MODE_BLACKLIST
+
+    fun setBlacklistMode(context: Context, mode: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("blacklist_mode", mode).apply()
+    }
+
+    fun isWhitelistMode(context: Context): Boolean =
+        getBlacklistMode(context) == SegmentBlacklist.LIST_MODE_WHITELIST
 
     fun getUserRemovedApps(context: Context): Set<String> = BlacklistStore.getUserRemovedApps(context)
 

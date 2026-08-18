@@ -117,7 +117,7 @@ object SegmentAdverseAnalysis {
      * If a rule was created/modified within the current cycle (Since 08:00 AM),
      * any subsequent modification is considered "Undo" (Benign), not Adverse.
      */
-    fun analyzeSingleSegmentChange(oldSeg: TimeSegment?, newSeg: TimeSegment, context: Context? = null): SegmentAnalysis {
+    fun analyzeSingleSegmentChange(oldSeg: TimeSegment?, newSeg: TimeSegment, context: Context? = null, listReferenceSeg: TimeSegment? = null): SegmentAnalysis {
         // Addition = New Segment = All Favorable
         if (oldSeg == null) return SegmentAnalysis()
 
@@ -151,7 +151,7 @@ object SegmentAdverseAnalysis {
         val rangeAdv = !isRangeWrapping(oldSeg, newSeg)
 
         // 🆕 5. listApps: 名单增加=有利(立即)，减少/清空/恢复 null=不利(次日)
-        val listAdv = classifyListAppsAdverse(context, oldSeg, newSeg)
+        val listAdv = classifyListAppsAdverse(context, listReferenceSeg ?: oldSeg, newSeg)
 
         return SegmentAnalysis(rangeAdv, statusAdv, daysAdv, limitAdv, countLimitAdv, listAdv)
     }
@@ -262,8 +262,8 @@ object SegmentAdverseAnalysis {
         return seg.lastModified >= cycleStart.timeInMillis
     }
 
-    fun isSingleSegmentAdverse(oldSeg: TimeSegment?, newSeg: TimeSegment, context: Context? = null): Boolean {
-        return analyzeSingleSegmentChange(oldSeg, newSeg, context).isAnyAdverse()
+    fun isSingleSegmentAdverse(oldSeg: TimeSegment?, newSeg: TimeSegment, context: Context? = null, listReferenceSeg: TimeSegment? = null): Boolean {
+        return analyzeSingleSegmentChange(oldSeg, newSeg, context, listReferenceSeg).isAnyAdverse()
     }
 
     /**
@@ -341,12 +341,15 @@ object SegmentAdverseAnalysis {
         // 🆕 4c. listApps: 不利(放松)时今日保留加严旧名单，新名单进 pending 次日生效；
         // 有利(加严)时立即用新名单。与其余字段的 Hybrid 语义一致。
         val targetListApps = if (ana.isListAdverse) old.listApps else new.listApps
+        // 🆕 4d. listMode: 模式跟随对应名单（不利时保留旧模式以匹配今日旧名单，否则取新模式）。
+        val targetListMode = if (ana.isListAdverse) old.listMode else new.listMode
 
         return TimeSegment(
             targetStart / 60, targetStart % 60,
             targetEnd / 60, targetEnd % 60,
             targetLimit, new.name, true, unionDays, targetEnabled,
             usableCountLimitHalfUnits = targetUsableCount,
+            listMode = targetListMode,
             listApps = targetListApps
         )
     }
@@ -363,7 +366,8 @@ object SegmentAdverseAnalysis {
                s1.usableCountLimitHalfUnits == s2.usableCountLimitHalfUnits && // 🆕
              days1 == days2 && // 🚀 [Fix] Normalize Days equality
                s1.isEnabled == s2.isEnabled && // 🚀 [Fix] Check Enabled equality
-               s1.listApps == s2.listApps // 🆕 [TASK-04] 名单精确相等（null ≠ emptyList）
+               s1.listApps == s2.listApps && // 🆕 [TASK-04] 名单精确相等（null ≠ emptyList）
+               s1.listMode == s2.listMode // 🆕 [黑/白名单] 模式也参与相等判定（仅改模式也要能保存）
     }
 
     /**
@@ -492,8 +496,16 @@ fun getCategorizedSegmentDiff(
             if (listMsg != null) {
                 val isRestoredList = base != null && match.listApps == base.listApps
                 val isListAdv = if (isRestoredList) false else classifyListAppsAdverse(context, old, match)
-                diffItems.add(DiffItem("本时段黑名单", listMsg, isListAdv, isRestoredList))
+                diffItems.add(DiffItem("本时段名单", listMsg, isListAdv, isRestoredList))
             }
+        }
+
+        // 🆕 [黑/白名单] 纯模式切换（拦截集合不变）时补一条非不利项。
+        if (old != null && old.listApps == match.listApps && old.listMode != match.listMode) {
+            val oldModeLabel = if (old.listMode == SegmentBlacklist.LIST_MODE_WHITELIST) "白名单" else "黑名单"
+            val newModeLabel = if (match.listMode == SegmentBlacklist.LIST_MODE_WHITELIST) "白名单" else "黑名单"
+            val modeMsg = "  • 名单模式: $oldModeLabel → $newModeLabel（仅显示方式，拦截范围不变）"
+            diffItems.add(DiffItem("名单模式", modeMsg, false, false))
         }
 
         return diffItems
@@ -507,26 +519,26 @@ fun getCategorizedSegmentDiff(
         if (oldList == null && newList == null) return null
         if (oldList == null) {
             val n = newList ?: return null
-            return "  • 本时段黑名单: 已与全局黑名单脱钩（独立管理 ${n.size} 应用）"
+            return "  • 本时段名单: 已与全局黑/白名单脱钩（独立管理 ${n.size} 应用）"
         }
         if (newList == null) {
-            return "  • 本时段黑名单: 已恢复为跟随全局黑名单"
+            return "  • 本时段名单: 已恢复为跟随全局黑/白名单"
         }
         val oldSet = oldList.toSet()
         val newSet = newList.toSet()
         if (newSet == oldSet) return null
         if (newList.isEmpty()) {
-            return "  • 本时段黑名单: 已清空本时段名单（不锁任何应用）"
+            return "  • 本时段名单: 已清空本时段名单（不锁任何应用）"
         }
         if (newSet.containsAll(oldSet)) {
-            return "  • 本时段黑名单 +${newSet.size - oldSet.size} 应用"
+            return "  • 本时段名单 +${newSet.size - oldSet.size} 应用"
         }
         if (oldSet.containsAll(newSet)) {
-            return "  • 本时段黑名单 −${oldSet.size - newSet.size} 应用"
+            return "  • 本时段名单 −${oldSet.size - newSet.size} 应用"
         }
         val added = (newSet - oldSet).size
         val removed = (oldSet - newSet).size
-        return "  • 本时段黑名单: 名单调整（增 $added、减 $removed）"
+        return "  • 本时段名单: 名单调整（增 $added、减 $removed）"
     }
 
     /**
@@ -596,6 +608,7 @@ fun getCategorizedSegmentDiff(
 
     fun isAdverseRelativeToBaseline(context: Context, newSegments: List<TimeSegment>): Boolean {
         val basSegments = TimeRuleManager.getBaselineSegments(context) ?: TimeRuleManager.getTimeSegments(context)
+        val activeSegments = TimeRuleManager.getTimeSegments(context)
         
         // 🚀 [Fix] Check for internal overlaps in new segments
         if (TimeRuleManager.checkSegmentOverlap(newSegments)) return true
@@ -625,7 +638,10 @@ fun getCategorizedSegmentDiff(
                 if (!isDaysOverlapping(baseSeg.daysOfWeek, newSeg.daysOfWeek)) {
                     continue
                 }
-                if (isSingleSegmentAdverse(baseSeg, newSeg, context)) return true
+                // 🆕 [黑/白名单] 名单不利对 active 判定：纯模式切换(拦截集合不变)不应判不利。
+                val activeRaw = findMatchingOldSegment(newSeg, activeSegments)
+                val activeRef = if (activeRaw != null && isDaysOverlapping(activeRaw.daysOfWeek, newSeg.daysOfWeek)) activeRaw else null
+                if (isSingleSegmentAdverse(baseSeg, newSeg, context, activeRef)) return true
             }
         }
         

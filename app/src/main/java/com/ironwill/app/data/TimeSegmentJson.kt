@@ -21,6 +21,10 @@ data class TimeSegment(
     val usableCountLimitHalfUnits: Int = UsableCount.AUTO_HALF_UNITS,
     // Legacy field retained for old serialized data compatibility.
     val lastModified: Long = 0L,
+    // 🆕 [NEW] 名单模式：blacklist=黑名单(勾选即拦截)；whitelist=白名单(勾选即放行，其余拦截)。
+    // listApps 始终存储「有效黑名单集合」（白名单模式已在保存时转成补集），
+    // 本字段仅用于界面展示/编辑时的模式还原；跟随全局(listApps==null)时忽略。
+    val listMode: String = SegmentBlacklist.LIST_MODE_BLACKLIST,
     // 🆕 [NEW] 本时段独立黑名单。null=跟随全局黑名单（继承态）；
     // 非空列表=本时段独立名单（脱钩态）；空列表=本时段什么都不锁。
     // 置于末尾以避免破坏既有位置参数构造调用。
@@ -136,6 +140,11 @@ object TimeSegmentJson {
                  seg.listApps.forEach { lArray.put(it) }
                  obj.put("listApps", lArray)
              }
+
+             // 🆕 [NEW] 名单模式：默认黑名单不写；白名单写入。
+             if (seg.listMode != SegmentBlacklist.LIST_MODE_BLACKLIST) {
+                 obj.put("listMode", seg.listMode)
+             }
              array.put(obj)
          }
          return array.toString()
@@ -172,6 +181,7 @@ object TimeSegmentJson {
                     name = obj.optString("name"),
                     isCustomized = obj.optBoolean("isCustomized"),
                     daysOfWeek = days,
+                    listMode = obj.optString("listMode", SegmentBlacklist.LIST_MODE_BLACKLIST),
                     listApps = listApps,
                     isEnabled = obj.optBoolean("isEnabled", true),
                     // optInt 默认 -1 表示"未设置，自动计算"

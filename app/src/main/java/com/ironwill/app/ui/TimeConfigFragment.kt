@@ -26,14 +26,18 @@ import androidx.recyclerview.widget.RecyclerView
 import com.ironwill.app.R
 import com.ironwill.app.data.AdverseAnalysis
 import com.ironwill.app.data.SegmentAdverseAnalysis
+import com.ironwill.app.data.SegmentBlacklist
 import com.ironwill.app.data.TimeSegment
 import com.ironwill.app.data.UsableCount
 import com.ironwill.app.data.formatUsableCountHalfUnits
 import com.ironwill.app.manager.BoundaryResult
 import com.ironwill.app.manager.ChangeLogManager
+import com.ironwill.app.manager.CreditManager
 import com.ironwill.app.manager.MinuteBoundary
 import com.ironwill.app.manager.TimeRuleManager
 import com.ironwill.app.service.MonitorService
+
+
 
 
 
@@ -86,6 +90,17 @@ class TimeConfigFragment : Fragment() {
             listApps.isEmpty() -> "本时段不锁任何应用"
             else -> "独立管理 ${listApps.size} 个应用"
         }
+
+        /** 模式感知摘要：白名单模式显示"白名单 N 个应用"（补集还原后计数）。 */
+        internal fun segmentListSummary(context: android.content.Context, segment: TimeSegment): String = when {
+            segment.listApps == null -> "跟随全局黑名单"
+            segment.listMode == SegmentBlacklist.LIST_MODE_WHITELIST -> {
+                val white = SegmentBlacklist.toDisplaySelection(context, segment.listMode, segment.listApps.toSet())
+                if (white.isEmpty()) "白名单模式 (全部拦截)" else "白名单 ${white.size} 个应用"
+            }
+            segment.listApps.isEmpty() -> "本时段不锁任何应用"
+            else -> "独立管理 ${segment.listApps.size} 个应用"
+        }
     }
 
     private var recyclerView: RecyclerView? = null
@@ -99,6 +114,12 @@ class TimeConfigFragment : Fragment() {
     // TASK-05: 本时段黑名单编辑状态（弹窗位置 + 摘要视图，供 segmentListLauncher 回调同步）
     private var editingSegmentPosition: Int = -1
     private var editingListSummaryView: TextView? = null
+    // [FIX 2026-08-14] 名单回调的"待提交值"：onActivityResult 先于 onResume 执行，
+    // 回调写入 segments[position] 后会被 onResume->reloadData() 用存储旧值覆盖，
+    // 故用独立字段暂存，供时段编辑弹窗「保存」时读取（listApps=null=跟随全局也是有效值）。
+    private var editingListAppsPending: List<String>? = null
+    private var editingListModePending: String = SegmentBlacklist.LIST_MODE_BLACKLIST
+    private var editingListAppsTouched: Boolean = false
 
     private val segmentListLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
@@ -106,13 +127,20 @@ class TimeConfigFragment : Fragment() {
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val selection = result.data?.getStringArrayListExtra("EXTRA_RESULT_SELECTION")?.toList() ?: emptyList()
             val followGlobal = result.data?.getBooleanExtra("EXTRA_FOLLOW_GLOBAL", false) ?: false
+            val newMode = result.data?.getStringExtra("EXTRA_LIST_MODE") ?: SegmentBlacklist.LIST_MODE_BLACKLIST
             val pos = editingSegmentPosition
             if (pos in segments.indices) {
+                // selection 已是「有效黑名单集合」（白名单模式已在选择器里转成补集）。
                 val newListApps = resolveListAppsFromResult(followGlobal, selection)
-                segments[pos] = segments[pos].copy(listApps = newListApps)
-                editingListSummaryView?.text = segmentListSummary(newListApps)
+                // [FIX 2026-08-14] 选择器只暂存、不保存不弹窗：
+                // 1) 先更新内存列表（若 reloadData 未随后覆盖则立即生效）；
+                // 2) 再写入"待提交"字段，供编辑弹窗「保存」读取，避免被 onResume 的 reloadData 覆盖。
+                segments[pos] = segments[pos].copy(listApps = newListApps, listMode = newMode)
+                editingListAppsPending = newListApps
+                editingListModePending = newMode
+                editingListAppsTouched = true
+                editingListSummaryView?.text = segmentListSummary(requireContext(), segments[pos])
                 adapter?.notifyItemChanged(pos)
-                saveSegmentsImmediately()
             }
         }
         editingSegmentPosition = -1
@@ -383,6 +411,10 @@ class TimeConfigFragment : Fragment() {
         if (isSettingsLocked()) return
         if (position !in segments.indices) return
         val segment = segments[position]
+        // [FIX 2026-08-14] 每个编辑弹窗独立：打开时重置名单"待提交"状态。
+        editingListAppsTouched = false
+        editingListAppsPending = null
+        editingListModePending = segment.listMode
         val ctx = requireContext()
         val dialogView = LayoutInflater.from(ctx).inflate(R.layout.dialog_edit_segment, null)
 
@@ -407,7 +439,7 @@ class TimeConfigFragment : Fragment() {
         btnEnd.text = formatTime(endHour, endMinute)
         etLimit.setText(segment.limitMins.toString())
         btnDays.text = formatDaysText(selectedDays)
-        tvSegmentListSummary.text = segmentListSummary(segment.listApps)
+        tvSegmentListSummary.text = segmentListSummary(ctx, segment)
 
         val etUsableCount = dialogView.findViewById<EditText>(R.id.et_edit_usable_count)
         val tvUsableCountHint = dialogView.findViewById<TextView>(R.id.tv_usable_count_hint)
@@ -445,11 +477,20 @@ class TimeConfigFragment : Fragment() {
         btnSegmentList.setOnClickListener {
             editingSegmentPosition = position
             editingListSummaryView = tvSegmentListSummary
-            val currentListApps = segments.getOrNull(position)?.listApps ?: segment.listApps
+            // [FIX 2026-08-14] 若本次弹窗内名单已被回调更新过（含 null=跟随全局），
+            // 以"待提交值"为准；否则用打开弹窗时的名单。
+            val currentListApps = if (editingListAppsTouched) editingListAppsPending else segment.listApps
+            // 模式：跟随全局时用全局模式，否则用本时段名单自己的模式。
+            val currentListMode = when {
+                editingListAppsTouched -> editingListModePending
+                segment.listApps == null -> CreditManager.getBlacklistMode(requireContext())
+                else -> segment.listMode
+            }
             val intent = Intent(requireContext(), AppSelectionActivity::class.java)
             intent.putExtra("EXTRA_MODE", "segment_blacklist")
             intent.putStringArrayListExtra("EXTRA_INITIAL_SELECTION", ArrayList(currentListApps ?: emptyList()))
             intent.putExtra("EXTRA_FOLLOW_GLOBAL", currentListApps == null)
+            intent.putExtra("EXTRA_LIST_MODE", currentListMode)
             segmentListLauncher.launch(intent)
         }
 
@@ -474,7 +515,10 @@ class TimeConfigFragment : Fragment() {
                     daysOfWeek = selectedDays,
                     isEnabled = segment.isEnabled,
                     usableCountLimitHalfUnits = usableCountLimitHalfUnits,
-                    listApps = segments.getOrNull(position)?.listApps ?: segment.listApps,
+                    listMode = if (editingListAppsTouched) editingListModePending else segment.listMode,
+                    // [FIX 2026-08-14] 以"待提交值"为准；listApps=null（跟随全局）是有效值，
+                    // 不能 Elvis 回退到打开弹窗时的旧名单（否则"恢复为全局黑名单"一保存就变回独立管理）。
+                    listApps = if (editingListAppsTouched) editingListAppsPending else segment.listApps,
                     lastModified = System.currentTimeMillis()
                 )
 
