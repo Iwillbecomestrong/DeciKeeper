@@ -69,6 +69,11 @@ object AlarmWindowManager {
     }
     private var activeOverlayAlarmId: Int = -1
 
+    /**
+     * 某些 OEM 即使闹钟仍在运行，也可能在挑战过程中发出 SCREEN_OFF。
+     * 闹钟 active 时把它视为异常熄屏：短延迟后重新获取亮屏 WakeLock，
+     * 并让现有挑战覆盖层重新检查挂载状态。用户完成挑战后立即注销监听。
+     */
     private val screenOffReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != Intent.ACTION_SCREEN_OFF) return
@@ -87,14 +92,26 @@ object AlarmWindowManager {
         }
     }
 
+    /**
+     * 显示闹钟悬浮窗。
+     *
+     * Expected Input: 闹钟触发，需要显示挑战界面。
+     * Expected Output: 点亮屏幕 + 显示悬浮窗挑战界面；如果已有悬浮窗则更新内容。
+     *                  无悬浮窗权限或悬浮窗显示失败时，降级启动 AlarmActivity。
+     */
     fun show(context: Context, alarmId: Int) {
         Log.i(TAG, "show: alarmId=$alarmId")
         LogExporter.logEvent("AlarmOverlay", "AlarmWindowManager.show id=$alarmId")
 
         ensureScreenOffRecoveryRegistered(context)
         AlarmChallengeEmergencyGuardService.start(context.applicationContext)
+        // 先点亮并保持屏幕，再决定走 Activity 还是 WindowManager。
+        // 锁屏分支如果不先拿 WakeLock，Activity 可能已启动但用户仍看不到。
         refreshScreenWake(context, "SHOW")
 
+        // [锁屏检测] 系统锁屏正在显示时，Service 覆盖层无法盖过锁屏。
+        // 此时启动 AlarmActivity（已配置 setShowWhenLocked(true)），
+        // 让挑战界面显示在系统锁屏之上，用户无需解锁即可操作。
         val km = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         @Suppress("DEPRECATION")
         val isLocked = km.isKeyguardLocked()
@@ -111,6 +128,7 @@ object AlarmWindowManager {
 
         val snoozeMinutes = AlarmScheduler.getSnoozeMinutes(context)
 
+        // 2. 检查悬浮窗权限，无权限时降级到 AlarmActivity
         if (!android.provider.Settings.canDrawOverlays(context)) {
             Log.w(TAG, "show: no overlay permission, falling back to AlarmActivity")
             LogExporter.logEvent("AlarmOverlay", "NO_OVERLAY_PERMISSION_FALLBACK_ACTIVITY id=$alarmId")
@@ -122,6 +140,7 @@ object AlarmWindowManager {
             return
         }
 
+        // 3. 通过 LockWindowManager 显示悬浮窗，失败时降级到 AlarmActivity
         try {
             LockWindowManager.showAlarmOverlay(context, alarmId, snoozeMinutes, NoActivityAlarmController)
             LockWindowManager.showAlarmOverlayIfHidden()
@@ -141,6 +160,11 @@ object AlarmWindowManager {
         }
     }
 
+    /**
+     * 用户手动点击“挑战”时的恢复入口。
+     * 只要该闹钟仍是 active，就必须尝试把挑战带回用户面前；
+     * “内部认为 overlay 已启动”不能再成为拒绝恢复的理由。
+     */
     fun reenterChallenge(context: Context, alarmId: Int) {
         val activeId = AlarmScheduler.getActiveAlarmId(context)
         if (!AlarmScheduler.isAlarmActive(context) || activeId != alarmId) {
@@ -156,16 +180,21 @@ object AlarmWindowManager {
         refreshScreenWake(context, "USER_REENTER")
         AlarmVibrationService.start(context.applicationContext, alarmId)
 
+        // 如果挑战当前由 AlarmActivity 内嵌承载，最安全的恢复方式是把同一个 Activity 拉回前台，
+        // 而不是把已有 View 强制迁移到 WindowManager（那会重建题目/丢失当前进度）。
         if (LockWindowManager.isCurrentOverlayInline()) {
             LogExporter.logEvent("AlarmOverlay", "CHALLENGE_REENTER_ACTIVITY id=$alarmId reason=INLINE")
             fallbackToActivity(context, alarmId)
             return
         }
 
+        // 窗口模式直接复用 show()：它会处理透明/失焦残留、View 被 OEM 移除后的重挂载，
+        // 必要时自动降级到 Activity。
         show(context.applicationContext, alarmId)
         LogExporter.logEvent("AlarmOverlay", "CHALLENGE_REENTER_REASSERTED id=$alarmId")
     }
 
+    /** 重新取得亮屏 WakeLock；既用于首次显示，也用于异常熄屏/用户手动恢复。 */
     fun refreshScreenWake(context: Context, reason: String) {
         acquireWakeLock(context.applicationContext)
         Log.i(TAG, "SCREEN_KEEP_ALIVE_REFRESH reason=$reason")
@@ -189,6 +218,10 @@ object AlarmWindowManager {
         }
     }
 
+    /**
+     * 关闭闹钟悬浮窗并释放 WakeLock。
+     * 由挑战完成或用户暂停时调用。
+     */
     fun dismiss() {
         Log.i(TAG, "dismiss: releasing wake lock")
         releaseWakeLock()
@@ -259,9 +292,16 @@ object AlarmWindowManager {
         }
     }
 
+    /**
+     * 无 Activity 场景的 AlarmOverlayController 实现。
+     *
+     * 扫码时需要启动 AlarmActivity（SurfaceView 无法在 TYPE_APPLICATION_OVERLAY 中渲染），
+     * 其他场景（挑战完成）仅清理本地状态。
+     */
     private object NoActivityAlarmController : LockWindowManager.AlarmOverlayController {
 
         override fun launchQrScan() {
+            // 悬浮窗中无 Activity 无法直接请求权限，启动 AlarmActivity 处理扫码
             val ctx = MyApplication.instance ?: return
             val activeAlarmId = AlarmScheduler.getActiveAlarmId(ctx)
             if (activeAlarmId < 0) {
@@ -278,6 +318,7 @@ object AlarmWindowManager {
         }
 
         override fun onAlarmOverlayFinished() {
+            // 悬浮窗关闭时释放 WakeLock
             dismiss()
         }
     }
