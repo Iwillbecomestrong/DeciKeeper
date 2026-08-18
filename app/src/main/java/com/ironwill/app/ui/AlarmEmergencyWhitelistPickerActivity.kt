@@ -14,7 +14,6 @@ import com.ironwill.app.manager.AlarmChallengeEmergencyWhitelist
 /** Simple global picker for the two alarm-challenge emergency apps. */
 class AlarmEmergencyWhitelistPickerActivity : AppCompatActivity() {
     private val selected = linkedSetOf<String>()
-    private val checkboxes = mutableMapOf<String, CheckBox>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,7 +42,7 @@ class AlarmEmergencyWhitelistPickerActivity : AppCompatActivity() {
 
         val launchable = packageManager.getInstalledApplications(0)
             .asSequence()
-            .filter { packageManager.getLaunchIntentForPackage(it.packageName) != null }
+            .filter { selected.contains(it.packageName) || packageManager.getLaunchIntentForPackage(it.packageName) != null }
             .filter { AlarmChallengeEmergencyWhitelist.isSelectable(this, it.packageName) }
             .map { app ->
                 val label = try { packageManager.getApplicationLabel(app).toString() } catch (_: Exception) { app.packageName }
@@ -53,7 +52,7 @@ class AlarmEmergencyWhitelistPickerActivity : AppCompatActivity() {
             .toList()
 
         launchable.forEach { (label, pkg) ->
-            val cb = CheckBox(this).apply {
+            column.addView(CheckBox(this).apply {
                 text = "$label\n$pkg"
                 isChecked = selected.contains(pkg)
                 setPadding(0, (5 * density).toInt(), 0, (5 * density).toInt())
@@ -69,9 +68,7 @@ class AlarmEmergencyWhitelistPickerActivity : AppCompatActivity() {
                         selected -= pkg
                     }
                 }
-            }
-            checkboxes[pkg] = cb
-            column.addView(cb)
+            })
         }
 
         column.addView(Button(this).apply {
