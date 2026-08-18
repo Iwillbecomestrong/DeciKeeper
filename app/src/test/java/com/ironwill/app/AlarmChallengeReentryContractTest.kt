@@ -1,36 +1,30 @@
 package com.ironwill.app
 
 import java.io.File
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AlarmChallengeReentryContractTest {
     @Test
-    fun activeAlarmChallengeButtonAlwaysRoutesToRecoveryInsteadOfRejectingVisibleState() {
-        val fragment = source("app/src/main/java/com/ironwill/app/ui/AlarmFragment.kt")
+    fun activeAlarmChallengeButtonAlwaysRoutesToRecoveryEntryPoint() {
+        val adapter = source("app/src/main/java/com/ironwill/app/ui/AlarmListAdapter.kt")
 
         assertTrue(
-            "active alarm challenge must route through the recovery entry point",
-            fragment.contains("AlarmWindowManager.reenterChallenge(ctx, activeAlarmId)")
-        )
-        assertFalse(
-            "an internally attached overlay must not block the user's recovery button",
-            fragment.contains("挑战界面已经在显示了，请回到前台查看")
+            "when the visible Challenge button is clicked, stale internal overlay state must not block recovery",
+            adapter.contains("AlarmWindowManager.reenterChallenge(itemView.context, item.id)")
         )
     }
 
     @Test
-    fun challengeRecoveryRefreshesScreenKeepAliveAndOverlayVisibility() {
+    fun challengeRecoveryRefreshesScreenWakeAndHandlesUnexpectedScreenOff() {
         val window = source("app/src/main/java/com/ironwill/app/manager/AlarmWindowManager.kt")
-        val overlay = source("app/src/main/java/com/ironwill/app/ui/LockAlarmOverlay.kt")
 
         assertTrue(window.contains("fun reenterChallenge(context: Context, alarmId: Int)"))
         assertTrue(window.contains("CHALLENGE_REENTER_REQUEST"))
         assertTrue(window.contains("SCREEN_KEEP_ALIVE_REFRESH"))
         assertTrue(
-            "alarm challenge view itself must request screen-on in addition to the window flag/wakelock",
-            overlay.contains("keepScreenOn = true")
+            "while an alarm remains active, an unexpected screen-off must trigger a wake refresh",
+            window.contains("Intent.ACTION_SCREEN_OFF") && window.contains("SCREEN_OFF_RECOVERY")
         )
     }
 
