@@ -44,6 +44,10 @@ jobs:
         shell: powershell
         run: .\gradlew.bat --version
 
+      - name: Run unit tests
+        shell: powershell
+        run: .\gradlew.bat --no-daemon testDebugUnitTest
+
       - name: Build debug APK
         shell: powershell
         run: .\gradlew.bat --no-daemon assembleDebug
