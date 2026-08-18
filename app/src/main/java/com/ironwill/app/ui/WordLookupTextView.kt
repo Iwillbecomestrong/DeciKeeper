@@ -15,7 +15,7 @@ import android.widget.TextView
  * 长按到空白 / 中文 / 标点 / 选词空位 [    ] 时找不到词，返回 super.performLongClick()，
  * 不破坏系统默认行为。全程 try/catch，保证 a11y 覆盖层稳定。
  */
-class WordLookupTextView @JvmOverloads constructor(
+open class WordLookupTextView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
