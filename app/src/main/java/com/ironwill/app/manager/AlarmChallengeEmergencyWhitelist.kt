@@ -11,7 +11,9 @@ import android.net.Uri
  */
 object AlarmChallengeEmergencyWhitelist {
     private const val PREFS = "alarm_challenge_emergency_whitelist"
-    private const val KEY_PACKAGES = "packages"
+    private const val KEY_PACKAGE_1 = "package_1"
+    private const val KEY_PACKAGE_2 = "package_2"
+    private const val LEGACY_KEY_PACKAGES = "packages"
     const val MAX_APPS = 2
 
     /** Pure policy seam used by JVM tests and foreground-enforcement code. */
@@ -41,21 +43,34 @@ object AlarmChallengeEmergencyWhitelist {
 
     fun getPackages(context: Context): List<String> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val stored = prefs.getStringSet(KEY_PACKAGES, null)
-        if (stored != null) return sanitizeForDevice(context, stored.toList())
+        val ordered = listOfNotNull(
+            prefs.getString(KEY_PACKAGE_1, null),
+            prefs.getString(KEY_PACKAGE_2, null)
+        )
+        if (ordered.isNotEmpty() || prefs.contains(KEY_PACKAGE_1) || prefs.contains(KEY_PACKAGE_2)) {
+            return sanitizeForDevice(context, ordered)
+        }
+
+        // One-time migration from the early StringSet implementation.
+        val legacy = prefs.getStringSet(LEGACY_KEY_PACKAGES, null)
+        if (legacy != null) {
+            val migrated = sanitizeForDevice(context, legacy.toList())
+            savePackages(context, migrated)
+            return migrated
+        }
 
         val defaults = resolveDefaultCommunicationApps(context)
-        if (defaults.isNotEmpty()) savePackages(context, defaults)
+        savePackages(context, defaults)
         return defaults
     }
 
     fun savePackages(context: Context, packages: Collection<String>) {
         val sanitized = sanitizeForDevice(context, packages.toList())
-        // LinkedHashSet semantics are not guaranteed by SharedPreferences, so callers
-        // must not rely on display order after process restart.
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putStringSet(KEY_PACKAGES, sanitized.toSet())
+            .putString(KEY_PACKAGE_1, sanitized.getOrNull(0))
+            .putString(KEY_PACKAGE_2, sanitized.getOrNull(1))
+            .remove(LEGACY_KEY_PACKAGES)
             .apply()
     }
 
@@ -72,10 +87,24 @@ object AlarmChallengeEmergencyWhitelist {
             packageName != context.packageName &&
             !dangerousPackages(context).contains(packageName)
 
+    /**
+     * Launch defaults through their narrow communication intents when possible.
+     * This avoids requiring a launcher activity for system Phone/Messages apps.
+     */
     fun launch(context: Context, packageName: String): Boolean {
         if (!isSelectable(context, packageName)) return false
-        val intent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val pm = context.packageManager
+        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:"))
+        val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))
+        val dialPackage = resolvePackage(context, dialIntent)
+        val smsPackage = resolvePackage(context, smsIntent)
+
+        val intent = when (packageName) {
+            dialPackage -> dialIntent.setPackage(packageName)
+            smsPackage -> smsIntent.setPackage(packageName)
+            else -> pm.getLaunchIntentForPackage(packageName) ?: return false
+        }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
         return try {
             context.startActivity(intent)
             true
@@ -89,22 +118,24 @@ object AlarmChallengeEmergencyWhitelist {
             .filter { isInstalled(context, it) }
 
     private fun resolveDefaultCommunicationApps(context: Context): List<String> {
-        val pm = context.packageManager
         val result = mutableListOf<String>()
 
-        fun resolve(intent: Intent) {
-            val pkg = try { pm.resolveActivity(intent, 0)?.activityInfo?.packageName } catch (_: Exception) { null }
+        fun addResolved(intent: Intent) {
+            val pkg = resolvePackage(context, intent)
             if (pkg != null && isSelectable(context, pkg) && isInstalled(context, pkg) && !result.contains(pkg)) {
                 result += pkg
             }
         }
 
-        // Default phone app.
-        resolve(Intent(Intent.ACTION_DIAL, Uri.parse("tel:")))
-        // Default SMS/messages app.
-        resolve(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")))
-
+        addResolved(Intent(Intent.ACTION_DIAL, Uri.parse("tel:")))
+        addResolved(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")))
         return result.take(MAX_APPS)
+    }
+
+    private fun resolvePackage(context: Context, intent: Intent): String? = try {
+        context.packageManager.resolveActivity(intent, 0)?.activityInfo?.packageName
+    } catch (_: Exception) {
+        null
     }
 
     private fun isInstalled(context: Context, packageName: String): Boolean = try {
