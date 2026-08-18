@@ -23,7 +23,6 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
-    <!-- 查询所有可启动的应用 -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -41,7 +40,6 @@
         android:theme="@style/Theme.IronWill"
         tools:targetApi="31">
 
-        <!-- 核心无障碍服务 -->
         <service
             android:name=".service.CoreService"
             android:label="@string/app_name"
@@ -57,7 +55,6 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- 基础锁机服务 (基于 usage stats) -->
         <service
             android:name=".service.MonitorService"
             android:enabled="true"
@@ -66,7 +63,6 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="usage_monitor"/>
         </service>
 
-        <!-- 🛡️ 无障碍守护服务 (A11yGuardService) -->
         <service
             android:name=".service.A11yGuardService"
             android:enabled="true"
@@ -84,7 +80,6 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="lock_screen_overlay"/>
         </service>
 
-        <!-- 闹钟震动前台服务 (独立于 UI 生命周期) -->
         <service
             android:name=".service.AlarmVibrationService"
             android:enabled="true"
@@ -95,6 +90,14 @@
         </service>
 
         <service
+            android:name=".service.AlarmChallengeEmergencyGuardService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="alarm_challenge_emergency_guard"/>
+        </service>
+
+        <service
             android:name=".service.AlarmWatchdogService"
             android:enabled="true"
             android:exported="false"
@@ -102,7 +105,6 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="alarm_watchdog"/>
         </service>
 
-        <!-- 实验性：小窗通知监听（观察 Vivo 是否发"正在其他应用上层显示"通知） -->
         <service
             android:name=".service.PresenceNotificationListener"
             android:enabled="true"
@@ -113,8 +115,6 @@
             </intent-filter>
         </service>
 
-        <!-- REQ-5: 首次启动的 launcher 改为 PrivacyConsentActivity，
-             未同意时拦截进入 MainActivity；同意后由 PrivacyConsentActivity 跳 MainActivity -->
         <activity
             android:name=".ui.PrivacyConsentActivity"
             android:exported="true"
@@ -131,13 +131,11 @@
             android:exported="true"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- REQ-5: "设置 → 关于我们" 主入口 -->
         <activity
             android:name=".ui.AboutActivity"
             android:exported="false"
             android:label="关于我们" />
 
-        <!-- REQ-5: 统一法务长文本文档渲染器 -->
         <activity
             android:name=".ui.LegalDocumentActivity"
             android:exported="false" />
@@ -174,13 +172,16 @@
             android:turnScreenOn="true"
             android:screenOrientation="portrait" />
 
-
-
         <activity
             android:name=".ui.GlobalParamsActivity"
             android:exported="false"
             android:label="全局参数"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.AlarmEmergencyWhitelistPickerActivity"
+            android:exported="false"
+            android:label="闹钟挑战应急白名单" />
 
         <receiver
             android:name=".receiver.BootReceiver"
@@ -197,7 +198,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- 新装 App 自动加入黑名单（四大类别：社交/短视频/游戏/浏览器） -->
         <receiver
             android:name=".receiver.PackageInstallReceiver"
             android:enabled="true"
@@ -210,7 +210,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- 探测自启动/后台唤醒的占位广播 -->
         <receiver
             android:name=".receiver.AutoStartTestReceiver"
             android:enabled="true"
@@ -224,12 +223,10 @@
             android:name=".receiver.AlarmReceiver"
             android:exported="false" />
 
-        <!-- 💓 AlarmManager 高频心跳接收器（拉起 Guardian 进程并调度下次） -->
         <receiver
             android:name=".receiver.AlarmHeartbeatReceiver"
             android:exported="false" />
 
-        <!-- 🛡️ 设备管理器 (防卸载) -->
         <receiver
             android:name=".receiver.DeviceAdmin"
             android:label="@string/app_name"
@@ -245,7 +242,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- 📂 FileProvider for Log Sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
