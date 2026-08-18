@@ -15,16 +15,6 @@ import com.ironwill.app.manager.AlarmScheduler
 import com.ironwill.app.manager.AlarmWindowManager
 import com.ironwill.app.service.AlarmVibrationService
 
-
-
-
-
-
-
-
-
-
-
 /**
  * =================================================================================
  * [Context Header]
@@ -82,6 +72,15 @@ class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
+        val receivedAlarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
+        val receivedKind = intent.getStringExtra(AlarmScheduler.EXTRA_INTENT_KIND) ?: "UNKNOWN"
+        val receivedToken = intent.getStringExtra(AlarmScheduler.EXTRA_SCHEDULE_TOKEN).orEmpty()
+        val receivedScheduledAt = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_AT_MILLIS, 0L)
+        val receivedAt = System.currentTimeMillis()
+        LogExporter.logEvent(
+            "AlarmReceiver",
+            "[ALARM_RECEIVED] action=$action id=$receivedAlarmId kind=$receivedKind token=${receivedToken.take(8)} scheduledAt=$receivedScheduledAt receivedAt=$receivedAt"
+        )
 
         // ----- 预热闹钟：提前唤醒进程，确保主闹钟到达时 App 已在内存中 -----
         if (action == AlarmScheduler.ACTION_ALARM_PRE_WARM) {
@@ -104,13 +103,12 @@ class AlarmReceiver : BroadcastReceiver() {
             val validateResult = validateAlarmTrigger(context, alarmId, intent)
             if (!validateResult.accepted) {
                 Log.w("AlarmReceiver", "Backup alarm: validation failed (alarmId=$alarmId, reason=${validateResult.reason})")
-                LogExporter.logEvent("AlarmReceiver", "BACKUP_REJECTED id=$alarmId reason=${validateResult.reason}")
+                LogExporter.logEvent("AlarmReceiver", "BACKUP_REJECTED id=$alarmId reason=${validateResult.reason} detail=${validateResult.detail}")
                 return
             }
             Log.w("AlarmReceiver", "Backup alarm: main alarm NOT active, triggering backup (alarmId=$alarmId)")
             AlarmScheduler.setAlarmActive(context, alarmId)
             LogExporter.logEvent("AlarmRecovery", "Backup alarm triggered (id=$alarmId)")
-            // Event-driven logging: actual recovery action — one ALARM_RECOVERY draft.
             alarmProtectionEventBridge.recordAlarmRecovery(
                 alarmId = alarmId.toString(),
                 recoveryAction = "BACKUP_TRIGGER"
@@ -178,7 +176,6 @@ class AlarmReceiver : BroadcastReceiver() {
         lastTriggeredAlarmId = alarmId
 
         if (action == AlarmScheduler.ACTION_ALARM_SNOOZE) {
-            // 休眠闹钟不需要权威校验
             AlarmScheduler.setAlarmActive(context, alarmId)
             AlarmVibrationService.start(context, alarmId)
             LogExporter.logEvent("AlarmOverlay", "RECEIVER_SHOW_REQUEST action=$action id=$alarmId")
@@ -190,14 +187,12 @@ class AlarmReceiver : BroadcastReceiver() {
         val validateResult = validateAlarmTrigger(context, alarmId, intent)
         if (!validateResult.accepted) {
             Log.w("AlarmReceiver", "Alarm trigger REJECTED: alarmId=$alarmId, reason=${validateResult.reason}")
-            LogExporter.logEvent("AlarmReceiver", "[ALARM_TRIGGER_REJECTED] alarmId=$alarmId reason=${validateResult.reason}")
-            // 清理可能残留的 active 状态和窗口
+            LogExporter.logEvent("AlarmReceiver", "[ALARM_TRIGGER_REJECTED] alarmId=$alarmId reason=${validateResult.reason} detail=${validateResult.detail}")
             cleanupStaleAlarm(context, alarmId, validateResult.reason)
             return
         }
         LogExporter.logEvent("AlarmReceiver", "[ALARM_TRIGGER_ACCEPTED] alarmId=$alarmId token=${validateResult.alarmToken?.take(8)}")
 
-        // 通过校验后的正式触发
         AlarmScheduler.resetSnoozeCount(context, alarmId)
         AlarmScheduler.resetRecoveryCount(context, alarmId)
 
@@ -211,17 +206,12 @@ class AlarmReceiver : BroadcastReceiver() {
             Log.i("AlarmReceiver", "Alarm triggered: alarmId=$alarmId, scheduled=$triggerTimeStr, actual=$actualTimeStr, delayMs=$delayMs")
         }
 
-        // 立即启动震动服务
         AlarmScheduler.setAlarmActive(context, alarmId)
         LogExporter.logEvent("AlarmRecovery", "setAlarmActive(id=$alarmId) from AlarmReceiver trigger")
         AlarmVibrationService.start(context, alarmId)
         AlarmScheduler.cancelRecoveryAlarm(context)
         AlarmScheduler.resetRecoveryCount(context, alarmId)
 
-        // Event-driven logging: one ALARM_TRIGGER + one ALARM_RING_START draft after the
-        // business action completes. The bridge call is the LAST step; if any of the above
-        // business side-effects raises an exception this emission is skipped (no spurious
-        // success recorded).
         alarmProtectionEventBridge.recordAlarmTrigger(
             alarmId = alarmId.toString(),
             triggerAtMs = actualTime,
@@ -230,11 +220,9 @@ class AlarmReceiver : BroadcastReceiver() {
         )
         alarmProtectionEventBridge.recordAlarmRingStart(alarmId = alarmId.toString())
 
-        // 显示悬浮窗
         LogExporter.logEvent("AlarmOverlay", "RECEIVER_SHOW_REQUEST action=$action id=$alarmId")
         AlarmWindowManager.show(context, alarmId)
 
-        // 调度下一次
         if (alarm != null && alarm.enabled) {
             AlarmScheduler.scheduleNext(context, alarm)
         }
@@ -254,6 +242,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val receivedToken = intent.getStringExtra(AlarmScheduler.EXTRA_SCHEDULE_TOKEN) ?: ""
         val receivedScheduledAt = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_AT_MILLIS, 0L)
         val intentKind = intent.getStringExtra(AlarmScheduler.EXTRA_INTENT_KIND) ?: "UNKNOWN"
+        val isBackup = intentKind == AlarmScheduler.AlarmIntentKind.BACKUP.name ||
+            intentKind == AlarmScheduler.AlarmIntentKind.BACKUP2.name
 
         Log.i("AlarmReceiver", "validateAlarmTrigger: alarmId=$alarmId, kind=$intentKind, receivedToken=${receivedToken.take(8)}, receivedScheduledAt=$receivedScheduledAt, now=$now")
 
@@ -277,7 +267,9 @@ class AlarmReceiver : BroadcastReceiver() {
             )
         }
 
-        // 3. scheduleToken 是否匹配（如果新 token 为空字符串表示旧广播，拒绝）
+        // 3. scheduleToken 校验。
+        // 正式 MAIN 仍严格拒绝过期 token；BACKUP/BACKUP2 允许在时间窗校验通过的前提下继续，
+        // 因为 scheduleNext() 可能已把数据库 token 更新，而 OEM 仍投递此前创建的兜底 PendingIntent。
         val dbToken = alarm.scheduleToken
         if (receivedToken.isBlank()) {
             return ValidateResult(
@@ -288,11 +280,21 @@ class AlarmReceiver : BroadcastReceiver() {
             )
         }
         if (dbToken.isNotBlank() && receivedToken != dbToken) {
-            return ValidateResult(
-                accepted = false,
-                reason = "STALE_TOKEN",
-                detail = "alarmId=$alarmId receivedToken=${receivedToken.take(8)} dbToken=${dbToken.take(8)}",
-                alarmEntry = alarm
+            if (!isBackup) {
+                return ValidateResult(
+                    accepted = false,
+                    reason = "STALE_TOKEN",
+                    detail = "alarmId=$alarmId receivedToken=${receivedToken.take(8)} dbToken=${dbToken.take(8)}",
+                    alarmEntry = alarm
+                )
+            }
+            Log.w(
+                "AlarmReceiver",
+                "Backup stale token tolerated pending time validation: alarmId=$alarmId kind=$intentKind received=${receivedToken.take(8)} db=${dbToken.take(8)}"
+            )
+            LogExporter.logEvent(
+                "AlarmReceiver",
+                "[ALARM_BACKUP_STALE_TOKEN_TOLERATED] id=$alarmId kind=$intentKind received=${receivedToken.take(8)} db=${dbToken.take(8)}"
             )
         }
 
@@ -333,11 +335,8 @@ class AlarmReceiver : BroadcastReceiver() {
      */
     private fun cleanupStaleAlarm(context: Context, alarmId: Int, reason: String) {
         try {
-            // 停止服务
             AlarmVibrationService.stop(context)
-            // 清除 active 状态
             AlarmScheduler.clearAlarmActive(context)
-            // 如果有悬浮窗，dismiss
             AlarmWindowManager.dismiss()
             Log.i("AlarmReceiver", "cleanupStaleAlarm: cleaned up alarmId=$alarmId (reason=$reason)")
             LogExporter.logEvent("AlarmRecovery", "STALE_CLEANUP id=$alarmId reason=$reason")
@@ -346,9 +345,6 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    /**
-     * 校验结果封装
-     */
     private data class ValidateResult(
         val accepted: Boolean,
         val reason: String,
