@@ -1,1 +1,2 @@
 Trigger GitHub Actions Android build probe.
+Synchronize probe after workflow is present on main.
