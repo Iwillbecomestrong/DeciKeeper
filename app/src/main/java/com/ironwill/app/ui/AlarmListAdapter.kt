@@ -27,9 +27,8 @@ import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.RecyclerView
 import com.ironwill.app.R
 import com.ironwill.app.manager.AlarmScheduler
+import com.ironwill.app.manager.AlarmWindowManager
 import java.util.Locale
-
-
 
 class AlarmListAdapter(
     private val items: MutableList<AlarmScheduler.AlarmEntry>,
@@ -98,13 +97,16 @@ class AlarmListAdapter(
             cardAlarmItem.setOnClickListener { onEdit(item) }
             // 右上角删除按钮
             btnDelete.setOnClickListener { onDelete(item) }
-            // [DO NOT DELETE] 挑战入口按钮：仅当闹钟正在震动时才显示
-            // 这是防卡死的兜底机制，不是普通功能按钮（关联 Issue_Tracker 05-13）
+            // [DO NOT DELETE] 挑战入口按钮：仅当闹钟正在震动时才显示。
+            // 这个按钮本身就是“找回挑战界面”的兜底入口，因此点击后不能再因为
+            // 内部 overlayAttached/active 标记而拒绝用户；只要本条闹钟仍 active 就强制恢复。
             val activeAlarmId = AlarmScheduler.getActiveAlarmId(itemView.context)
-            val isThisAlarmActive = item.enabled && activeAlarmId == item.id
+            val isThisAlarmActive = item.enabled && AlarmScheduler.isAlarmActive(itemView.context) && activeAlarmId == item.id
             if (isThisAlarmActive) {
                 btnChallenge.visibility = View.VISIBLE
-                btnChallenge.setOnClickListener { onChallenge(item) }
+                btnChallenge.setOnClickListener {
+                    AlarmWindowManager.reenterChallenge(itemView.context, item.id)
+                }
             } else {
                 btnChallenge.visibility = View.GONE
                 btnChallenge.setOnClickListener(null)

@@ -44,6 +44,10 @@ jobs:
         shell: powershell
         run: .\gradlew.bat --version
 
+      - name: Run alarm challenge regression test
+        shell: powershell
+        run: .\gradlew.bat --no-daemon testDebugUnitTest --tests com.ironwill.app.AlarmChallengeReentryContractTest
+
       - name: Build debug APK
         shell: powershell
         run: .\gradlew.bat --no-daemon assembleDebug
