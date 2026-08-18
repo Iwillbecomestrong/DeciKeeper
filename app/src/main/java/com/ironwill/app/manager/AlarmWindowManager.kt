@@ -22,8 +22,12 @@
 package com.ironwill.app.manager
 
 import android.app.KeyguardManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import com.ironwill.app.MyApplication
@@ -33,25 +37,21 @@ import com.ironwill.app.data.DefaultNormalEventRenderer
 import com.ironwill.app.data.LogExporter
 import com.ironwill.app.data.NormalEventLogger
 import com.ironwill.app.data.SystemEventClock
+import com.ironwill.app.service.AlarmVibrationService
 import com.ironwill.app.ui.AlarmActivity
 import com.ironwill.app.ui.LockWindowManager
-
-
-
-
-
-
-
-
-
 
 object AlarmWindowManager {
 
     private const val TAG = "AlarmWindowManager"
     private const val WAKE_LOCK_TAG = "IronWill:AlarmWakeLock"
     private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L // 10 分钟
+    private const val SCREEN_OFF_RECOVERY_DELAY_MS = 350L
 
     private var wakeLock: PowerManager.WakeLock? = null
+    private var screenReceiverRegistered = false
+    private var receiverContext: Context? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private val alarmProtectionNormalEventLogger by lazy {
         NormalEventLogger(
@@ -69,6 +69,29 @@ object AlarmWindowManager {
     private var activeOverlayAlarmId: Int = -1
 
     /**
+     * 某些 OEM 即使闹钟仍在运行，也可能在挑战过程中发出 SCREEN_OFF。
+     * 闹钟 active 时把它视为异常熄屏：短延迟后重新获取亮屏 WakeLock，
+     * 并让现有挑战覆盖层重新检查挂载状态。用户完成挑战后立即注销监听。
+     */
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != Intent.ACTION_SCREEN_OFF) return
+            val alarmId = AlarmScheduler.getActiveAlarmId(context)
+            if (alarmId < 0 || !AlarmScheduler.isAlarmActive(context)) return
+
+            Log.w(TAG, "SCREEN_OFF_RECOVERY scheduled: alarmId=$alarmId")
+            LogExporter.logEvent("AlarmOverlay", "SCREEN_OFF_RECOVERY scheduled id=$alarmId")
+            mainHandler.postDelayed({
+                if (!AlarmScheduler.isAlarmActive(context) || AlarmScheduler.getActiveAlarmId(context) != alarmId) {
+                    return@postDelayed
+                }
+                refreshScreenWake(context, "SCREEN_OFF_RECOVERY")
+                LockWindowManager.showAlarmOverlayIfHidden()
+            }, SCREEN_OFF_RECOVERY_DELAY_MS)
+        }
+    }
+
+    /**
      * 显示闹钟悬浮窗。
      *
      * Expected Input: 闹钟触发，需要显示挑战界面。
@@ -79,9 +102,10 @@ object AlarmWindowManager {
         Log.i(TAG, "show: alarmId=$alarmId")
         LogExporter.logEvent("AlarmOverlay", "AlarmWindowManager.show id=$alarmId")
 
+        ensureScreenOffRecoveryRegistered(context)
         // 先点亮并保持屏幕，再决定走 Activity 还是 WindowManager。
         // 锁屏分支如果不先拿 WakeLock，Activity 可能已启动但用户仍看不到。
-        acquireWakeLock(context)
+        refreshScreenWake(context, "SHOW")
 
         // [锁屏检测] 系统锁屏正在显示时，Service 覆盖层无法盖过锁屏。
         // 此时启动 AlarmActivity（已配置 setShowWhenLocked(true)），
@@ -117,6 +141,7 @@ object AlarmWindowManager {
         // 3. 通过 LockWindowManager 显示悬浮窗，失败时降级到 AlarmActivity
         try {
             LockWindowManager.showAlarmOverlay(context, alarmId, snoozeMinutes, NoActivityAlarmController)
+            LockWindowManager.showAlarmOverlayIfHidden()
             LogExporter.logEvent("AlarmOverlay", "WINDOW_MANAGER_SHOW_CALLED id=$alarmId")
             if (activeOverlayAlarmId != alarmId) {
                 activeOverlayAlarmId = alarmId
@@ -131,6 +156,46 @@ object AlarmWindowManager {
                 alarmProtectionEventBridge.recordAlarmOverlayShow(alarmId.toString())
             }
         }
+    }
+
+    /**
+     * 用户手动点击“挑战”时的恢复入口。
+     * 只要该闹钟仍是 active，就必须尝试把挑战带回用户面前；
+     * “内部认为 overlay 已启动”不能再成为拒绝恢复的理由。
+     */
+    fun reenterChallenge(context: Context, alarmId: Int) {
+        val activeId = AlarmScheduler.getActiveAlarmId(context)
+        if (!AlarmScheduler.isAlarmActive(context) || activeId != alarmId) {
+            Log.w(TAG, "CHALLENGE_REENTER_REQUEST rejected: requested=$alarmId active=$activeId")
+            LogExporter.logEvent("AlarmOverlay", "CHALLENGE_REENTER_REQUEST rejected requested=$alarmId active=$activeId")
+            return
+        }
+
+        Log.i(TAG, "CHALLENGE_REENTER_REQUEST id=$alarmId inline=${LockWindowManager.isCurrentOverlayInline()}")
+        LogExporter.logEvent("AlarmOverlay", "CHALLENGE_REENTER_REQUEST id=$alarmId inline=${LockWindowManager.isCurrentOverlayInline()}")
+        ensureScreenOffRecoveryRegistered(context)
+        refreshScreenWake(context, "USER_REENTER")
+        AlarmVibrationService.start(context.applicationContext, alarmId)
+
+        // 如果挑战当前由 AlarmActivity 内嵌承载，最安全的恢复方式是把同一个 Activity 拉回前台，
+        // 而不是把已有 View 强制迁移到 WindowManager（那会重建题目/丢失当前进度）。
+        if (LockWindowManager.isCurrentOverlayInline()) {
+            LogExporter.logEvent("AlarmOverlay", "CHALLENGE_REENTER_ACTIVITY id=$alarmId reason=INLINE")
+            fallbackToActivity(context, alarmId)
+            return
+        }
+
+        // 窗口模式直接复用 show()：它会处理透明/失焦残留、View 被 OEM 移除后的重挂载，
+        // 必要时自动降级到 Activity。
+        show(context.applicationContext, alarmId)
+        LogExporter.logEvent("AlarmOverlay", "CHALLENGE_REENTER_REASSERTED id=$alarmId")
+    }
+
+    /** 重新取得亮屏 WakeLock；既用于首次显示，也用于异常熄屏/用户手动恢复。 */
+    fun refreshScreenWake(context: Context, reason: String) {
+        acquireWakeLock(context.applicationContext)
+        Log.i(TAG, "SCREEN_KEEP_ALIVE_REFRESH reason=$reason")
+        LogExporter.logEvent("AlarmOverlay", "SCREEN_KEEP_ALIVE_REFRESH reason=$reason")
     }
 
     private fun fallbackToActivity(context: Context, alarmId: Int) {
@@ -157,10 +222,36 @@ object AlarmWindowManager {
     fun dismiss() {
         Log.i(TAG, "dismiss: releasing wake lock")
         releaseWakeLock()
+        unregisterScreenOffRecovery()
         if (activeOverlayAlarmId > 0) {
             val dismissedId = activeOverlayAlarmId
             activeOverlayAlarmId = -1
             alarmProtectionEventBridge.recordAlarmOverlayHide(dismissedId.toString(), "DISMISSED")
+        }
+    }
+
+    private fun ensureScreenOffRecoveryRegistered(context: Context) {
+        if (screenReceiverRegistered) return
+        val appCtx = context.applicationContext
+        try {
+            appCtx.registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+            receiverContext = appCtx
+            screenReceiverRegistered = true
+            Log.d(TAG, "screen-off recovery receiver registered")
+        } catch (e: Exception) {
+            Log.w(TAG, "failed to register screen-off recovery receiver", e)
+        }
+    }
+
+    private fun unregisterScreenOffRecovery() {
+        if (!screenReceiverRegistered) return
+        try {
+            receiverContext?.unregisterReceiver(screenOffReceiver)
+        } catch (_: Exception) {
+        } finally {
+            screenReceiverRegistered = false
+            receiverContext = null
+            mainHandler.removeCallbacksAndMessages(null)
         }
     }
 
