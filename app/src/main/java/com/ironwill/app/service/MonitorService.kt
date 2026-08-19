@@ -1260,6 +1260,9 @@ class MonitorService : Service() {
     private var mStartupProtectionEndTime = 0L
     private val STARTUP_PROTECTION_DURATION = 3000L // Reduced to 3s for faster protection
 
+    // 追踪每个包最近一次收到 ACTIVITY_STOPPED 的时间戳，用于消除关闭小窗时的残留 lastTimeVisible
+    private val mPackageLastStoppedAtMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     // =========================================================
     // UsageStats Fallback Blocking (Non-Accessibility)
     // =========================================================
@@ -1297,6 +1300,12 @@ class MonitorService : Service() {
 
             val ltv = stat.lastTimeVisible
             if (ltv <= 0L) continue
+
+            val lastStopped = mPackageLastStoppedAtMs[pkg] ?: 0L
+            if (lastStopped > 0L && ltv <= lastStopped) {
+                rejected.add("$pkg(ltv<=lastStopped,closed_residual)")
+                continue
+            }
 
             val delta = now - ltv
             if (delta > PRESENCE_VISIBLE_WINDOW_MS) {
@@ -2715,9 +2724,10 @@ class MonitorService : Service() {
         // 不同ROM可能只发送其中一种，所以两种都要处理
         val MOVE_TO_FG = android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND     // 1
         val MOVE_TO_BG = android.app.usage.UsageEvents.Event.MOVE_TO_BACKGROUND     // 2
-        // ACTIVITY_RESUMED = 15, ACTIVITY_PAUSED = 16 (API 29+)
+        // ACTIVITY_RESUMED = 15, ACTIVITY_PAUSED = 16, ACTIVITY_STOPPED = 23 (API 29+)
         val ACTIVITY_RESUMED = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 15 else -1
         val ACTIVITY_PAUSED  = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 16 else -1
+        val ACTIVITY_STOPPED = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 23 else -1
 
         // 1. Query wider window (30s) for recent events
         // 🔧 [Fix] 从5秒扩大到30秒，确保游戏稳定运行时也能看到最近的切换事件
@@ -2762,11 +2772,32 @@ class MonitorService : Service() {
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             val type = event.eventType
+            val eventPkg = event.packageName.orEmpty()
+            val eventClass = event.className?.toString().orEmpty()
+
             if (type == MOVE_TO_FG || type == ACTIVITY_RESUMED) {
-                val eventPkg = event.packageName.orEmpty()
-                val eventClass = event.className?.toString().orEmpty()
                 if (eventPkg.isNotBlank()) {
                     PwaBypassManager.observeUsageEventSignal(this, eventPkg, eventClass)
+                }
+            }
+
+            if (type == ACTIVITY_STOPPED && eventPkg.isNotBlank()) {
+                mPackageLastStoppedAtMs[eventPkg] = event.timeStamp
+            }
+
+            // [Diagnostics-only] 诊断小窗生命周期事件
+            if (eventPkg.isNotBlank() && (type == MOVE_TO_FG || type == ACTIVITY_RESUMED || type == MOVE_TO_BG || type == ACTIVITY_PAUSED || type == ACTIVITY_STOPPED)) {
+                val eventName = when (type) {
+                    MOVE_TO_FG -> "MOVE_TO_FOREGROUND"
+                    MOVE_TO_BG -> "MOVE_TO_BACKGROUND"
+                    ACTIVITY_RESUMED -> "ACTIVITY_RESUMED"
+                    ACTIVITY_PAUSED -> "ACTIVITY_PAUSED"
+                    ACTIVITY_STOPPED -> "ACTIVITY_STOPPED"
+                    else -> "UNKNOWN"
+                }
+                if (SegmentBlacklist.shouldLock(this, eventPkg)) {
+                    Log.d(TAG, "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
+                    LogExporter.logEvent("PresenceDiag", "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
                 }
             }
 
@@ -2786,8 +2817,7 @@ class MonitorService : Service() {
             }
 
             // [Diagnostics-only] record this event as a candidate (newest last; cap at 3)
-            val eventPkg = event.packageName?.toString()
-            if (eventPkg != null && eventPkg.isNotBlank() &&
+            if (eventPkg.isNotBlank() &&
                 (type == MOVE_TO_FG || type == ACTIVITY_RESUMED ||
                  type == MOVE_TO_BG || type == ACTIVITY_PAUSED)
             ) {
