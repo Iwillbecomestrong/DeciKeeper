@@ -25,6 +25,7 @@ object PackageForegroundEventExtractor {
     const val MOVE_TO_BG = 2
     const val ACTIVITY_RESUMED = 15
     const val ACTIVITY_PAUSED = 16
+    const val ACTIVITY_STOPPED = 23
 
     fun extract(
         events: Iterable<RawUsageEvent>,
@@ -37,7 +38,7 @@ object PackageForegroundEventExtractor {
             val type = event.eventType
             if (type == MOVE_TO_FG || type == ACTIVITY_RESUMED) {
                 lastFg = event.timeStamp
-            } else if (type == MOVE_TO_BG || type == ACTIVITY_PAUSED) {
+            } else if (type == MOVE_TO_BG || type == ACTIVITY_PAUSED || type == ACTIVITY_STOPPED) {
                 lastBg = event.timeStamp
             }
         }

@@ -2338,6 +2338,7 @@ class MonitorService : Service() {
         val moveToBg = android.app.usage.UsageEvents.Event.MOVE_TO_BACKGROUND
         val resumed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 15 else -1
         val paused = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 16 else -1
+        val stopped = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 23 else -1
 
         var lastFgTs = -1L
         var lastBgTs = -1L
@@ -2347,7 +2348,7 @@ class MonitorService : Service() {
             val type = event.eventType
             if (type == moveToFg || type == resumed) {
                 lastFgTs = event.timeStamp
-            } else if (type == moveToBg || type == paused) {
+            } else if (type == moveToBg || type == paused || type == stopped) {
                 lastBgTs = event.timeStamp
             }
         }
@@ -2907,8 +2908,8 @@ class MonitorService : Service() {
                 mLastForegroundEventTs = event.timeStamp
                 foundRelevantEvent = true
             }
-            // 检测后台事件：MOVE_TO_BACKGROUND(2) 或 ACTIVITY_PAUSED(16)
-            else if (type == MOVE_TO_BG || type == ACTIVITY_PAUSED) {
+            // 检测后台/退出事件：MOVE_TO_BACKGROUND(2)、ACTIVITY_PAUSED(16) 或 ACTIVITY_STOPPED(23)
+            else if (type == MOVE_TO_BG || type == ACTIVITY_PAUSED || type == ACTIVITY_STOPPED) {
                 if (calculatedTop == event.packageName) {
                     calculatedTop = null
                 }

@@ -69,4 +69,16 @@ class PackageForegroundEventExtractorTest {
         assertEquals(0L, extracted.lastForegroundAtMs)
         assertEquals(0L, extracted.lastBackgroundAtMs)
     }
+
+    @Test
+    fun activityStoppedIsExtractedAsBackgroundEvent() {
+        // Vivo 小窗关闭时只发出 ACTIVITY_STOPPED (23)，必须被记录为 lastBackgroundAtMs
+        val events = listOf(
+            RawUsageEvent("com.tencent.mm", PackageForegroundEventExtractor.MOVE_TO_FG, 1000L),
+            RawUsageEvent("com.tencent.mm", PackageForegroundEventExtractor.ACTIVITY_STOPPED, 1500L)
+        )
+        val extracted = PackageForegroundEventExtractor.extract(events, "com.tencent.mm")
+        assertEquals(1000L, extracted.lastForegroundAtMs)
+        assertEquals(1500L, extracted.lastBackgroundAtMs)
+    }
 }
