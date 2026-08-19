@@ -73,7 +73,8 @@ class VisibleBlacklistPresenceTracker(
     fun onUsageEvent(pkg: String, eventType: Int, eventTimeMs: Long): PresenceTrackerAction {
         if (eventType == ACTIVITY_STOPPED) {
             lastStoppedAtMap[pkg] = eventTimeMs
-            if (currentPackage == pkg && state != PresenceTrackerState.NONE) {
+            // 🛡️ 只有当 STOPPED 属于当前 Session（eventTimeMs > confirmedAtMs）时才允许 CLEAR，避免 30s 历史事件重放杀掉新 Session
+            if (currentPackage == pkg && state != PresenceTrackerState.NONE && eventTimeMs > confirmedAtMs) {
                 reset()
                 return PresenceTrackerAction.CLEAR
             }
