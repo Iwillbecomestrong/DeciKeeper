@@ -242,7 +242,7 @@ class LogExporterStatusReportDedupTest {
             "07-13 08:30:00.000 CoreService: [DETECT] Blacklist app: pkg=com.ss.android.ugc.aweme",
             "2026-07-13 08:30:00.123 [FG_DECISION] eventId=proc-1 processInstanceId=proc seq=1 reportId=FG-001 transition=桌面→抖音",
             "[1 结果] foreground=抖音 action=LOCK reason=BLACKLIST_SELECTED",
-            "[2 状态] allowance=NONE appLock=LOCKED timeWindowLock=LOCKED",
+            "[2 状态] allowance=NONE appLock=LOCKED foregroundGuard=LOCKED",
             "[3 证据] UsageEvents=桌面→抖音 UsageStats=桌面→抖音 Accessibility=桌面→抖音/窗口一致",
             "[5 锁屏] requestId=LOCK-001 result=LOCKED duplicate=false countedForPenalty=false"
         )
@@ -254,7 +254,7 @@ class LogExporterStatusReportDedupTest {
         val expected = listOf(
             "2026-07-13 08:30:00.123 [FG_DECISION] eventId=proc-1 processInstanceId=proc seq=1 reportId=FG-001 transition=桌面→抖音",
             "[1 结果] foreground=抖音 action=LOCK reason=BLACKLIST_SELECTED",
-            "[2 状态] allowance=NONE appLock=LOCKED timeWindowLock=LOCKED",
+            "[2 状态] allowance=NONE appLock=LOCKED foregroundGuard=LOCKED",
             "[3 证据] UsageEvents=桌面→抖音 UsageStats=桌面→抖音 Accessibility=桌面→抖音/窗口一致",
             "[5 锁屏] requestId=LOCK-001 result=LOCKED duplicate=false countedForPenalty=false"
         )

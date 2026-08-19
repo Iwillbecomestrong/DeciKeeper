@@ -76,7 +76,7 @@ class ForegroundNormalEventTest {
         assertTrue(text.contains("reportId=FG-001"))
         assertTrue(text.contains("transition=桌面→抖音"))
         assertTrue(text.contains("[1 结果] foreground=抖音 packageName=com.ss.android.ugc.aweme action=LOCK reason=BLACKLIST_SELECTED"))
-        assertTrue(text.contains("[2 状态] allowance=NONE appLock=LOCKED timeWindowLock=LOCKED"))
+        assertTrue(text.contains("[2 状态] allowance=NONE appLock=LOCKED foregroundGuard=LOCKED"))
         assertTrue(text.contains("[3 UsageEvents] status=AVAILABLE prev={08:29:57 PAUSED 桌面} curr={08:29:59 RESUMED 抖音} selected=curr"))
         assertTrue(text.contains("[4 UsageStats] status=AVAILABLE prev={桌面 lastTimeVisible=08:29:57.900} curr={抖音 lastTimeVisible=08:29:59.800} selected=curr"))
         assertTrue(text.contains("[5 Accessibility] status=AVAILABLE prev={08:29:57 WINDOW 桌面 windows=一致} curr={08:29:59 WINDOW 抖音 windows=一致} selected=curr"))
@@ -101,7 +101,7 @@ class ForegroundNormalEventTest {
             state = ForegroundStateEvidence(
                 allowance = "TEMP_ACCESS→NONE",
                 appLock = "LOCKED",
-                timeWindowLock = "LOCKED"
+                foregroundGuard = "LOCKED"
             ),
             inference = "临时解锁到期→抖音仍可见→恢复锁屏",
             lock = ForegroundLockEvidence("LOCK-003", "LOCKED", duplicate = false, countedForPenalty = false),
@@ -443,7 +443,7 @@ class ForegroundNormalEventTest {
         state = ForegroundStateEvidence(
             allowance = "NONE",
             appLock = "LOCKED",
-            timeWindowLock = "LOCKED"
+            foregroundGuard = "LOCKED"
         ),
         sources = listOf(
             ForegroundSourceEvidence(

@@ -24,7 +24,7 @@ class LogExportReductionTest {
         val fullAtomicForegroundBlock = listOf(
             "2026-07-13 08:30:00.000 [FG_DECISION] eventId=process-1 processInstanceId=process seq=1 reportId=FG-001 transition=桌面→抖音",
             "[1 结果] foreground=抖音 action=LOCK reason=BLACKLIST_SELECTED",
-            "[2 状态] allowance=NONE appLock=LOCKED timeWindowLock=LOCKED",
+            "[2 状态] allowance=NONE appLock=LOCKED foregroundGuard=LOCKED",
             "[3 证据] UsageEvents=抖音 UsageStats=抖音 Accessibility=抖音/窗口一致",
             "[4 推断] source_converged=true conflict=false",
             "[5 锁屏] requestId=LOCK-001 result=LOCKED duplicate=false countedForPenalty=false"

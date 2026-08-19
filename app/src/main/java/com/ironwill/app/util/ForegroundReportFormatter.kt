@@ -63,7 +63,7 @@ data class ForegroundResultEvidence(
 data class ForegroundStateEvidence(
     val allowance: String,
     val appLock: String,
-    val timeWindowLock: String
+    val foregroundGuard: String
 )
 
 /** Source records are deliberately pre-rendered by the capture adapter; the formatter never votes. */
@@ -365,7 +365,7 @@ class ForegroundNormalEventBridge(
             state = ForegroundStateEvidence(
                 allowance = outcome.allowanceState,
                 appLock = if (hasLockRequest) "REQUESTED" else "UNCHANGED",
-                timeWindowLock = outcome.guardPassed?.let { if (it) "PASSED" else "REJECTED" } ?: "UNKNOWN"
+                foregroundGuard = outcome.guardPassed?.let { if (it) "PASSED" else "REJECTED" } ?: "UNKNOWN"
             ),
             sources = cycle.sourceList().map { sourceEvidence(it, selectedSource) },
             inference = outcome.diagnosticRecommendation,
@@ -545,7 +545,7 @@ object ForegroundReportFormatter {
         val sourceByLabel = report.sources.associateBy { it.label }
         return buildList {
             add("[1 结果] foreground=${abbreviate(report.result.foreground, compactValues)} packageName=${abbreviate(report.result.packageName, compactValues)} action=${report.result.action} reason=${abbreviate(report.result.reason, compactValues)}")
-            add("[2 状态] allowance=${abbreviate(report.state.allowance, compactValues)} appLock=${abbreviate(report.state.appLock, compactValues)} timeWindowLock=${abbreviate(report.state.timeWindowLock, compactValues)}")
+            add("[2 状态] allowance=${abbreviate(report.state.allowance, compactValues)} appLock=${abbreviate(report.state.appLock, compactValues)} foregroundGuard=${abbreviate(report.state.foregroundGuard, compactValues)}")
             listOf("UsageEvents", "UsageStats", "Accessibility").forEachIndexed { index, label ->
                 val source = sourceByLabel[label] ?: ForegroundSourceEvidence(label, "NO_DATA", "NONE", "NONE", "NONE")
                 add("[${index + 3} $label] status=${source.status} prev={${abbreviate(source.previous, compactValues)}} curr={${abbreviate(source.current, compactValues)}} selected=${abbreviate(source.selected, compactValues)}")
@@ -559,7 +559,7 @@ object ForegroundReportFormatter {
         val confirmation = requireNotNull(report.freshConfirmation)
         return listOf(
             "[1 结果] foreground=${report.result.foreground} packageName=${report.result.packageName} action=${report.result.action} reason=${report.result.reason}",
-            "[2 状态] allowance=${report.state.allowance} appLock=${report.state.appLock} timeWindowLock=${report.state.timeWindowLock}",
+            "[2 状态] allowance=${report.state.allowance} appLock=${report.state.appLock} foregroundGuard=${report.state.foregroundGuard}",
             "[3 证据] status=AVAILABLE foregroundUnchanged=${confirmation.foregroundUnchanged} lastConfirmedAt=${timeFormat.format(Date(confirmation.confirmedAtMs))} confirmedBy=${confirmation.source} selected=${confirmation.selected}",
             "[4 推理] ${report.inference}",
             lockLine(report, compactValues = true, lineNumber = 5)
