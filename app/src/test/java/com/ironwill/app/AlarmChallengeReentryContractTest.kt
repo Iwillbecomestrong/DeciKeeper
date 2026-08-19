@@ -55,16 +55,17 @@ class AlarmChallengeReentryContractTest {
     }
 
     @Test
-    fun wordDetailsAreRenderedInsideTheAlarmRootInsteadOfACompetingDialogWindow() {
-        val overlay = source("app/src/main/java/com/ironwill/app/ui/LockAlarmOverlay.kt")
-        val dialogFunction = overlay
-            .substringAfter("private fun showWordBookmarkDialog")
-            .substringBefore("private fun rollMath")
+    fun wordDetailsUseAnInViewAlarmOverlayBeforeTheLegacyDialogCallback() {
+        val wordLookup = source("app/src/main/java/com/ironwill/app/ui/WordLookupTextView.kt")
+        val overlayCall = "AlarmWordDetailOverlay.showInsideAlarmRoot"
+        val legacyCallback = "onWordPressed?.invoke"
 
-        assertTrue(dialogFunction.contains("R.id.root_container"))
-        assertTrue(dialogFunction.contains("root.addView"))
-        assertFalse(dialogFunction.contains("AlertDialog.Builder"))
-        assertFalse(dialogFunction.contains("window?.setType"))
+        assertTrue(wordLookup.contains(overlayCall))
+        assertTrue(wordLookup.contains(legacyCallback))
+        assertTrue(
+            "alarm-root word lookup must render in the same challenge view before falling back to a separate-window callback",
+            wordLookup.indexOf(overlayCall) < wordLookup.indexOf(legacyCallback)
+        )
     }
 
     private fun source(relativePath: String): String =
