@@ -1385,7 +1385,11 @@ class MonitorService : Service() {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
         } catch (e: Exception) { pkg }
         val confirmMs = now - mPresentFirstSeenMs
-        Log.w(TAG, "[Presence] LOCK: pkg=$pkg label=$appLabel topAtLock=${mLastTopPackage ?: "null"} confirmMs=${confirmMs}ms")
+        Log.w(TAG, "[VisibleBlacklist] action=LOCK pkg=$pkg label=$appLabel topAtLock=${mLastTopPackage ?: "null"} source=PRESENCE reason=BLACKLIST_VISIBLE_WINDOW confirmMs=${confirmMs}ms")
+        LogExporter.logEvent(
+            "VisibleBlacklist",
+            "action=LOCK pkg=$pkg source=PRESENCE foreground=${mLastTopPackage ?: "null"} reason=BLACKLIST_VISIBLE_WINDOW"
+        )
         LockWindowManager.showLockScreen(
             reason = "Presence: $pkg", isBlacklist = true,
             blockedAppLabel = appLabel, blockedPackageName = pkg,
@@ -1706,7 +1710,7 @@ class MonitorService : Service() {
             return
         }
 
-        // ── Presence Detection 独立扫描 (仅作维持/解锁，不作独立触发) ──
+        // ── Presence Detection 独立扫描 (支持维持及锁屏未显示时的独立触发) ──
         if (isDndLocked && !isPrivilege) {
             if (LockWindowManager.isLocked) {
                 if (mPresentLockedPkg != null) {
@@ -1732,11 +1736,33 @@ class MonitorService : Service() {
                     }
                 }
             } else {
-                // 锁屏未显示：Presence 绝不触发新锁，重置所有 Presence 追踪状态，防止状态泄露
-                if (mPresentLockedPkg != null || mPresentPkg != null) {
-                    resetPresenceDetection()
-                    mPresentLockedPkg = null
-                    mPresentLockedAtMs = 0L
+                // 锁屏未显示：扫描可见黑名单窗口，连续确认且通过策略保护时独立触发锁机
+                val presenceMap = scanBlacklistPresence(now)
+                if (presenceMap.isEmpty()) {
+                    if (mPresentPkg != null || mPresentLockedPkg != null) {
+                        resetPresenceDetection()
+                        mPresentLockedPkg = null
+                        mPresentLockedAtMs = 0L
+                    }
+                } else {
+                    val candidate = presenceMap.entries.first().key
+                    if (confirmPresence(candidate, now)) {
+                        val hasTemporaryAccessForTarget =
+                            LockWindowManager.getActiveTemporaryAccessTargetPackage() == candidate
+                        val canLock = shouldTriggerVisibleBlacklistLock(
+                            VisibleBlacklistLockInput(
+                                isDndLocked = isDndLocked,
+                                isPrivilegeActive = isPrivilege,
+                                isLockShowing = LockWindowManager.isLocked,
+                                isDesktopReturnGrace = LockWindowManager.isInDesktopReturnGrace(now),
+                                hasTemporaryAccessForTarget = hasTemporaryAccessForTarget,
+                                presenceConfirmed = true
+                            )
+                        )
+                        if (canLock) {
+                            triggerPresenceLock(candidate, now)
+                        }
+                    }
                 }
             }
         }
