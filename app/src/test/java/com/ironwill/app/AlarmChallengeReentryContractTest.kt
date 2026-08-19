@@ -71,6 +71,27 @@ class AlarmChallengeReentryContractTest {
         )
     }
 
+    @Test
+    fun clozeSkipActionsOnlyChangeQuestionAndNeverCountAsCorrectProgress() {
+        val overlay = source("app/src/main/java/com/ironwill/app/ui/LockAlarmOverlay.kt")
+        val skipBlock = overlay
+            .substringAfter("btnClozeSkip.setOnClickListener {")
+            .substringBefore("btnClozeBookmark.setOnClickListener {")
+        val bookmarkSkipBlock = overlay
+            .substringAfter("btnClozeBookmark.setOnClickListener {")
+            .substringBefore("// 提示按钮")
+
+        assertTrue(skipBlock.contains("settleCurrentCloze(\"skipped\")"))
+        assertTrue(skipBlock.contains("rollCloze()"))
+        assertFalse("plain cloze skip must not advance solved count", skipBlock.contains("currentClozeIndex++"))
+        assertFalse("plain cloze skip must never pass the challenge", skipBlock.contains("onAnyChallengePassed()"))
+
+        assertTrue(bookmarkSkipBlock.contains("settleCurrentCloze(\"bookmarked\""))
+        assertTrue(bookmarkSkipBlock.contains("rollCloze()"))
+        assertFalse("bookmark-and-skip must not advance solved count", bookmarkSkipBlock.contains("currentClozeIndex++"))
+        assertFalse("bookmark-and-skip must never pass the challenge", bookmarkSkipBlock.contains("onAnyChallengePassed()"))
+    }
+
     private fun invokeClozeSanitizer(input: String): String {
         val clazz = try {
             Class.forName("com.ironwill.app.ui.ClozeChallengeUi")
