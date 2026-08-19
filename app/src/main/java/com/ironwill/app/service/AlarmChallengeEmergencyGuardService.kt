@@ -8,27 +8,30 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.PixelFormat
+import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
-import android.view.WindowManager
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.ironwill.app.R
 import com.ironwill.app.manager.AlarmChallengeEmergencyWhitelist
 import com.ironwill.app.manager.AlarmScheduler
 import com.ironwill.app.manager.AlarmWindowManager
+import com.ironwill.app.ui.LockWindowManager
 
 /**
  * Alarm-only foreground guard. While a challenge is active, it exposes up to two
- * emergency app shortcuts and immediately restores the challenge if the user
- * leaves the challenge/allowed apps for any other package.
+ * emergency app shortcuts inside the existing challenge UI and immediately
+ * restores that same challenge if the user leaves the approved apps.
  */
 class AlarmChallengeEmergencyGuardService : Service() {
     companion object {
@@ -37,6 +40,12 @@ class AlarmChallengeEmergencyGuardService : Service() {
         private const val NOTIFICATION_ID = 2012
         private const val POLL_MS = 300L
         private const val REENTER_THROTTLE_MS = 900L
+        private const val LAUNCH_GRACE_MS = 1800L
+
+        @Volatile
+        private var emergencyAccessInProgress = false
+
+        fun isEmergencyAccessInProgress(): Boolean = emergencyAccessInProgress
 
         fun start(context: Context) {
             val intent = Intent(context, AlarmChallengeEmergencyGuardService::class.java)
@@ -52,6 +61,7 @@ class AlarmChallengeEmergencyGuardService : Service() {
         }
 
         fun stop(context: Context) {
+            emergencyAccessInProgress = false
             try {
                 context.stopService(Intent(context, AlarmChallengeEmergencyGuardService::class.java))
             } catch (_: Exception) {
@@ -60,18 +70,19 @@ class AlarmChallengeEmergencyGuardService : Service() {
     }
 
     private val handler = Handler(Looper.getMainLooper())
-    private var wm: WindowManager? = null
-    private var bar: LinearLayout? = null
+    private var emergencySection: LinearLayout? = null
     private var lastRenderedPackages: List<String> = emptyList()
     private var lastReenterAt = 0L
     private var launchGraceUntil = 0L
+    private var observedLockedChallengeState = false
+    private var restrictionReleased = false
 
     private val poll = object : Runnable {
         override fun run() {
             try {
                 tick()
             } finally {
-                if (AlarmScheduler.isAlarmActive(this@AlarmChallengeEmergencyGuardService)) {
+                if (!restrictionReleased && AlarmScheduler.isAlarmActive(this@AlarmChallengeEmergencyGuardService)) {
                     handler.postDelayed(this, POLL_MS)
                 }
             }
@@ -80,15 +91,19 @@ class AlarmChallengeEmergencyGuardService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        restrictionReleased = false
+        observedLockedChallengeState = false
+        emergencyAccessInProgress = false
         createChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
-        wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         handler.post(poll)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        handler.removeCallbacks(poll)
-        handler.post(poll)
+        if (!restrictionReleased) {
+            handler.removeCallbacks(poll)
+            handler.post(poll)
+        }
         return START_STICKY
     }
 
@@ -96,23 +111,43 @@ class AlarmChallengeEmergencyGuardService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        removeBar()
+        emergencyAccessInProgress = false
+        launchGraceUntil = 0L
+        removeChallengeSection()
         super.onDestroy()
     }
 
     private fun tick() {
         if (!AlarmScheduler.isAlarmActive(this)) {
-            removeBar()
+            emergencyAccessInProgress = false
+            removeChallengeSection()
             stopSelf()
             return
         }
 
-        ensureBar()
+        ensureChallengeSection()
+        if (hasChallengeJustCompleted()) {
+            releaseChallengeRestriction()
+            return
+        }
 
         val now = System.currentTimeMillis()
         if (now < launchGraceUntil) return
         val top = detectTopPackage() ?: return
         val allowed = AlarmChallengeEmergencyWhitelist.getPackages(this).toSet()
+
+        if (top == packageName) {
+            if (emergencyAccessInProgress) {
+                emergencyAccessInProgress = false
+                launchGraceUntil = 0L
+                // Non-inline mode temporarily detaches the overlay while the approved app is open.
+                // Reattach the same View instead of rebuilding it, preserving every answer/progress counter.
+                LockWindowManager.showAlarmOverlayIfHidden()
+                Log.i(TAG, "returned from emergency app to IronWill; challenge view restored")
+            }
+            return
+        }
+
         if (AlarmChallengeEmergencyWhitelist.isPackageAllowedDuringChallenge(true, top, packageName, allowed)) {
             return
         }
@@ -121,71 +156,156 @@ class AlarmChallengeEmergencyGuardService : Service() {
         val alarmId = AlarmScheduler.getActiveAlarmId(this)
         if (alarmId < 0) return
         lastReenterAt = now
+        emergencyAccessInProgress = false
+        launchGraceUntil = 0L
         Log.i(TAG, "non-whitelisted foreground=$top, restoring challenge id=$alarmId")
+
+        // Reattach first so AlarmWindowManager.reenterChallenge() can reuse the same in-memory
+        // challenge view rather than resetting questions after an emergency-app excursion.
+        LockWindowManager.showAlarmOverlayIfHidden()
         AlarmWindowManager.reenterChallenge(applicationContext, alarmId)
     }
 
-    private fun ensureBar() {
-        if (!Settings.canDrawOverlays(this)) return
-        val packages = AlarmChallengeEmergencyWhitelist.getPackages(this)
+    /**
+     * Adds the emergency shortcuts immediately above the challenge action panel.
+     * This works for both WindowManager and lock-screen inline hosting because it
+     * operates on the one shared alarm View instead of creating another overlay.
+     */
+    private fun ensureChallengeSection() {
+        val alarmView = LockWindowManager.getAlarmView() ?: return
+        val actionPanel = alarmView.findViewById<View>(R.id.layout_alarm_actions) ?: return
+        val host = actionPanel.parent as? LinearLayout ?: return
+        val packages = AlarmChallengeEmergencyWhitelist.getPackages(this).take(AlarmChallengeEmergencyWhitelist.MAX_APPS)
+
         if (packages.isEmpty()) {
-            removeBar()
+            removeChallengeSection()
             return
         }
-        if (bar != null && packages == lastRenderedPackages) return
-        removeBar()
 
-        val density = resources.displayMetrics.density
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
+        val existing = emergencySection
+        if (existing != null && existing.parent === host && packages == lastRenderedPackages) {
+            return
         }
-        packages.take(2).forEach { pkg ->
-            val label = try {
-                packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
-            } catch (_: Exception) { pkg }
-            root.addView(Button(this).apply {
-                text = label
-                isAllCaps = false
-                setOnClickListener {
-                    launchGraceUntil = System.currentTimeMillis() + 1800L
-                    if (!AlarmChallengeEmergencyWhitelist.launch(applicationContext, pkg)) {
-                        launchGraceUntil = 0L
-                    }
-                }
-            }, LinearLayout.LayoutParams(0, (48 * density).toInt(), 1f).apply {
-                marginStart = (4 * density).toInt()
-                marginEnd = (4 * density).toInt()
+        removeChallengeSection()
+
+        val uiContext = alarmView.context
+        val density = uiContext.resources.displayMetrics.density
+        val section = LinearLayout(uiContext).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, (4 * density).toInt(), 0, (4 * density).toInt())
+            tag = "alarm_emergency_use_section"
+
+            addView(TextView(uiContext).apply {
+                text = "应急使用"
+                textSize = 13f
+                setTextColor(Color.parseColor("#B0BEC5"))
+                setPadding((4 * density).toInt(), 0, 0, (4 * density).toInt())
             })
+
+            val row = LinearLayout(uiContext).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            packages.forEach { pkg ->
+                val label = try {
+                    packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+                } catch (_: Exception) {
+                    pkg
+                }
+                row.addView(Button(uiContext).apply {
+                    text = label
+                    isAllCaps = false
+                    try {
+                        val icon = packageManager.getApplicationIcon(pkg)
+                        val size = (22 * density).toInt()
+                        icon.setBounds(0, 0, size, size)
+                        setCompoundDrawables(icon, null, null, null)
+                        compoundDrawablePadding = (6 * density).toInt()
+                    } catch (_: Exception) {
+                    }
+                    setOnClickListener { beginEmergencyAccess(pkg) }
+                }, LinearLayout.LayoutParams(0, (48 * density).toInt(), 1f).apply {
+                    marginStart = (4 * density).toInt()
+                    marginEnd = (4 * density).toInt()
+                })
+            }
+            addView(row)
         }
 
-        val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.BOTTOM
-        }
-
-        try {
-            wm?.addView(root, lp)
-            bar = root
-            lastRenderedPackages = packages
-        } catch (e: Exception) {
-            Log.w(TAG, "failed to add emergency app bar", e)
-        }
+        val index = host.indexOfChild(actionPanel).takeIf { it >= 0 } ?: host.childCount
+        host.addView(
+            section,
+            index,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = (4 * density).toInt()
+            }
+        )
+        emergencySection = section
+        lastRenderedPackages = packages
     }
 
-    private fun removeBar() {
-        val view = bar ?: return
-        try { wm?.removeViewImmediate(view) } catch (_: Exception) { }
-        bar = null
+    private fun beginEmergencyAccess(packageName: String) {
+        if (!AlarmScheduler.isAlarmActive(this)) return
+        if (!AlarmChallengeEmergencyWhitelist.getPackages(this).contains(packageName)) return
+
+        emergencyAccessInProgress = true
+        launchGraceUntil = System.currentTimeMillis() + LAUNCH_GRACE_MS
+        val inline = LockWindowManager.isCurrentOverlayInline()
+
+        // WindowManager overlays would otherwise cover the emergency app. Detaching the
+        // root keeps the same View object and all challenge state in memory for restoration.
+        if (!inline) {
+            LockWindowManager.hideAlarmOverlayForPermission()
+        }
+
+        if (!AlarmChallengeEmergencyWhitelist.launch(applicationContext, packageName)) {
+            emergencyAccessInProgress = false
+            launchGraceUntil = 0L
+            LockWindowManager.showAlarmOverlayIfHidden()
+            Toast.makeText(applicationContext, "无法打开该应急应用", Toast.LENGTH_SHORT).show()
+            Log.w(TAG, "failed to launch emergency package=$packageName")
+            return
+        }
+
+        Log.i(TAG, "emergency package launched=$packageName inline=$inline")
+    }
+
+    /**
+     * The action panel is hidden throughout an unfinished challenge and becomes
+     * visible only after final verification. Requiring that we first observed the
+     * hidden state avoids treating the brief pre-init XML state as completion.
+     */
+    private fun hasChallengeJustCompleted(): Boolean {
+        val alarmView = LockWindowManager.getAlarmView() ?: return false
+        val actionPanel = alarmView.findViewById<View>(R.id.layout_alarm_actions) ?: return false
+        if (actionPanel.visibility != View.VISIBLE) {
+            observedLockedChallengeState = true
+            return false
+        }
+        return observedLockedChallengeState
+    }
+
+    private fun releaseChallengeRestriction() {
+        restrictionReleased = true
+        emergencyAccessInProgress = false
+        launchGraceUntil = 0L
+        removeChallengeSection()
+        Log.i(TAG, "challenge completed; emergency-only foreground restriction released")
+        stopSelf()
+    }
+
+    private fun removeChallengeSection() {
+        val section = emergencySection
+        if (section != null) {
+            try {
+                (section.parent as? ViewGroup)?.removeView(section)
+            } catch (_: Exception) {
+            }
+        }
+        emergencySection = null
         lastRenderedPackages = emptyList()
     }
 
