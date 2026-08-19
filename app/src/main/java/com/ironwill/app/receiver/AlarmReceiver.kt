@@ -218,7 +218,7 @@ class AlarmReceiver : BroadcastReceiver() {
             ruleId = null,
             result = "TRIGGERED"
         )
-        alarmProtectionEventBridge.recordAlarmRingStart(alarmId = alarmId.toString())
+        alarmProtectionEventBridge.recordAlarmRingStart(alarmId = alarmId.toString()) // ALARM_RING_START
 
         LogExporter.logEvent("AlarmOverlay", "RECEIVER_SHOW_REQUEST action=$action id=$alarmId")
         AlarmWindowManager.show(context, alarmId)

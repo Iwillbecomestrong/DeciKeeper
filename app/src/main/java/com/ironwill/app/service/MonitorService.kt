@@ -59,7 +59,11 @@ import com.ironwill.app.data.TimeSegment
 import com.ironwill.app.data.resolveAccessibilityFailureClass
 import com.ironwill.app.manager.AppWindowManager
 import com.ironwill.app.manager.CreditManager
+import com.ironwill.app.manager.ForegroundEvidence
+import com.ironwill.app.manager.ForegroundEvidenceDecision
+import com.ironwill.app.manager.ForegroundEvidencePolicy
 import com.ironwill.app.manager.LockDecisionPolicy
+import com.ironwill.app.manager.PackageForegroundEvents
 import com.ironwill.app.manager.PermissionManager
 import com.ironwill.app.manager.PwaBypassManager
 import com.ironwill.app.manager.StartupProtectionManager
@@ -2252,13 +2256,18 @@ class MonitorService : Service() {
         return candidatePkg
     }
 
-    private fun hasRecentForegroundEvidenceForPackage(
+    private fun queryForegroundEventsForPackage(
         candidatePkg: String,
         now: Long,
         windowMs: Long = 8000L
-    ): Boolean {
-        val usm = usageStatsManager ?: return false
-        val events = usm.queryEvents(now - windowMs, now)
+    ): PackageForegroundEvents {
+        val usm = usageStatsManager ?: return PackageForegroundEvents()
+        val events = try {
+            usm.queryEvents(now - windowMs, now)
+        } catch (e: Exception) {
+            Log.w(TAG, "[queryForegroundEventsForPackage] queryEvents failed: ${e.javaClass.simpleName}: ${e.message}")
+            return PackageForegroundEvents()
+        }
         val event = android.app.usage.UsageEvents.Event()
 
         val moveToFg = android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND
@@ -2278,10 +2287,21 @@ class MonitorService : Service() {
                 lastBgTs = event.timeStamp
             }
         }
+        return PackageForegroundEvents(
+            lastForegroundAtMs = if (lastFgTs > 0L) lastFgTs else 0L,
+            lastBackgroundAtMs = if (lastBgTs > 0L) lastBgTs else 0L
+        )
+    }
 
-        if (lastFgTs <= 0L) return false
-        if (lastBgTs >= lastFgTs) return false
-        return now - lastFgTs <= windowMs
+    private fun hasRecentForegroundEvidenceForPackage(
+        candidatePkg: String,
+        now: Long,
+        windowMs: Long = 8000L
+    ): Boolean {
+        val events = queryForegroundEventsForPackage(candidatePkg, now, windowMs)
+        if (events.lastForegroundAtMs <= 0L) return false
+        if (events.lastBackgroundAtMs >= events.lastForegroundAtMs) return false
+        return (now - events.lastForegroundAtMs) <= windowMs
     }
 
     internal fun shouldAdoptCarrierFallbackCandidate(
@@ -2521,28 +2541,75 @@ class MonitorService : Service() {
             return false
         }
 
-        val hasRecentForeground = mLastForegroundEventTs > 0L && (now - mLastForegroundEventTs) <= 45000L
-        val backgroundEventIsNewerOrEqual = mLastBackgroundEventTs > 0L && mLastBackgroundEventTs >= mLastForegroundEventTs
-        if (!hasRecentForeground || backgroundEventIsNewerOrEqual) {
+        val pkgEvents = queryForegroundEventsForPackage(
+            candidatePkg = packageName,
+            now = now,
+            windowMs = 30_000L
+        )
+        val fgTs = pkgEvents.lastForegroundAtMs
+        val bgTs = pkgEvents.lastBackgroundAtMs
+        val lastVisible = queryLastTimeVisibleForPackage(packageName, now)
+
+        val evidence = ForegroundEvidence(
+            packageName = packageName,
+            foregroundEventAtMs = fgTs,
+            backgroundEventAtMs = bgTs,
+            lastTimeVisibleMs = lastVisible,
+            checkedAtMs = now
+        )
+        val decision = ForegroundEvidencePolicy.evaluate(evidence)
+
+        if (decision == ForegroundEvidenceDecision.CONFIRMED) {
             Log.d(
                 TAG,
-                "[ForegroundGuard] Skip lock by event freshness/order: pkg=$packageName, fgTs=$mLastForegroundEventTs, bgTs=$mLastBackgroundEventTs"
+                "[ForegroundGuard] Allow lock by EVENTS evidence correlation: " +
+                    "pkg=$packageName, fgTs=$fgTs, bgTs=$bgTs, lastVisible=$lastVisible, check=$now"
             )
+            return true
+        }
+
+        if (decision == ForegroundEvidenceDecision.VISIBLE_DATA_PENDING) {
+            Log.d(
+                TAG,
+                "[ForegroundGuard] EVENTS evidence pending for pkg=$packageName " +
+                    "(fgTs=$fgTs, bgTs=$bgTs, lastVisible=$lastVisible, check=$now), requesting fast 150ms recheck"
+            )
+            mRequireFastRecheck = true
             return false
         }
 
-        // cross-verify lastTimeVisible to prevent vendor false events
-        // False MOVE_TO_FOREGROUND in UsageEvents does not update lastTimeVisible
-        // Window 2s: real foreground switches update lastTimeVisible sub-second
-        if (!isAppActuallyVisible(packageName, now, 2000L)) {
-            Log.d(
-                TAG,
-                "[ForegroundGuard] Skip lock by lastTimeVisible cross-check: pkg=" + packageName
-            )
-            return false
-        }
+        Log.d(
+            TAG,
+            "[ForegroundGuard] Skip lock by EVENTS evidence ($decision): " +
+                "pkg=$packageName, fgTs=$fgTs, bgTs=$bgTs, lastVisible=$lastVisible, check=$now"
+        )
+        return false
+    }
 
-        return true
+    /**
+     * 查询指定包名的 UsageStats.lastTimeVisible（无选举副作用）。
+     * 若无障碍服务已明确确认该包在当前活动窗口，则直接返回当前时间 [now]。
+     */
+    private fun queryLastTimeVisibleForPackage(packageName: String, now: Long): Long {
+        if (CoreService.isServiceActive && CoreService.lastVisiblePackagesFromWindows.contains(packageName)) {
+            return now
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return now // API < 29 无 lastTimeVisible，透传
+        }
+        val usm = usageStatsManager ?: return 0L
+        return try {
+            val stats = usm.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                now - 60_000L,
+                now
+            )
+            val appStat = stats?.firstOrNull { it.packageName == packageName }
+            appStat?.lastTimeVisible ?: 0L
+        } catch (e: Exception) {
+            Log.w(TAG, "[queryLastTimeVisibleForPackage] queryUsageStats failed for $packageName: ${e.message}")
+            0L
+        }
     }
 
     /**
