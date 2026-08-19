@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.widget.TextView
+import com.ironwill.app.R
 
 /**
  * Req-1 扩展：支持按词长按的 TextView。
@@ -31,6 +32,24 @@ open class WordLookupTextView @JvmOverloads constructor(
         // 允许长按；保持非 clickable，避免干扰短按 / 滚动。
         isLongClickable = true
         isClickable = false
+    }
+
+    override fun setText(text: CharSequence?, type: BufferType?) {
+        val displayText = if (id == R.id.tv_cloze_passage && text != null) {
+            ClozeChallengeUi.sanitizePassageForDisplay(text.toString())
+        } else {
+            text
+        }
+        super.setText(displayText, type)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (id == R.id.tv_cloze_passage) {
+            // Wait until the complete alarm hierarchy is attached so the sibling
+            // A/B/C/D buttons are guaranteed to be discoverable from rootView.
+            post { ClozeChallengeUi.configureOptionButtons(this) }
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -65,6 +84,11 @@ open class WordLookupTextView @JvmOverloads constructor(
 
             val word = findWordAtIndex(text, offset)
             if (word != null) {
+                // Alarm challenge uses one shared root overlay. Rendering the detail
+                // card inside that root avoids z-order races with a second Dialog window.
+                if (ClozeChallengeUi.showWordDetailInsideAlarmRoot(this, word)) {
+                    return true
+                }
                 onWordPressed?.invoke(word)
                 return true
             }
