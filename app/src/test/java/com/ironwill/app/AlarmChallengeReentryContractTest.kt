@@ -30,33 +30,38 @@ class AlarmChallengeReentryContractTest {
 
     @Test
     fun emergencyWhitelistIsVisibleInSettingsAndInsideTheChallenge() {
-        val settingsLayout = source("app/src/main/res/layout/activity_global_params_new.xml")
-        val alarmLayout = source("app/src/main/res/layout/window_alarm_overlay.xml")
-        val alarmOverlay = source("app/src/main/java/com/ironwill/app/ui/LockAlarmOverlay.kt")
+        val provider = source("app/src/main/java/com/ironwill/app/ui/AlarmEmergencyWhitelistUiProvider.kt")
+        val alarmActivity = source("app/src/main/java/com/ironwill/app/ui/AlarmActivity.kt")
         val guard = source("app/src/main/java/com/ironwill/app/service/AlarmChallengeEmergencyGuardService.kt")
 
         assertTrue(
-            "global settings must contain the existing emergency-whitelist settings card",
-            settingsLayout.contains("com.ironwill.app.ui.AlarmEmergencyWhitelistSettingsCard")
+            "global settings must install or refresh the whitelist card both when created and resumed",
+            provider.contains("installOrRefresh(activity)") &&
+                provider.contains("override fun onActivityCreated") &&
+                provider.contains("override fun onActivityResumed")
         )
         assertTrue(
-            "the challenge must expose a fixed emergency-use section at the bottom",
-            alarmLayout.contains("@+id/layout_alarm_emergency_use") &&
-                alarmLayout.contains("@+id/container_alarm_emergency_apps") &&
-                alarmLayout.contains("应急使用")
+            "the existing guard must render the emergency-use section inside the current challenge view",
+            guard.contains("应急使用") &&
+                guard.contains("LockWindowManager.getAlarmView()") &&
+                guard.contains("R.id.layout_alarm_actions")
         )
         assertTrue(
-            "challenge shortcuts must launch through the existing whitelist manager without completing the challenge",
-            alarmOverlay.contains("AlarmChallengeEmergencyWhitelist.launch")
+            "emergency shortcuts must launch through the existing whitelist manager",
+            guard.contains("AlarmChallengeEmergencyWhitelist.launch")
         )
         assertTrue(
-            "emergency launch must cooperate with the foreground guard instead of creating a second floating shortcut bar",
-            alarmOverlay.contains("AlarmChallengeEmergencyGuardService.beginEmergencyAccess") &&
-                !guard.contains("private fun ensureBar()")
+            "the challenge overlay must be hidden without resetting its in-memory progress while an emergency app is opened",
+            guard.contains("LockWindowManager.hideAlarmOverlayForPermission()") &&
+                guard.contains("LockWindowManager.showAlarmOverlayIfHidden()")
         )
         assertTrue(
-            "after the final challenge passes, emergency-only foreground restrictions must be released",
-            alarmOverlay.contains("AlarmChallengeEmergencyGuardService.stop(ctx.applicationContext)")
+            "the old independent floating emergency bar must be removed instead of duplicating the challenge UI",
+            !guard.contains("private fun ensureBar()")
+        )
+        assertTrue(
+            "lock-screen AlarmActivity must not immediately pull itself back while an approved emergency launch is in progress",
+            alarmActivity.contains("AlarmChallengeEmergencyGuardService.isEmergencyAccessInProgress()")
         )
     }
 
