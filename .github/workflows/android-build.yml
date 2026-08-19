@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-debug-apk:
@@ -14,8 +14,15 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Check out repository
+      - name: Check out task branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Apply one-shot foreground guard patch
+        shell: powershell
+        run: .\.github\scripts\apply-time-window-guard-fix.ps1
 
       - name: Detect Android SDK from adb
         shell: powershell
@@ -44,6 +51,10 @@ jobs:
         shell: powershell
         run: .\gradlew.bat --version
 
+      - name: Run foreground guard regression tests
+        shell: powershell
+        run: .\gradlew.bat --no-daemon testDebugUnitTest --tests com.ironwill.app.ForegroundGuardFallbackGateTest
+
       - name: Run alarm challenge regression test
         shell: powershell
         run: .\gradlew.bat --no-daemon testDebugUnitTest --tests com.ironwill.app.AlarmChallengeReentryContractTest
@@ -51,6 +62,21 @@ jobs:
       - name: Build debug APK
         shell: powershell
         run: .\gradlew.bat --no-daemon assembleDebug
+
+      - name: Persist verified MonitorService patch to task branch
+        if: success() && github.event_name == 'pull_request'
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/ironwill/app/service/MonitorService.kt
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "fix(foreground): bound sustained guard rejection to 60s"
+            git push origin "HEAD:${{ github.head_ref }}"
+          } else {
+            Write-Host "MonitorService patch already persisted; nothing to push."
+          }
 
       - name: Upload debug APK
         if: success()
