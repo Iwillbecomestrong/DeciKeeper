@@ -154,4 +154,50 @@ class VisibleBlacklistPresenceTrackerTest {
         val action = tracker.evaluate(15000L)
         assertEquals(PresenceTrackerAction.NONE, action)
     }
+
+    @Test
+    fun `test 10 - historical STOPPED event before confirmedAtMs must not clear new presence session`() {
+        val tOldStopped = 5000L
+        tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, tOldStopped)
+
+        val tNewConfirmed = 10000L
+        tracker.onPresenceConfirmed(testPkg, tNewConfirmed)
+        assertEquals(PresenceTrackerState.CONFIRMED_VISIBLE, tracker.state)
+
+        // Querying UsageEvents returns the old STOPPED event from 30s ago (tOldStopped < tNewConfirmed)
+        val action = tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, tOldStopped)
+        assertEquals(PresenceTrackerAction.NONE, action)
+        assertEquals(PresenceTrackerState.CONFIRMED_VISIBLE, tracker.state)
+        assertEquals(testPkg, tracker.currentPackage)
+    }
+
+    @Test
+    fun `test 11 - establish presence session on foreground lock then grace relocks after 3s without stopped`() {
+        val t0 = 10000L
+        // Foreground lock occurs and establishes presence session
+        tracker.onPresenceConfirmed(testPkg, t0)
+
+        // User clicks Return Desktop
+        val tReturn = 12000L
+        tracker.onDesktopReturn(tReturn)
+        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
+
+        // 3.1 seconds after return, no STOPPED received
+        val tExpired = 15100L
+        val action = tracker.evaluate(tExpired)
+        assertEquals(PresenceTrackerAction.LOCK, action)
+        assertEquals(PresenceTrackerState.CONFIRMED_VISIBLE, tracker.state)
+    }
+
+    @Test
+    fun `test 12 - presence evaluates and triggers LOCK even if foreground is null`() {
+        val t0 = 10000L
+        tracker.onPresenceConfirmed(testPkg, t0)
+        tracker.onDesktopReturn(11000L)
+
+        // Grace expired at 14500L
+        val tExpired = 14500L
+        val action = tracker.evaluate(tExpired)
+        assertEquals(PresenceTrackerAction.LOCK, action)
+    }
 }
