@@ -186,7 +186,7 @@ internal object LockAlarmOverlayController {
                 LogExporter.logEvent("AlarmOverlay", "RESET_MISMATCH id=$alarmId currentInline=$currentInline requestedInline=$requestedInline hostedByThisActivity=$hostedByThisActivity")
                 forceResetAlarmOverlay()
             } else {
-                // 视图不存在或已分离 → 先完全清理旧状态，再重新初始化
+                // 视图不存在或已分离 → 先完全清理旧状态再重新初始化
                 Log.w(TAG, "showAlarmOverlay: stale overlay detected (active=$isAlarmOverlayActive, attached=$isAlarmOverlayAttached, view=${LockWindowManager.getAlarmView() != null}), force-resetting")
                 LogExporter.logEvent("AlarmOverlay", "RESET_STALE id=$alarmId active=${isAlarmOverlayActive.get()} attached=$isAlarmOverlayAttached view=${LockWindowManager.getAlarmView() != null} parent=${LockWindowManager.getAlarmView()?.parent != null}")
                 forceResetAlarmOverlay()
@@ -759,28 +759,18 @@ internal object LockAlarmOverlayController {
         btnClozeC.setOnLongClickListener { _ -> showWordBookmarkDialog(view.context, btnClozeC.text.toString()); true }
         btnClozeD.setOnLongClickListener { _ -> showWordBookmarkDialog(view.context, btnClozeD.text.toString()); true }
         btnClozeSkip.setOnClickListener {
-            // 跳过 → 记录 + 推进进度 + 换一题
+            // 跳过 → 只记录并换题，不推进完成进度
             settleCurrentCloze("skipped")
-            currentClozeIndex++
-            if (currentClozeIndex >= targetClozeCount) {
-                onAnyChallengePassed()
-            } else {
-                rollCloze()
-            }
+            rollCloze()
         }
         btnClozeBookmark.setOnClickListener {
-            // 收藏并跳过 → 保存收藏 + 记录 + 推进进度 + 换一题
+            // 收藏并跳过 → 保存收藏 + 记录 + 换题，不推进完成进度
             val cloze = currentCloze ?: return@setOnClickListener
             val ctx = LockWindowManager.getAlarmContext() ?: return@setOnClickListener
             AlarmChallengeManager.bookmarkCloze(ctx, cloze, null)
             Toast.makeText(ctx, "已收藏: ${cloze.answer}", Toast.LENGTH_SHORT).show()
             settleCurrentCloze("bookmarked", cloze.answer)
-            currentClozeIndex++
-            if (currentClozeIndex >= targetClozeCount) {
-                onAnyChallengePassed()
-            } else {
-                rollCloze()
-            }
+            rollCloze()
         }
         // 提示按钮：点击显示四个选项的中文释义
         val btnClozeHint = view.findViewById<Button>(R.id.btn_cloze_hint)
