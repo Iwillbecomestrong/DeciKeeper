@@ -28,6 +28,38 @@ class AlarmChallengeReentryContractTest {
         )
     }
 
+    @Test
+    fun emergencyWhitelistIsVisibleInSettingsAndInsideTheChallenge() {
+        val settingsLayout = source("app/src/main/res/layout/activity_global_params_new.xml")
+        val alarmLayout = source("app/src/main/res/layout/window_alarm_overlay.xml")
+        val alarmOverlay = source("app/src/main/java/com/ironwill/app/ui/LockAlarmOverlay.kt")
+        val guard = source("app/src/main/java/com/ironwill/app/service/AlarmChallengeEmergencyGuardService.kt")
+
+        assertTrue(
+            "global settings must contain the existing emergency-whitelist settings card",
+            settingsLayout.contains("com.ironwill.app.ui.AlarmEmergencyWhitelistSettingsCard")
+        )
+        assertTrue(
+            "the challenge must expose a fixed emergency-use section at the bottom",
+            alarmLayout.contains("@+id/layout_alarm_emergency_use") &&
+                alarmLayout.contains("@+id/container_alarm_emergency_apps") &&
+                alarmLayout.contains("应急使用")
+        )
+        assertTrue(
+            "challenge shortcuts must launch through the existing whitelist manager without completing the challenge",
+            alarmOverlay.contains("AlarmChallengeEmergencyWhitelist.launch")
+        )
+        assertTrue(
+            "emergency launch must cooperate with the foreground guard instead of creating a second floating shortcut bar",
+            alarmOverlay.contains("AlarmChallengeEmergencyGuardService.beginEmergencyAccess") &&
+                !guard.contains("private fun ensureBar()")
+        )
+        assertTrue(
+            "after the final challenge passes, emergency-only foreground restrictions must be released",
+            alarmOverlay.contains("AlarmChallengeEmergencyGuardService.stop(ctx.applicationContext)")
+        )
+    }
+
     private fun source(relativePath: String): String =
         generateSequence(File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
             .map { File(it, relativePath) }
