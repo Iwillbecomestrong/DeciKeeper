@@ -115,15 +115,15 @@ class VisibleBlacklistPresenceTrackerTest {
     }
 
     @Test
-    fun `test 7 - real reopen with newer lastTimeVisible allows presence detection`() {
+    fun `test 7 - STOPPED package remains closed even if UsageStats provides newer lastTimeVisible without reopen event`() {
         val tStop = 20000L
         tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, tStop)
 
-        // User genuinely reopens the app later (ltv > lastStoppedAt)
-        val newLtv = 25000L
-        assertTrue(
-            "Newer lastTimeVisible after stopped timestamp must be accepted",
-            tracker.isLastTimeVisibleValid(testPkg, newLtv)
+        // UsageStats flushes newer timestamp (e.g. 25000L), but without MOVE_TO_FOREGROUND or RESUMED
+        val newerLtv = 25000L
+        assertFalse(
+            "lastTimeVisible alone without reopen lifecycle event must be rejected while package is CLOSED",
+            tracker.isLastTimeVisibleValid(testPkg, newerLtv)
         )
     }
 
@@ -199,5 +199,159 @@ class VisibleBlacklistPresenceTrackerTest {
         val tExpired = 14500L
         val action = tracker.evaluate(tExpired)
         assertEquals(PresenceTrackerAction.LOCK, action)
+    }
+
+    @Test
+    fun `test 13 - STOPPED puts package into CLOSED and newer lastTimeVisible cannot revive it without reopen event`() {
+        val tStop = 10000L
+        tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, tStop)
+        assertTrue("Package must be marked CLOSED after STOPPED", tracker.isPackageClosed(testPkg))
+
+        // System updates lastTimeVisible after STOPPED
+        val tLtv = 10500L
+        assertFalse("lastTimeVisible must be rejected when package is CLOSED", tracker.isLastTimeVisibleValid(testPkg, tLtv))
+    }
+
+    @Test
+    fun `test 14 - MOVE_TO_FOREGROUND reopens CLOSED package allowing lastTimeVisible`() {
+        val tStop = 10000L
+        tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, tStop)
+        assertTrue(tracker.isPackageClosed(testPkg))
+
+        // User genuinely reopens via MOVE_TO_FOREGROUND (event type 1)
+        val MOVE_TO_FG = 1
+        val tReopen = 20000L
+        tracker.onUsageEvent(testPkg, MOVE_TO_FG, tReopen)
+        assertFalse("Package must not be CLOSED after MOVE_TO_FOREGROUND", tracker.isPackageClosed(testPkg))
+
+        // Now lastTimeVisible is valid
+        assertTrue(tracker.isLastTimeVisibleValid(testPkg, 20500L))
+    }
+
+    @Test
+    fun `test 15 - ACTIVITY_RESUMED reopens CLOSED package allowing lastTimeVisible`() {
+        val tStop = 10000L
+        tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, tStop)
+        assertTrue(tracker.isPackageClosed(testPkg))
+
+        // User genuinely reopens via ACTIVITY_RESUMED (event type 15)
+        val tReopen = 20000L
+        tracker.onUsageEvent(testPkg, ACTIVITY_RESUMED, tReopen)
+        assertFalse("Package must not be CLOSED after ACTIVITY_RESUMED", tracker.isPackageClosed(testPkg))
+
+        assertTrue(tracker.isLastTimeVisibleValid(testPkg, 20500L))
+    }
+
+    @Test
+    fun `test 16 - MOVE_TO_BACKGROUND does not close package`() {
+        val MOVE_TO_BG = 2
+        val t0 = 10000L
+        tracker.onPresenceConfirmed(testPkg, t0)
+
+        // Small window moves to background but is still visible on screen
+        val action = tracker.onUsageEvent(testPkg, MOVE_TO_BG, 11000L)
+        assertEquals(PresenceTrackerAction.NONE, action)
+        assertFalse("MOVE_TO_BACKGROUND must not mark package as CLOSED", tracker.isPackageClosed(testPkg))
+        assertEquals(PresenceTrackerState.CONFIRMED_VISIBLE, tracker.state)
+    }
+
+    @Test
+    fun `test 17 - ACTIVITY_PAUSED does not close package`() {
+        val t0 = 10000L
+        tracker.onPresenceConfirmed(testPkg, t0)
+        tracker.onDesktopReturn(11000L)
+
+        val action = tracker.onUsageEvent(testPkg, ACTIVITY_PAUSED, 12000L)
+        assertEquals(PresenceTrackerAction.NONE, action)
+        assertFalse("ACTIVITY_PAUSED must not mark package as CLOSED", tracker.isPackageClosed(testPkg))
+        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
+
+        // Grace expires -> relocks
+        val actionAfterGrace = tracker.evaluate(14500L)
+        assertEquals(PresenceTrackerAction.LOCK, actionAfterGrace)
+    }
+
+    @Test
+    fun `test 18 - after STOPPED, no relock occurs at 3s, 6s, 10s`() {
+        val t0 = 10000L
+        tracker.onPresenceConfirmed(testPkg, t0)
+        tracker.onDesktopReturn(11000L)
+
+        // Closed at 12000L
+        tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, 12000L)
+        assertEquals(PresenceTrackerState.NONE, tracker.state)
+        assertTrue(tracker.isPackageClosed(testPkg))
+
+        // Subsequent evaluations at 3s, 6s, 10s after return
+        assertEquals(PresenceTrackerAction.NONE, tracker.evaluate(14500L))
+        assertEquals(PresenceTrackerAction.NONE, tracker.evaluate(17000L))
+        assertEquals(PresenceTrackerAction.NONE, tracker.evaluate(21000L))
+    }
+
+    @Test
+    fun `test 19 - consecutive UsageStats refreshes after STOPPED are all rejected until MOVE_TO_FOREGROUND`() {
+        val tStop = 10000L
+        tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, tStop)
+
+        // Multiple UsageStats polling ticks after close
+        assertFalse(tracker.isLastTimeVisibleValid(testPkg, 10100L))
+        assertFalse(tracker.isLastTimeVisibleValid(testPkg, 10200L))
+        assertFalse(tracker.isLastTimeVisibleValid(testPkg, 11000L))
+
+        // Finally reopened
+        val MOVE_TO_FG = 1
+        tracker.onUsageEvent(testPkg, MOVE_TO_FG, 12000L)
+        assertTrue(tracker.isLastTimeVisibleValid(testPkg, 12100L))
+    }
+
+    @Test
+    fun `test 20 - Accessibility window disappearance sets package to CLOSED tombstone`() {
+        val t0 = 10000L
+        tracker.onPresenceConfirmed(testPkg, t0)
+        tracker.onDesktopReturn(11000L)
+
+        // Window tree no longer contains testPkg
+        val action = tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 12000L)
+        assertEquals(PresenceTrackerAction.CLEAR, action)
+        assertEquals(PresenceTrackerState.NONE, tracker.state)
+        assertTrue("Package must be CLOSED after accessibility window disappearance", tracker.isPackageClosed(testPkg))
+
+        // Subsequent UsageStats cannot revive it
+        assertFalse(tracker.isLastTimeVisibleValid(testPkg, 13000L))
+    }
+
+    @Test
+    fun `test 21 - non-accessibility complete lifecycle works purely via UsageEvents`() {
+        // Step 1: Open event
+        val MOVE_TO_FG = 1
+        tracker.onUsageEvent(testPkg, MOVE_TO_FG, 5000L)
+        assertTrue(tracker.isLastTimeVisibleValid(testPkg, 5100L))
+
+        // Step 2: Presence confirmed & locked
+        val lockAction = tracker.onPresenceConfirmed(testPkg, 6000L)
+        assertEquals(PresenceTrackerAction.LOCK, lockAction)
+
+        // Step 3: Return desktop
+        tracker.onDesktopReturn(7000L)
+        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
+
+        // Step 4: Closed via STOPPED
+        val clearAction = tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, 8000L)
+        assertEquals(PresenceTrackerAction.CLEAR, clearAction)
+        assertEquals(PresenceTrackerState.NONE, tracker.state)
+        assertTrue(tracker.isPackageClosed(testPkg))
+
+        // Step 5: Grace expires at 10500L -> NO LOCK
+        assertEquals(PresenceTrackerAction.NONE, tracker.evaluate(10500L))
+
+        // Step 6: UsageStats lag cannot revive it
+        assertFalse(tracker.isLastTimeVisibleValid(testPkg, 10600L))
+
+        // Step 7: Real reopen later allows locking again
+        tracker.onUsageEvent(testPkg, MOVE_TO_FG, 15000L)
+        assertFalse(tracker.isPackageClosed(testPkg))
+        assertTrue(tracker.isLastTimeVisibleValid(testPkg, 15100L))
+        val newLockAction = tracker.onPresenceConfirmed(testPkg, 16000L)
+        assertEquals(PresenceTrackerAction.LOCK, newLockAction)
     }
 }

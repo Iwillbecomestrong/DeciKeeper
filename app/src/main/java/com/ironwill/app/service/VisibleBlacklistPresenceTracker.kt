@@ -82,6 +82,10 @@ class VisibleBlacklistPresenceTracker(
         return PresenceTrackerAction.NONE
     }
 
+    fun isPackageClosed(pkg: String): Boolean {
+        return false
+    }
+
     /**
      * 检查当前包的 lastTimeVisible 是否合法：
      * 如果 lastTimeVisible <= lastStoppedAt，说明这是关闭小窗时系统刷新的残留时间戳，不能用于发现新 Presence。
