@@ -1,10 +1,10 @@
 package com.ironwill.app
 
-import com.ironwill.app.manager.AlarmChallengeManager
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class AlarmChallengeReentryContractTest {
@@ -34,8 +34,7 @@ class AlarmChallengeReentryContractTest {
     @Test
     fun clozePassageKeepsOnlyTheSingleFourUnderscoreTargetBlank() {
         val dirty = "Too often, careless use of words __ ____ a meeting. The words may ___ stir up reactions."
-
-        val cleaned = AlarmChallengeManager.cleanPassage(dirty)
+        val cleaned = invokeClozeSanitizer(dirty)
 
         assertEquals(1, Regex("_{4}").findAll(cleaned).count())
         assertFalse(Regex("(?<!_)_{1,3}(?!_)").containsMatchIn(cleaned))
@@ -44,20 +43,24 @@ class AlarmChallengeReentryContractTest {
     }
 
     @Test
-    fun clozeOptionButtonsAllowLongAnswersToWrapInsteadOfClipping() {
-        val layout = source("app/src/main/res/layout/window_alarm_overlay.xml")
-        listOf("btn_cloze_a", "btn_cloze_b", "btn_cloze_c", "btn_cloze_d").forEach { id ->
-            val block = layout.substringAfter("@+id/$id").substringBefore("/>")
-            assertTrue("$id must be tall enough for two lines", block.contains("android:layout_height=\"64dp\""))
-            assertTrue("$id must allow two lines", block.contains("android:maxLines=\"2\""))
-            assertTrue("$id must shrink long choices when needed", block.contains("android:autoSizeTextType=\"uniform\""))
-        }
+    fun clozePassageViewConfiguresLongOptionsInsteadOfLeavingFixedButtonsUntouched() {
+        val wordLookup = source("app/src/main/java/com/ironwill/app/ui/WordLookupTextView.kt")
+        val uiHelper = sourceOrNull("app/src/main/java/com/ironwill/app/ui/ClozeChallengeUi.kt")
+
+        assertTrue(
+            "the cloze passage view must configure its four sibling option buttons after attachment",
+            wordLookup.contains("ClozeChallengeUi.configureOptionButtons(this)")
+        )
+        assertTrue("cloze UI helper must exist", uiHelper != null)
+        assertTrue(uiHelper!!.contains("height = dp(view, 64)"))
+        assertTrue(uiHelper.contains("maxLines = 2"))
+        assertTrue(uiHelper.contains("setAutoSizeTextTypeUniformWithConfiguration"))
     }
 
     @Test
     fun wordDetailsUseAnInViewAlarmOverlayBeforeTheLegacyDialogCallback() {
         val wordLookup = source("app/src/main/java/com/ironwill/app/ui/WordLookupTextView.kt")
-        val overlayCall = "AlarmWordDetailOverlay.showInsideAlarmRoot"
+        val overlayCall = "ClozeChallengeUi.showWordDetailInsideAlarmRoot"
         val legacyCallback = "onWordPressed?.invoke"
 
         assertTrue(wordLookup.contains(overlayCall))
@@ -68,10 +71,29 @@ class AlarmChallengeReentryContractTest {
         )
     }
 
+    private fun invokeClozeSanitizer(input: String): String {
+        val clazz = try {
+            Class.forName("com.ironwill.app.ui.ClozeChallengeUi")
+        } catch (_: ClassNotFoundException) {
+            fail("ClozeChallengeUi is missing")
+            return input
+        }
+        val method = try {
+            clazz.getDeclaredMethod("sanitizePassageForDisplay", String::class.java)
+        } catch (_: NoSuchMethodException) {
+            fail("sanitizePassageForDisplay is missing")
+            return input
+        }
+        method.isAccessible = true
+        return method.invoke(null, input) as String
+    }
+
     private fun source(relativePath: String): String =
+        sourceOrNull(relativePath) ?: error("cannot find $relativePath")
+
+    private fun sourceOrNull(relativePath: String): String? =
         generateSequence(File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
             .map { File(it, relativePath) }
             .firstOrNull { it.isFile }
             ?.readText()
-            ?: error("cannot find $relativePath")
 }
