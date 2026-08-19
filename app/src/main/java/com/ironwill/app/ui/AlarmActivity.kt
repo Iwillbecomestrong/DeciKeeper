@@ -25,6 +25,7 @@ import com.ironwill.app.data.SystemEventClock
 import com.ironwill.app.manager.AlarmProtectionEventBridge
 import com.ironwill.app.manager.AlarmScheduler
 import com.ironwill.app.manager.AlarmWindowManager
+import com.ironwill.app.service.AlarmChallengeEmergencyGuardService
 import com.ironwill.app.service.AlarmVibrationService
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
 import com.journeyapps.barcodescanner.DefaultDecoderFactory
@@ -269,8 +270,12 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // [Fix: 扫码界面防逃脱] 扫码期间也允许兜底重启，传 start_scan=true 保持扫码状态
-        if (!isLaunchingScanner && AlarmScheduler.isAlarmActive(this)) {
+        // [Fix: 扫码界面防逃脱] 扫码期间也允许兜底重启，传 start_scan=true 保持扫码状态。
+        // 经由挑战页“应急使用”显式打开白名单 App 时必须放行，否则锁屏模式会立刻把自己拉回。
+        if (!isLaunchingScanner &&
+            !AlarmChallengeEmergencyGuardService.isEmergencyAccessInProgress() &&
+            AlarmScheduler.isAlarmActive(this)
+        ) {
             val intent = Intent(this, AlarmActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
