@@ -1264,6 +1264,18 @@ class MonitorService : Service() {
     private var mStartupProtectionEndTime = 0L
     private val STARTUP_PROTECTION_DURATION = 3000L // Reduced to 3s for faster protection
 
+    // 🚀 [Presence Tracker] 状态机：负责跟踪已确认黑名单小窗的生命周期直到收到明确关闭证据
+    private val mPresenceTracker = VisibleBlacklistPresenceTracker(desktopGraceDurationMs = 3000L)
+    // 🛡️ [High-Water Mark] 记录每个包最近处理过的事件时间戳，避免 30s UsageEvents 重复遍历导致旧事件重放
+    private val mLastProcessedPresenceEventAtMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    private fun establishVisibleBlacklistPresence(pkg: String, now: Long) {
+        mPresenceTracker.onPresenceConfirmed(pkg, now)
+        mPresentLockedPkg = pkg
+        mPresentLockedAtMs = now
+        Log.d(TAG, "[PRESENCE_STATE] pkg=$pkg to=CONFIRMED_VISIBLE reason=ESTABLISH_SESSION")
+    }
+
     // =========================================================
     // UsageStats Fallback Blocking (Non-Accessibility)
     // =========================================================
@@ -1301,6 +1313,11 @@ class MonitorService : Service() {
 
             val ltv = stat.lastTimeVisible
             if (ltv <= 0L) continue
+
+            if (!mPresenceTracker.isLastTimeVisibleValid(pkg, ltv)) {
+                rejected.add("$pkg(ltv<=lastStopped,closed_residual)")
+                continue
+            }
 
             val delta = now - ltv
             if (delta > PRESENCE_VISIBLE_WINDOW_MS) {
@@ -1389,7 +1406,11 @@ class MonitorService : Service() {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
         } catch (e: Exception) { pkg }
         val confirmMs = now - mPresentFirstSeenMs
-        Log.w(TAG, "[Presence] LOCK: pkg=$pkg label=$appLabel topAtLock=${mLastTopPackage ?: "null"} confirmMs=${confirmMs}ms")
+        Log.w(TAG, "[VisibleBlacklist] action=LOCK pkg=$pkg label=$appLabel topAtLock=${mLastTopPackage ?: "null"} source=PRESENCE reason=BLACKLIST_VISIBLE_WINDOW confirmMs=${confirmMs}ms")
+        LogExporter.logEvent(
+            "VisibleBlacklist",
+            "action=LOCK pkg=$pkg source=PRESENCE foreground=${mLastTopPackage ?: "null"} reason=BLACKLIST_VISIBLE_WINDOW"
+        )
         LockWindowManager.showLockScreen(
             reason = "Presence: $pkg", isBlacklist = true,
             blockedAppLabel = appLabel, blockedPackageName = pkg,
@@ -1452,11 +1473,11 @@ class MonitorService : Service() {
         // This guarantees that we always have 100% fresh window visibility data, 
         // completely bypassing the limitation where Accessibility doesn't receive events 
         // while the user is passively watching a PIP/small window video on the Home screen!
+        val now = System.currentTimeMillis()
         if (CoreService.isServiceActive) {
             CoreService.updateActiveWindows()
+            mPresenceTracker.onAccessibilitySnapshot(CoreService.lastVisiblePackagesFromWindows, now)
         }
-
-        val now = System.currentTimeMillis()
         mRequireFastRecheck = false
 
         // 预分配 traceId（本轮回合，递增由 logForegroundResolution() 负责）
@@ -1605,6 +1626,81 @@ class MonitorService : Service() {
             return
         }
 
+        // ── Presence Detection 前置评估与独立扫描 (基于 Sticky Presence Tracker 状态机) ──
+        if (isDndLocked && !isPrivilege) {
+            if (LockWindowManager.isLocked) {
+                // 已有锁屏显示：扫描是否有新可见黑名单小窗，同步建立 Session 跟踪
+                val presenceMap = scanBlacklistPresence(now)
+                if (presenceMap.isNotEmpty()) {
+                    val candidate = presenceMap.entries.first().key
+                    if (confirmPresence(candidate, now)) {
+                        establishVisibleBlacklistPresence(candidate, now)
+                        mPresenceStatLocked++
+                        resetPresenceDetection()
+                    }
+                }
+            } else {
+                // 锁屏未显示：
+                // A. 优先评估 Tracker 当前动作（如 Grace 3s 到期仍无关闭证据，或处于 CONFIRMED_VISIBLE）
+                val trackerAction = mPresenceTracker.evaluate(now)
+                val trackedPkg = mPresenceTracker.currentPackage
+
+                if (trackerAction == PresenceTrackerAction.LOCK && trackedPkg != null) {
+                    val hasTemporaryAccessForTarget =
+                        LockWindowManager.getActiveTemporaryAccessTargetPackage() == trackedPkg
+                    val isGrace = LockWindowManager.isInDesktopReturnGrace(now) || (mPresenceTracker.state == PresenceTrackerState.DESKTOP_GRACE && now < mPresenceTracker.graceUntilMs)
+                    val canLock = shouldTriggerVisibleBlacklistLock(
+                        VisibleBlacklistLockInput(
+                            isDndLocked = isDndLocked,
+                            isPrivilegeActive = isPrivilege,
+                            isLockShowing = LockWindowManager.isLocked,
+                            isDesktopReturnGrace = isGrace,
+                            hasTemporaryAccessForTarget = hasTemporaryAccessForTarget,
+                            presenceConfirmed = true
+                        )
+                    )
+                    if (canLock) {
+                        Log.d(TAG, "[PRESENCE_STATE] pkg=$trackedPkg action=LOCK reason=GRACE_EXPIRED_WITHOUT_CLOSE_EVIDENCE")
+                        triggerPresenceLock(trackedPkg, now)
+                        return
+                    }
+                } else {
+                    // B. 首次扫描发现可见黑名单候选
+                    val presenceMap = scanBlacklistPresence(now)
+                    if (presenceMap.isEmpty()) {
+                        if (mPresentPkg != null) {
+                            resetPresenceDetection()
+                        }
+                    } else {
+                        val candidate = presenceMap.entries.first().key
+                        if (confirmPresence(candidate, now)) {
+                            establishVisibleBlacklistPresence(candidate, now)
+                            val hasTemporaryAccessForTarget =
+                                LockWindowManager.getActiveTemporaryAccessTargetPackage() == candidate
+                            val canLock = shouldTriggerVisibleBlacklistLock(
+                                VisibleBlacklistLockInput(
+                                    isDndLocked = isDndLocked,
+                                    isPrivilegeActive = isPrivilege,
+                                    isLockShowing = LockWindowManager.isLocked,
+                                    isDesktopReturnGrace = LockWindowManager.isInDesktopReturnGrace(now),
+                                    hasTemporaryAccessForTarget = hasTemporaryAccessForTarget,
+                                    presenceConfirmed = true
+                                )
+                            )
+                            if (canLock) {
+                                triggerPresenceLock(candidate, now)
+                                return
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            if (mPresenceTracker.state != PresenceTrackerState.NONE) {
+                mPresenceTracker.reset()
+            }
+        }
+
         val detectedTopPackage = getTopPackageName()
         val forcedRelockTargetPackage = LockWindowManager.resolveForcedRelockTargetPackage(this, now)
         val canUseTempRelockFallback = shouldUseTemporaryRelockFallback(
@@ -1688,6 +1784,9 @@ class MonitorService : Service() {
         val isEffLauncher = CreditManager.isLauncher(effectivePackageName)
         if (isEffLauncher && !lastEffectiveWasLauncher && !LockWindowManager.isInDesktopReturnGrace(now)) {
             LockWindowManager.setDesktopReturnGrace(now)
+            mPresenceTracker.onDesktopReturn(now)
+        } else if (LockWindowManager.isInDesktopReturnGrace(now) && mPresenceTracker.state == PresenceTrackerState.CONFIRMED_VISIBLE) {
+            mPresenceTracker.onDesktopReturn(now)
         }
         lastEffectiveWasLauncher = isEffLauncher
 
@@ -1708,41 +1807,6 @@ class MonitorService : Service() {
         // Privilege just ended on desktop: set target for 35s timer
         if (privilegeJustEnded && CreditManager.isLauncher(effectivePackageName)) { LockWindowManager.privilegeDesktopStreakTargetPkg = LockWindowManager.privilegeLastNonLauncherPkg }
             return
-        }
-
-        // ── Presence Detection 独立扫描 (仅作维持/解锁，不作独立触发) ──
-        if (isDndLocked && !isPrivilege) {
-            if (LockWindowManager.isLocked) {
-                if (mPresentLockedPkg != null) {
-                    // 已有 Presence 锁 → 保持锁定直到用户回到桌面或主动解锁
-                    // 不再使用 stale 超时自动解锁（UsageStats 在锁屏覆盖下不可靠）
-                    // 锁屏的解除由桌面检测、临时解锁、休息等正常路径处理
-                } else {
-                    val presenceMap = scanBlacklistPresence(now)
-                    if (presenceMap.isNotEmpty()) {
-                        val candidate = presenceMap.entries.first().key
-                        if (confirmPresence(candidate, now)) {
-                            // 已由现有路径锁机 → 建立 Presence 跟踪以便后续维持
-                            val appLabel = try {
-                                packageManager.getApplicationLabel(packageManager.getApplicationInfo(candidate, 0)).toString()
-                            } catch (e: Exception) { candidate }
-                            mPresentLockedPkg = candidate
-                            mPresentLockedAtMs = now
-                            mPresenceStatLocked++
-                            resetPresenceDetection()
-                        }
-                    } else if (mPresentPkg != null) {
-                        resetPresenceDetection()
-                    }
-                }
-            } else {
-                // 锁屏未显示：Presence 绝不触发新锁，重置所有 Presence 追踪状态，防止状态泄露
-                if (mPresentLockedPkg != null || mPresentPkg != null) {
-                    resetPresenceDetection()
-                    mPresentLockedPkg = null
-                    mPresentLockedAtMs = 0L
-                }
-            }
         }
 
         if (effectivePackageName == this.packageName) return
@@ -2756,9 +2820,10 @@ class MonitorService : Service() {
         // 不同ROM可能只发送其中一种，所以两种都要处理
         val MOVE_TO_FG = android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND     // 1
         val MOVE_TO_BG = android.app.usage.UsageEvents.Event.MOVE_TO_BACKGROUND     // 2
-        // ACTIVITY_RESUMED = 15, ACTIVITY_PAUSED = 16 (API 29+)
+        // ACTIVITY_RESUMED = 15, ACTIVITY_PAUSED = 16, ACTIVITY_STOPPED = 23 (API 29+)
         val ACTIVITY_RESUMED = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 15 else -1
         val ACTIVITY_PAUSED  = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 16 else -1
+        val ACTIVITY_STOPPED = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) 23 else -1
 
         // 1. Query wider window (30s) for recent events
         // 🔧 [Fix] 从5秒扩大到30秒，确保游戏稳定运行时也能看到最近的切换事件
@@ -2803,11 +2868,36 @@ class MonitorService : Service() {
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             val type = event.eventType
+            val eventPkg = event.packageName.orEmpty()
+            val eventClass = event.className?.toString().orEmpty()
+
             if (type == MOVE_TO_FG || type == ACTIVITY_RESUMED) {
-                val eventPkg = event.packageName.orEmpty()
-                val eventClass = event.className?.toString().orEmpty()
                 if (eventPkg.isNotBlank()) {
                     PwaBypassManager.observeUsageEventSignal(this, eventPkg, eventClass)
+                }
+            }
+
+            val lastProcessedTs = mLastProcessedPresenceEventAtMs[eventPkg] ?: 0L
+            if (event.timeStamp > lastProcessedTs) {
+                mLastProcessedPresenceEventAtMs[eventPkg] = event.timeStamp
+                if (eventPkg.isNotBlank()) {
+                    mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
+                }
+
+                // [Diagnostics-only] 诊断小窗生命周期事件
+                if (eventPkg.isNotBlank() && (type == MOVE_TO_FG || type == ACTIVITY_RESUMED || type == MOVE_TO_BG || type == ACTIVITY_PAUSED || type == ACTIVITY_STOPPED)) {
+                    val eventName = when (type) {
+                        MOVE_TO_FG -> "MOVE_TO_FOREGROUND"
+                        MOVE_TO_BG -> "MOVE_TO_BACKGROUND"
+                        ACTIVITY_RESUMED -> "ACTIVITY_RESUMED"
+                        ACTIVITY_PAUSED -> "ACTIVITY_PAUSED"
+                        ACTIVITY_STOPPED -> "ACTIVITY_STOPPED"
+                        else -> "UNKNOWN"
+                    }
+                    if (SegmentBlacklist.shouldLock(this, eventPkg)) {
+                        Log.d(TAG, "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
+                        LogExporter.logEvent("PresenceDiag", "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
+                    }
                 }
             }
 
@@ -2827,8 +2917,7 @@ class MonitorService : Service() {
             }
 
             // [Diagnostics-only] record this event as a candidate (newest last; cap at 3)
-            val eventPkg = event.packageName?.toString()
-            if (eventPkg != null && eventPkg.isNotBlank() &&
+            if (eventPkg.isNotBlank() &&
                 (type == MOVE_TO_FG || type == ACTIVITY_RESUMED ||
                  type == MOVE_TO_BG || type == ACTIVITY_PAUSED)
             ) {
