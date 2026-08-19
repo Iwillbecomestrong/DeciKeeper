@@ -22,6 +22,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -51,6 +53,10 @@ object StartupProtectionManager {
         private set
     @Volatile var earlyBootOverlayAttachedAtMs: Long = 0L
         private set
+    @Volatile private var earlyBootWindowManager: WindowManager? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var earlyBootCountdownRunnable: Runnable? = null
+    private var earlyBootTimeoutRunnable: Runnable? = null
 
     /**
      * 在 MyApplication.onCreate() 中直接 addView，不等 Service 启动。
@@ -61,6 +67,7 @@ object StartupProtectionManager {
 
         return try {
             val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            earlyBootWindowManager = wm
             val inflater = LayoutInflater.from(context)
             val view = inflater.inflate(R.layout.window_fast_lock, null).apply {
                 isClickable = true
@@ -88,12 +95,20 @@ object StartupProtectionManager {
 
             wm.addView(view, params)
             earlyBootOverlayView = view
-            earlyBootOverlayAttachedAtMs = System.currentTimeMillis()
+            val attachedAt = System.currentTimeMillis()
+            earlyBootOverlayAttachedAtMs = attachedAt
             Log.d("IronWill", "StartupProtectionManager: early boot overlay attached directly at ${earlyBootOverlayAttachedAtMs}")
             // [2026-06-25] 诊断日志：记录 attachEarlyBootFastLock 的调用方（MyApplication 还是 BootReceiver）
             // 用于排查"初始化界面刷新两次"现象（多次 attach）
             // 详见 Issue_AntiUninstallBootGap 尝试 8
             Log.i("IronWill_Debug", "[FastLock] attach caller=${Thread.currentThread().stackTrace[4]}")
+
+            // 启动独立主线程倒计时调度链，防止 Service 未能接管时秒数静止
+            val countdownTv = view.findViewById<android.widget.TextView>(R.id.countdown_text)
+            startEarlyBootCountdown(countdownTv, attachedAt, FAST_LOCK_MAX_VISIBLE_MS)
+
+            // 设定最大超时安全兜底（30s），防止 Service 未启动或被系统拦截时永久卡死在屏幕上
+            scheduleEarlyBootTimeout(context, FAST_LOCK_MAX_VISIBLE_MS)
             true
         } catch (e: Exception) {
             Log.e("IronWill", "StartupProtectionManager: failed to attach early boot overlay", e)
@@ -106,9 +121,83 @@ object StartupProtectionManager {
      * 返回被接管的 View，或 null 表示没有已存在的覆盖层。
      */
     fun takeOverEarlyBootOverlay(): View? {
+        cancelEarlyBootTasks()
+        earlyBootWindowManager = null
         val view = earlyBootOverlayView
         earlyBootOverlayView = null
         return view
+    }
+
+    /**
+     * 兜底/主动关闭早期启动覆盖层（如 CoreService 启动就绪、超时到期等）。
+     */
+    fun dismissEarlyBootOverlay(context: Context? = null, reason: String = "manual") {
+        mainHandler.post {
+            cancelEarlyBootTasks()
+            val view = earlyBootOverlayView ?: return@post
+            val wm = earlyBootWindowManager ?: (context?.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
+            try {
+                if (view.parent != null) {
+                    wm?.removeView(view)
+                }
+                Log.i("IronWill_Debug", "[FastLock] early boot overlay dismissed: reason=$reason")
+            } catch (e: Exception) {
+                Log.e("IronWill_Debug", "[FastLock] failed to remove early boot overlay", e)
+            } finally {
+                earlyBootOverlayView = null
+                earlyBootWindowManager = null
+            }
+        }
+    }
+
+    private fun cancelEarlyBootTasks() {
+        earlyBootCountdownRunnable?.let { mainHandler.removeCallbacks(it) }
+        earlyBootCountdownRunnable = null
+        earlyBootTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        earlyBootTimeoutRunnable = null
+    }
+
+    private fun startEarlyBootCountdown(
+        textView: android.widget.TextView?,
+        attachedAtMs: Long,
+        maxVisibleMs: Long
+    ) {
+        cancelEarlyBootTasks()
+        if (textView == null) return
+        val deadlineMs = attachedAtMs + maxVisibleMs
+        val ceilingSeconds = ((maxVisibleMs + 999L) / 1000L).toInt()
+
+        fun updateUi(): Boolean {
+            val now = System.currentTimeMillis()
+            val seconds = remainingCountdownSecondsFromDeadline(deadlineMs, now, ceilingSeconds)
+            textView.text = "剩余 $seconds 秒"
+            return seconds > 0
+        }
+
+        updateUi()
+
+        val tick = object : Runnable {
+            override fun run() {
+                if (earlyBootOverlayView == null) return
+                if (updateUi()) {
+                    mainHandler.postDelayed(this, 1000L)
+                }
+            }
+        }
+        earlyBootCountdownRunnable = tick
+        mainHandler.postDelayed(tick, 1000L)
+    }
+
+    private fun scheduleEarlyBootTimeout(context: Context, maxVisibleMs: Long) {
+        earlyBootTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        val timeoutRunnable = Runnable {
+            if (earlyBootOverlayView != null) {
+                Log.w("IronWill_Debug", "[FastLock] early boot overlay reached max timeout, auto dismissing")
+                dismissEarlyBootOverlay(context, "max_timeout")
+            }
+        }
+        earlyBootTimeoutRunnable = timeoutRunnable
+        mainHandler.postDelayed(timeoutRunnable, maxVisibleMs)
     }
 
     fun isEarlyBootOverlayAttached(): Boolean = earlyBootOverlayView != null

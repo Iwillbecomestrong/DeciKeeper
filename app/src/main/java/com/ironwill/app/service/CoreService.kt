@@ -589,6 +589,9 @@ class CoreService : AccessibilityService() {
                     }
                     try {
                         StartupProtectionManager.requestFastLockHandoff(this@CoreService)
+                        if (StartupProtectionManager.isEarlyBootOverlayAttached()) {
+                            StartupProtectionManager.dismissEarlyBootOverlay(this@CoreService, "core_connected_ce_ready")
+                        }
                         Log.d("AntiUninstall", "CoreService: FastLockService handoff requested (CE ready)")
                     } catch (e: Exception) {
                         Log.e(TAG, "FastLock handoff failed", e)

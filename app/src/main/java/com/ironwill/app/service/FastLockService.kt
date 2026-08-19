@@ -154,14 +154,18 @@ class FastLockService : Service() {
     }
 
     private fun startForegroundCompat() {
-        if (Build.VERSION.SDK_INT >= 34) {
-            try {
-                startForeground(9999, createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-            } catch (e: Exception) {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                try {
+                    startForeground(9999, createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                } catch (e: Exception) {
+                    startForeground(9999, createNotification())
+                }
+            } else {
                 startForeground(9999, createNotification())
             }
-        } else {
-            startForeground(9999, createNotification())
+        } catch (e: Exception) {
+            Log.e(TAG, "FastLockService: startForegroundCompat failed", e)
         }
     }
 

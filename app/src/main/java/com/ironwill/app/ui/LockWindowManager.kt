@@ -58,6 +58,7 @@ import com.ironwill.app.R
 import com.ironwill.app.data.AndroidLogcatNormalEventSink
 import com.ironwill.app.data.CountAction
 import com.ironwill.app.data.DefaultLogDebugConfig
+import com.ironwill.app.manager.StartupProtectionManager
 import com.ironwill.app.data.DefaultNormalEventRenderer
 import com.ironwill.app.data.EventClock
 import com.ironwill.app.data.LogDebugConfig
@@ -523,6 +524,7 @@ object LockWindowManager {
     private var mInitLockView: View? = null
     private var mInitActiveWindowManager: WindowManager? = null
     private var initDismissRunnable: Runnable? = null
+    private var initCountdownRunnable: Runnable? = null
     private val isInitLockShowing = AtomicBoolean(false)
     
     // 🚀 [NEW] Separate Window for Rest Request (Resolves Input/Keyboard Focus Issues)
@@ -1131,12 +1133,39 @@ object LockWindowManager {
         initDismissRunnable?.let { mUiHandler.removeCallbacks(it) }
         initDismissRunnable = Runnable { dismissSystemInitOverlay("timeout") }
         mUiHandler.postDelayed(initDismissRunnable!!, durationMs)
+
+        val countdownTv = mInitLockView?.findViewById<android.widget.TextView>(R.id.countdown_text)
+        val deadlineMs = System.currentTimeMillis() + durationMs
+        val ceilingSeconds = ((durationMs + 999L) / 1000L).toInt()
+
+        fun updateInitCountdown(): Boolean {
+            val now = System.currentTimeMillis()
+            val seconds = StartupProtectionManager.remainingCountdownSecondsFromDeadline(deadlineMs, now, ceilingSeconds)
+            countdownTv?.text = "剩余 $seconds 秒"
+            return seconds > 0
+        }
+
+        updateInitCountdown()
+
+        initCountdownRunnable?.let { mUiHandler.removeCallbacks(it) }
+        val tick = object : Runnable {
+            override fun run() {
+                if (!isInitLockShowing.get()) return
+                if (updateInitCountdown()) {
+                    mUiHandler.postDelayed(this, 1000L)
+                }
+            }
+        }
+        initCountdownRunnable = tick
+        mUiHandler.postDelayed(tick, 1000L)
     }
 
     fun dismissSystemInitOverlay(reason: String = "manual") {
         if (!isInitLockShowing.get()) return
         initDismissRunnable?.let { mUiHandler.removeCallbacks(it) }
         initDismissRunnable = null
+        initCountdownRunnable?.let { mUiHandler.removeCallbacks(it) }
+        initCountdownRunnable = null
         try {
             if (mInitLockView != null && mInitActiveWindowManager != null && mInitLockView?.parent != null) {
                 mInitActiveWindowManager?.removeView(mInitLockView)
