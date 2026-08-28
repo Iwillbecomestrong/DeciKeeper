@@ -24,33 +24,14 @@ class AlarmEmergencyWhitelistUiProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         val app = context?.applicationContext as? Application ?: return true
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-            override fun onActivityResumed(activity: Activity) {
-                if (activity !is GlobalParamsActivity) return
-                val root = activity.findViewById<NestedScrollView>(R.id.root_global_params) ?: return
-                val column = root.getChildAt(0) as? LinearLayout ?: return
-                val existing = column.findViewWithTag<AlarmEmergencyWhitelistSettingsCard>(CARD_TAG)
-                if (existing != null) {
-                    existing.refresh()
-                    return
-                }
-                val card = AlarmEmergencyWhitelistSettingsCard(activity).apply {
-                    tag = CARD_TAG
-                }
-                // Keep it near the top of global settings, after the header/pending area.
-                val index = minOf(3, column.childCount)
-                column.addView(
-                    card,
-                    index,
-                    LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        val m = (16 * activity.resources.displayMetrics.density).toInt()
-                        bottomMargin = m
-                    }
-                )
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+                installOrRefresh(activity)
             }
-            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+
+            override fun onActivityResumed(activity: Activity) {
+                installOrRefresh(activity)
+            }
+
             override fun onActivityStarted(activity: Activity) = Unit
             override fun onActivityPaused(activity: Activity) = Unit
             override fun onActivityStopped(activity: Activity) = Unit
@@ -58,6 +39,34 @@ class AlarmEmergencyWhitelistUiProvider : ContentProvider() {
             override fun onActivityDestroyed(activity: Activity) = Unit
         })
         return true
+    }
+
+    private fun installOrRefresh(activity: Activity) {
+        if (activity !is GlobalParamsActivity) return
+        val root = activity.findViewById<NestedScrollView>(R.id.root_global_params) ?: return
+        val column = root.getChildAt(0) as? LinearLayout ?: return
+        val existing = column.findViewWithTag<AlarmEmergencyWhitelistSettingsCard>(CARD_TAG)
+        if (existing != null) {
+            existing.refresh()
+            return
+        }
+
+        val card = AlarmEmergencyWhitelistSettingsCard(activity).apply {
+            tag = CARD_TAG
+        }
+        // Keep it near the top of global settings, after the header/pending area.
+        val index = minOf(3, column.childCount)
+        column.addView(
+            card,
+            index,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                val m = (16 * activity.resources.displayMetrics.density).toInt()
+                bottomMargin = m
+            }
+        )
     }
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null
