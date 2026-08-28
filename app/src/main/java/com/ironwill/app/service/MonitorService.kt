@@ -237,6 +237,7 @@ class MonitorService : Service() {
     private val SAFE_APP_THRESHOLD = 3 // ~3 seconds at 1000ms interval
     private val monitorScheduleGate = MonitorLoopScheduleGate()
     private val foregroundDetectionLogCompressor = ForegroundDetectionLogCompressor()
+    private val foregroundGuardFallbackGate = ForegroundGuardFallbackGate()
 
     // 诊断日志压缩器（去重高频 DIAG）
     private val visCheckCompressor = DiagnosticCompressor<VisCheckStableKey>("VIS_CHECK_DIAG")
@@ -1947,7 +1948,28 @@ class MonitorService : Service() {
             effectivePackageName == currentLockedPkg &&
             !LockWindowManager.isLockScreenViewAttached()
         val guardResult = shouldEnforceLockForCurrentTop(effectivePackageName, now)
-        val passedForegroundGuard = allowByFallback || forceRelockAfterTemporaryAccess || forcePostTempAccessRelock || isDetachedRelock || guardResult
+        val sustainedForegroundFallbackEligible =
+            isBlacklisted && isDndLocked && isSustainedForegroundFallbackEligible(
+                evidenceSource = mLastTopEvidence.name,
+                selectedPackage = effectivePackageName,
+                cachedPackage = mLastTopPackage,
+                lastForegroundEventTs = mLastForegroundEventTs,
+                lastBackgroundEventTs = mLastBackgroundEventTs
+            )
+        val forceGuardFallback = foregroundGuardFallbackGate.shouldForce(
+            packageName = effectivePackageName,
+            nowMs = now,
+            eligible = sustainedForegroundFallbackEligible,
+            guardPassed = guardResult
+        )
+        if (forceGuardFallback) {
+            Log.w(
+                TAG,
+                "[ForegroundGuard] Force lock after 60s sustained CACHE/HISTORY uncertainty: pkg=$effectivePackageName"
+            )
+        }
+        val passedForegroundGuard = allowByFallback || forceRelockAfterTemporaryAccess ||
+            forcePostTempAccessRelock || isDetachedRelock || guardResult || forceGuardFallback
         // [Diagnostics-only] record guard result on cycle
         currentForegroundCycle?.recordGuardResult(passed = passedForegroundGuard, reason = mLastTopEvidence.name)
 
