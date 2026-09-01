@@ -216,15 +216,20 @@ class VisibleBlacklistPresenceTracker(
     fun onUsageEvent(pkg: String, eventType: Int, eventTimeMs: Long): PresenceTrackerAction {
         when (eventType) {
             ACTIVITY_STOPPED -> {
-                lastStoppedAtMap[pkg] = eventTimeMs
-                closedAtMap[pkg] = eventTimeMs
-                // 🛡️ 只有当 STOPPED 属于当前 Session（eventTimeMs > confirmedAtMs）时才允许 CLEAR，避免 30s 历史事件重放杀掉新 Session
-                if (currentPackage == pkg && state != PresenceTrackerState.NONE && eventTimeMs > confirmedAtMs) {
-                    val oldState = state
-                    resetInternal()
-                    logStateChange(pkg, oldState, PresenceTrackerState.NONE, reason = "USAGE_ACTIVITY_STOPPED(eventTime=$eventTimeMs>confirmedAt=$confirmedAtMs)")
-                    logAction(PresenceTrackerAction.CLEAR, pkg, reason = "USAGE_ACTIVITY_STOPPED")
-                    return PresenceTrackerAction.CLEAR
+                val hasRecentA11yEvents = CoreService.isPackageRecentlyActiveViaAccessibility(pkg, eventTimeMs, 3000L)
+                if (hasRecentA11yEvents) {
+                    Log.i(PRESENCE_DIAG_TAG, "[PRESENCE_STATE] Suppressing ACTIVITY_STOPPED clear for $pkg: active Accessibility events found")
+                } else {
+                    lastStoppedAtMap[pkg] = eventTimeMs
+                    closedAtMap[pkg] = eventTimeMs
+                    // 🛡️ 只有当 STOPPED 属于当前 Session（eventTimeMs > confirmedAtMs）时才允许 CLEAR，避免 30s 历史事件重放杀掉新 Session
+                    if (currentPackage == pkg && state != PresenceTrackerState.NONE && eventTimeMs > confirmedAtMs) {
+                        val oldState = state
+                        resetInternal()
+                        logStateChange(pkg, oldState, PresenceTrackerState.NONE, reason = "USAGE_ACTIVITY_STOPPED(eventTime=$eventTimeMs>confirmedAt=$confirmedAtMs)")
+                        logAction(PresenceTrackerAction.CLEAR, pkg, reason = "USAGE_ACTIVITY_STOPPED")
+                        return PresenceTrackerAction.CLEAR
+                    }
                 }
             }
             MOVE_TO_FG, ACTIVITY_RESUMED -> {

@@ -253,6 +253,8 @@ class CoreService : AccessibilityService() {
             }
         }
 
+        private val recentA11yEventPackageTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
         fun recordDiagnosticsWindowSnapshot(success: Boolean, failureClass: String?) {
             diagnosticsWindowSnapshotAtMs = System.currentTimeMillis()
             if (success) {
@@ -268,6 +270,14 @@ class CoreService : AccessibilityService() {
             diagnosticsLastEligibleEventPackage = packageName
             diagnosticsLastEligibleEventType = eventType
             diagnosticsLastEligibleEventAtMs = atMs
+            if (!packageName.isNullOrEmpty()) {
+                recentA11yEventPackageTimes[packageName] = atMs
+            }
+        }
+
+        fun isPackageRecentlyActiveViaAccessibility(packageName: String, nowMs: Long = System.currentTimeMillis(), ttlMs: Long = 3000L): Boolean {
+            val lastTime = recentA11yEventPackageTimes[packageName] ?: return false
+            return (nowMs - lastTime) in 0L..ttlMs
         }
 
         fun captureWindowSnapshot(nowMs: Long = System.currentTimeMillis()): AccessibilityWindowSnapshot {
@@ -311,6 +321,14 @@ class CoreService : AccessibilityService() {
                             currentVisiblePkgs.add(winPkg)
                         } else if (winPkg == null) {
                             unresolvedCount++
+                        }
+                    }
+
+                    // 🚀 [Event-Snapshot Fusion] Merge packages that emitted Accessibility events in the last 3000ms.
+                    // This handles OEM floating/PiP windows (like Douyin) that render without standard AccessibilityWindow roots.
+                    recentA11yEventPackageTimes.forEach { (pkg, lastMs) ->
+                        if (nowMs - lastMs in 0L..3000L && pkg != service.packageName) {
+                            currentVisiblePkgs.add(pkg)
                         }
                     }
 
