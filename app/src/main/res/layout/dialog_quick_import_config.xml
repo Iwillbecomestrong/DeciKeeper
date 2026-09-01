@@ -4,14 +4,15 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#FFFFFF">
 
-    <!-- 🚀 Master Switch Section Card -->
+    <!-- 🚀 Master Switch Section Card (Soft light background + dark text) -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="14dp"
-        app:cardBackgroundColor="#E8F5E9"
+        app:cardBackgroundColor="#F0FDF4"
         app:cardCornerRadius="8dp"
         app:cardElevation="0dp">
 
@@ -31,18 +32,18 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⚡ 新应用下载自动加黑"
+                    android:text="⚡ 新下载应用自动拦截"
                     android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#2E7D32"/>
+                    android:textColor="#166534"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="开启后，新下载符合以下分类的应用将自动加黑"
+                    android:text="开启后，新下载符合以下勾选分类的应用将自动加入黑名单拦截"
                     android:textSize="11sp"
-                    android:textColor="#388E3C"/>
+                    android:textColor="#15803D"/>
             </LinearLayout>
 
             <androidx.appcompat.widget.SwitchCompat
@@ -53,24 +54,24 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Section Header -->
+    <!-- Section Header (Dark slate text) -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="▼ 选择应用分类 (作用于自动加黑与批量增删)"
+        android:text="▼ 选择应用分类 (作用于自动拦截与批量增删)"
         android:textSize="12sp"
         android:textStyle="bold"
-        android:textColor="#616161"
+        android:textColor="#475569"
         android:layout_marginBottom="8dp"/>
 
-    <!-- Category Checkboxes -->
+    <!-- Category Checkboxes (High-contrast dark slate text) -->
     <CheckBox
         android:id="@+id/cb_dialog_comm"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="💬 社交软件 (QQ/微信/微博/Soul等)"
         android:textSize="13sp"
-        android:textColor="#333333"
+        android:textColor="#1E293B"
         android:paddingTop="6dp"
         android:paddingBottom="6dp"/>
 
@@ -80,7 +81,7 @@
         android:layout_height="wrap_content"
         android:text="🎬 短视频/直播 (抖音/快手/B站/小红书等)"
         android:textSize="13sp"
-        android:textColor="#333333"
+        android:textColor="#1E293B"
         android:paddingTop="6dp"
         android:paddingBottom="6dp"/>
 
@@ -90,7 +91,7 @@
         android:layout_height="wrap_content"
         android:text="🎮 大型手游 (王者/和平精英/原神/星铁等)"
         android:textSize="13sp"
-        android:textColor="#333333"
+        android:textColor="#1E293B"
         android:paddingTop="6dp"
         android:paddingBottom="6dp"/>
 
@@ -100,7 +101,7 @@
         android:layout_height="wrap_content"
         android:text="🌐 浏览器 (Chrome/Edge/夸克/Via等)"
         android:textSize="13sp"
-        android:textColor="#333333"
+        android:textColor="#1E293B"
         android:paddingTop="6dp"
         android:paddingBottom="6dp"/>
 

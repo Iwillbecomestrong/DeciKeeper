@@ -564,7 +564,7 @@ class AppSelectionActivity : AppCompatActivity() {
         cbBrowser?.isChecked = savedCategories.contains("browser") || isCategoryAllSelected("browser")
 
         AlertDialog.Builder(this)
-            .setTitle(if (isBlacklistMode) "⚡ 批量勾选与自动加黑分类设置" else "⚡ 快速批量应用设置")
+            .setTitle(if (isBlacklistMode) "⚡ 批量勾选与新应用自动拦截配置" else "⚡ 快速批量应用设置")
             .setView(dialogView)
             .setPositiveButton("应用配置与变更") { _, _ ->
                 if (isBlacklistMode && switchMaster != null) {
