@@ -1766,6 +1766,7 @@ class MonitorService : Service() {
 
                 var effectivePackageName = fallbackCandidatePackage ?: packageName
 
+        var isMiniWindowOverridden = false
         // 🚀 [NEW] Double-layer window matching:
         // If Accessibility is enabled, and the current effective app is a safe app (like Launcher),
         // but a blacklisted app is actually visible on screen (e.g. as a small window/PIP),
@@ -1777,6 +1778,7 @@ class MonitorService : Service() {
             }
             if (visibleBlacklistedPkg != null) {
                 effectivePackageName = visibleBlacklistedPkg
+                isMiniWindowOverridden = true
                 Log.d(TAG, "[MiniWindowOverrider] Overriding effectivePackageName with visible blacklisted small window: $effectivePackageName")
             }
         }
@@ -1971,7 +1973,7 @@ class MonitorService : Service() {
             )
         }
         val passedForegroundGuard = allowByFallback || forceRelockAfterTemporaryAccess ||
-            forcePostTempAccessRelock || isDetachedRelock || guardResult || forceGuardFallback
+            forcePostTempAccessRelock || isDetachedRelock || isMiniWindowOverridden || guardResult || forceGuardFallback
         // [Diagnostics-only] record guard result on cycle
         currentForegroundCycle?.recordGuardResult(passed = passedForegroundGuard, reason = mLastTopEvidence.name)
 
