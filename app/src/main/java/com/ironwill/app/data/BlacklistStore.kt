@@ -83,20 +83,32 @@ object BlacklistStore {
     // 用户显式移除跟踪（防止 periodicAutoBlacklistScan 重新加入）
     // ═══════════════════════════════════════════════════════════════
 
-    private fun addUserRemovedApps(context: Context, pkgs: Set<String>) {
+    internal fun addUserRemovedApps(context: Context, pkgs: Set<String>) {
         if (pkgs.isEmpty()) return
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         val current = prefs.getStringSet(KEY_USER_REMOVED_APPS, null)?.toMutableSet() ?: mutableSetOf()
         current.addAll(pkgs)
         prefs.edit().putStringSet(KEY_USER_REMOVED_APPS, HashSet(current)).apply()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            try {
+                context.createDeviceProtectedStorageContext().getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putStringSet(KEY_USER_REMOVED_APPS, HashSet(current)).apply()
+            } catch (_: Exception) {}
+        }
     }
 
-    private fun clearUserRemovedApps(context: Context, pkgs: Set<String>) {
+    internal fun clearUserRemovedApps(context: Context, pkgs: Set<String>) {
         if (pkgs.isEmpty()) return
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         val current = prefs.getStringSet(KEY_USER_REMOVED_APPS, null)?.toMutableSet() ?: return
         current.removeAll(pkgs)
         prefs.edit().putStringSet(KEY_USER_REMOVED_APPS, HashSet(current)).apply()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            try {
+                context.createDeviceProtectedStorageContext().getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putStringSet(KEY_USER_REMOVED_APPS, HashSet(current)).apply()
+            } catch (_: Exception) {}
+        }
     }
 
     fun getUserRemovedApps(context: Context): Set<String> {
@@ -290,8 +302,30 @@ object BlacklistStore {
             }
 
             prefs.edit().putStringSet(KEY_BLACKLIST_APPS, HashSet(newApps)).apply()
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                try {
+                    context.createDeviceProtectedStorageContext().getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit().putStringSet(KEY_BLACKLIST_APPS, HashSet(newApps)).apply()
+                } catch (_: Exception) {}
+            }
             cachedBlacklist = newApps
             context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                try {
+                    context.createDeviceProtectedStorageContext().getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE)
+                        .edit().clear().apply()
+                } catch (_: Exception) {}
+            }
+
+            // 🔴 记录用户显式移除/重新加入的 App（防止 periodicAutoBlacklistScan 重新自动加入！）
+            val removed = currentBefore.minus(newApps)
+            val added = newApps.minus(currentBefore)
+            if (removed.isNotEmpty()) {
+                addUserRemovedApps(context, removed)
+            }
+            if (added.isNotEmpty()) {
+                clearUserRemovedApps(context, added)
+            }
 
             // Sync Service
             val intent = android.content.Intent(context, MonitorService::class.java)

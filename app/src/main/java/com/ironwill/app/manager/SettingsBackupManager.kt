@@ -23,6 +23,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
+import com.ironwill.app.data.BlacklistStore
 import com.ironwill.app.data.LogExporter
 import java.io.File
 import java.text.SimpleDateFormat
@@ -79,7 +80,7 @@ object SettingsBackupManager {
             "iron_will_rules" to listOf("segments_json")
         ),
         BackupCategory.BLACKLIST to mapOf(
-            "iron_will_ledger" to listOf("blacklist_apps_list")
+            "iron_will_ledger" to listOf("blacklist_apps_list", "blacklist_mode", "user_removed_apps")
         ),
         BackupCategory.ALARM to mapOf(
             "alarm_prefs" to listOf(
@@ -237,10 +238,23 @@ object SettingsBackupManager {
         names.forEach { name ->
             val allValues = readMergedPreferenceValues(context, name)
             val allowed = allowedFiles[name]  // null 表示全部 key
-            val values = if (allowed == null) {
+            val values = (if (allowed == null) {
                 allValues.filter { (key, _) -> key !in EXCLUDED_KEYS }
             } else {
                 filterKeys(allValues, allowed)
+            }).let { map ->
+                if (name == "iron_will_ledger") {
+                    val effectiveTime = (map["weekly_privilege_limit_effective_time"] as? Long) ?: 0L
+                    val isAdaptation = TimeRuleManager.isInAdaptationPeriod(context)
+                    val isExpired = effectiveTime in 1..System.currentTimeMillis()
+                    if (isAdaptation || isExpired) {
+                        map.filterKeys { it !in setOf(
+                            "weekly_privilege_count_limit_pending",
+                            "weekly_privilege_duration_limit_pending",
+                            "weekly_privilege_limit_effective_time"
+                        ) }
+                    } else map
+                } else map
             }
             if (values.isEmpty()) return@forEach
 
@@ -391,8 +405,9 @@ object SettingsBackupManager {
                 val pendingValues = try { decodeEntries(pendingFile.getJSONObject("entries")) } catch (_: Exception) { null }
                 val effectiveTs = pendingValues?.get("effective_timestamp") as? Long ?: 0L
                 val hasPendingFlag = pendingValues?.get("has_pending_changes") as? Boolean ?: false
+                val isStaleBeforeExport = exportedAt > 0L && effectiveTs <= exportedAt
 
-                if (hasPendingFlag && effectiveTs > 0 && importTime >= effectiveTs) {
+                if (hasPendingFlag && effectiveTs > 0 && importTime >= effectiveTs && !isStaleBeforeExport) {
                     // 导入时已过生效时间 → pending 直接变成 active
                     val targetValues = pendingValues!!.filterKeys {
                         it !in setOf("has_pending_changes", "effective_timestamp", "has_pending_apps", "has_pending_segments", "effective_time")
@@ -412,7 +427,7 @@ object SettingsBackupManager {
                         }
                     }
                     LogExporter.logEvent("Import", "[PAIR] $activeName: pending applied as active (effectiveTs=$effectiveTs <= now=$importTime)")
-                } else if (hasPendingFlag) {
+                } else if (hasPendingFlag && !isStaleBeforeExport) {
                     // 导入时未过生效时间 → 保留 active + pending 两层
                     if (writtenTargets.add(activeName)) {
                         writePrefs(context.getSharedPreferences(activeName, Context.MODE_PRIVATE), activeValues)
@@ -466,7 +481,33 @@ object SettingsBackupManager {
 
             if (!writtenTargets.add(targetName)) continue
 
-            val values = try { decodeEntries(file.getJSONObject("entries")) } catch (_: Exception) { continue }
+            val rawValues = try { decodeEntries(file.getJSONObject("entries")) } catch (_: Exception) { continue }
+            val values = if (targetName == "iron_will_ledger") {
+                val effectiveTime = (rawValues["weekly_privilege_limit_effective_time"] as? Long) ?: 0L
+                val isStale = isAdaptation || (exportedAt > 0L && effectiveTime in 1..exportedAt)
+                val filtered = if (isStale) {
+                    rawValues.filterKeys { it !in setOf(
+                        "weekly_privilege_count_limit_pending",
+                        "weekly_privilege_duration_limit_pending",
+                        "weekly_privilege_limit_effective_time"
+                    ) }
+                } else rawValues
+
+                // 确保用户在备份中没有包含的分类App（如用户从黑名单移除了Google/Chrome），同步到 user_removed_apps，
+                // 防止导入后被 MonitorService 的 periodicAutoBlacklistScan 重新自动扫入黑名单！
+                val importedBlacklist = (filtered["blacklist_apps_list"] as? Set<*>)?.filterIsInstance<String>()?.toSet()
+                if (importedBlacklist != null) {
+                    val categoryPkgs = mutableSetOf<String>()
+                    for (cat in listOf("comm", "video", "game", "browser")) {
+                        categoryPkgs.addAll(CreditManager.getBlacklistCategory(cat))
+                    }
+                    val removedFromCategory = categoryPkgs.subtract(importedBlacklist)
+                    if (removedFromCategory.isNotEmpty()) {
+                        BlacklistStore.addUserRemovedApps(context, removedFromCategory)
+                    }
+                }
+                filtered
+            } else rawValues
 
             fileCount++
             entryCount += values.size

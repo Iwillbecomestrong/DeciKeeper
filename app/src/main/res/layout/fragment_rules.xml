@@ -37,7 +37,7 @@
                     android:orientation="vertical"
                     android:padding="16dp">
                     <TextView
-                        android:text="📵 黑名单"
+                        android:text="黑白名单"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="#37474F"

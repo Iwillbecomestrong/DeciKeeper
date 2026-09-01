@@ -2,6 +2,7 @@ package com.ironwill.app.manager
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 
 /**
@@ -21,10 +22,20 @@ object AlarmChallengeEmergencyWhitelist {
         alarmActive: Boolean,
         foregroundPackage: String,
         selfPackage: String,
-        allowedPackages: Set<String>
+        allowedPackages: Set<String>,
+        isPermissionRequestInProgress: Boolean = false
     ): Boolean {
         if (!alarmActive) return true
-        return foregroundPackage == selfPackage || allowedPackages.contains(foregroundPackage)
+        if (foregroundPackage == selfPackage || allowedPackages.contains(foregroundPackage)) return true
+        if (isPermissionRequestInProgress && isSystemPermissionController(foregroundPackage)) return true
+        return false
+    }
+
+    internal fun isSystemPermissionController(packageName: String): Boolean {
+        return packageName == "com.android.permissioncontroller" ||
+            packageName == "com.google.android.permissioncontroller" ||
+            packageName == "com.vivo.permissionmanager" ||
+            packageName == "com.android.packageinstaller"
     }
 
     /** Pure sanitization seam: preserve order, remove duplicates/dangerous/self, cap at two. */
@@ -79,7 +90,12 @@ object AlarmChallengeEmergencyWhitelist {
             alarmActive = alarmActive,
             foregroundPackage = packageName,
             selfPackage = context.packageName,
-            allowedPackages = getPackages(context).toSet()
+            allowedPackages = getPackages(context).toSet(),
+            isPermissionRequestInProgress = try {
+                com.ironwill.app.service.AlarmChallengeEmergencyGuardService.isPermissionRequestInProgress()
+            } catch (_: Throwable) {
+                false
+            }
         )
 
     fun isSelectable(context: Context, packageName: String): Boolean =
@@ -145,7 +161,7 @@ object AlarmChallengeEmergencyWhitelist {
         false
     }
 
-    private fun dangerousPackages(context: Context): Set<String> {
+    fun getDangerousPackages(context: Context): Set<String> {
         val pm = context.packageManager
         val packages = linkedSetOf(
             "com.android.settings",
@@ -164,15 +180,36 @@ object AlarmChallengeEmergencyWhitelist {
         } catch (_: Exception) {
         }
 
-        // Browsers are also excluded because they are general-purpose escape surfaces.
+        // Default browser is excluded as an escape surface
         try {
-            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"))
-            pm.queryIntentActivities(webIntent, 0).forEach { ri ->
-                ri.activityInfo?.packageName?.let(packages::add)
+            val defaultBrowser = pm.resolveActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("http://")),
+                PackageManager.MATCH_DEFAULT_ONLY
+            )?.activityInfo?.packageName
+            if (defaultBrowser != null && defaultBrowser != "android") {
+                packages.add(defaultBrowser)
             }
         } catch (_: Exception) {
         }
 
         return packages
     }
+
+    fun isBrowserPackage(packageName: String): Boolean {
+        val p = packageName.lowercase()
+        return p == "com.android.chrome" || p == "com.chrome.beta" || p == "com.chrome.canary" ||
+            p == "org.mozilla.firefox" || p == "com.microsoft.emmx" || p == "com.opera.browser" ||
+            p == "com.brave.browser" || p == "mark.via" || p == "com.kiwibrowser.browser" ||
+            p.contains(".browser") || p.endsWith(".browser") || p.contains("ucbrowser") ||
+            p.contains("quark")
+    }
+
+    fun isSelectable(context: Context, packageName: String, cachedDangerous: Set<String>? = null): Boolean {
+        if (packageName.isBlank() || packageName == context.packageName) return false
+        if (isBrowserPackage(packageName)) return false
+        val dangerous = cachedDangerous ?: getDangerousPackages(context)
+        return !dangerous.contains(packageName)
+    }
+
+    private fun dangerousPackages(context: Context): Set<String> = getDangerousPackages(context)
 }

@@ -1,6 +1,8 @@
 package com.ironwill.app.ui
 
 import android.Manifest
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -72,10 +74,11 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         isLaunchingScanner = false
+        AlarmChallengeEmergencyGuardService.setPermissionRequestInProgress(false)
         if (granted) {
             startScanMode()
         } else {
-            LockWindowManager.showAlarmOverlayIfHidden()
+            fallbackToAlternativeChallenge()
         }
     }
 
@@ -112,8 +115,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 startBarcodeScanner()
             } else {
-                isLaunchingScanner = true
-                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                launchQrScan()
             }
         } else {
             isLockedScreenMode = intent.getBooleanExtra("is_locked_screen", false)
@@ -245,12 +247,73 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         LogExporter.logEvent("AlarmOverlay", "ACTIVITY_LAUNCH_QR_SCAN hasPermission=$hasPermission")
         if (hasPermission) {
             startScanMode()
-        } else {
-            isLaunchingScanner = true
-            android.util.Log.d("AlarmActivity", "launchQrScan: requesting CAMERA permission")
-            LockWindowManager.hideAlarmOverlayForPermission()
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            return
         }
+
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val isKeyguardLocked = km?.isKeyguardLocked ?: false
+
+        if (isKeyguardLocked) {
+            // 在锁屏状态下，系统权限弹窗无法显示在锁屏上方。
+            // 提示用户需要解锁才能完成授权，并提供切换备用关卡的选项。
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("需要相机权限")
+                .setMessage("扫码关闹钟需要相机权限。由于系统安全限制，请先解锁屏幕以完成授权。")
+                .setPositiveButton("解锁去授权") { _, _ ->
+                    dismissKeyguardAndRequestCameraPermission(km)
+                }
+                .setNegativeButton("切换做题关闹钟") { _, _ ->
+                    fallbackToAlternativeChallenge()
+                }
+                .setCancelable(false)
+                .show()
+        } else {
+            requestCameraPermissionSafely()
+        }
+    }
+
+    private fun dismissKeyguardAndRequestCameraPermission(km: KeyguardManager?) {
+        if (km != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            km.requestDismissKeyguard(this, object : KeyguardManager.KeyguardDismissCallback() {
+                override fun onDismissSucceeded() {
+                    super.onDismissSucceeded()
+                    runOnUiThread {
+                        requestCameraPermissionSafely()
+                    }
+                }
+
+                override fun onDismissCancelled() {
+                    super.onDismissCancelled()
+                    runOnUiThread {
+                        Toast.makeText(this@AlarmActivity, "未解锁屏幕，已切换为做题挑战", Toast.LENGTH_SHORT).show()
+                        fallbackToAlternativeChallenge()
+                    }
+                }
+
+                override fun onDismissError() {
+                    super.onDismissError()
+                    runOnUiThread {
+                        fallbackToAlternativeChallenge()
+                    }
+                }
+            })
+        } else {
+            requestCameraPermissionSafely()
+        }
+    }
+
+    private fun requestCameraPermissionSafely() {
+        isLaunchingScanner = true
+        AlarmChallengeEmergencyGuardService.setPermissionRequestInProgress(true)
+        android.util.Log.d("AlarmActivity", "launchQrScan: requesting CAMERA permission safely")
+        LockWindowManager.hideAlarmOverlayForPermission()
+        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    private fun fallbackToAlternativeChallenge() {
+        LockWindowManager.showAlarmOverlayIfHidden()
+        LockWindowManager.fallbackFromQrToMath()
+        Toast.makeText(this, "未获得相机权限，已为您切换为做题关闹钟", Toast.LENGTH_SHORT).show()
     }
 
     override fun onAlarmOverlayFinished() {

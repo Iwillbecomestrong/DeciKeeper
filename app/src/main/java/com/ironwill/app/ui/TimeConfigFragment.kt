@@ -86,14 +86,14 @@ class TimeConfigFragment : Fragment() {
          *   null → 跟随全局黑名单；空 → 本时段不锁任何应用；非空 → 独立管理 N 个应用。
          */
         internal fun segmentListSummary(listApps: List<String>?): String = when {
-            listApps == null -> "跟随全局黑名单"
+            listApps == null -> "跟随全局黑/白名单"
             listApps.isEmpty() -> "本时段不锁任何应用"
             else -> "独立管理 ${listApps.size} 个应用"
         }
 
         /** 模式感知摘要：白名单模式显示"白名单 N 个应用"（补集还原后计数）。 */
         internal fun segmentListSummary(context: android.content.Context, segment: TimeSegment): String = when {
-            segment.listApps == null -> "跟随全局黑名单"
+            segment.listApps == null -> "跟随全局黑/白名单"
             segment.listMode == SegmentBlacklist.LIST_MODE_WHITELIST -> {
                 val white = SegmentBlacklist.toDisplaySelection(context, segment.listMode, segment.listApps.toSet())
                 if (white.isEmpty()) "白名单模式 (全部拦截)" else "白名单 ${white.size} 个应用"

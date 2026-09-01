@@ -59,14 +59,11 @@ import androidx.appcompat.app.AppCompatActivity
 import com.ironwill.app.R
 import com.ironwill.app.data.AdverseAnalysis
 import com.ironwill.app.data.SegmentBlacklist
+import com.ironwill.app.manager.AlarmChallengeEmergencyWhitelist
 import com.ironwill.app.manager.ChangeLogManager
 import com.ironwill.app.manager.CreditManager
 import com.ironwill.app.manager.TimeRuleManager
 import com.ironwill.app.service.MonitorService
-
-
-
-
 
 
 
@@ -92,21 +89,27 @@ class AppSelectionActivity : AppCompatActivity() {
     private val originalSelection = HashSet<String>() // 🚀 [Fix] Track Original State
     private var allAppsList = listOf<AppInfo>()
 
-    private var currentMode = "blacklist" // "blacklist" | "result" | "segment_blacklist"
+    private var currentMode = "blacklist" // "blacklist" | "result" | "segment_blacklist" | "alarm_emergency_whitelist"
     private var isReadOnly = false
-    private var followGlobal = false // TASK-05: segment_blacklist 模式是否恢复跟随全局黑名单
-    private var restoreRequested = false // [FIX TASK-05-review] 用户显式点击"恢复为全局黑名单"
+    private var followGlobal = false // TASK-05: segment_blacklist 模式是否恢复跟随全局黑/白名单
+    private var restoreRequested = false // [FIX TASK-05-review] 用户显式点击"恢复为全局黑/白名单"
     private var listMode = SegmentBlacklist.LIST_MODE_BLACKLIST // 黑/白名单模式
 
     private val PREF_LOCKOUT_DIALOG_LAST_SHOWN = "lockout_dialog_last_shown_blacklist"
 
     companion object {
+        const val EXTRA_MODE = "EXTRA_MODE"
+        const val MODE_BLACKLIST = "blacklist"
+        const val MODE_RESULT = "result"
+        const val MODE_SEGMENT_BLACKLIST = "segment_blacklist"
+        const val MODE_ALARM_EMERGENCY_WHITELIST = "alarm_emergency_whitelist"
+
         /**
          * TASK-05 (segment-blacklist) — 名单页纯逻辑集合函数（Set<String>/List<String> 级，
          * 不依赖 AppInfo/Drawable，便于单测）。
          */
 
-        /** 初始勾选来源：null=跟随全局黑名单（返回 globalBlacklist）；非空=名单本身。 */
+        /** 初始勾选来源：null=跟随全局黑/白名单（返回 globalBlacklist）；非空=名单本身。 */
         internal fun initialSelectionFor(listApps: List<String>?, globalBlacklist: Set<String>): Set<String> =
             listApps?.toSet() ?: globalBlacklist
 
@@ -198,7 +201,7 @@ class AppSelectionActivity : AppCompatActivity() {
                 applySettingsLockoutState()
             }
         } else if (currentMode == "segment_blacklist") {
-            // TASK-05: 本时段黑名单模式。初始勾选来源：followGlobal → 全局黑名单；否则独立名单。
+            // TASK-05: 本时段黑名单模式。初始勾选来源：followGlobal → 全局黑/白名单；否则独立名单。
             val globalBlacklist = CreditManager.getBlacklistApps(this)
             val rawBlocked = initialSelectionFor(
                 if (followGlobal) null else initialSelectionExtra?.toList(),
@@ -212,9 +215,9 @@ class AppSelectionActivity : AppCompatActivity() {
 
             btnSave.text = "💾 保存名单"
 
-            findViewById<TextView>(R.id.tv_title_main)?.text = "🛡 本时段黑名单"
+            findViewById<TextView>(R.id.tv_title_main)?.text = "🛡 本时段黑/白名单"
             if (followGlobal) {
-                tvModeHint.text = "当前跟随全局黑名单，修改保存后即独立管理"
+                tvModeHint.text = "当前跟随全局黑/白名单，修改保存后即独立管理"
             } else {
                 tvModeHint.text = "勾选本时段要锁的应用；可先勾想用的再点反选；桌面/输入法/电话/短信等已自动剔除"
             }
@@ -228,6 +231,22 @@ class AppSelectionActivity : AppCompatActivity() {
             // 显示全选/反选/恢复工具条，隐藏黑名单专用的快速导入。
             findViewById<View>(R.id.ll_segment_tools)?.visibility = View.VISIBLE
             findViewById<Button>(R.id.btn_quick_import)?.visibility = View.GONE
+        } else if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
+            val savedPackages = AlarmChallengeEmergencyWhitelist.getPackages(this)
+            selectedApps.addAll(savedPackages)
+            originalSelection.addAll(savedPackages)
+
+            btnSave.text = "💾 保存应急白名单"
+            findViewById<TextView>(R.id.tv_title_main)?.text = "🛡️ 闹钟应急白名单"
+            tvModeHint.text = "闹钟响铃挑战期间允许进入的应急应用（最多选择 2 个）"
+            tvModeHint.setTextColor(resources.getColor(android.R.color.darker_gray))
+
+            findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)?.visibility = View.GONE
+            findViewById<TextView>(R.id.tv_lockout_hint)?.visibility = View.GONE
+            findViewById<TextView>(R.id.tv_pending_hint_legacy)?.visibility = View.GONE
+            findViewById<View>(R.id.ll_segment_tools)?.visibility = View.GONE
+            findViewById<Button>(R.id.btn_quick_import)?.visibility = View.GONE
+            findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_list_mode)?.visibility = View.GONE
         } else {
             // Result Mode
             if (initialSelectionExtra != null) {
@@ -261,7 +280,11 @@ class AppSelectionActivity : AppCompatActivity() {
         }
 
         btnSave.setOnClickListener {
-            if (currentMode == "blacklist") {
+            if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
+                AlarmChallengeEmergencyWhitelist.savePackages(this, selectedApps)
+                Toast.makeText(this, "已保存应急白名单", Toast.LENGTH_SHORT).show()
+                finish()
+            } else if (currentMode == "blacklist") {
                 saveAppSelection()
             } else {
                 returnResult()
@@ -305,8 +328,8 @@ class AppSelectionActivity : AppCompatActivity() {
 
     private fun onRestoreGlobal() {
         AlertDialog.Builder(this)
-            .setTitle("♻️ 恢复为全局黑名单")
-            .setMessage("确定恢复跟随全局黑名单吗？本时段的独立名单将被清除。")
+            .setTitle("♻️ 恢复为全局黑/白名单")
+            .setMessage("确定恢复跟随全局黑/白名单吗？本时段的独立名单将被清除。")
             .setPositiveButton("恢复") { _, _ ->
                 followGlobal = true
                 restoreRequested = true
@@ -440,6 +463,16 @@ class AppSelectionActivity : AppCompatActivity() {
         // 🚀 [Refactor] Pass originalSelection
         allAppsAdapter = AppListAdapter(this, list, pendingApps, originalSelection, { appInfo, isChecked ->
             if (isChecked) {
+                if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST &&
+                    selectedApps.size >= AlarmChallengeEmergencyWhitelist.MAX_APPS &&
+                    !selectedApps.contains(appInfo.packageName)
+                ) {
+                    Toast.makeText(this, "最多只能选择 2 个应急应用", Toast.LENGTH_SHORT).show()
+                    appInfo.isSelected = false
+                    allAppsList.find { it.packageName == appInfo.packageName }?.isSelected = false
+                    (listAllApps.adapter as? BaseAdapter)?.notifyDataSetChanged()
+                    return@AppListAdapter
+                }
                 selectedApps.add(appInfo.packageName)
             } else {
                 selectedApps.remove(appInfo.packageName)
@@ -459,6 +492,9 @@ class AppSelectionActivity : AppCompatActivity() {
     private fun updateSelectedAppsList() {
         val pendingApps = CreditManager.getPendingBlacklistApps(this)
         val selectedAppsList = allAppsList.filter { selectedApps.contains(it.packageName) }
+        if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
+            findViewById<TextView>(R.id.tv_selected_title)?.text = "🛡️ 应急应用 (${selectedApps.size}/2)"
+        }
         // 🚀 [Refactor] Pass originalSelection
         selectedAppsAdapter = AppListAdapter(this, selectedAppsList, pendingApps, originalSelection, { appInfo, isChecked ->
             if (!isChecked) {
@@ -682,58 +718,39 @@ class AppSelectionActivity : AppCompatActivity() {
     private fun loadInstalledApps() {
         Thread {
             val pm = packageManager
-            val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+            val packages = try {
+                pm.getInstalledApplications(0)
+            } catch (_: Exception) {
+                emptyList()
+            }
 
-            // ⭐ 首次设置检测：仅用于决定是否“自动帮用户勾选常用软件”
-            // 注意：这与“是否处于适应期”是两个概念。
-            // 只要没存过白名单，就当作是第一次设置数据，帮用户勾选电话短信，体验更好。
-            val isFirstDataSetup = CreditManager.isFirstSetup(this)
-
-            val defaultAppKeywords = listOf(
-                "联系人", "contacts", "通讯录",
-                "电话", "phone", "dialer", "拨号",
-                "信息", "短信", "message", "messaging", "mms", "sms",
-                "相册", "图库", "gallery", "photos", "相片",
-                "相机", "camera", "拍照",
-                "计算器", "calculator", "calc",
-                "闹钟", "时钟", "clock", "alarm", "alarms",
-                "天气", "weather",
-                "文件", "文件管理", "filemanager", "files", "explorer", "我的文件"
-            )
+            val dangerousSet = if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
+                AlarmChallengeEmergencyWhitelist.getDangerousPackages(this)
+            } else {
+                emptySet()
+            }
 
             val appList = packages.filter {
-                // 只显示有入口的APP
-                hasLaunchIntent(it.packageName)
+                // 只显示有入口的APP，或是应急名单中已选中的系统应用（如电话/短信）
+                hasLaunchIntent(it.packageName) ||
+                    (currentMode == MODE_ALARM_EMERGENCY_WHITELIST && selectedApps.contains(it.packageName))
             }.filter {
-                // 硬剔除项（桌面/输入法/电话/短信/设置/系统导航/时钟/系统跟踪/IronWill）在所有名单页永不显示。
-                !SegmentBlacklist.isHardExempt(this, it.packageName)
-            }.map {
-                val appName = it.loadLabel(pm).toString()
-                val pkgName = it.packageName
-
-                // 如果是第一次设置数据，且还没勾选过，且匹配关键词，则自动勾选
-                // 🟢 [Fix] Blacklist Mode: Default to EMPTY (Allow All). DO NOT auto-select anything.
-                // Selecting phone/sms in blacklist would BLOCK them, which is catastrophic default behavior.
-                val shouldAutoSelect = false 
-                /* 
-                val shouldAutoSelect = if (isFirstDataSetup && !selectedApps.contains(pkgName)) {
-                    defaultAppKeywords.any { keyword ->
-                        appName.lowercase().contains(keyword.lowercase()) ||
-                                pkgName.lowercase().contains(keyword.lowercase())
-                    }
+                if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
+                    AlarmChallengeEmergencyWhitelist.isSelectable(this, it.packageName, dangerousSet)
                 } else {
-                    false
+                    // 硬剔除项（桌面/输入法/电话/短信/设置/系统导航/时钟/系统跟踪/IronWill）在所有名单页永不显示。
+                    !SegmentBlacklist.isHardExempt(this, it.packageName)
                 }
-                */
-
-                if (shouldAutoSelect) {
-                    selectedApps.add(pkgName)
-                }
+            }.map {
+                val appName = try { it.loadLabel(pm).toString() } catch (_: Exception) { it.packageName }
+                val pkgName = it.packageName
 
                 AppInfo(
                     name = appName,
                     packageName = pkgName,
-                    icon = it.loadIcon(pm),
+                    icon = try { it.loadIcon(pm) } catch (_: Exception) {
+                        resources.getDrawable(android.R.drawable.sym_def_app_icon, null)
+                    },
                     isSelected = selectedApps.contains(pkgName)
                 )
             }.sortedBy { it.name }

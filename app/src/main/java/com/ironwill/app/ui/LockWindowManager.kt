@@ -1024,6 +1024,10 @@ object LockWindowManager {
         LockAlarmOverlayController.stopAlarmInlineScan()
     }
 
+    fun fallbackFromQrToMath() {
+        LockAlarmOverlayController.fallbackFromQrToMath()
+    }
+
     fun reassertAlarmOverlayOverSystemDialog(reason: String) {
         LockAlarmOverlayController.reassertAlarmOverlayOverSystemDialog(reason)
     }
