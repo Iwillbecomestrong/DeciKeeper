@@ -75,7 +75,7 @@ class AlarmFragment : Fragment() {
     private var btnTest: Button? = null
     private var pendingRingtoneUri: String? = null
     private var tvSnoozeSummary: TextView? = null
-    private var tvVibrationSummary: TextView? = null
+    private var tvKeepaliveSummary: TextView? = null
     private var tvChallengeSummary: TextView? = null
     private var tvUnlockSummary: TextView? = null
     private val alarms = mutableListOf<AlarmScheduler.AlarmEntry>()
@@ -124,22 +124,47 @@ class AlarmFragment : Fragment() {
         return mf.contains("vivo") || mf.contains("iqoo")
     }
 
-    private fun showVivoSleepStandbyGuideDialog() {
+    private fun showAlarmKeepAliveGuideDialog() {
         val ctx = context ?: return
+        val isVivo = isVivoOrIqoo()
+        val title = "🛡️ 闹钟保活指引"
+        val message = if (isVivo) {
+            "为防止 Vivo / OriginOS 在夜间锁屏待机时冻结闹钟进程导致漏响或延迟，请务必完成以下两项配置：\n\n" +
+            "1. 关闭「睡眠待机优化」\n" +
+            "   路径：设置 → 电池 → 更多电池设置 → 关闭「睡眠待机优化 / 睡眠模式」\n\n" +
+            "2. 允许「后台高耗电」\n" +
+            "   路径：设置 → 电池 → 后台耗电管理 → 找到 IronWill → 选择「允许后台耗电」"
+        } else {
+            "为防止系统在夜间锁屏或后台待机时冻结闹钟进程导致漏响，建议完成以下配置：\n\n" +
+            "1. 忽略电池优化（允许后台无限制运行）\n" +
+            "2. 允许应用自启动与常驻后台\n" +
+            "3. 在多任务后台将本应用锁定，防止被系统误清理"
+        }
+
         AlertDialog.Builder(ctx)
-            .setTitle("📱 Vivo / iQOO 锁屏闹钟保活指引")
-            .setMessage(
-                "为防止 Vivo / OriginOS 在夜间锁屏待机时冻结闹钟进程导致漏响或延迟，请务必完成以下两项配置：\n\n" +
-                "1. 关闭「睡眠待机优化」\n" +
-                "   路径：设置 → 电池 → 更多电池设置 → 关闭「睡眠待机优化 / 睡眠模式」\n\n" +
-                "2. 允许「后台高耗电」\n" +
-                "   路径：设置 → 电池 → 后台耗电管理 → 找到 IronWill → 选择「允许后台耗电」"
-            )
+            .setTitle(title)
+            .setMessage(message)
             .setPositiveButton("前往设置") { _, _ ->
-                openVivoBatterySettings(ctx)
+                openKeepAliveSettings(ctx)
             }
             .setNegativeButton("我知道了", null)
             .show()
+    }
+
+    private fun openKeepAliveSettings(ctx: Context) {
+        if (isVivoOrIqoo()) {
+            openVivoBatterySettings(ctx)
+        } else {
+            val opened = com.ironwill.app.manager.SettingsNavigator.openBatteryOptimization(ctx)
+            if (!opened) {
+                try {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    ctx.startActivity(intent)
+                } catch (_: Exception) {}
+            }
+            Toast.makeText(ctx, "请允许后台运行并忽略电池优化", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun openVivoBatterySettings(ctx: Context) {
@@ -195,14 +220,14 @@ class AlarmFragment : Fragment() {
         Toast.makeText(ctx, "请关闭「睡眠待机优化」并允许「后台高耗电」", Toast.LENGTH_LONG).show()
     }
 
-    private fun maybeShowVivoGuideOnFirstSave() {
-        if (!isVivoOrIqoo()) return
+    private fun maybeShowKeepAliveGuideOnFirstActiveAlarm() {
         val ctx = context ?: return
         val prefs = ctx.getSharedPreferences("iron_will_oem_guide", Context.MODE_PRIVATE)
-        val shown = prefs.getBoolean("vivo_sleep_standby_guide_shown", false)
+        val shown = prefs.getBoolean("alarm_keepalive_guide_shown", false) ||
+            prefs.getBoolean("vivo_sleep_standby_guide_shown", false)
         if (!shown) {
-            prefs.edit().putBoolean("vivo_sleep_standby_guide_shown", true).apply()
-            showVivoSleepStandbyGuideDialog()
+            prefs.edit().putBoolean("alarm_keepalive_guide_shown", true).apply()
+            showAlarmKeepAliveGuideDialog()
         }
     }
 
@@ -280,7 +305,7 @@ class AlarmFragment : Fragment() {
 
         // 默认设置 → 合并为单一入口
         tvSnoozeSummary = view.findViewById(R.id.tv_snooze_summary)
-        tvVibrationSummary = view.findViewById(R.id.tv_vibration_summary)
+        tvKeepaliveSummary = view.findViewById(R.id.tv_keepalive_summary)
         tvChallengeSummary = view.findViewById(R.id.tv_challenge_summary)
         tvUnlockSummary = view.findViewById(R.id.tv_unlock_summary)
 
@@ -290,8 +315,13 @@ class AlarmFragment : Fragment() {
             showDefaultSettingsDialog()
         }
 
-        // 隐藏分散的三个设置卡片
-        listOf(R.id.layout_vibration_settings, R.id.layout_challenge_settings, R.id.layout_unlock_settings).forEach { id ->
+        // 闹钟保活独立卡片入口（主界面常驻）
+        view.findViewById<View>(R.id.layout_alarm_keepalive)?.setOnClickListener {
+            showAlarmKeepAliveGuideDialog()
+        }
+
+        // 隐藏已合并的分散设置卡片
+        listOf(R.id.layout_challenge_settings, R.id.layout_unlock_settings).forEach { id ->
             (view.findViewById<View>(id)?.parent as? View)?.visibility = View.GONE
         }
 
@@ -345,10 +375,10 @@ class AlarmFragment : Fragment() {
         val ctx = context ?: return
         if (alarms.isEmpty()) return
 
-        // 1. 如果存在已开启的闹钟，且是 Vivo/iQOO 机型，触发保活引导（无论手动添加还是备份导入）
+        // 1. 如果存在已开启的闹钟，首次自动触发保活引导（无论手动添加还是备份导入）
         val hasActiveAlarm = alarms.any { it.enabled }
-        if (hasActiveAlarm && isVivoOrIqoo()) {
-            maybeShowVivoGuideOnFirstSave()
+        if (hasActiveAlarm) {
+            maybeShowKeepAliveGuideOnFirstActiveAlarm()
         }
 
         // 2. 如果存在已开启的闹钟使用了扫码挑战，但未授予相机权限，主动提示授权
@@ -800,24 +830,6 @@ class AlarmFragment : Fragment() {
         rgVibModeDefault.setOnCheckedChangeListener { _, _ -> updateRingtoneVisibility() }
         rgMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility(); updateRingtoneVisibility() }
 
-        if (isVivoOrIqoo()) {
-            val btnVivo = Button(ctx).apply {
-                text = "📱 Vivo 锁屏保活与睡眠待机设置指引"
-                textSize = 13f
-                setTextColor(Color.parseColor("#00796B"))
-                setBackgroundResource(R.drawable.bg_sea_bubble)
-                setPadding(dp(16), dp(10), dp(16), dp(10))
-                layoutParams = LinearLayout.LayoutParams(MP, WC).apply {
-                    topMargin = dp(16)
-                    bottomMargin = dp(8)
-                }
-                setOnClickListener {
-                    showVivoSleepStandbyGuideDialog()
-                }
-            }
-            container.addView(btnVivo)
-        }
-
         // --- 弹窗 ---
         AlertDialog.Builder(ctx)
             .setTitle("⚙️ 默认设置")
@@ -900,9 +912,7 @@ class AlarmFragment : Fragment() {
         val ctx = context ?: return
         // 统一入口不显示单项摘要，避免误解"只能设置再响"
         tvSnoozeSummary?.text = ""
-
-        val vib = AlarmScheduler.getDefaultVibrationIntensity(ctx)
-        tvVibrationSummary?.text = "强度: $vib/10"
+        tvKeepaliveSummary?.text = "防睡眠冻结/后台保活"
 
         val math = AlarmScheduler.getDefaultMathCount(ctx)
         val poem = AlarmScheduler.getDefaultPoemCount(ctx)
@@ -1594,7 +1604,9 @@ class AlarmFragment : Fragment() {
             alarms.add(entry)
         }
         persistAndRefresh()
-        maybeShowVivoGuideOnFirstSave()
+        if (entry.enabled) {
+            maybeShowKeepAliveGuideOnFirstActiveAlarm()
+        }
     }
 
     private fun updateAlarm(entry: AlarmScheduler.AlarmEntry) {
