@@ -534,7 +534,7 @@ object CreditManager {
         TimeRuleManager.applyPendingToActive(context)
         AppWindowManager.applyPendingToActive(context)
         applyPendingAppsToActive(context)
-        checkAndApplyPendingWeeklyLimit(context)
+        checkAndApplyPendingWeeklyLimit(context, exportedAt)
 
         val todayDate = getBusinessDateString(context)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -993,6 +993,14 @@ object CreditManager {
             .putInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, newCountLimit)
             .putInt(KEY_WEEKLY_PRIVILEGE_DURATION_LIMIT, newDurationLimit)
             .apply()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            try {
+                context.createDeviceProtectedStorageContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                    .putInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, newCountLimit)
+                    .putInt(KEY_WEEKLY_PRIVILEGE_DURATION_LIMIT, newDurationLimit)
+                    .apply()
+            } catch (_: Exception) {}
+        }
     }
     
     fun clearPendingWeeklyPrivilegeLimit(context: Context) {
@@ -1001,6 +1009,15 @@ object CreditManager {
             .remove("weekly_privilege_duration_limit_pending")
             .remove("weekly_privilege_limit_effective_time")
             .apply()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            try {
+                context.createDeviceProtectedStorageContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                    .remove("weekly_privilege_count_limit_pending")
+                    .remove("weekly_privilege_duration_limit_pending")
+                    .remove("weekly_privilege_limit_effective_time")
+                    .apply()
+            } catch (_: Exception) {}
+        }
     }
 
     // --- Weekly Privilege Session Management ---
@@ -1432,8 +1449,15 @@ object CreditManager {
         }
     }
 
-    fun checkAndApplyPendingWeeklyLimit(context: Context) {
+    fun checkAndApplyPendingWeeklyLimit(context: Context, exportedAt: Long = 0L) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        // 适应期：所有规则立即生效，绝不保留未生效 pending，也不被旧 pending 覆盖
+        if (isInAdaptationPeriod(context)) {
+            clearPendingWeeklyPrivilegeLimit(context)
+            return
+        }
+
         val lastApplyWeek = prefs.getLong("last_weekly_limit_apply_time_v2", 0L)
         val thisWeekStart = getThisWeekStartMillis(context)
         
@@ -1448,6 +1472,12 @@ object CreditManager {
         val now = System.currentTimeMillis()
 
         if (hasPendingWeeklyPrivilegeLimit(context) && pendingEffective > 0L) {
+            // 如果导出时间戳有效，且 pendingEffective 在导出之前就已经到期，说明导出时它就是陈旧死数据，坚决不反向覆盖当前 active！
+            if (exportedAt > 0L && pendingEffective <= exportedAt) {
+                clearPendingWeeklyPrivilegeLimit(context)
+                return
+            }
+
             if (now >= pendingEffective) {
                 // Apply pending immediately
                 val pendingCount = prefs.getInt("weekly_privilege_count_limit_pending", 3)

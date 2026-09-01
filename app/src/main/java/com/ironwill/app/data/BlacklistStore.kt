@@ -255,8 +255,20 @@ object BlacklistStore {
         if (CreditManager.isInAdaptationPeriod(context)) {
             val currentBefore = getBlacklistApps(context)
             prefs.edit().putStringSet(KEY_BLACKLIST_APPS, HashSet(newApps)).apply()
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                try {
+                    context.createDeviceProtectedStorageContext().getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit().putStringSet(KEY_BLACKLIST_APPS, HashSet(newApps)).apply()
+                } catch (_: Exception) {}
+            }
             cachedBlacklist = newApps
             context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                try {
+                    context.createDeviceProtectedStorageContext().getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE)
+                        .edit().clear().apply()
+                } catch (_: Exception) {}
+            }
 
             // Sync Service
             val intent = android.content.Intent(context, MonitorService::class.java)
