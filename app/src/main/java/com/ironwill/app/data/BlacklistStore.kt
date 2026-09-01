@@ -26,6 +26,31 @@ object BlacklistStore {
     private const val PREFS_PENDING_APPS = "iron_will_pending_apps"
     private const val KEY_USER_REMOVED_APPS = "user_removed_apps" // 🔴 用户显式移除的 App（防止 periodicAutoBlacklistScan 重新加入）
 
+    const val KEY_AUTO_BLACKLIST_ENABLED = "auto_blacklist_new_apps_enabled"
+    const val KEY_AUTO_BLACKLIST_CATEGORIES = "auto_blacklist_categories"
+    val DEFAULT_AUTO_BLACKLIST_CATEGORIES = setOf("comm", "video", "game", "browser")
+
+    fun isAutoBlacklistEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_AUTO_BLACKLIST_ENABLED, true)
+    }
+
+    fun setAutoBlacklistEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_AUTO_BLACKLIST_ENABLED, enabled).apply()
+    }
+
+    fun getAutoBlacklistCategories(context: Context): Set<String> {
+        val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getStringSet(KEY_AUTO_BLACKLIST_CATEGORIES, DEFAULT_AUTO_BLACKLIST_CATEGORIES)?.toSet()
+            ?: DEFAULT_AUTO_BLACKLIST_CATEGORIES
+    }
+
+    fun setAutoBlacklistCategories(context: Context, categories: Set<String>) {
+        val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putStringSet(KEY_AUTO_BLACKLIST_CATEGORIES, HashSet(categories)).apply()
+    }
+
     // 🚀 [Optimization] Memory Cache for Blacklist (Avoid frequent SP reads)
     @Volatile
     private var cachedBlacklist: Set<String>? = null
@@ -254,6 +279,16 @@ object BlacklistStore {
         // 🚀 Adaptation Period: Always Immediate
         if (CreditManager.isInAdaptationPeriod(context)) {
             val currentBefore = getBlacklistApps(context)
+            val activeRemovals = currentBefore.minus(newApps)
+            val activeAdditions = newApps.minus(currentBefore)
+
+            if (activeRemovals.isNotEmpty()) {
+                addUserRemovedApps(context, activeRemovals)
+            }
+            if (activeAdditions.isNotEmpty()) {
+                clearUserRemovedApps(context, activeAdditions)
+            }
+
             prefs.edit().putStringSet(KEY_BLACKLIST_APPS, HashSet(newApps)).apply()
             cachedBlacklist = newApps
             context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
@@ -281,13 +316,15 @@ object BlacklistStore {
         
         val baselineAdditions = newApps.minus(baselineApps) // New apps not in baseline (Stricter)
         val baselineRemovals = baselineApps.minus(newApps) // Apps in baseline REMOVED (Looser)
+        val activeRemovals = currentApps.minus(newApps)
 
         // 🔴 记录用户显式移除/重新加入的 App（防止 periodicAutoBlacklistScan 重新加入）
-        if (baselineRemovals.isNotEmpty()) {
-            addUserRemovedApps(context, baselineRemovals)
+        val allUserRemoved = baselineRemovals + activeRemovals
+        if (allUserRemoved.isNotEmpty()) {
+            addUserRemovedApps(context, allUserRemoved)
         }
-        if (baselineAdditions.isNotEmpty()) {
-            clearUserRemovedApps(context, baselineAdditions)
+        if (baselineAdditions.isNotEmpty() || activeAdditions.isNotEmpty()) {
+            clearUserRemovedApps(context, baselineAdditions + activeAdditions)
         }
 
         if (activeAdditions.isEmpty() && baselineRemovals.isEmpty() && currentApps == newApps) {

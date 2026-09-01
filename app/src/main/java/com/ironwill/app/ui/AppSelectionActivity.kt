@@ -246,8 +246,8 @@ class AppSelectionActivity : AppCompatActivity() {
         loadInstalledApps()
 
         setupListModeSwitch()
+        setupAutoBlacklistCard()
 
-        // ...
         // Quick Import Button
         findViewById<Button>(R.id.btn_quick_import).setOnClickListener {
             showQuickImportDialog()
@@ -547,6 +547,95 @@ class AppSelectionActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupAutoBlacklistCard() {
+        val card = findViewById<View>(R.id.card_auto_blacklist_config) ?: return
+        if (currentMode != "blacklist") {
+            card.visibility = View.GONE
+            return
+        }
+
+        card.visibility = View.VISIBLE
+        updateAutoBlacklistSummaryUI()
+
+        val btnConfig = findViewById<Button>(R.id.btn_auto_blacklist_config)
+        val clickListener = View.OnClickListener {
+            if (isReadOnly) {
+                Toast.makeText(this, "当前处于深夜保护期，不可修改设置", Toast.LENGTH_SHORT).show()
+                return@OnClickListener
+            }
+            showAutoBlacklistConfigDialog()
+        }
+        card.setOnClickListener(clickListener)
+        btnConfig?.setOnClickListener(clickListener)
+    }
+
+    private fun updateAutoBlacklistSummaryUI() {
+        val tvSummary = findViewById<TextView>(R.id.tv_auto_blacklist_summary) ?: return
+        val isEnabled = com.ironwill.app.data.BlacklistStore.isAutoBlacklistEnabled(this)
+        val categories = com.ironwill.app.data.BlacklistStore.getAutoBlacklistCategories(this)
+
+        if (!isEnabled) {
+            tvSummary.text = "🚫 已关闭 (新下载软件不会自动加入黑名单)"
+            tvSummary.setTextColor(android.graphics.Color.parseColor("#757575"))
+        } else {
+            val names = mutableListOf<String>()
+            if (categories.contains("comm")) names.add("社交")
+            if (categories.contains("video")) names.add("短视频")
+            if (categories.contains("game")) names.add("游戏")
+            if (categories.contains("browser")) names.add("浏览器")
+
+            if (names.isEmpty()) {
+                tvSummary.text = "⚠️ 已开启 (未勾选任何分类)"
+                tvSummary.setTextColor(android.graphics.Color.parseColor("#E65100"))
+            } else {
+                tvSummary.text = "✅ 已开启 (${names.joinToString("、")})"
+                tvSummary.setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+            }
+        }
+    }
+
+    private fun showAutoBlacklistConfigDialog() {
+        val isEnabled = com.ironwill.app.data.BlacklistStore.isAutoBlacklistEnabled(this)
+        val currentCategories = com.ironwill.app.data.BlacklistStore.getAutoBlacklistCategories(this)
+
+        val items = arrayOf(
+            "⚡ 开启新应用自动加入黑名单",
+            "💬 社交软件 (QQ/微信/微博/Soul等)",
+            "🎬 短视频/直播 (抖音/快手/B站/小红书等)",
+            "🎮 大型手游 (王者/和平精英/原神/星铁等)",
+            "🌐 浏览器 (Chrome/Edge/夸克/Via等)"
+        )
+        val checkedItems = booleanArrayOf(
+            isEnabled,
+            currentCategories.contains("comm"),
+            currentCategories.contains("video"),
+            currentCategories.contains("game"),
+            currentCategories.contains("browser")
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("⚡ 新应用自动入榜设置")
+            .setMultiChoiceItems(items, checkedItems) { _, which, isChecked ->
+                checkedItems[which] = isChecked
+            }
+            .setPositiveButton("保存设置") { _, _ ->
+                val newEnabled = checkedItems[0]
+                val newCategories = mutableSetOf<String>()
+                if (checkedItems[1]) newCategories.add("comm")
+                if (checkedItems[2]) newCategories.add("video")
+                if (checkedItems[3]) newCategories.add("game")
+                if (checkedItems[4]) newCategories.add("browser")
+
+                com.ironwill.app.data.BlacklistStore.setAutoBlacklistEnabled(this, newEnabled)
+                com.ironwill.app.data.BlacklistStore.setAutoBlacklistCategories(this, newCategories)
+
+                updateAutoBlacklistSummaryUI()
+                Toast.makeText(this, "自动入榜设置已更新", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
     private fun applySettingsLockoutState() {
         if (!isReadOnly) return
         btnSave.isEnabled = false
@@ -554,6 +643,14 @@ class AppSelectionActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_quick_import).apply {
             isEnabled = false
             alpha = 0.4f
+        }
+        findViewById<Button>(R.id.btn_auto_blacklist_config)?.apply {
+            isEnabled = false
+            alpha = 0.4f
+        }
+        findViewById<View>(R.id.card_auto_blacklist_config)?.apply {
+            isEnabled = false
+            alpha = 0.6f
         }
     }
 

@@ -357,23 +357,32 @@ object CreditManager {
     fun getBlacklistCategory(type: String): Set<String> = BlacklistStore.getBlacklistCategory(type)
 
     /**
-     * 检查包名是否属于任一黑名单类别，返回命中的类别名（comm/video/game/browser），否则 null。
+     * 检查包名是否属于启用的黑名单类别，返回命中的类别名（comm/video/game/browser），否则 null。
      * 用于新装 App 自动分类加入黑名单。
      */
-    fun getMatchedCategory(pkg: String): String? {
-        for (cat in listOf("comm", "video", "game", "browser")) {
+    fun getMatchedCategory(context: Context, pkg: String): String? {
+        if (!BlacklistStore.isAutoBlacklistEnabled(context)) return null
+        val enabledCategories = BlacklistStore.getAutoBlacklistCategories(context)
+        for (cat in enabledCategories) {
             if (getBlacklistCategory(cat).contains(pkg)) return cat
         }
         return null
     }
 
     /**
-     * 自动将新装 App 加入黑名单（如果属于四大类别且尚未屏蔽）。
+     * 自动将新装 App 加入黑名单（如果属于已启用的四大类别且尚未屏蔽、且未被显式移除）。
      * 被 PackageInstallReceiver（manifest）和 MonitorService（dynamic fallback）共同调用。
-     * @return true if app was auto-added, false if skipped (not in category / already blocked)
+     * @return true if app was auto-added, false if skipped (not in category / already blocked / disabled)
      */
     fun tryAutoBlacklistNewPackage(context: Context, pkg: String): Boolean {
-        val matchedCategory = getMatchedCategory(pkg) ?: return false
+        if (!BlacklistStore.isAutoBlacklistEnabled(context)) return false
+        val matchedCategory = getMatchedCategory(context, pkg) ?: return false
+
+        val userRemoved = getUserRemovedApps(context)
+        if (userRemoved.contains(pkg)) {
+            Log.d("CreditManager", "[AutoBlacklist] $pkg was manually removed by user, skipping auto-add")
+            return false
+        }
 
         val currentBlacklist = getBlacklistApps(context)
         if (currentBlacklist.contains(pkg)) {
@@ -406,12 +415,13 @@ object CreditManager {
     private const val PERIODIC_SCAN_INTERVAL_MS = 30_000L
 
     /**
-     * 定期扫描：获取已安装 App 列表，与四大类别（社交/短视频/游戏/浏览器）求交集，
+     * 定期扫描：获取已安装 App 列表，与启用的类别（社交/短视频/游戏/浏览器）求交集，
      * 发现"已装但未屏蔽"的 App 自动加入黑名单。
      * 不依赖广播、不依赖无障碍，只要 MonitorService 在运行就能工作。
      * @return 本次新加入黑名单的 App 数量
      */
     fun periodicAutoBlacklistScan(context: Context): Int {
+        if (!BlacklistStore.isAutoBlacklistEnabled(context)) return 0
         val now = System.currentTimeMillis()
         if (now - lastPeriodicScanTime < PERIODIC_SCAN_INTERVAL_MS) return 0
         lastPeriodicScanTime = now
@@ -426,9 +436,12 @@ object CreditManager {
             return 0
         }
 
-        // 2. 构建四大类别全集
+        // 2. 构建已启用的类别全集
+        val enabledCategories = BlacklistStore.getAutoBlacklistCategories(context)
+        if (enabledCategories.isEmpty()) return 0
+
         val categoryPkgs = mutableSetOf<String>()
-        for (cat in listOf("comm", "video", "game", "browser")) {
+        for (cat in enabledCategories) {
             categoryPkgs.addAll(getBlacklistCategory(cat))
         }
 
