@@ -330,12 +330,47 @@ class AlarmFragment : Fragment() {
 
     // ===== 原有闹钟管理功能 =====
 
+    private var hasPromptedImportCameraPermission = false
+
     private fun reloadAlarms() {
         alarms.clear()
         alarms.addAll(AlarmScheduler.getAlarms(requireContext()).sortedWith(compareBy({ it.hour }, { it.minute })))
         adapter?.updateAll(alarms)
         lastRenderedActiveAlarmId = AlarmScheduler.getActiveAlarmId(requireContext())
         lastRenderedOverlayShowing = LockWindowManager.isAlarmOverlayActuallyShowing
+        checkExistingAlarmsPermissionsAndGuide()
+    }
+
+    private fun checkExistingAlarmsPermissionsAndGuide() {
+        val ctx = context ?: return
+        if (alarms.isEmpty()) return
+
+        // 1. 如果存在已开启的闹钟，且是 Vivo/iQOO 机型，触发保活引导（无论手动添加还是备份导入）
+        val hasActiveAlarm = alarms.any { it.enabled }
+        if (hasActiveAlarm && isVivoOrIqoo()) {
+            maybeShowVivoGuideOnFirstSave()
+        }
+
+        // 2. 如果存在已开启的闹钟使用了扫码挑战，但未授予相机权限，主动提示授权
+        val hasQrChallenge = alarms.any {
+            it.enabled && (it.useQr || "qr" in it.stage1Types || "qr" in it.stage2Types)
+        }
+        val hasCamera = ContextCompat.checkSelfPermission(
+            ctx,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasQrChallenge && !hasCamera && !hasPromptedImportCameraPermission) {
+            hasPromptedImportCameraPermission = true
+            AlertDialog.Builder(ctx)
+                .setTitle("📷 需要相机权限")
+                .setMessage("检测到已有开启的闹钟包含「扫码」关卡，但当前尚未获得相机权限。若未授权，锁屏下将无法直接扫码关闹钟。")
+                .setPositiveButton("立即授权") { _, _ ->
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+                .setNegativeButton("稍后设置", null)
+                .show()
+        }
     }
 
     private fun refreshChallengeButtonsIfNeeded() {
@@ -1567,6 +1602,7 @@ class AlarmFragment : Fragment() {
         if (index >= 0) {
             alarms[index] = entry
             persistAndRefresh()
+            checkExistingAlarmsPermissionsAndGuide()
         }
     }
 
