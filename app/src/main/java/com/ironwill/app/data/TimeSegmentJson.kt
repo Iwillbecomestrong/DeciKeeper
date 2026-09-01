@@ -31,15 +31,17 @@ object LogicalDayClock {
         return cal.get(Calendar.DAY_OF_WEEK)
     }
 
-    fun currentConfiguredDayOfWeek(nowMillis: Long = System.currentTimeMillis()): Int {
-        val refreshMinutes = runCatching {
+    fun currentConfiguredRefreshMinutes(): Int {
+        return runCatching {
             val raw = MyApplication.instance
                 .getSharedPreferences(LEDGER_PREFS_NAME, android.content.Context.MODE_PRIVATE)
                 .getString(KEY_REFRESH_TIME, "08:00")
             parseRefreshMinutes(raw)
         }.getOrDefault(DEFAULT_REFRESH_MINUTES)
+    }
 
-        return resolveDayOfWeek(nowMillis, refreshMinutes)
+    fun currentConfiguredDayOfWeek(nowMillis: Long = System.currentTimeMillis()): Int {
+        return resolveDayOfWeek(nowMillis, currentConfiguredRefreshMinutes())
     }
 
     private fun parseRefreshMinutes(raw: String?): Int {
@@ -50,6 +52,71 @@ object LogicalDayClock {
         val minute = parts[1].toIntOrNull() ?: return DEFAULT_REFRESH_MINUTES
         if (hour !in 0..23 || minute !in 0..59) return DEFAULT_REFRESH_MINUTES
         return hour * 60 + minute
+    }
+}
+
+/**
+ * Live activation policy for a single logical-day segment occurrence.
+ *
+ * A segment that is enabled after its occurrence already started is allowed to
+ * enforce the restriction immediately while it is physically inside the time
+ * range, but that occurrence must not later become a source of surplus carry.
+ * Once the next logical occurrence is still in the future, the same enabled
+ * segment is treated normally again.
+ */
+object SegmentActivationPolicy {
+    private const val MINUTES_PER_DAY = 24 * 60
+
+    fun isEligibleForLiveRules(
+        isEnabled: Boolean,
+        enabledStateChangedAt: Long,
+        segmentStartHour: Int,
+        segmentStartMinute: Int,
+        segmentEndHour: Int,
+        segmentEndMinute: Int,
+        refreshMinutes: Int,
+        nowMillis: Long
+    ): Boolean {
+        if (!isEnabled) return false
+        if (enabledStateChangedAt <= 0L) return true
+
+        val effectiveRefresh = refreshMinutes.coerceIn(0, MINUTES_PER_DAY - 1)
+        val now = Calendar.getInstance().apply { timeInMillis = nowMillis }
+        val currentMinute = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        val startMinute = segmentStartHour * 60 + segmentStartMinute
+        val endMinute = segmentEndHour * 60 + segmentEndMinute
+
+        val currentLogicalPosition = logicalPosition(currentMinute, effectiveRefresh)
+        val startLogicalPosition = logicalPosition(startMinute, effectiveRefresh)
+
+        // The segment has not started yet in this logical day. Any enable change
+        // that already happened is therefore "before start" for this occurrence.
+        if (currentLogicalPosition < startLogicalPosition) return true
+
+        val occurrenceStart = (now.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, segmentStartHour)
+            set(Calendar.MINUTE, segmentStartMinute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (occurrenceStart.timeInMillis > nowMillis) {
+            occurrenceStart.add(Calendar.DAY_OF_YEAR, -1)
+        }
+
+        // Enabled before (or exactly at) the start boundary: full participant.
+        if (enabledStateChangedAt <= occurrenceStart.timeInMillis) return true
+
+        // Late enable: enforce immediately while the occurrence is still active,
+        // but become ineligible as soon as the occurrence ends so carry scans skip it.
+        return if (startMinute > endMinute) {
+            currentMinute >= startMinute || currentMinute < endMinute
+        } else {
+            currentMinute >= startMinute && currentMinute < endMinute
+        }
+    }
+
+    private fun logicalPosition(minuteOfDay: Int, refreshMinutes: Int): Int {
+        return (minuteOfDay - refreshMinutes + MINUTES_PER_DAY) % MINUTES_PER_DAY
     }
 }
 
@@ -77,12 +144,19 @@ data class TimeSegment(
     // 🆕 [NEW] 本时段独立黑名单。null=跟随全局黑名单（继承态）；
     // 非空列表=本时段独立名单（脱钩态）；空列表=本时段什么都不锁。
     // 置于末尾以避免破坏既有位置参数构造调用。
-    val listApps: List<String>? = null
+    val listApps: List<String>? = null,
+    // Timestamp of the most recent enabled/disabled transition. Separate from
+    // lastModified so unrelated edits do not revoke carry eligibility.
+    val enabledStateChangedAt: Long = 0L,
+    // Persisted enabled state used to detect copy(isEnabled=...) without requiring
+    // every UI caller to remember to stamp a timestamp explicitly.
+    val enabledStateBaseline: Boolean = isEnabled
 ) {
     fun isActiveToday(checkDayInput: Int? = null): Boolean {
         // 🚀 Check Enabled State First
         if (!isEnabled) return false
 
+        val isExplicitCalendarCheck = checkDayInput != null
         // Live rule evaluation follows the logical/business day (refresh -> refresh),
         // not the physical weekday that flips at 00:00. Explicit callers (stats,
         // historical reports) can still supply their own concrete calendar day.
@@ -91,7 +165,23 @@ data class TimeSegment(
         if (daysOfWeek != null && daysOfWeek.isNotEmpty() && !daysOfWeek.contains(currentDay)) {
             return false // Not active on this logical day
         }
-        return true
+
+        // Explicit calendar/statistics checks ask only about configured weekday
+        // eligibility; they must not depend on the current clock or toggle history.
+        if (isExplicitCalendarCheck) return true
+
+        val now = System.currentTimeMillis()
+        val effectiveChangedAt = if (enabledStateBaseline != isEnabled) now else enabledStateChangedAt
+        return SegmentActivationPolicy.isEligibleForLiveRules(
+            isEnabled = isEnabled,
+            enabledStateChangedAt = effectiveChangedAt,
+            segmentStartHour = startHour,
+            segmentStartMinute = startMinute,
+            segmentEndHour = endHour,
+            segmentEndMinute = endMinute,
+            refreshMinutes = LogicalDayClock.currentConfiguredRefreshMinutes(),
+            nowMillis = now
+        )
     }
 
     fun isInSegment(h: Int, m: Int): Boolean {
@@ -173,6 +263,20 @@ object TimeSegmentJson {
              obj.put("isCustomized", seg.isCustomized)
              obj.put("isEnabled", seg.isEnabled)
 
+             // A copied segment retains the persisted baseline. A changed toggle is
+             // therefore detectable here even if the UI only did copy(isEnabled=...).
+             // Minute precision matches segment boundary precision and keeps repeated
+             // serialization deterministic within the same minute.
+             val enabledStateChangedAt = if (seg.enabledStateBaseline != seg.isEnabled) {
+                 (System.currentTimeMillis() / 60_000L) * 60_000L
+             } else {
+                 seg.enabledStateChangedAt
+             }
+             obj.put("enabledStateBaseline", seg.isEnabled)
+             if (enabledStateChangedAt > 0L) {
+                 obj.put("enabledStateChangedAt", enabledStateChangedAt)
+             }
+
              // 仅在非默认值(-1)时写入，减少 JSON 体积
              if (seg.usableCountLimitHalfUnits != UsableCount.AUTO_HALF_UNITS) {
                  obj.put("usableCountLimitHalfUnits", seg.usableCountLimitHalfUnits)
@@ -184,8 +288,8 @@ object TimeSegmentJson {
                  obj.put("daysOfWeek", dArray)
              }
 
-             // 🆕 [NEW] 仅在 listApps 非 null 时写入（缺省不写以减小体积）。
-             // 空列表同样会写入（序列化为空数组），以区分“脱钩后清空”与“跟随全局”。
+             // 🆕 [NEW] 仅在 listApps 非 null 时读取；存在但为空数组解析为空列表
+             // （脱钩后清空），无键解析为 null（跟随全局）。二者必须区分。
              if (seg.listApps != null) {
                  val lArray = JSONArray()
                  seg.listApps.forEach { lArray.put(it) }
@@ -222,6 +326,7 @@ object TimeSegmentJson {
                     for (j in 0 until lArray.length()) lList.add(lArray.getString(j))
                     lList
                 } else null
+                val isEnabled = obj.optBoolean("isEnabled", true)
                 
                 list.add(TimeSegment(
                     startHour = obj.optInt("startHour"),
@@ -234,14 +339,16 @@ object TimeSegmentJson {
                     daysOfWeek = days,
                     listMode = obj.optString("listMode", SegmentBlacklist.LIST_MODE_BLACKLIST),
                     listApps = listApps,
-                    isEnabled = obj.optBoolean("isEnabled", true),
+                    isEnabled = isEnabled,
                     // optInt 默认 -1 表示"未设置，自动计算"
                     usableCountLimitHalfUnits = when {
                         obj.has("usableCountLimitHalfUnits") -> obj.optInt("usableCountLimitHalfUnits", UsableCount.AUTO_HALF_UNITS)
                         obj.has("usableCountLimit") -> obj.optInt("usableCountLimit", -1).let { if (it < 0) it else it * 2 }
                         else -> UsableCount.AUTO_HALF_UNITS
                     },
-                    lastModified = obj.optLong("lastModified", 0L)
+                    lastModified = obj.optLong("lastModified", 0L),
+                    enabledStateChangedAt = obj.optLong("enabledStateChangedAt", 0L),
+                    enabledStateBaseline = obj.optBoolean("enabledStateBaseline", isEnabled)
                 ))
             }
         } catch (e: Exception) {
