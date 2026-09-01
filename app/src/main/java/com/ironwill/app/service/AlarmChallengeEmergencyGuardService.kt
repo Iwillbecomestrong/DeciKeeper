@@ -45,7 +45,27 @@ class AlarmChallengeEmergencyGuardService : Service() {
         @Volatile
         private var emergencyAccessInProgress = false
 
+        @Volatile
+        private var permissionRequestInProgress = false
+        private var permissionRequestTimeoutAt = 0L
+
         fun isEmergencyAccessInProgress(): Boolean = emergencyAccessInProgress
+
+        fun isPermissionRequestInProgress(): Boolean {
+            if (permissionRequestInProgress) {
+                if (System.currentTimeMillis() > permissionRequestTimeoutAt) {
+                    permissionRequestInProgress = false
+                    return false
+                }
+                return true
+            }
+            return false
+        }
+
+        fun setPermissionRequestInProgress(inProgress: Boolean, timeoutMs: Long = 30_000L) {
+            permissionRequestInProgress = inProgress
+            permissionRequestTimeoutAt = if (inProgress) System.currentTimeMillis() + timeoutMs else 0L
+        }
 
         fun start(context: Context) {
             val intent = Intent(context, AlarmChallengeEmergencyGuardService::class.java)
@@ -62,6 +82,7 @@ class AlarmChallengeEmergencyGuardService : Service() {
 
         fun stop(context: Context) {
             emergencyAccessInProgress = false
+            permissionRequestInProgress = false
             try {
                 context.stopService(Intent(context, AlarmChallengeEmergencyGuardService::class.java))
             } catch (_: Exception) {
@@ -148,7 +169,14 @@ class AlarmChallengeEmergencyGuardService : Service() {
             return
         }
 
-        if (AlarmChallengeEmergencyWhitelist.isPackageAllowedDuringChallenge(true, top, packageName, allowed)) {
+        if (AlarmChallengeEmergencyWhitelist.isPackageAllowedDuringChallenge(
+                alarmActive = true,
+                foregroundPackage = top,
+                selfPackage = packageName,
+                allowedPackages = allowed,
+                isPermissionRequestInProgress = isPermissionRequestInProgress()
+            )
+        ) {
             return
         }
 

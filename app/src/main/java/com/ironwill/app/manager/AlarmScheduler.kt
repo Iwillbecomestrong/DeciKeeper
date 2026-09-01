@@ -556,10 +556,18 @@ object AlarmScheduler {
     }
 
     fun getDefaultStage1Types(context: Context): Set<String> {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val stored = prefs.getStringSet(KEY_DEFAULT_STAGE1_TYPES, null)
+        val prefs = try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        } catch (_: Exception) { null }
+        val stored = prefs?.getStringSet(KEY_DEFAULT_STAGE1_TYPES, null)
         if (stored != null && stored.isNotEmpty()) return stored
-        return setOf("qr", "math")  // fallback: QR + math
+        val hasCamera = try {
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.CAMERA
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } catch (_: Exception) { false }
+        return if (hasCamera) setOf("qr", "math") else setOf("math")
     }
 
     fun setDefaultStage1Types(context: Context, types: Set<String>) {

@@ -21,10 +21,20 @@ object AlarmChallengeEmergencyWhitelist {
         alarmActive: Boolean,
         foregroundPackage: String,
         selfPackage: String,
-        allowedPackages: Set<String>
+        allowedPackages: Set<String>,
+        isPermissionRequestInProgress: Boolean = false
     ): Boolean {
         if (!alarmActive) return true
-        return foregroundPackage == selfPackage || allowedPackages.contains(foregroundPackage)
+        if (foregroundPackage == selfPackage || allowedPackages.contains(foregroundPackage)) return true
+        if (isPermissionRequestInProgress && isSystemPermissionController(foregroundPackage)) return true
+        return false
+    }
+
+    internal fun isSystemPermissionController(packageName: String): Boolean {
+        return packageName == "com.android.permissioncontroller" ||
+            packageName == "com.google.android.permissioncontroller" ||
+            packageName == "com.vivo.permissionmanager" ||
+            packageName == "com.android.packageinstaller"
     }
 
     /** Pure sanitization seam: preserve order, remove duplicates/dangerous/self, cap at two. */
@@ -79,7 +89,12 @@ object AlarmChallengeEmergencyWhitelist {
             alarmActive = alarmActive,
             foregroundPackage = packageName,
             selfPackage = context.packageName,
-            allowedPackages = getPackages(context).toSet()
+            allowedPackages = getPackages(context).toSet(),
+            isPermissionRequestInProgress = try {
+                com.ironwill.app.service.AlarmChallengeEmergencyGuardService.isPermissionRequestInProgress()
+            } catch (_: Throwable) {
+                false
+            }
         )
 
     fun isSelectable(context: Context, packageName: String): Boolean =

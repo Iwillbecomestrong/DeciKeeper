@@ -1,4 +1,4 @@
-﻿/**
+/**
  * =================================================================================
  * [Context Header]
  * * @file: AlarmFragment.kt
@@ -16,15 +16,22 @@
  */
 package com.ironwill.app.ui
 
+import android.Manifest
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.graphics.Typeface
 import android.media.RingtoneManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.AlarmClock
+import android.provider.Settings
 import android.text.InputType
 import android.util.Log
 import android.view.Gravity
@@ -42,7 +49,9 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -77,6 +86,123 @@ class AlarmFragment : Fragment() {
         override fun run() {
             refreshChallengeButtonsIfNeeded()
             activeAlarmRefreshHandler.postDelayed(this, 1000L)
+        }
+    }
+
+    private var pendingCameraPermissionCheckbox: CheckBox? = null
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            pendingCameraPermissionCheckbox?.isChecked = true
+            Toast.makeText(requireContext(), "相机权限已授予，已启用扫码关闹钟", Toast.LENGTH_SHORT).show()
+        } else {
+            pendingCameraPermissionCheckbox?.isChecked = false
+            Toast.makeText(requireContext(), "未授予相机权限，无法开启扫码关闹钟", Toast.LENGTH_LONG).show()
+        }
+        pendingCameraPermissionCheckbox = null
+    }
+
+    private fun bindQrCheckboxPermission(checkbox: CheckBox) {
+        checkbox.setOnClickListener {
+            if (checkbox.isChecked) {
+                val hasPerm = ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+                if (!hasPerm) {
+                    checkbox.isChecked = false
+                    pendingCameraPermissionCheckbox = checkbox
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+            }
+        }
+    }
+
+    private fun isVivoOrIqoo(): Boolean {
+        val mf = Build.MANUFACTURER.lowercase()
+        return mf.contains("vivo") || mf.contains("iqoo")
+    }
+
+    private fun showVivoSleepStandbyGuideDialog() {
+        val ctx = context ?: return
+        AlertDialog.Builder(ctx)
+            .setTitle("📱 Vivo / iQOO 锁屏闹钟保活指引")
+            .setMessage(
+                "为防止 Vivo / OriginOS 在夜间锁屏待机时冻结闹钟进程导致漏响或延迟，请务必完成以下两项配置：\n\n" +
+                "1. 关闭「睡眠待机优化」\n" +
+                "   路径：设置 → 电池 → 更多电池设置 → 关闭「睡眠待机优化 / 睡眠模式」\n\n" +
+                "2. 允许「后台高耗电」\n" +
+                "   路径：设置 → 电池 → 后台耗电管理 → 找到 IronWill → 选择「允许后台耗电」"
+            )
+            .setPositiveButton("前往设置") { _, _ ->
+                openVivoBatterySettings(ctx)
+            }
+            .setNegativeButton("我知道了", null)
+            .show()
+    }
+
+    private fun openVivoBatterySettings(ctx: Context) {
+        val intents = mutableListOf<Intent>()
+        // 1) Vivo 后台耗电管理
+        intents.add(Intent().setComponent(ComponentName(
+            "com.iqoo.powersaving",
+            "com.iqoo.powersaving.activity.ExcessivePowerDescriptionActivity"
+        )).apply { putExtra("package_name", ctx.packageName) })
+        // 2) 电池使用概览
+        intents.add(Intent().setComponent(ComponentName(
+            "com.iqoo.powersaving",
+            "com.iqoo.powersaving.fuelgauge.PowerUsageSummaryActivity"
+        )))
+        // 3) Vivo 高耗电管理
+        intents.add(Intent().setComponent(ComponentName(
+            "com.vivo.abe",
+            "com.vivo.applicationbehaviorengine.ui.ExcessivePowerManagerActivity"
+        )).apply { putExtra("package_name", ctx.packageName) })
+        intents.add(Intent().setComponent(ComponentName(
+            "com.iqoo.powersaving",
+            "com.iqoo.powersaving.activity.ExcessivePowerManagerActivity"
+        )).apply { putExtra("package_name", ctx.packageName) })
+        intents.add(Intent().setComponent(ComponentName(
+            "com.iqoo.powersaving",
+            "com.iqoo.powersaving.BackgroundHighUsageActivity"
+        )).apply { putExtra("package_name", ctx.packageName) })
+        intents.add(Intent("com.vivo.abe.highpower.search.powermanageractivity").apply {
+            putExtra("package_name", ctx.packageName)
+        })
+        // 4) 系统设置-电池页面
+        intents.add(Intent().setComponent(ComponentName(
+            "com.android.settings",
+            "com.android.settings.Settings\$PowerUsageSummaryActivity"
+        )))
+        intents.add(Intent().setComponent(ComponentName(
+            "com.android.settings",
+            "com.android.settings.Settings\$BatterySaverSettingsActivity"
+        )))
+        intents.add(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
+        intents.add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        intents.add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
+
+        var launched = false
+        for (intent in intents) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                launched = true
+                break
+            } catch (_: Exception) {}
+        }
+        Toast.makeText(ctx, "请关闭「睡眠待机优化」并允许「后台高耗电」", Toast.LENGTH_LONG).show()
+    }
+
+    private fun maybeShowVivoGuideOnFirstSave() {
+        if (!isVivoOrIqoo()) return
+        val ctx = context ?: return
+        val prefs = ctx.getSharedPreferences("iron_will_oem_guide", Context.MODE_PRIVATE)
+        val shown = prefs.getBoolean("vivo_sleep_standby_guide_shown", false)
+        if (!shown) {
+            prefs.edit().putBoolean("vivo_sleep_standby_guide_shown", true).apply()
+            showVivoSleepStandbyGuideDialog()
         }
     }
 
@@ -324,7 +450,9 @@ class AlarmFragment : Fragment() {
         // Stage 1
         addSectionLabel("第一关类型")
         val curS1 = AlarmScheduler.getDefaultStage1Types(ctx)
-        val cbS1Qr = CheckBox(ctx).apply { text = "扫码"; isChecked = "qr" in curS1; setTextColor(Color.parseColor("#000000")) }
+        val hasCamera = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val cbS1Qr = CheckBox(ctx).apply { text = "扫码"; isChecked = ("qr" in curS1) && hasCamera; setTextColor(Color.parseColor("#000000")) }
+        bindQrCheckboxPermission(cbS1Qr)
         val cbS1Math = CheckBox(ctx).apply { text = "数学"; isChecked = "math" in curS1; setTextColor(Color.parseColor("#000000")) }
         val cbS1Poem = CheckBox(ctx).apply { text = "诗词"; isChecked = "poem" in curS1; setTextColor(Color.parseColor("#000000")) }
         val cbS1Word = CheckBox(ctx).apply { text = "单词"; isChecked = "word" in curS1; setTextColor(Color.parseColor("#000000")) }
@@ -350,7 +478,8 @@ class AlarmFragment : Fragment() {
             layoutParams = LinearLayout.LayoutParams(WC, WC).apply { bottomMargin = dp(8) }
         }
         val curS2 = AlarmScheduler.getDefaultStage2Types(ctx)
-        val cbS2Qr = CheckBox(ctx).apply { text = "扫码"; isChecked = "qr" in curS2; setTextColor(Color.parseColor("#000000")) }
+        val cbS2Qr = CheckBox(ctx).apply { text = "扫码"; isChecked = ("qr" in curS2) && hasCamera; setTextColor(Color.parseColor("#000000")) }
+        bindQrCheckboxPermission(cbS2Qr)
         val cbS2Math = CheckBox(ctx).apply { text = "数学"; isChecked = "math" in curS2; setTextColor(Color.parseColor("#000000")) }
         val cbS2Poem = CheckBox(ctx).apply { text = "诗词"; isChecked = "poem" in curS2; setTextColor(Color.parseColor("#000000")) }
         val cbS2Word = CheckBox(ctx).apply { text = "单词"; isChecked = "word" in curS2; setTextColor(Color.parseColor("#000000")) }
@@ -636,6 +765,24 @@ class AlarmFragment : Fragment() {
         rgVibModeDefault.setOnCheckedChangeListener { _, _ -> updateRingtoneVisibility() }
         rgMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility(); updateRingtoneVisibility() }
 
+        if (isVivoOrIqoo()) {
+            val btnVivo = Button(ctx).apply {
+                text = "📱 Vivo 锁屏保活与睡眠待机设置指引"
+                textSize = 13f
+                setTextColor(Color.parseColor("#00796B"))
+                setBackgroundResource(R.drawable.bg_sea_bubble)
+                setPadding(dp(16), dp(10), dp(16), dp(10))
+                layoutParams = LinearLayout.LayoutParams(MP, WC).apply {
+                    topMargin = dp(16)
+                    bottomMargin = dp(8)
+                }
+                setOnClickListener {
+                    showVivoSleepStandbyGuideDialog()
+                }
+            }
+            container.addView(btnVivo)
+        }
+
         // --- 弹窗 ---
         AlertDialog.Builder(ctx)
             .setTitle("⚙️ 默认设置")
@@ -669,17 +816,22 @@ class AlarmFragment : Fragment() {
 
                 // 保存解锁方式
                 val mode = if (rbTwoStage.isChecked) AlarmScheduler.UnlockMode.TWO_STAGE else AlarmScheduler.UnlockMode.SINGLE
+                val hasCameraNow = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                 val s1Types = mutableSetOf<String>().apply {
-                    if (cbS1Qr.isChecked) add("qr"); if (cbS1Math.isChecked) add("math")
-                    if (cbS1Poem.isChecked) add("poem"); if (cbS1Word.isChecked) add("word")
+                    if (cbS1Qr.isChecked && hasCameraNow) add("qr")
+                    if (cbS1Math.isChecked) add("math")
+                    if (cbS1Poem.isChecked) add("poem")
+                    if (cbS1Word.isChecked) add("word")
                     if (cbS1Cloze.isChecked) add("cloze")
                 }
                 val s2Types = mutableSetOf<String>().apply {
-                    if (cbS2Qr.isChecked) add("qr"); if (cbS2Math.isChecked) add("math")
-                    if (cbS2Poem.isChecked) add("poem"); if (cbS2Word.isChecked) add("word")
+                    if (cbS2Qr.isChecked && hasCameraNow) add("qr")
+                    if (cbS2Math.isChecked) add("math")
+                    if (cbS2Poem.isChecked) add("poem")
+                    if (cbS2Word.isChecked) add("word")
                     if (cbS2Cloze.isChecked) add("cloze")
                 }
-                val effectiveS1 = if (s1Types.isEmpty()) setOf("qr") else s1Types
+                val effectiveS1 = if (s1Types.isEmpty()) setOf("math") else s1Types
                 val effectiveS2 = if (mode == AlarmScheduler.UnlockMode.TWO_STAGE && s2Types.isEmpty()) setOf("math", "poem", "word", "cloze") else s2Types
                 AlarmScheduler.setDefaultUnlockMode(ctx, mode)
                 AlarmScheduler.setDefaultStage1Types(ctx, effectiveS1)
@@ -970,6 +1122,7 @@ class AlarmFragment : Fragment() {
         }
         rgUnlockMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility(); updateEditRingtoneVisibility() }
 
+        val hasCamera = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (existing != null) {
             timePicker.hour = existing.hour
             timePicker.minute = existing.minute
@@ -977,7 +1130,7 @@ class AlarmFragment : Fragment() {
 
             val s1 = existing.stage1Types
             val s2 = existing.stage2Types
-            cbS1Qr.isChecked = "qr" in s1
+            cbS1Qr.isChecked = ("qr" in s1) && hasCamera
             cbS1Math.isChecked = "math" in s1
             cbS1Poem.isChecked = "poem" in s1
             cbS1Word.isChecked = "word" in s1
@@ -986,7 +1139,7 @@ class AlarmFragment : Fragment() {
             etPoemCount.setText(existing.poemCount.toString())
             etWordCount.setText(existing.wordCount.toString())
             etClozeCount?.setText(existing.clozeCount.toString())
-            cbS2Qr.isChecked = "qr" in s2
+            cbS2Qr.isChecked = ("qr" in s2) && hasCamera
             cbS2Math.isChecked = "math" in s2
             cbS2Poem.isChecked = "poem" in s2
             cbS2Word.isChecked = "word" in s2
@@ -1002,7 +1155,7 @@ class AlarmFragment : Fragment() {
             val defS1 = AlarmScheduler.getDefaultStage1Types(defaultCtx)
             val defS2 = AlarmScheduler.getDefaultStage2Types(defaultCtx)
             val defMode = AlarmScheduler.getDefaultUnlockMode(defaultCtx)
-            cbS1Qr.isChecked = "qr" in defS1
+            cbS1Qr.isChecked = ("qr" in defS1) && hasCamera
             cbS1Math.isChecked = "math" in defS1
             cbS1Poem.isChecked = "poem" in defS1
             cbS1Word.isChecked = "word" in defS1
@@ -1011,7 +1164,7 @@ class AlarmFragment : Fragment() {
             etPoemCount.setText(AlarmScheduler.getDefaultPoemCount(defaultCtx).toString())
             etWordCount.setText(AlarmScheduler.getDefaultWordCount(defaultCtx).toString())
             etClozeCount?.setText(AlarmScheduler.getDefaultClozeCount(defaultCtx).toString())
-            cbS2Qr.isChecked = "qr" in defS2
+            cbS2Qr.isChecked = ("qr" in defS2) && hasCamera
             cbS2Math.isChecked = "math" in defS2
             cbS2Poem.isChecked = "poem" in defS2
             cbS2Word.isChecked = "word" in defS2
@@ -1019,6 +1172,8 @@ class AlarmFragment : Fragment() {
             if (defMode == AlarmScheduler.UnlockMode.TWO_STAGE) rbUnlockTwoStage.isChecked = true
             else rbUnlockSingle.isChecked = true
         }
+        bindQrCheckboxPermission(cbS1Qr)
+        bindQrCheckboxPermission(cbS2Qr)
         updateStage2Visibility()
 
         AlertDialog.Builder(requireContext())
@@ -1032,8 +1187,9 @@ class AlarmFragment : Fragment() {
 
                 val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
 
+                val hasCameraNow = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                 val s1Types = mutableSetOf<String>()
-                if (cbS1Qr.isChecked) s1Types.add("qr")
+                if (cbS1Qr.isChecked && hasCameraNow) s1Types.add("qr")
                 if (cbS1Math.isChecked) s1Types.add("math")
                 if (cbS1Poem.isChecked) s1Types.add("poem")
                 if (cbS1Word.isChecked) s1Types.add("word")
@@ -1041,7 +1197,7 @@ class AlarmFragment : Fragment() {
 
                 val s2Types = mutableSetOf<String>()
                 if (isTwoStage) {
-                    if (cbS2Qr.isChecked) s2Types.add("qr")
+                    if (cbS2Qr.isChecked && hasCameraNow) s2Types.add("qr")
                     if (cbS2Math.isChecked) s2Types.add("math")
                     if (cbS2Poem.isChecked) s2Types.add("poem")
                     if (cbS2Word.isChecked) s2Types.add("word")
@@ -1050,8 +1206,8 @@ class AlarmFragment : Fragment() {
                     s2Types.addAll(s1Types) // single-stage: same as stage 1 for backward compat
                 }
 
-                // Ensure at least one challenge in the first group
-                val effectiveS1 = if (s1Types.isEmpty()) setOf("qr") else s1Types
+                // Ensure at least one challenge in the first group (fallback to math)
+                val effectiveS1 = if (s1Types.isEmpty()) setOf("math") else s1Types
                 val useQr = "qr" in effectiveS1
                 val useMath = "math" in effectiveS1
                 val usePoem = "poem" in effectiveS1
@@ -1308,6 +1464,12 @@ class AlarmFragment : Fragment() {
             tvStage1Label.text = if (isTwoStage) "第一关解锁方式（通过其一即可）" else "解锁方式配置（可并联多选）"
             testCooldownContainer.visibility = if (isTwoStage) View.VISIBLE else View.GONE
         }
+        val hasCameraTest = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        cbS1Qr.isChecked = false
+        cbS2Qr.isChecked = false
+        bindQrCheckboxPermission(cbS1Qr)
+        bindQrCheckboxPermission(cbS2Qr)
+
         rgUnlockMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility(); updateTestRingtoneVisibility() }
         updateStage2Visibility()
 
@@ -1317,8 +1479,9 @@ class AlarmFragment : Fragment() {
             .setPositiveButton("开始测试") { _, _ ->
                 val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
 
+                val hasCameraNow = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                 val s1Types = mutableSetOf<String>()
-                if (cbS1Qr.isChecked) s1Types.add("qr")
+                if (cbS1Qr.isChecked && hasCameraNow) s1Types.add("qr")
                 if (cbS1Math.isChecked) s1Types.add("math")
                 if (cbS1Poem.isChecked) s1Types.add("poem")
                 if (cbS1Word.isChecked) s1Types.add("word")
@@ -1326,7 +1489,7 @@ class AlarmFragment : Fragment() {
 
                 val s2Types = mutableSetOf<String>()
                 if (isTwoStage) {
-                    if (cbS2Qr.isChecked) s2Types.add("qr")
+                    if (cbS2Qr.isChecked && hasCameraNow) s2Types.add("qr")
                     if (cbS2Math.isChecked) s2Types.add("math")
                     if (cbS2Poem.isChecked) s2Types.add("poem")
                     if (cbS2Word.isChecked) s2Types.add("word")
@@ -1335,7 +1498,7 @@ class AlarmFragment : Fragment() {
                     s2Types.addAll(s1Types)
                 }
 
-                val effectiveS1 = if (s1Types.isEmpty()) setOf("qr") else s1Types
+                val effectiveS1 = if (s1Types.isEmpty()) setOf("math") else s1Types
                 val useQr = "qr" in effectiveS1
                 val useMath = "math" in effectiveS1
                 val usePoem = "poem" in effectiveS1
@@ -1396,6 +1559,7 @@ class AlarmFragment : Fragment() {
             alarms.add(entry)
         }
         persistAndRefresh()
+        maybeShowVivoGuideOnFirstSave()
     }
 
     private fun updateAlarm(entry: AlarmScheduler.AlarmEntry) {

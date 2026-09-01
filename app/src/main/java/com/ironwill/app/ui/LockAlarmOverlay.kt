@@ -2133,6 +2133,22 @@ internal object LockAlarmOverlayController {
         barcodeView?.pause()
     }
 
+    fun fallbackFromQrToMath() {
+        val view = LockWindowManager.getAlarmView() ?: return
+        val otherChallengesActive = (targetMathCount > 0 && currentMathIndex < targetMathCount) ||
+            (targetPoemCount > 0 && currentPoemIndex < targetPoemCount) ||
+            (targetWordCount > 0 && currentWordIndex < targetWordCount) ||
+            (targetClozeCount > 0 && currentClozeIndex < targetClozeCount)
+
+        if (!otherChallengesActive) {
+            targetMathCount = 3
+            currentMathIndex = 0
+            val cvMath = view.findViewById<View>(R.id.cv_alarm_math)
+            cvMath?.visibility = View.VISIBLE
+            rollMath()
+        }
+    }
+
     fun reassertAlarmOverlayOverSystemDialog(reason: String) {
         if (!isAlarmOverlayActive.get()) return
         val view = LockWindowManager.getAlarmView() ?: return
