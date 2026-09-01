@@ -2351,18 +2351,10 @@ object LockWindowManager {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             dismissLockScreen(true)
-            val globalHomeDone = try {
-                mCoreService?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME) == true
+            try {
+                context.startActivity(homeIntent)
             } catch (e: Exception) {
-                Log.w(TAG, "[HOME_CLICK] GLOBAL_ACTION_HOME failed", e)
-                false
-            }
-            if (!globalHomeDone) {
-                try {
-                    context.startActivity(homeIntent)
-                } catch (e: Exception) {
-                    Log.w(TAG, "[HOME_CLICK] startActivity(Home) failed", e)
-                }
+                Log.w(TAG, "[HOME_CLICK] startActivity(Home) failed", e)
             }
         }
         

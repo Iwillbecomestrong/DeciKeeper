@@ -30,13 +30,18 @@ internal object AccessibilityWindowPresenceProbe {
         lastObservationStateByPkg.clear()
     }
 
-    fun observe(targetPackage: String): AccessibilityWindowPresenceObservation {
+    fun observe(
+        targetPackage: String,
+        snapshot: AccessibilityWindowSnapshot
+    ): AccessibilityWindowPresenceObservation {
         val service = CoreService.instance
-        if (service == null) {
+        val powerManager = service?.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val interactive = powerManager?.isInteractive ?: true
+        if (!interactive) {
             logObservationIfChanged(
                 target = targetPackage,
                 result = AccessibilityWindowPresenceObservation.UNKNOWN,
-                reason = "SERVICE_MISSING",
+                reason = "SCREEN_OFF",
                 windowCount = 0,
                 resolvedCount = 0,
                 unresolvedCount = 0,
@@ -48,124 +53,80 @@ internal object AccessibilityWindowPresenceProbe {
             return AccessibilityWindowPresenceObservation.UNKNOWN
         }
 
-        return try {
-            val powerManager = service.getSystemService(Context.POWER_SERVICE) as? PowerManager
-            val interactive = powerManager?.isInteractive ?: true
-            if (!interactive) {
-                logObservationIfChanged(
-                    target = targetPackage,
-                    result = AccessibilityWindowPresenceObservation.UNKNOWN,
-                    reason = "SCREEN_OFF",
-                    windowCount = 0,
-                    resolvedCount = 0,
-                    unresolvedCount = 0,
-                    resolvedPkgs = emptyList(),
-                    overlay = LockWindowManager.isLocked,
-                    interactive = false,
-                    keyguard = false
-                )
-                return AccessibilityWindowPresenceObservation.UNKNOWN
-            }
-
-            val keyguardManager = service.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-            val keyguardLocked = keyguardManager?.isKeyguardLocked ?: false
-            if (keyguardLocked) {
-                logObservationIfChanged(
-                    target = targetPackage,
-                    result = AccessibilityWindowPresenceObservation.UNKNOWN,
-                    reason = "KEYGUARD",
-                    windowCount = 0,
-                    resolvedCount = 0,
-                    unresolvedCount = 0,
-                    resolvedPkgs = emptyList(),
-                    overlay = LockWindowManager.isLocked,
-                    interactive = interactive,
-                    keyguard = true
-                )
-                return AccessibilityWindowPresenceObservation.UNKNOWN
-            }
-
-            val windows = service.windows
-            if (windows == null) {
-                logObservationIfChanged(
-                    target = targetPackage,
-                    result = AccessibilityWindowPresenceObservation.UNKNOWN,
-                    reason = "WINDOWS_NULL",
-                    windowCount = 0,
-                    resolvedCount = 0,
-                    unresolvedCount = 0,
-                    resolvedPkgs = emptyList(),
-                    overlay = LockWindowManager.isLocked,
-                    interactive = interactive,
-                    keyguard = false
-                )
-                return AccessibilityWindowPresenceObservation.UNKNOWN
-            }
-
-            val windowCount = windows.size
-            var unresolvedWindowCount = 0
-            var resolvedWindowCount = 0
-            val resolvedPackages = mutableListOf<String>()
-            var targetFound = false
-
-            for (window in windows) {
-                val root = window.root
-                if (root == null) {
-                    unresolvedWindowCount++
-                    continue
-                }
-
-                val packageName = root.packageName?.toString()
-                root.recycle()
-
-                if (packageName != null) {
-                    resolvedPackages.add(packageName)
-                    resolvedWindowCount++
-                    if (packageName == targetPackage) {
-                        targetFound = true
-                    }
-                } else {
-                    unresolvedWindowCount++
-                }
-            }
-
-            val overlay = LockWindowManager.isLocked
-            val (result, reason) = when {
-                targetFound -> AccessibilityWindowPresenceObservation.PRESENT to "TARGET_FOUND"
-                overlay -> AccessibilityWindowPresenceObservation.UNKNOWN to "OWN_LOCK_OVERLAY"
-                unresolvedWindowCount > 0 -> AccessibilityWindowPresenceObservation.UNKNOWN to "UNRESOLVED_ROOT"
-                else -> AccessibilityWindowPresenceObservation.ABSENT to "TARGET_NOT_FOUND"
-            }
-
-            logObservationIfChanged(
-                target = targetPackage,
-                result = result,
-                reason = reason,
-                windowCount = windowCount,
-                resolvedCount = resolvedWindowCount,
-                unresolvedCount = unresolvedWindowCount,
-                resolvedPkgs = resolvedPackages,
-                overlay = overlay,
-                interactive = interactive,
-                keyguard = keyguardLocked
-            )
-
-            result
-        } catch (e: Exception) {
+        val keyguardManager = service?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val keyguardLocked = keyguardManager?.isKeyguardLocked ?: false
+        if (keyguardLocked) {
             logObservationIfChanged(
                 target = targetPackage,
                 result = AccessibilityWindowPresenceObservation.UNKNOWN,
-                reason = "QUERY_EXCEPTION",
+                reason = "KEYGUARD",
                 windowCount = 0,
                 resolvedCount = 0,
                 unresolvedCount = 0,
                 resolvedPkgs = emptyList(),
                 overlay = LockWindowManager.isLocked,
-                interactive = true,
+                interactive = interactive,
+                keyguard = true
+            )
+            return AccessibilityWindowPresenceObservation.UNKNOWN
+        }
+
+        if (snapshot.status == AccessibilityWindowSnapshotStatus.FAILED) {
+            logObservationIfChanged(
+                target = targetPackage,
+                result = AccessibilityWindowPresenceObservation.UNKNOWN,
+                reason = snapshot.failureClass ?: "WINDOWS_QUERY_FAILED",
+                windowCount = 0,
+                resolvedCount = 0,
+                unresolvedCount = 0,
+                resolvedPkgs = emptyList(),
+                overlay = LockWindowManager.isLocked,
+                interactive = interactive,
                 keyguard = false
             )
-            AccessibilityWindowPresenceObservation.UNKNOWN
+            return AccessibilityWindowPresenceObservation.UNKNOWN
         }
+
+        val overlay = LockWindowManager.isLocked
+        val resolvedPkgs = snapshot.packages.toList()
+        val windowCount = snapshot.totalWindowCount
+        val unresolvedWindowCount = snapshot.unresolvedWindowCount
+        val resolvedWindowCount = windowCount - unresolvedWindowCount
+
+        val (result, reason) = when {
+            snapshot.packages.contains(targetPackage) -> {
+                AccessibilityWindowPresenceObservation.PRESENT to "TARGET_FOUND"
+            }
+            overlay -> {
+                AccessibilityWindowPresenceObservation.UNKNOWN to "OWN_LOCK_OVERLAY"
+            }
+            snapshot.status == AccessibilityWindowSnapshotStatus.PARTIAL -> {
+                AccessibilityWindowPresenceObservation.UNKNOWN to "UNRESOLVED_ROOT"
+            }
+            else -> {
+                AccessibilityWindowPresenceObservation.ABSENT to "TARGET_NOT_FOUND"
+            }
+        }
+
+        logObservationIfChanged(
+            target = targetPackage,
+            result = result,
+            reason = reason,
+            windowCount = windowCount,
+            resolvedCount = resolvedWindowCount,
+            unresolvedCount = unresolvedWindowCount,
+            resolvedPkgs = resolvedPkgs,
+            overlay = overlay,
+            interactive = interactive,
+            keyguard = keyguardLocked
+        )
+
+        return result
+    }
+
+    fun observe(targetPackage: String): AccessibilityWindowPresenceObservation {
+        val snapshot = CoreService.captureWindowSnapshot()
+        return observe(targetPackage, snapshot)
     }
 
     private fun logObservationIfChanged(

@@ -15,7 +15,8 @@ enum class PresenceTrackerAction {
 }
 
 class VisibleBlacklistPresenceTracker(
-    val desktopGraceDurationMs: Long = 3000L
+    val desktopGraceDurationMs: Long = 3000L,
+    val requiredConsecutiveAbsenceCount: Int = 3
 ) {
     companion object {
         private const val PRESENCE_DIAG_TAG = "PresenceDiag"
@@ -39,6 +40,12 @@ class VisibleBlacklistPresenceTracker(
      * 或 UsageStats.lastTimeVisible 继续触发重复锁屏。
      */
     var accessibilityRevalidationRequired: Boolean = false
+        private set
+
+    var consecutiveConfirmedAbsenceCount: Int = 0
+        private set
+
+    var lastConfirmedAbsentAtMs: Long = 0L
         private set
 
     val lastStoppedAtMap = mutableMapOf<String, Long>()
@@ -94,6 +101,8 @@ class VisibleBlacklistPresenceTracker(
         confirmedAtMs = nowMs
         state = PresenceTrackerState.CONFIRMED_VISIBLE
         graceUntilMs = 0L
+        consecutiveConfirmedAbsenceCount = 0
+        lastConfirmedAbsentAtMs = 0L
         setRevalidationRequired(false, reason = "PRESENCE_CONFIRMED")
         logStateChange(pkg, oldState, state, reason = "PRESENCE_CONFIRMED")
         logAction(PresenceTrackerAction.LOCK, pkg, reason = "PRESENCE_CONFIRMED")
@@ -102,9 +111,6 @@ class VisibleBlacklistPresenceTracker(
 
     /**
      * 用户点击“回到桌面”或切回桌面，进入 Grace 宽限期。
-     *
-     * 如果此前窗口观测处于 UNKNOWN，这里不能把它恢复成“已确认可见”；Grace 到期后必须等到
-     * 新的 Accessibility 窗口观测才能重新锁。
      */
     fun onDesktopReturn(nowMs: Long) {
         if (state == PresenceTrackerState.CONFIRMED_VISIBLE || state == PresenceTrackerState.DESKTOP_GRACE) {
@@ -116,82 +122,92 @@ class VisibleBlacklistPresenceTracker(
     }
 
     /**
-     * MonitorService 的运行时入口。
-     *
-     * CoreService.lastVisiblePackagesFromWindows 在窗口查询异常时会保留上一次成功结果，不能作为
-     * “本轮仍然看到小窗”的充分证据。因此只要 AccessibilityService 正在运行，就主动重新读取
-     * service.windows，并把结果严格区分成 PRESENT / ABSENT / UNKNOWN：
-     * - PRESENT：明确重新看到目标窗口，可以继续维持 Presence；
-     * - ABSENT：在可观察状态下完整扫描且目标消失，作为关闭证据；
-     * - UNKNOWN：熄屏、锁屏、IronWill 自身锁层遮挡、窗口树不完整或查询异常，不作存在/消失推断。
-     *
-     * JVM 单测或无 AccessibilityService 场景继续把显式传入的 Set 当作成功合成快照，保持原有
-     * 状态机测试和非无障碍降级路径兼容。
+     * 基于单一窗口快照的运行时入口。
      */
-    fun onAccessibilitySnapshot(visiblePackages: Set<String>, nowMs: Long): PresenceTrackerAction {
+    fun onAccessibilitySnapshot(snapshot: AccessibilityWindowSnapshot, nowMs: Long): PresenceTrackerAction {
         val current = currentPackage ?: return PresenceTrackerAction.NONE
         if (state == PresenceTrackerState.NONE) return PresenceTrackerAction.NONE
 
-        if (!CoreService.isServiceActive) {
-            return onAccessibilitySnapshot(
-                visiblePackages = visiblePackages,
-                nowMs = nowMs,
-                scanSucceeded = true
-            )
-        }
-
-        return when (AccessibilityWindowPresenceProbe.observe(current)) {
-            AccessibilityWindowPresenceObservation.PRESENT -> onAccessibilitySnapshot(
-                visiblePackages = setOf(current),
-                nowMs = nowMs,
-                scanSucceeded = true
-            )
-            AccessibilityWindowPresenceObservation.ABSENT -> onAccessibilitySnapshot(
-                visiblePackages = emptySet(),
-                nowMs = nowMs,
-                scanSucceeded = true
-            )
-            AccessibilityWindowPresenceObservation.UNKNOWN -> onAccessibilitySnapshot(
-                visiblePackages = visiblePackages,
-                nowMs = nowMs,
-                scanSucceeded = false
-            )
-        }
+        val observation = AccessibilityWindowPresenceProbe.observe(current, snapshot)
+        return processObservation(current, observation, snapshot.packages, nowMs)
     }
 
     /**
      * 可测试的窗口快照入口。
-     *
-     * scanSucceeded=false 时 visiblePackages 可能只是上一次成功扫描遗留的数据，这种数据既不能
-     * 证明窗口仍存在，也不能证明窗口已经消失。
      */
     fun onAccessibilitySnapshot(
         visiblePackages: Set<String>,
         nowMs: Long,
-        scanSucceeded: Boolean
+        scanSucceeded: Boolean = true
     ): PresenceTrackerAction {
         val current = currentPackage ?: return PresenceTrackerAction.NONE
         if (state == PresenceTrackerState.NONE) return PresenceTrackerAction.NONE
 
         if (!scanSucceeded) {
-            setRevalidationRequired(true, reason = "A11Y_SCAN_UNKNOWN_OR_FAILED")
-            return PresenceTrackerAction.NONE
+            return processObservation(
+                current,
+                AccessibilityWindowPresenceObservation.UNKNOWN,
+                visiblePackages,
+                nowMs
+            )
         }
 
-        if (visiblePackages.contains(current)) {
-            // 新鲜成功快照重新看到了静止小窗：无需任何新的 RESUMED / FOREGROUND 事件即可续证。
-            setRevalidationRequired(false, reason = "A11Y_TARGET_PRESENT_IN_SNAPSHOT")
-            return PresenceTrackerAction.NONE
+        val observation = if (visiblePackages.contains(current)) {
+            AccessibilityWindowPresenceObservation.PRESENT
+        } else {
+            AccessibilityWindowPresenceObservation.ABSENT
         }
 
-        // 强关闭证据：成功且可观察的 A11y 窗口快照中目标包消失 -> CLOSED Tombstone + 清除 Session。
-        val oldState = state
-        closedAtMap[current] = nowMs
-        lastStoppedAtMap[current] = nowMs
-        resetInternal()
-        logStateChange(current, oldState, PresenceTrackerState.NONE, reason = "A11Y_TARGET_ABSENT_IN_SNAPSHOT")
-        logAction(PresenceTrackerAction.CLEAR, current, reason = "A11Y_TARGET_ABSENT_IN_SNAPSHOT")
-        return PresenceTrackerAction.CLEAR
+        return processObservation(current, observation, visiblePackages, nowMs)
+    }
+
+    private fun processObservation(
+        current: String,
+        observation: AccessibilityWindowPresenceObservation,
+        visiblePackages: Set<String>,
+        nowMs: Long
+    ): PresenceTrackerAction {
+        return when (observation) {
+            AccessibilityWindowPresenceObservation.PRESENT -> {
+                consecutiveConfirmedAbsenceCount = 0
+                setRevalidationRequired(false, reason = "TARGET_OBSERVED_PRESENT")
+                PresenceTrackerAction.NONE
+            }
+            AccessibilityWindowPresenceObservation.UNKNOWN -> {
+                // UNKNOWN: 窗口处于不可观察或异常状态，不能增加 absenceCount，不能清除 Session，不能写 STOPPED
+                setRevalidationRequired(true, reason = "A11Y_OBSERVATION_UNKNOWN")
+                PresenceTrackerAction.NONE
+            }
+            AccessibilityWindowPresenceObservation.ABSENT -> {
+                consecutiveConfirmedAbsenceCount++
+                lastConfirmedAbsentAtMs = nowMs
+                Log.i(
+                    PRESENCE_DIAG_TAG,
+                    "[PRESENCE_ABSENCE_COUNT] pkg=$current count=$consecutiveConfirmedAbsenceCount/$requiredConsecutiveAbsenceCount"
+                )
+
+                if (consecutiveConfirmedAbsenceCount >= requiredConsecutiveAbsenceCount) {
+                    val oldState = state
+                    closedAtMap[current] = nowMs
+                    // ⚠️ 关键约束：绝不能写入 lastStoppedAtMap！lastStoppedAtMap 只允许真实 ACTIVITY_STOPPED 事件更新！
+                    resetInternal()
+                    logStateChange(
+                        current,
+                        oldState,
+                        PresenceTrackerState.NONE,
+                        reason = "A11Y_CONFIRMED_ABSENT(count=$consecutiveConfirmedAbsenceCount)"
+                    )
+                    logAction(
+                        PresenceTrackerAction.CLEAR,
+                        current,
+                        reason = "A11Y_CONFIRMED_ABSENT"
+                    )
+                    PresenceTrackerAction.CLEAR
+                } else {
+                    PresenceTrackerAction.NONE
+                }
+            }
+        }
     }
 
     /**
@@ -298,5 +314,7 @@ class VisibleBlacklistPresenceTracker(
         confirmedAtMs = 0L
         graceUntilMs = 0L
         accessibilityRevalidationRequired = false
+        consecutiveConfirmedAbsenceCount = 0
+        lastConfirmedAbsentAtMs = 0L
     }
 }

@@ -90,9 +90,11 @@ class VisibleBlacklistPresenceRevalidationTest {
             scanSucceeded = false
         )
 
+        tracker.onAccessibilitySnapshot(setOf("com.bbk.launcher2"), 12_000L, true)
+        tracker.onAccessibilitySnapshot(setOf("com.bbk.launcher2"), 12_500L, true)
         val clearAction = tracker.onAccessibilitySnapshot(
             visiblePackages = setOf("com.bbk.launcher2"),
-            nowMs = 12_000L,
+            nowMs = 13_000L,
             scanSucceeded = true
         )
 

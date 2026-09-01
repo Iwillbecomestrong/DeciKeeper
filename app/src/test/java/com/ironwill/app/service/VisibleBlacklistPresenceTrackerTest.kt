@@ -2,6 +2,7 @@ package com.ironwill.app.service
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -59,8 +60,20 @@ class VisibleBlacklistPresenceTrackerTest {
         tracker.onPresenceConfirmed(testPkg, t0)
         tracker.onDesktopReturn(11000L)
 
-        // Windows no longer contain testPkg
-        val action = tracker.onAccessibilitySnapshot(setOf("com.openai.chatgpt"), 12000L)
+        // Windows no longer contain testPkg (requires 3 consecutive complete absences)
+        assertEquals(
+            PresenceTrackerAction.NONE,
+            tracker.onAccessibilitySnapshot(setOf("com.openai.chatgpt"), 12000L)
+        )
+        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
+
+        assertEquals(
+            PresenceTrackerAction.NONE,
+            tracker.onAccessibilitySnapshot(setOf("com.openai.chatgpt"), 12500L)
+        )
+        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
+
+        val action = tracker.onAccessibilitySnapshot(setOf("com.openai.chatgpt"), 13000L)
         assertEquals(PresenceTrackerAction.CLEAR, action)
         assertEquals(PresenceTrackerState.NONE, tracker.state)
         assertEquals(null, tracker.currentPackage)
@@ -310,14 +323,62 @@ class VisibleBlacklistPresenceTrackerTest {
         tracker.onPresenceConfirmed(testPkg, t0)
         tracker.onDesktopReturn(11000L)
 
-        // Window tree no longer contains testPkg
-        val action = tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 12000L)
+        // Window tree no longer contains testPkg (requires 3 consecutive complete absences)
+        tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 12000L)
+        tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 12500L)
+        val action = tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 13000L)
         assertEquals(PresenceTrackerAction.CLEAR, action)
         assertEquals(PresenceTrackerState.NONE, tracker.state)
         assertTrue("Package must be CLOSED after accessibility window disappearance", tracker.isPackageClosed(testPkg))
+        assertNull("Accessibility CLEAR must NOT write lastStoppedAtMap", tracker.lastStoppedAtMap[testPkg])
 
-        // Subsequent UsageStats cannot revive it
+        // Subsequent UsageStats cannot revive it because closedAt is active
         assertFalse(tracker.isLastTimeVisibleValid(testPkg, 13000L))
+    }
+
+    @Test
+    fun `test 20b - transient absences followed by present resets absence count without clearing`() {
+        val t0 = 10000L
+        tracker.onPresenceConfirmed(testPkg, t0)
+        tracker.onDesktopReturn(11000L)
+
+        // 1st absence
+        assertEquals(PresenceTrackerAction.NONE, tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 12000L))
+        assertEquals(1, tracker.consecutiveConfirmedAbsenceCount)
+
+        // 2nd absence
+        assertEquals(PresenceTrackerAction.NONE, tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 12500L))
+        assertEquals(2, tracker.consecutiveConfirmedAbsenceCount)
+
+        // Present arrives! Resets absence count to 0
+        assertEquals(PresenceTrackerAction.NONE, tracker.onAccessibilitySnapshot(setOf(testPkg, "com.android.launcher"), 13000L))
+        assertEquals(0, tracker.consecutiveConfirmedAbsenceCount)
+        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
+
+        // Another single absence: only count 1, does NOT clear
+        assertEquals(PresenceTrackerAction.NONE, tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 13500L))
+        assertEquals(1, tracker.consecutiveConfirmedAbsenceCount)
+        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
+    }
+
+    @Test
+    fun `test 20c - unconfirmed partial or failed scan does not increment absence count`() {
+        val t0 = 10000L
+        tracker.onPresenceConfirmed(testPkg, t0)
+        tracker.onDesktopReturn(11000L)
+
+        // 1st absence
+        tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 12000L, scanSucceeded = true)
+        assertEquals(1, tracker.consecutiveConfirmedAbsenceCount)
+
+        // Failed scan
+        tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 12500L, scanSucceeded = false)
+        assertEquals(1, tracker.consecutiveConfirmedAbsenceCount)
+
+        // 2nd absence
+        tracker.onAccessibilitySnapshot(setOf("com.android.launcher"), 13000L, scanSucceeded = true)
+        assertEquals(2, tracker.consecutiveConfirmedAbsenceCount)
+        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
     }
 
     @Test

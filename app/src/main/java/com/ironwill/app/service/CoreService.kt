@@ -270,31 +270,84 @@ class CoreService : AccessibilityService() {
             diagnosticsLastEligibleEventAtMs = atMs
         }
 
-        fun updateActiveWindows() {
-            val service = instance ?: return
-            try {
+        fun captureWindowSnapshot(nowMs: Long = System.currentTimeMillis()): AccessibilityWindowSnapshot {
+            val service = instance
+            if (service == null || !isServiceActive) {
+                recordDiagnosticsWindowSnapshot(success = false, failureClass = "ServiceNotActive")
+                return AccessibilityWindowSnapshot(
+                    capturedAtMs = nowMs,
+                    status = AccessibilityWindowSnapshotStatus.FAILED,
+                    packages = emptySet(),
+                    unresolvedWindowCount = 0,
+                    totalWindowCount = 0,
+                    failureClass = "ServiceNotActive"
+                )
+            }
+
+            return try {
                 val windowList = service.windows
-                if (windowList != null && windowList.isNotEmpty()) {
+                if (windowList == null) {
+                    recordDiagnosticsWindowSnapshot(success = false, failureClass = "WindowsNull")
+                    AccessibilityWindowSnapshot(
+                        capturedAtMs = nowMs,
+                        status = AccessibilityWindowSnapshotStatus.FAILED,
+                        packages = emptySet(),
+                        unresolvedWindowCount = 0,
+                        totalWindowCount = 0,
+                        failureClass = "WindowsNull"
+                    )
+                } else {
                     val currentVisiblePkgs = mutableSetOf<String>()
+                    var unresolvedCount = 0
                     for (window in windowList) {
                         val root = window.root
-                        val winPkg = root?.packageName?.toString() ?: "null"
-                        root?.recycle()
-                        if (winPkg != "null" && winPkg != service.packageName) {
+                        if (root == null) {
+                            unresolvedCount++
+                            continue
+                        }
+                        val winPkg = root.packageName?.toString()
+                        root.recycle()
+                        if (winPkg != null && winPkg != service.packageName) {
                             currentVisiblePkgs.add(winPkg)
+                        } else if (winPkg == null) {
+                            unresolvedCount++
                         }
                     }
+
                     lastVisiblePackagesFromWindows = currentVisiblePkgs
-                } else {
-                    lastVisiblePackagesFromWindows = emptySet()
+                    val status = if (unresolvedCount > 0) {
+                        AccessibilityWindowSnapshotStatus.PARTIAL
+                    } else {
+                        AccessibilityWindowSnapshotStatus.COMPLETE
+                    }
+
+                    recordDiagnosticsWindowSnapshot(success = true, failureClass = null)
+
+                    AccessibilityWindowSnapshot(
+                        capturedAtMs = nowMs,
+                        status = status,
+                        packages = currentVisiblePkgs,
+                        unresolvedWindowCount = unresolvedCount,
+                        totalWindowCount = windowList.size,
+                        failureClass = null
+                    )
                 }
-                // [Diagnostics-only] record successful snapshot for ForegroundDiagnosticCycle
-                recordDiagnosticsWindowSnapshot(success = true, failureClass = null)
             } catch (e: Exception) {
-                // [Diagnostics-only] record failure class but keep previous package set
-                recordDiagnosticsWindowSnapshot(success = false, failureClass = e.javaClass.simpleName)
-                // Log and ignore
+                val failureClass = e.javaClass.simpleName
+                recordDiagnosticsWindowSnapshot(success = false, failureClass = failureClass)
+                AccessibilityWindowSnapshot(
+                    capturedAtMs = nowMs,
+                    status = AccessibilityWindowSnapshotStatus.FAILED,
+                    packages = emptySet(),
+                    unresolvedWindowCount = 0,
+                    totalWindowCount = 0,
+                    failureClass = failureClass
+                )
             }
+        }
+
+        fun updateActiveWindows() {
+            captureWindowSnapshot()
         }
         // 防卸载保护链 JIT 预热完成标志。FastLock 在收到 handoff 时检查此标志，
         // 未完成则拒绝关闭，避免覆盖层消失后首次卸载检测因 JIT 编译延迟而变慢。

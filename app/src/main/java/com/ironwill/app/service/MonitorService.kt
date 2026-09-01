@@ -1476,8 +1476,8 @@ class MonitorService : Service() {
         // while the user is passively watching a PIP/small window video on the Home screen!
         val now = System.currentTimeMillis()
         if (CoreService.isServiceActive) {
-            CoreService.updateActiveWindows()
-            mPresenceTracker.onAccessibilitySnapshot(CoreService.lastVisiblePackagesFromWindows, now)
+            val snapshot = CoreService.captureWindowSnapshot(now)
+            mPresenceTracker.onAccessibilitySnapshot(snapshot, now)
         }
         mRequireFastRecheck = false
 
