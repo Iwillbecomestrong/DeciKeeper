@@ -2338,11 +2338,6 @@ object LockWindowManager {
             recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
             clearBlacklistHitDebounceForUserAction()
 
-            // 回到桌面时，尝试用无障碍关闭黑名单应用的小窗
-            if (lastBlockedPackageName != null) {
-                Log.d(TAG, "[HOME_CLICK] attempting to close mini-window for $lastBlockedPackageName via accessibility")
-                CoreService.closeMiniWindowForPackage(lastBlockedPackageName!!)
-            }
 
             val pendingAgeMs = if (homeClickPendingSetAt > 0) now - homeClickPendingSetAt else 0L
             // 🏠 回到桌面 legacy lifecycle line retired; LOCK_EXIT normal event already records the outcome.
