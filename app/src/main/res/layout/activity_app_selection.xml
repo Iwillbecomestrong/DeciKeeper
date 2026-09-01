@@ -52,67 +52,7 @@
             android:textStyle="bold"
             android:textColor="#333333"/>
 
-        <!-- 🚀 [NEW] Auto Blacklist Configuration Card -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/card_auto_blacklist_config"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            app:cardBackgroundColor="#E8F5E9"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="10dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tv_auto_blacklist_title"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="⚡ 新应用自动入榜"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        android:textColor="#2E7D32"/>
-
-                    <TextView
-                        android:id="@+id/tv_auto_blacklist_summary"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="已开启 (社交、短视频、游戏、浏览器)"
-                        android:textSize="11sp"
-                        android:textColor="#388E3C"/>
-                </LinearLayout>
-
-                <Button
-                    android:id="@+id/btn_auto_blacklist_config"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:text="⚙️ 设置"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:backgroundTint="#2E7D32"
-                    android:textColor="#FFFFFF"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:minHeight="0dp"
-                    android:paddingTop="0dp"
-                    android:paddingBottom="0dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
 
         <!-- 🚀 Pending Changes Notebook -->
         <androidx.cardview.widget.CardView
@@ -270,13 +210,13 @@
             android:background="#FFFFFF"
             android:layout_marginEnd="4dp">
 
-            <!-- Header with Quick Import -->
+            <!-- Header with Quick Import & Auto Blacklist Buttons -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:padding="12dp"
+                android:padding="10dp"
                 android:background="#F5F5F5">
 
                 <TextView
@@ -291,9 +231,9 @@
                 <Button
                     android:id="@+id/btn_quick_import"
                     android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:text="⚡ 快速导入"
-                    android:textSize="13sp"
+                    android:layout_height="36dp"
+                    android:text="⚡ 快速勾选与自动加黑"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:backgroundTint="#2196F3"
                     android:textColor="#FFFFFF"
@@ -301,7 +241,9 @@
                     android:insetBottom="0dp"
                     android:minHeight="0dp"
                     android:paddingTop="0dp"
-                    android:paddingBottom="0dp"/>
+                    android:paddingBottom="0dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"/>
             </LinearLayout>
 
             <EditText

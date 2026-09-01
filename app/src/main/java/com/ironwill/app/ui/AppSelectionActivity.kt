@@ -265,7 +265,6 @@ class AppSelectionActivity : AppCompatActivity() {
         loadInstalledApps()
 
         setupListModeSwitch()
-        setupAutoBlacklistCard()
 
         // Quick Import Button
         findViewById<Button>(R.id.btn_quick_import).setOnClickListener {
@@ -372,62 +371,9 @@ class AppSelectionActivity : AppCompatActivity() {
         switch.text = if (isWhite) "⚪ 白名单模式 (勾选=放行)" else "⚫ 黑名单模式 (勾选=拦截)"
     }
 
-    // 🚀 [NEW] Quick Import Dialog
+    // 🚀 Quick Import / Unified Dialog
     private fun showQuickImportDialog() {
-        val isBlacklistMode = currentMode == "blacklist"
-        
-        val categoriesList = mutableListOf<String>()
-        val codesList = mutableListOf<String>()
-        
-        // 1. Communication - Only for Blacklist (Emergency Control)
-        if (isBlacklistMode) {
-            categoriesList.add("💬 社交软件 (国内外)")
-            codesList.add("comm")
-        }
-        
-        // 2. Pure Entertainment - Always available
-        categoriesList.add("🎬 短视频 (抖音/快手/B站/小红书)")
-        codesList.add("video")
-        categoriesList.add("🎮 大型手游 (王者/吃鸡/原神)")
-        codesList.add("game")
-
-        categoriesList.add("🌐 浏览器 (Chrome/Google/Firefox/Edge...)")
-        codesList.add("browser")
-
-        val categories = categoriesList.toTypedArray()
-        val codes = codesList.toTypedArray()
-        val checkedItems = BooleanArray(categories.size) { false }
-
-        AlertDialog.Builder(this)
-            .setTitle(if (isBlacklistMode) "⚡ 快速导入黑名单" else "⚡ 快速导入受控应用 (时间窗)")
-            .setMultiChoiceItems(categories, checkedItems) { _, which, isChecked ->
-                checkedItems[which] = isChecked
-            }
-            .setPositiveButton("导入选中") { _, _ ->
-                var addedCount = 0
-                for (i in checkedItems.indices) {
-                    if (checkedItems[i]) {
-                        val categoryApps = CreditManager.getBlacklistCategory(codes[i])
-                        categoryApps.forEach { pkg ->
-                            // Add only if installed (check specific method or reliable package manager)
-                            if (isAppInstalled(pkg) && !selectedApps.contains(pkg)) {
-                                selectedApps.add(pkg)
-                                addedCount++
-                            }
-                        }
-                    }
-                }
-                if (addedCount > 0) {
-                    Toast.makeText(this, "已导入 $addedCount 个应用", Toast.LENGTH_SHORT).show()
-                    // 🚀 [Fix] Hollow Checkbox Bug: Sync allAppsList state with selectedApps
-                    syncSelectionState()
-                    updateLists() // Refresh UI
-                } else {
-                    Toast.makeText(this, "未找到相关应用或已全部在列表中", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        showUnifiedCategoryConfigDialog()
     }
     
     // 🚀 [Fix] Helper to sync state
@@ -583,90 +529,102 @@ class AppSelectionActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupAutoBlacklistCard() {
-        val card = findViewById<View>(R.id.card_auto_blacklist_config) ?: return
-        if (currentMode != "blacklist") {
-            card.visibility = View.GONE
-            return
+
+
+    private fun showUnifiedCategoryConfigDialog() {
+        val isBlacklistMode = currentMode == "blacklist"
+        val savedCategories = com.ironwill.app.data.BlacklistStore.getAutoBlacklistCategories(this)
+        val isAutoEnabled = com.ironwill.app.data.BlacklistStore.isAutoBlacklistEnabled(this)
+
+        val categoriesList = mutableListOf<String>()
+        val codesList = mutableListOf<String>()
+
+        if (isBlacklistMode) {
+            categoriesList.add("⚡ [总开关] 开启新应用下载自动加黑")
+            codesList.add("MASTER_SWITCH")
+
+            categoriesList.add("💬 社交软件 (QQ/微信/微博/Soul等)")
+            codesList.add("comm")
         }
 
-        card.visibility = View.VISIBLE
-        updateAutoBlacklistSummaryUI()
+        categoriesList.add("🎬 短视频/直播 (抖音/快手/B站/小红书等)")
+        codesList.add("video")
+        categoriesList.add("🎮 大型手游 (王者/和平精英/原神/星铁等)")
+        codesList.add("game")
+        categoriesList.add("🌐 浏览器 (Chrome/Edge/夸克/Via等)")
+        codesList.add("browser")
 
-        val btnConfig = findViewById<Button>(R.id.btn_auto_blacklist_config)
-        val clickListener = View.OnClickListener {
-            if (isReadOnly) {
-                Toast.makeText(this, "当前处于深夜保护期，不可修改设置", Toast.LENGTH_SHORT).show()
-                return@OnClickListener
-            }
-            showAutoBlacklistConfigDialog()
-        }
-        card.setOnClickListener(clickListener)
-        btnConfig?.setOnClickListener(clickListener)
-    }
+        val categories = categoriesList.toTypedArray()
+        val codes = codesList.toTypedArray()
 
-    private fun updateAutoBlacklistSummaryUI() {
-        val tvSummary = findViewById<TextView>(R.id.tv_auto_blacklist_summary) ?: return
-        val isEnabled = com.ironwill.app.data.BlacklistStore.isAutoBlacklistEnabled(this)
-        val categories = com.ironwill.app.data.BlacklistStore.getAutoBlacklistCategories(this)
-
-        if (!isEnabled) {
-            tvSummary.text = "🚫 已关闭 (新下载软件不会自动加入黑名单)"
-            tvSummary.setTextColor(android.graphics.Color.parseColor("#757575"))
-        } else {
-            val names = mutableListOf<String>()
-            if (categories.contains("comm")) names.add("社交")
-            if (categories.contains("video")) names.add("短视频")
-            if (categories.contains("game")) names.add("游戏")
-            if (categories.contains("browser")) names.add("浏览器")
-
-            if (names.isEmpty()) {
-                tvSummary.text = "⚠️ 已开启 (未勾选任何分类)"
-                tvSummary.setTextColor(android.graphics.Color.parseColor("#E65100"))
+        // 初始勾选逻辑：总开关读取持久化状态；分类项根据保存的分类及当前App全选情况初始打勾
+        val checkedItems = BooleanArray(categories.size) { i ->
+            val code = codes[i]
+            if (code == "MASTER_SWITCH") {
+                isAutoEnabled
             } else {
-                tvSummary.text = "✅ 已开启 (${names.joinToString("、")})"
-                tvSummary.setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+                val installedCategoryApps = CreditManager.getBlacklistCategory(code).filter { isAppInstalled(it) }
+                val allInstalledSelected = installedCategoryApps.isNotEmpty() && installedCategoryApps.all { selectedApps.contains(it) }
+                savedCategories.contains(code) || allInstalledSelected
             }
         }
-    }
-
-    private fun showAutoBlacklistConfigDialog() {
-        val isEnabled = com.ironwill.app.data.BlacklistStore.isAutoBlacklistEnabled(this)
-        val currentCategories = com.ironwill.app.data.BlacklistStore.getAutoBlacklistCategories(this)
-
-        val items = arrayOf(
-            "⚡ 开启新应用自动加入黑名单",
-            "💬 社交软件 (QQ/微信/微博/Soul等)",
-            "🎬 短视频/直播 (抖音/快手/B站/小红书等)",
-            "🎮 大型手游 (王者/和平精英/原神/星铁等)",
-            "🌐 浏览器 (Chrome/Edge/夸克/Via等)"
-        )
-        val checkedItems = booleanArrayOf(
-            isEnabled,
-            currentCategories.contains("comm"),
-            currentCategories.contains("video"),
-            currentCategories.contains("game"),
-            currentCategories.contains("browser")
-        )
 
         AlertDialog.Builder(this)
-            .setTitle("⚡ 新应用自动入榜设置")
-            .setMultiChoiceItems(items, checkedItems) { _, which, isChecked ->
+            .setTitle(if (isBlacklistMode) "⚡ 批量勾选与自动加黑分类设置" else "⚡ 快速批量应用设置")
+            .setMultiChoiceItems(categories, checkedItems) { _, which, isChecked ->
                 checkedItems[which] = isChecked
             }
-            .setPositiveButton("保存设置") { _, _ ->
-                val newEnabled = checkedItems[0]
+            .setPositiveButton("应用配置与变更") { _, _ ->
                 val newCategories = mutableSetOf<String>()
-                if (checkedItems[1]) newCategories.add("comm")
-                if (checkedItems[2]) newCategories.add("video")
-                if (checkedItems[3]) newCategories.add("game")
-                if (checkedItems[4]) newCategories.add("browser")
+                var addedCount = 0
+                var removedCount = 0
 
-                com.ironwill.app.data.BlacklistStore.setAutoBlacklistEnabled(this, newEnabled)
-                com.ironwill.app.data.BlacklistStore.setAutoBlacklistCategories(this, newCategories)
+                for (i in checkedItems.indices) {
+                    val code = codes[i]
+                    val isChecked = checkedItems[i]
 
-                updateAutoBlacklistSummaryUI()
-                Toast.makeText(this, "自动入榜设置已更新", Toast.LENGTH_SHORT).show()
+                    if (code == "MASTER_SWITCH") {
+                        com.ironwill.app.data.BlacklistStore.setAutoBlacklistEnabled(this, isChecked)
+                    } else {
+                        if (isChecked) {
+                            newCategories.add(code)
+                        }
+
+                        val categoryApps = CreditManager.getBlacklistCategory(code).filter { isAppInstalled(it) }
+                        categoryApps.forEach { pkg ->
+                            if (isChecked) {
+                                if (!selectedApps.contains(pkg)) {
+                                    selectedApps.add(pkg)
+                                    addedCount++
+                                }
+                            } else {
+                                if (selectedApps.contains(pkg)) {
+                                    selectedApps.remove(pkg)
+                                    removedCount++
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (isBlacklistMode) {
+                    com.ironwill.app.data.BlacklistStore.setAutoBlacklistCategories(this, newCategories)
+                }
+
+                val msgList = mutableListOf<String>()
+                if (addedCount > 0) msgList.add("批量导入 $addedCount 个应用")
+                if (removedCount > 0) msgList.add("批量取消 $removedCount 个应用")
+
+                val toastText = if (msgList.isNotEmpty()) {
+                    "已" + msgList.joinToString("，")
+                } else {
+                    "自动加黑与分类配置已更新"
+                }
+
+                Toast.makeText(this, toastText, Toast.LENGTH_SHORT).show()
+
+                syncSelectionState()
+                updateLists()
             }
             .setNegativeButton("取消", null)
             .show()
@@ -676,17 +634,9 @@ class AppSelectionActivity : AppCompatActivity() {
         if (!isReadOnly) return
         btnSave.isEnabled = false
         btnSave.alpha = 0.4f
-        findViewById<Button>(R.id.btn_quick_import).apply {
+        findViewById<Button>(R.id.btn_quick_import)?.apply {
             isEnabled = false
             alpha = 0.4f
-        }
-        findViewById<Button>(R.id.btn_auto_blacklist_config)?.apply {
-            isEnabled = false
-            alpha = 0.4f
-        }
-        findViewById<View>(R.id.card_auto_blacklist_config)?.apply {
-            isEnabled = false
-            alpha = 0.6f
         }
     }
 
