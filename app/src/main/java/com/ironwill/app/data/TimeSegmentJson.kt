@@ -1,8 +1,57 @@
 package com.ironwill.app.data
 
+import com.ironwill.app.MyApplication
 import java.util.Calendar
 import org.json.JSONArray
 import org.json.JSONObject
+
+/**
+ * Canonical clock for quota-rule weekday eligibility.
+ *
+ * IronWill's quota day is not the natural 00:00-24:00 day. It is the interval
+ * between two configured effective/refresh boundaries. Before today's refresh
+ * time we are still inside the previous logical day, so weekday-based segment
+ * activation must continue using the previous day of week.
+ *
+ * Explicit calendar/statistics callers can still pass a concrete day directly
+ * to [TimeSegment.isActiveToday]; this clock is only the default for live rules.
+ */
+object LogicalDayClock {
+    private const val LEDGER_PREFS_NAME = "iron_will_ledger"
+    private const val KEY_REFRESH_TIME = "config_refresh_time"
+    private const val DEFAULT_REFRESH_MINUTES = 8 * 60
+
+    fun resolveDayOfWeek(timestamp: Long, refreshMinutes: Int): Int {
+        val effectiveRefreshMinutes = refreshMinutes.coerceIn(0, 24 * 60 - 1)
+        val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+        val currentMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+        if (currentMinutes < effectiveRefreshMinutes) {
+            cal.add(Calendar.DAY_OF_YEAR, -1)
+        }
+        return cal.get(Calendar.DAY_OF_WEEK)
+    }
+
+    fun currentConfiguredDayOfWeek(nowMillis: Long = System.currentTimeMillis()): Int {
+        val refreshMinutes = runCatching {
+            val raw = MyApplication.instance
+                .getSharedPreferences(LEDGER_PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                .getString(KEY_REFRESH_TIME, "08:00")
+            parseRefreshMinutes(raw)
+        }.getOrDefault(DEFAULT_REFRESH_MINUTES)
+
+        return resolveDayOfWeek(nowMillis, refreshMinutes)
+    }
+
+    private fun parseRefreshMinutes(raw: String?): Int {
+        if (raw.isNullOrBlank()) return DEFAULT_REFRESH_MINUTES
+        val parts = raw.split(":")
+        if (parts.size != 2) return DEFAULT_REFRESH_MINUTES
+        val hour = parts[0].toIntOrNull() ?: return DEFAULT_REFRESH_MINUTES
+        val minute = parts[1].toIntOrNull() ?: return DEFAULT_REFRESH_MINUTES
+        if (hour !in 0..23 || minute !in 0..59) return DEFAULT_REFRESH_MINUTES
+        return hour * 60 + minute
+    }
+}
 
 data class TimeSegment(
     val startHour: Int,
@@ -34,10 +83,13 @@ data class TimeSegment(
         // 🚀 Check Enabled State First
         if (!isEnabled) return false
 
-        val currentDay = checkDayInput ?: Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+        // Live rule evaluation follows the logical/business day (refresh -> refresh),
+        // not the physical weekday that flips at 00:00. Explicit callers (stats,
+        // historical reports) can still supply their own concrete calendar day.
+        val currentDay = checkDayInput ?: LogicalDayClock.currentConfiguredDayOfWeek()
         // If daysOfWeek is defined and NOT empty, check if today is included
         if (daysOfWeek != null && daysOfWeek.isNotEmpty() && !daysOfWeek.contains(currentDay)) {
-            return false // Not active today
+            return false // Not active on this logical day
         }
         return true
     }
@@ -66,7 +118,6 @@ data class TimeSegment(
             // Cross-midnight segment
             current >= start || current < end
         } else {
-            // Normal segment
             current >= start && current < end
         }
         
