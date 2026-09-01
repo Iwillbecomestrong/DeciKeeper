@@ -23,6 +23,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
+import com.ironwill.app.data.BlacklistStore
 import com.ironwill.app.data.LogExporter
 import java.io.File
 import java.text.SimpleDateFormat
@@ -79,7 +80,7 @@ object SettingsBackupManager {
             "iron_will_rules" to listOf("segments_json")
         ),
         BackupCategory.BLACKLIST to mapOf(
-            "iron_will_ledger" to listOf("blacklist_apps_list")
+            "iron_will_ledger" to listOf("blacklist_apps_list", "blacklist_mode", "user_removed_apps")
         ),
         BackupCategory.ALARM to mapOf(
             "alarm_prefs" to listOf(
@@ -484,13 +485,28 @@ object SettingsBackupManager {
             val values = if (targetName == "iron_will_ledger") {
                 val effectiveTime = (rawValues["weekly_privilege_limit_effective_time"] as? Long) ?: 0L
                 val isStale = isAdaptation || (exportedAt > 0L && effectiveTime in 1..exportedAt)
-                if (isStale) {
+                val filtered = if (isStale) {
                     rawValues.filterKeys { it !in setOf(
                         "weekly_privilege_count_limit_pending",
                         "weekly_privilege_duration_limit_pending",
                         "weekly_privilege_limit_effective_time"
                     ) }
                 } else rawValues
+
+                // 确保用户在备份中没有包含的分类App（如用户从黑名单移除了Google/Chrome），同步到 user_removed_apps，
+                // 防止导入后被 MonitorService 的 periodicAutoBlacklistScan 重新自动扫入黑名单！
+                val importedBlacklist = (filtered["blacklist_apps_list"] as? Set<*>)?.filterIsInstance<String>()?.toSet()
+                if (importedBlacklist != null) {
+                    val categoryPkgs = mutableSetOf<String>()
+                    for (cat in listOf("comm", "video", "game", "browser")) {
+                        categoryPkgs.addAll(CreditManager.getBlacklistCategory(cat))
+                    }
+                    val removedFromCategory = categoryPkgs.subtract(importedBlacklist)
+                    if (removedFromCategory.isNotEmpty()) {
+                        BlacklistStore.addUserRemovedApps(context, removedFromCategory)
+                    }
+                }
+                filtered
             } else rawValues
 
             fileCount++
