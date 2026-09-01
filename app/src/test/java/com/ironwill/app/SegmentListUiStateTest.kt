@@ -193,7 +193,7 @@ class SegmentListUiStateTest {
 
     @Test
     fun segmentListSummary_null_followGlobal() {
-        assertEquals("跟随全局黑名单", TimeConfigFragment.segmentListSummary(null))
+        assertEquals("跟随全局黑/白名单", TimeConfigFragment.segmentListSummary(null))
     }
 
     @Test

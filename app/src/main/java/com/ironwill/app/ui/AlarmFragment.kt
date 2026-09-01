@@ -303,6 +303,13 @@ class AlarmFragment : Fragment() {
             showTestDialog()
         }
 
+        view.findViewById<View>(R.id.btn_emergency_whitelist)?.setOnClickListener {
+            val intent = Intent(requireContext(), AppSelectionActivity::class.java).apply {
+                putExtra(AppSelectionActivity.EXTRA_MODE, AppSelectionActivity.MODE_ALARM_EMERGENCY_WHITELIST)
+            }
+            startActivity(intent)
+        }
+
         // 默认设置 → 合并为单一入口
         tvSnoozeSummary = view.findViewById(R.id.tv_snooze_summary)
         tvKeepaliveSummary = view.findViewById(R.id.tv_keepalive_summary)

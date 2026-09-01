@@ -125,7 +125,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="跟随全局黑名单"
+                android:text="跟随全局黑/白名单"
                 android:textSize="12sp"
                 android:textColor="#00838F"
                 android:layout_marginEnd="8dp"/>

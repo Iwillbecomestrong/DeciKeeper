@@ -179,7 +179,7 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="44dp"
-            android:text="♻️ 恢复为全局黑名单"
+            android:text="♻️ 恢复为全局黑/白名单"
             android:textSize="13sp"
             android:textStyle="bold"
             android:backgroundTint="#546E7A"

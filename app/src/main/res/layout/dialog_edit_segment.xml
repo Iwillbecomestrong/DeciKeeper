@@ -178,7 +178,7 @@
             android:layout_height="48dp"
             android:backgroundTint="#1565C0"
             android:textColor="#FFFFFF"
-            android:text="🛡 本时段黑名单"
+            android:text="🛡 本时段黑/白名单"
             android:gravity="center"
             android:textAllCaps="false"
             android:textSize="15sp"/>
@@ -188,7 +188,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="跟随全局黑名单"
+            android:text="跟随全局黑/白名单"
             android:textColor="#00838F"
             android:textSize="12sp"/>
     </LinearLayout>

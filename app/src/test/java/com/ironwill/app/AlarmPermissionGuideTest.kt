@@ -83,4 +83,11 @@ class AlarmPermissionGuideTest {
             )
         )
     }
+
+    @Test
+    fun `emergency whitelist constants and max app limit conform to specification`() {
+        org.junit.Assert.assertEquals("alarm_emergency_whitelist", com.ironwill.app.ui.AppSelectionActivity.MODE_ALARM_EMERGENCY_WHITELIST)
+        org.junit.Assert.assertEquals(2, AlarmChallengeEmergencyWhitelist.MAX_APPS)
+    }
 }
+
