@@ -621,62 +621,39 @@ class AppSelectionActivity : AppCompatActivity() {
     private fun loadInstalledApps() {
         Thread {
             val pm = packageManager
-            val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+            val packages = try {
+                pm.getInstalledApplications(0)
+            } catch (_: Exception) {
+                emptyList()
+            }
 
-            // ⭐ 首次设置检测：仅用于决定是否“自动帮用户勾选常用软件”
-            // 注意：这与“是否处于适应期”是两个概念。
-            // 只要没存过白名单，就当作是第一次设置数据，帮用户勾选电话短信，体验更好。
-            val isFirstDataSetup = CreditManager.isFirstSetup(this)
-
-            val defaultAppKeywords = listOf(
-                "联系人", "contacts", "通讯录",
-                "电话", "phone", "dialer", "拨号",
-                "信息", "短信", "message", "messaging", "mms", "sms",
-                "相册", "图库", "gallery", "photos", "相片",
-                "相机", "camera", "拍照",
-                "计算器", "calculator", "calc",
-                "闹钟", "时钟", "clock", "alarm", "alarms",
-                "天气", "weather",
-                "文件", "文件管理", "filemanager", "files", "explorer", "我的文件"
-            )
+            val dangerousSet = if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
+                AlarmChallengeEmergencyWhitelist.getDangerousPackages(this)
+            } else {
+                emptySet()
+            }
 
             val appList = packages.filter {
-                // 只显示有入口的APP
-                hasLaunchIntent(it.packageName)
+                // 只显示有入口的APP，或是应急名单中已选中的系统应用（如电话/短信）
+                hasLaunchIntent(it.packageName) ||
+                    (currentMode == MODE_ALARM_EMERGENCY_WHITELIST && selectedApps.contains(it.packageName))
             }.filter {
                 if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
-                    AlarmChallengeEmergencyWhitelist.isSelectable(this, it.packageName)
+                    AlarmChallengeEmergencyWhitelist.isSelectable(this, it.packageName, dangerousSet)
                 } else {
                     // 硬剔除项（桌面/输入法/电话/短信/设置/系统导航/时钟/系统跟踪/IronWill）在所有名单页永不显示。
                     !SegmentBlacklist.isHardExempt(this, it.packageName)
                 }
             }.map {
-                val appName = it.loadLabel(pm).toString()
+                val appName = try { it.loadLabel(pm).toString() } catch (_: Exception) { it.packageName }
                 val pkgName = it.packageName
-
-                // 如果是第一次设置数据，且还没勾选过，且匹配关键词，则自动勾选
-                // 🟢 [Fix] Blacklist Mode: Default to EMPTY (Allow All). DO NOT auto-select anything.
-                // Selecting phone/sms in blacklist would BLOCK them, which is catastrophic default behavior.
-                val shouldAutoSelect = false 
-                /* 
-                val shouldAutoSelect = if (isFirstDataSetup && !selectedApps.contains(pkgName)) {
-                    defaultAppKeywords.any { keyword ->
-                        appName.lowercase().contains(keyword.lowercase()) ||
-                                pkgName.lowercase().contains(keyword.lowercase())
-                    }
-                } else {
-                    false
-                }
-                */
-
-                if (shouldAutoSelect) {
-                    selectedApps.add(pkgName)
-                }
 
                 AppInfo(
                     name = appName,
                     packageName = pkgName,
-                    icon = it.loadIcon(pm),
+                    icon = try { it.loadIcon(pm) } catch (_: Exception) {
+                        resources.getDrawable(android.R.drawable.sym_def_app_icon, null)
+                    },
                     isSelected = selectedApps.contains(pkgName)
                 )
             }.sortedBy { it.name }

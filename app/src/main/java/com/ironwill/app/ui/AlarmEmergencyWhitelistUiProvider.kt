@@ -42,31 +42,15 @@ class AlarmEmergencyWhitelistUiProvider : ContentProvider() {
     }
 
     private fun installOrRefresh(activity: Activity) {
+        // 应急名单入口已统一收敛至闹钟主页面右上角「🛡️ 应急应用」，
+        // 全局参数页面不再重复注入该卡片；若存在旧视图则清理。
         if (activity !is GlobalParamsActivity) return
         val root = activity.findViewById<NestedScrollView>(R.id.root_global_params) ?: return
         val column = root.getChildAt(0) as? LinearLayout ?: return
         val existing = column.findViewWithTag<AlarmEmergencyWhitelistSettingsCard>(CARD_TAG)
         if (existing != null) {
-            existing.refresh()
-            return
+            column.removeView(existing)
         }
-
-        val card = AlarmEmergencyWhitelistSettingsCard(activity).apply {
-            tag = CARD_TAG
-        }
-        // Keep it near the top of global settings, after the header/pending area.
-        val index = minOf(3, column.childCount)
-        column.addView(
-            card,
-            index,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                val m = (16 * activity.resources.displayMetrics.density).toInt()
-                bottomMargin = m
-            }
-        )
     }
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null
