@@ -5,6 +5,10 @@ on:
     branches: [dev]
   workflow_dispatch:
 
+concurrency:
+  group: android-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
