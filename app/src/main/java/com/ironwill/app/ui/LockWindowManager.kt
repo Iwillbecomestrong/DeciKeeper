@@ -2337,9 +2337,11 @@ object LockWindowManager {
             setDesktopReturnGrace(now)
             recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
             clearBlacklistHitDebounceForUserAction()
+            Log.i(
+                "PresenceDiag",
+                "[HOME_CLICK] action=RETURN_HOME_ONLY target=${lastBlockedPackageName ?: "unknown"}"
+            )
 
-
-            val pendingAgeMs = if (homeClickPendingSetAt > 0) now - homeClickPendingSetAt else 0L
             // 🏠 回到桌面 legacy lifecycle line retired; LOCK_EXIT normal event already records the outcome.
             Log.w(TAG, "[HOME_CLICK_RAW] pkg=${homeClickPendingPackage ?: "N/A"}, now=$now, dismissUntil=$mDismissUntil, graceMs=$graceTime, isLocked=$isLocked")
 

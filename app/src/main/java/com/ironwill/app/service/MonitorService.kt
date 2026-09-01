@@ -1661,6 +1661,7 @@ class MonitorService : Service() {
                         )
                     )
                     if (canLock) {
+                        Log.i("PresenceDiag", "[PRESENCE_ACTION] action=LOCK pkg=$trackedPkg reason=GRACE_EXPIRED_WITHOUT_CLOSE_EVIDENCE")
                         Log.d(TAG, "[PRESENCE_STATE] pkg=$trackedPkg action=LOCK reason=GRACE_EXPIRED_WITHOUT_CLOSE_EVIDENCE")
                         triggerPresenceLock(trackedPkg, now)
                         return
@@ -1689,6 +1690,7 @@ class MonitorService : Service() {
                                 )
                             )
                             if (canLock) {
+                                Log.i("PresenceDiag", "[PRESENCE_ACTION] action=LOCK pkg=$candidate reason=FIRST_PRESENCE_CONFIRMED")
                                 triggerPresenceLock(candidate, now)
                                 return
                             }
@@ -1698,7 +1700,7 @@ class MonitorService : Service() {
             }
         } else {
             if (mPresenceTracker.state != PresenceTrackerState.NONE) {
-                mPresenceTracker.reset()
+                mPresenceTracker.reset("LOCK_SHOWING_SESSION_RESET")
             }
         }
 

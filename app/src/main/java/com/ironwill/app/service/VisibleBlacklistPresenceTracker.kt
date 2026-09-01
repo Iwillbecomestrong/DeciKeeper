@@ -1,5 +1,7 @@
 package com.ironwill.app.service
 
+import android.util.Log
+
 enum class PresenceTrackerState {
     NONE,
     CONFIRMED_VISIBLE,
@@ -15,6 +17,10 @@ enum class PresenceTrackerAction {
 class VisibleBlacklistPresenceTracker(
     val desktopGraceDurationMs: Long = 3000L
 ) {
+    companion object {
+        private const val PRESENCE_DIAG_TAG = "PresenceDiag"
+    }
+
     var state: PresenceTrackerState = PresenceTrackerState.NONE
         private set
 
@@ -45,17 +51,52 @@ class VisibleBlacklistPresenceTracker(
     private val ACTIVITY_PAUSED = 16
     private val ACTIVITY_STOPPED = 23
 
+    private fun logStateChange(
+        pkg: String,
+        from: PresenceTrackerState,
+        to: PresenceTrackerState,
+        reason: String
+    ) {
+        if (from != to) {
+            Log.i(
+                PRESENCE_DIAG_TAG,
+                "[PRESENCE_STATE] pkg=$pkg from=$from to=$to reason=$reason revalidationRequired=$accessibilityRevalidationRequired"
+            )
+        }
+    }
+
+    private fun setRevalidationRequired(value: Boolean, reason: String) {
+        if (accessibilityRevalidationRequired != value) {
+            accessibilityRevalidationRequired = value
+            val pkg = currentPackage ?: "unknown"
+            Log.i(
+                PRESENCE_DIAG_TAG,
+                "[PRESENCE_STATE] pkg=$pkg revalidationRequired=$value reason=$reason"
+            )
+        }
+    }
+
+    private fun logAction(action: PresenceTrackerAction, pkg: String, reason: String) {
+        Log.i(
+            PRESENCE_DIAG_TAG,
+            "[PRESENCE_ACTION] action=$action pkg=$pkg reason=$reason"
+        )
+    }
+
     /**
      * 首次 Presence 连续确认
      */
     fun onPresenceConfirmed(pkg: String, nowMs: Long): PresenceTrackerAction {
+        val oldState = state
         lastOpenedAtMap[pkg] = nowMs
         closedAtMap.remove(pkg)
         currentPackage = pkg
         confirmedAtMs = nowMs
         state = PresenceTrackerState.CONFIRMED_VISIBLE
         graceUntilMs = 0L
-        accessibilityRevalidationRequired = false
+        setRevalidationRequired(false, reason = "PRESENCE_CONFIRMED")
+        logStateChange(pkg, oldState, state, reason = "PRESENCE_CONFIRMED")
+        logAction(PresenceTrackerAction.LOCK, pkg, reason = "PRESENCE_CONFIRMED")
         return PresenceTrackerAction.LOCK
     }
 
@@ -67,8 +108,10 @@ class VisibleBlacklistPresenceTracker(
      */
     fun onDesktopReturn(nowMs: Long) {
         if (state == PresenceTrackerState.CONFIRMED_VISIBLE || state == PresenceTrackerState.DESKTOP_GRACE) {
+            val oldState = state
             state = PresenceTrackerState.DESKTOP_GRACE
             graceUntilMs = nowMs + desktopGraceDurationMs
+            logStateChange(currentPackage ?: "unknown", oldState, state, reason = "DESKTOP_RETURN")
         }
     }
 
@@ -131,20 +174,23 @@ class VisibleBlacklistPresenceTracker(
         if (state == PresenceTrackerState.NONE) return PresenceTrackerAction.NONE
 
         if (!scanSucceeded) {
-            accessibilityRevalidationRequired = true
+            setRevalidationRequired(true, reason = "A11Y_SCAN_UNKNOWN_OR_FAILED")
             return PresenceTrackerAction.NONE
         }
 
         if (visiblePackages.contains(current)) {
             // 新鲜成功快照重新看到了静止小窗：无需任何新的 RESUMED / FOREGROUND 事件即可续证。
-            accessibilityRevalidationRequired = false
+            setRevalidationRequired(false, reason = "A11Y_TARGET_PRESENT_IN_SNAPSHOT")
             return PresenceTrackerAction.NONE
         }
 
         // 强关闭证据：成功且可观察的 A11y 窗口快照中目标包消失 -> CLOSED Tombstone + 清除 Session。
+        val oldState = state
         closedAtMap[current] = nowMs
         lastStoppedAtMap[current] = nowMs
-        reset()
+        resetInternal()
+        logStateChange(current, oldState, PresenceTrackerState.NONE, reason = "A11Y_TARGET_ABSENT_IN_SNAPSHOT")
+        logAction(PresenceTrackerAction.CLEAR, current, reason = "A11Y_TARGET_ABSENT_IN_SNAPSHOT")
         return PresenceTrackerAction.CLEAR
     }
 
@@ -158,7 +204,10 @@ class VisibleBlacklistPresenceTracker(
                 closedAtMap[pkg] = eventTimeMs
                 // 🛡️ 只有当 STOPPED 属于当前 Session（eventTimeMs > confirmedAtMs）时才允许 CLEAR，避免 30s 历史事件重放杀掉新 Session
                 if (currentPackage == pkg && state != PresenceTrackerState.NONE && eventTimeMs > confirmedAtMs) {
-                    reset()
+                    val oldState = state
+                    resetInternal()
+                    logStateChange(pkg, oldState, PresenceTrackerState.NONE, reason = "USAGE_ACTIVITY_STOPPED(eventTime=$eventTimeMs>confirmedAt=$confirmedAtMs)")
+                    logAction(PresenceTrackerAction.CLEAR, pkg, reason = "USAGE_ACTIVITY_STOPPED")
                     return PresenceTrackerAction.CLEAR
                 }
             }
@@ -210,13 +259,17 @@ class VisibleBlacklistPresenceTracker(
      * - 成功观测 PRESENT 可恢复锁定，成功观测 ABSENT 则直接清除 Session。
      */
     fun evaluate(nowMs: Long): PresenceTrackerAction {
+        val current = currentPackage ?: "unknown"
         return when (state) {
             PresenceTrackerState.NONE -> PresenceTrackerAction.NONE
             PresenceTrackerState.DESKTOP_GRACE -> {
                 if (nowMs < graceUntilMs || accessibilityRevalidationRequired) {
                     PresenceTrackerAction.NONE
                 } else {
+                    val oldState = state
                     state = PresenceTrackerState.CONFIRMED_VISIBLE
+                    logStateChange(current, oldState, state, reason = "DESKTOP_GRACE_EXPIRED_REVALIDATED")
+                    logAction(PresenceTrackerAction.LOCK, current, reason = "DESKTOP_GRACE_EXPIRED_REVALIDATED")
                     PresenceTrackerAction.LOCK
                 }
             }
@@ -230,7 +283,16 @@ class VisibleBlacklistPresenceTracker(
         }
     }
 
-    fun reset() {
+    fun reset(reason: String = "MANUAL_RESET") {
+        val current = currentPackage ?: "unknown"
+        val oldState = state
+        resetInternal()
+        if (oldState != PresenceTrackerState.NONE) {
+            logStateChange(current, oldState, PresenceTrackerState.NONE, reason = reason)
+        }
+    }
+
+    private fun resetInternal() {
         state = PresenceTrackerState.NONE
         currentPackage = null
         confirmedAtMs = 0L
