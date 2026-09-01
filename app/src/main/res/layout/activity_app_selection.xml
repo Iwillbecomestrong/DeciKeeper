@@ -210,51 +210,53 @@
             android:background="#FFFFFF"
             android:layout_marginEnd="4dp">
 
-            <!-- Header with Quick Import & Auto Blacklist Buttons -->
-            <LinearLayout
+            <!-- Row 1: Header Title -->
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="10dp"
-                android:background="#F5F5F5">
+                android:text="📱 全部应用"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#333333"
+                android:padding="12dp"
+                android:background="#F5F5F5"/>
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="📱 全部应用"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#333333"/>
+            <!-- Row 2: Quick Select & Auto Blacklist Action Button -->
+            <Button
+                android:id="@+id/btn_quick_import"
+                android:layout_width="match_parent"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="2dp"
+                android:text="⚡ 批量勾选与自动加黑"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:backgroundTint="#2196F3"
+                android:textColor="#FFFFFF"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="0dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="0dp"/>
 
-                <Button
-                    android:id="@+id/btn_quick_import"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:text="⚡ 快速勾选与自动加黑"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:backgroundTint="#2196F3"
-                    android:textColor="#FFFFFF"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:minHeight="0dp"
-                    android:paddingTop="0dp"
-                    android:paddingBottom="0dp"
-                    android:paddingStart="10dp"
-                    android:paddingEnd="10dp"/>
-            </LinearLayout>
-
+            <!-- Row 3: Search Bar -->
             <EditText
                 android:id="@+id/et_search_apps"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="38dp"
                 android:hint="🔍 搜索应用..."
-                android:padding="10dp"
-                android:textSize="14sp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:textSize="13sp"
                 android:background="#FFFFFF"
-                android:layout_margin="8dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="6dp"
                 android:drawableStart="@android:drawable/ic_menu_search"
                 android:drawablePadding="8dp"
                 android:backgroundTint="#E0E0E0"

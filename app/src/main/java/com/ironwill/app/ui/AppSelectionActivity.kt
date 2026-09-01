@@ -536,72 +536,68 @@ class AppSelectionActivity : AppCompatActivity() {
         val savedCategories = com.ironwill.app.data.BlacklistStore.getAutoBlacklistCategories(this)
         val isAutoEnabled = com.ironwill.app.data.BlacklistStore.isAutoBlacklistEnabled(this)
 
-        val categoriesList = mutableListOf<String>()
-        val codesList = mutableListOf<String>()
+        val dialogView = layoutInflater.inflate(R.layout.dialog_quick_import_config, null)
+        val switchMaster = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_dialog_auto_master)
+        val cbComm = dialogView.findViewById<CheckBox>(R.id.cb_dialog_comm)
+        val cbVideo = dialogView.findViewById<CheckBox>(R.id.cb_dialog_video)
+        val cbGame = dialogView.findViewById<CheckBox>(R.id.cb_dialog_game)
+        val cbBrowser = dialogView.findViewById<CheckBox>(R.id.cb_dialog_browser)
 
-        if (isBlacklistMode) {
-            categoriesList.add("⚡ [总开关] 开启新应用下载自动加黑")
-            codesList.add("MASTER_SWITCH")
-
-            categoriesList.add("💬 社交软件 (QQ/微信/微博/Soul等)")
-            codesList.add("comm")
+        if (switchMaster != null) {
+            switchMaster.isChecked = isAutoEnabled
         }
 
-        categoriesList.add("🎬 短视频/直播 (抖音/快手/B站/小红书等)")
-        codesList.add("video")
-        categoriesList.add("🎮 大型手游 (王者/和平精英/原神/星铁等)")
-        codesList.add("game")
-        categoriesList.add("🌐 浏览器 (Chrome/Edge/夸克/Via等)")
-        codesList.add("browser")
-
-        val categories = categoriesList.toTypedArray()
-        val codes = codesList.toTypedArray()
-
-        // 初始勾选逻辑：总开关读取持久化状态；分类项根据保存的分类及当前App全选情况初始打勾
-        val checkedItems = BooleanArray(categories.size) { i ->
-            val code = codes[i]
-            if (code == "MASTER_SWITCH") {
-                isAutoEnabled
-            } else {
-                val installedCategoryApps = CreditManager.getBlacklistCategory(code).filter { isAppInstalled(it) }
-                val allInstalledSelected = installedCategoryApps.isNotEmpty() && installedCategoryApps.all { selectedApps.contains(it) }
-                savedCategories.contains(code) || allInstalledSelected
-            }
+        // Hide master switch section if not in blacklist mode
+        val masterCard = switchMaster?.parent?.parent as? View
+        if (!isBlacklistMode && masterCard != null) {
+            masterCard.visibility = View.GONE
         }
+
+        fun isCategoryAllSelected(code: String): Boolean {
+            val installedCategoryApps = CreditManager.getBlacklistCategory(code).filter { isAppInstalled(it) }
+            return installedCategoryApps.isNotEmpty() && installedCategoryApps.all { selectedApps.contains(it) }
+        }
+
+        cbComm?.isChecked = savedCategories.contains("comm") || isCategoryAllSelected("comm")
+        cbVideo?.isChecked = savedCategories.contains("video") || isCategoryAllSelected("video")
+        cbGame?.isChecked = savedCategories.contains("game") || isCategoryAllSelected("game")
+        cbBrowser?.isChecked = savedCategories.contains("browser") || isCategoryAllSelected("browser")
 
         AlertDialog.Builder(this)
             .setTitle(if (isBlacklistMode) "⚡ 批量勾选与自动加黑分类设置" else "⚡ 快速批量应用设置")
-            .setMultiChoiceItems(categories, checkedItems) { _, which, isChecked ->
-                checkedItems[which] = isChecked
-            }
+            .setView(dialogView)
             .setPositiveButton("应用配置与变更") { _, _ ->
+                if (isBlacklistMode && switchMaster != null) {
+                    com.ironwill.app.data.BlacklistStore.setAutoBlacklistEnabled(this, switchMaster.isChecked)
+                }
+
                 val newCategories = mutableSetOf<String>()
+                val categoryMap = mapOf(
+                    "comm" to (cbComm?.isChecked == true),
+                    "video" to (cbVideo?.isChecked == true),
+                    "game" to (cbGame?.isChecked == true),
+                    "browser" to (cbBrowser?.isChecked == true)
+                )
+
                 var addedCount = 0
                 var removedCount = 0
 
-                for (i in checkedItems.indices) {
-                    val code = codes[i]
-                    val isChecked = checkedItems[i]
+                categoryMap.forEach { (code, isChecked) ->
+                    if (isChecked) {
+                        newCategories.add(code)
+                    }
 
-                    if (code == "MASTER_SWITCH") {
-                        com.ironwill.app.data.BlacklistStore.setAutoBlacklistEnabled(this, isChecked)
-                    } else {
+                    val categoryApps = CreditManager.getBlacklistCategory(code).filter { isAppInstalled(it) }
+                    categoryApps.forEach { pkg ->
                         if (isChecked) {
-                            newCategories.add(code)
-                        }
-
-                        val categoryApps = CreditManager.getBlacklistCategory(code).filter { isAppInstalled(it) }
-                        categoryApps.forEach { pkg ->
-                            if (isChecked) {
-                                if (!selectedApps.contains(pkg)) {
-                                    selectedApps.add(pkg)
-                                    addedCount++
-                                }
-                            } else {
-                                if (selectedApps.contains(pkg)) {
-                                    selectedApps.remove(pkg)
-                                    removedCount++
-                                }
+                            if (!selectedApps.contains(pkg)) {
+                                selectedApps.add(pkg)
+                                addedCount++
+                            }
+                        } else {
+                            if (selectedApps.contains(pkg)) {
+                                selectedApps.remove(pkg)
+                                removedCount++
                             }
                         }
                     }

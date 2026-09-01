@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- 🚀 Master Switch Section Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="14dp"
+        app:cardBackgroundColor="#E8F5E9"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚡ 新应用下载自动加黑"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#2E7D32"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="开启后，新下载符合以下分类的应用将自动加黑"
+                    android:textSize="11sp"
+                    android:textColor="#388E3C"/>
+            </LinearLayout>
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switch_dialog_auto_master"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Section Header -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="▼ 选择应用分类 (作用于自动加黑与批量增删)"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#616161"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Category Checkboxes -->
+    <CheckBox
+        android:id="@+id/cb_dialog_comm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="💬 社交软件 (QQ/微信/微博/Soul等)"
+        android:textSize="13sp"
+        android:textColor="#333333"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"/>
+
+    <CheckBox
+        android:id="@+id/cb_dialog_video"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🎬 短视频/直播 (抖音/快手/B站/小红书等)"
+        android:textSize="13sp"
+        android:textColor="#333333"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"/>
+
+    <CheckBox
+        android:id="@+id/cb_dialog_game"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🎮 大型手游 (王者/和平精英/原神/星铁等)"
+        android:textSize="13sp"
+        android:textColor="#333333"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"/>
+
+    <CheckBox
+        android:id="@+id/cb_dialog_browser"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🌐 浏览器 (Chrome/Edge/夸克/Via等)"
+        android:textSize="13sp"
+        android:textColor="#333333"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"/>
+
+</LinearLayout>
