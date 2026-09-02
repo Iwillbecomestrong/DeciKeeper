@@ -295,8 +295,15 @@ class AlarmVibrationService : Service() {
         super.onDestroy()
         handler.removeCallbacks(vibrationKeepAliveRunnable)
         handler.removeCallbacks(ringDisplayUpdateRunnable)
-        AlarmScheduler.clearAlarmActive(this)
-        Log.i(TAG, "Vibration stopped, clearAlarmActive")
+        val activeAlarmId = AlarmScheduler.getActiveAlarmId(this)
+        Log.i(
+            TAG,
+            "Vibration service destroying: serviceAlarmId=$alarmId, activeAlarmId=$activeAlarmId; business session state unchanged"
+        )
+        LogExporter.logEvent(
+            "AlarmRecovery",
+            "VIBRATION_SERVICE_DESTROY serviceAlarmId=$alarmId activeAlarmId=$activeAlarmId preserveSession=true"
+        )
         stopRingtone()
         stopVibration()
         try {
