@@ -95,7 +95,12 @@ class VisibleBlacklistPresenceTracker(
      */
     fun onPresenceConfirmed(pkg: String, nowMs: Long): PresenceTrackerAction {
         val oldState = state
-        lastOpenedAtMap[pkg] = nowMs
+        // Presence 确认是“可见性确认”，不是新的真实 lifecycle OPEN 事件。
+        // 如果此前已经收到 FG/RESUMED，就保留那个真实 openedAt；否则才以当前时刻作为兜底。
+        // 这样同一轮稍后到达、但 eventTime 略早于 confirmedAt 的 STOPPED 仍能正确关闭当前 Session。
+        if (!lastOpenedAtMap.containsKey(pkg)) {
+            lastOpenedAtMap[pkg] = nowMs
+        }
         closedAtMap.remove(pkg)
         currentPackage = pkg
         confirmedAtMs = nowMs
@@ -222,11 +227,20 @@ class VisibleBlacklistPresenceTracker(
                 } else {
                     lastStoppedAtMap[pkg] = eventTimeMs
                     closedAtMap[pkg] = eventTimeMs
-                    // 🛡️ 只有当 STOPPED 属于当前 Session（eventTimeMs > confirmedAtMs）时才允许 CLEAR，避免 30s 历史事件重放杀掉新 Session
-                    if (currentPackage == pkg && state != PresenceTrackerState.NONE && eventTimeMs > confirmedAtMs) {
+                    // 🛡️ STOPPED 是否属于当前 Session，应以“最后一次真实打开事件”为边界，而不是
+                    // Presence 的 wall-clock confirmedAt。Presence 可能在同一轮先于 UsageEvents 被确认，
+                    // 此时合法 STOPPED 的 eventTime 会略早于 confirmedAt，但仍晚于真实 FG/RESUMED。
+                    val currentOpenedAt = lastOpenedAtMap[pkg] ?: 0L
+                    val stoppedBelongsToCurrentLifecycle = currentOpenedAt > 0L && eventTimeMs >= currentOpenedAt
+                    if (currentPackage == pkg && state != PresenceTrackerState.NONE && stoppedBelongsToCurrentLifecycle) {
                         val oldState = state
                         resetInternal()
-                        logStateChange(pkg, oldState, PresenceTrackerState.NONE, reason = "USAGE_ACTIVITY_STOPPED(eventTime=$eventTimeMs>confirmedAt=$confirmedAtMs)")
+                        logStateChange(
+                            pkg,
+                            oldState,
+                            PresenceTrackerState.NONE,
+                            reason = "USAGE_ACTIVITY_STOPPED(eventTime=$eventTimeMs>=openedAt=$currentOpenedAt)"
+                        )
                         logAction(PresenceTrackerAction.CLEAR, pkg, reason = "USAGE_ACTIVITY_STOPPED")
                         return PresenceTrackerAction.CLEAR
                     }
