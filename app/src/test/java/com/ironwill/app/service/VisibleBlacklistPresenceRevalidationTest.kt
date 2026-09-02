@@ -102,4 +102,29 @@ class VisibleBlacklistPresenceRevalidationTest {
         assertEquals(PresenceTrackerState.NONE, tracker.state)
         assertEquals(PresenceTrackerAction.NONE, tracker.evaluate(14_500L))
     }
+
+    @Test
+    fun `delayed stopped event after a real reopen clears a later usage presence confirmation`() {
+        val tracker = VisibleBlacklistPresenceTracker(desktopGraceDurationMs = 3000L)
+        val activityResumed = 15
+        val activityStopped = 23
+
+        // Real lifecycle evidence says the package opened at 10s.
+        tracker.onUsageEvent(testPkg, activityResumed, 10_000L)
+
+        // A UsageStats presence scan runs first in the polling cycle and confirms at wall-clock 12.5s.
+        assertEquals(
+            PresenceTrackerAction.LOCK,
+            tracker.onPresenceConfirmed(testPkg, 12_500L)
+        )
+
+        // The same cycle then consumes the real STOPPED event timestamped 12.0s.
+        // Even though the event timestamp is slightly earlier than confirmedAtMs, it is newer
+        // than the last real reopen and therefore belongs to this lifecycle session.
+        val clearAction = tracker.onUsageEvent(testPkg, activityStopped, 12_000L)
+
+        assertEquals(PresenceTrackerAction.CLEAR, clearAction)
+        assertEquals(PresenceTrackerState.NONE, tracker.state)
+        assertTrue(tracker.isPackageClosed(testPkg))
+    }
 }
