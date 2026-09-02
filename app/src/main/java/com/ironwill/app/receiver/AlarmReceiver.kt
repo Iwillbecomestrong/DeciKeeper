@@ -121,6 +121,19 @@ class AlarmReceiver : BroadcastReceiver() {
         // ----- 恢复闹钟：重启后自动恢复震动（不解锁也能触发）-----
         if (action == AlarmScheduler.ACTION_ALARM_RECOVERY) {
             val alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
+            val activeAlarmId = AlarmScheduler.getActiveAlarmId(context)
+            if (!AlarmScheduler.isAlarmActive(context) || activeAlarmId != alarmId) {
+                Log.i(
+                    "AlarmReceiver",
+                    "Recovery alarm: active session mismatch, skipping (requested=$alarmId, active=$activeAlarmId)"
+                )
+                LogExporter.logEvent(
+                    "AlarmRecovery",
+                    "RECOVERY_SKIP_SESSION_MISMATCH requested=$alarmId active=$activeAlarmId"
+                )
+                return
+            }
+
             val recoveryCount = AlarmScheduler.getRecoveryCount(context, alarmId)
             if (recoveryCount >= AlarmScheduler.MAX_RECOVERY_COUNT) {
                 Log.w("AlarmReceiver", "Recovery alarm: max recovery count reached ($recoveryCount), skipping (alarmId=$alarmId)")
@@ -128,8 +141,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 AlarmScheduler.resetRecoveryCount(context, alarmId)
                 return
             }
-            if (AlarmScheduler.isAlarmActive(context)) {
-                Log.i("AlarmReceiver", "Recovery alarm: alarm active, starting vibration (alarmId=$alarmId)")
+            if (AlarmScheduler.isAlarmActive(context) && AlarmScheduler.getActiveAlarmId(context) == alarmId) {
+                Log.i("AlarmReceiver", "Recovery alarm: matching alarm active, starting vibration (alarmId=$alarmId)")
                 val vibrateIntent = Intent(context, AlarmVibrationService::class.java).apply {
                     putExtra(AlarmVibrationService.EXTRA_ALARM_ID, alarmId)
                 }
@@ -142,7 +155,15 @@ class AlarmReceiver : BroadcastReceiver() {
                     AlarmScheduler.scheduleRecoveryAlarm(context, alarmId)
                 }
             } else {
-                Log.i("AlarmReceiver", "Recovery alarm: alarm NOT active, skipping (alarmId=$alarmId)")
+                val currentActiveAlarmId = AlarmScheduler.getActiveAlarmId(context)
+                Log.i(
+                    "AlarmReceiver",
+                    "Recovery alarm: active session changed before restart, skipping (requested=$alarmId, active=$currentActiveAlarmId)"
+                )
+                LogExporter.logEvent(
+                    "AlarmRecovery",
+                    "RECOVERY_SKIP_SESSION_CHANGED requested=$alarmId active=$currentActiveAlarmId"
+                )
             }
             return
         }
@@ -150,12 +171,22 @@ class AlarmReceiver : BroadcastReceiver() {
         // ----- 重启安全网：Direct Boot 阶段触发 -----
         if (action == AlarmScheduler.ACTION_ALARM_REBOOT_SAFETY_NET) {
             val alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
-            if (AlarmScheduler.isAlarmActive(context)) {
-                Log.i("AlarmReceiver", "RebootSafetyNet: alarm active, starting vibration (alarmId=$alarmId)")
+            val activeAlarmId = AlarmScheduler.getActiveAlarmId(context)
+            if (AlarmScheduler.isAlarmActive(context) && activeAlarmId == alarmId) {
+                Log.i("AlarmReceiver", "RebootSafetyNet: matching alarm active, starting vibration (alarmId=$alarmId)")
                 val vibrateIntent = Intent(context, AlarmVibrationService::class.java).apply {
                     putExtra(AlarmVibrationService.EXTRA_ALARM_ID, alarmId)
                 }
                 context.startForegroundService(vibrateIntent)
+            } else {
+                Log.i(
+                    "AlarmReceiver",
+                    "RebootSafetyNet: active session mismatch, skipping (requested=$alarmId, active=$activeAlarmId)"
+                )
+                LogExporter.logEvent(
+                    "AlarmRecovery",
+                    "SAFETY_NET_SKIP_SESSION_MISMATCH requested=$alarmId active=$activeAlarmId"
+                )
             }
             return
         }
@@ -328,21 +359,22 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     /**
-     * 清理被拒绝的旧闹钟残留状态：
-     * - 关闭悬浮窗（如果显示）
-     * - 停止振动服务
-     * - 清除 active 状态
+     * 被拒绝的旧广播只能拒绝自己，不能结束当前正在运行的闹钟 session。
+     *
+     * 过去这里会无条件 stop 全局 AlarmVibrationService、clearAlarmActive、dismiss overlay；
+     * 当旧 alarmId/token 的 PendingIntent 晚于新闹钟到达时，会把已经成功启动的新闹钟误杀。
+     * 现在只记录诊断信息，运行时 teardown 只允许由明确的挑战完成/暂停流程发起。
      */
     private fun cleanupStaleAlarm(context: Context, alarmId: Int, reason: String) {
-        try {
-            AlarmVibrationService.stop(context)
-            AlarmScheduler.clearAlarmActive(context)
-            AlarmWindowManager.dismiss()
-            Log.i("AlarmReceiver", "cleanupStaleAlarm: cleaned up alarmId=$alarmId (reason=$reason)")
-            LogExporter.logEvent("AlarmRecovery", "STALE_CLEANUP id=$alarmId reason=$reason")
-        } catch (e: Exception) {
-            Log.w("AlarmReceiver", "cleanupStaleAlarm failed: ${e.message}")
-        }
+        val activeAlarmId = AlarmScheduler.getActiveAlarmId(context)
+        Log.w(
+            "AlarmReceiver",
+            "cleanupStaleAlarm: ignored rejected broadcast id=$alarmId reason=$reason active=$activeAlarmId"
+        )
+        LogExporter.logEvent(
+            "AlarmRecovery",
+            "STALE_TRIGGER_IGNORED id=$alarmId reason=$reason active=$activeAlarmId"
+        )
     }
 
     private data class ValidateResult(
