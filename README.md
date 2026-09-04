@@ -73,15 +73,27 @@ IronWill/
 
 ---
 
-## 🛠️ 构建与安装
+## 🛠️ 安装与部署指南
 
-### 环境要求
+### 📱 普通用户安装（推荐）
+
+1. 从 [Releases 页面](https://github.com/Iwillbecomestrong/IronWill/releases) 下载最新发布的 `IronWill-release.apk` 并直接安装。
+2. **解除系统权限限制（Android 13+ 必读）**：
+   由于开源侧载应用未走应用商店签名分发，Android 13 及更高版本会默认限制无障碍等关键权限。若开启无障碍服务时提示**“受限制的设置 / 出于安全考虑，此设置目前不可用”**，请执行一次性解除限制：
+   > **进入系统「设置」➔「应用管理」➔ 找到「IronWill」➔ 点击右上角「⋮」（更多菜单）➔ 点击「允许受限制的设置」**。
+   > 验证锁屏密码或指纹后，返回即可顺利开启**无障碍服务**、**悬浮窗（应用上层显示）**与**使用情况访问**等核心自律权限。
+3. 详细图文权限开启指导请查阅 [📖 使用手册](docs/使用手册.md)。
+
+---
+
+### 💻 开发者编译与调试
+
+#### 环境要求
 - **JDK**：17（推荐 Eclipse Temurin 17）
 - **Android SDK**：Compile SDK 36，Min SDK 26 (Android 8.0+)
 - **构建工具**：Gradle Wrapper 8.13
 
-### 本地编译
-
+#### 本地编译产物
 ```powershell
 # Windows
 .\gradlew.bat :app:assembleDebug
@@ -89,18 +101,24 @@ IronWill/
 # Linux / macOS
 ./gradlew :app:assembleDebug
 ```
-构建产物位于：`app/build/outputs/apk/debug/app-debug.apk`
+产物位置：`app/build/outputs/apk/debug/app-debug.apk`
 
-### 真机安装与测试
-
+#### ADB 调试安装
 ```powershell
-# 覆盖安装更新（-r 保留数据，-d 允许降级）
+# 覆盖安装更新（-r 保留用户数据，-d 允许降级安装）
 adb install -r -d app/build/outputs/apk/debug/app-debug.apk
 ```
 
+---
+
+### ⚠️ 数据安全与卸载恢复须知
+
 > [!CAUTION]
-> **严禁执行 `adb uninstall com.ironwill.app`**！
-> 卸载将永久清除您手机上的本地加密规则、额度账本及学习记录。
+> **日常使用请勿随意卸载应用（尤其禁止执行 `adb uninstall com.ironwill.app`）**！
+> 卸载会将手机本地保存的加密规则、额度账本及自律记录全部抹除。
+
+- **数据备份与恢复**：建议在应用内定期使用「导出配置 / 设置备份」功能将规则备份至外部存储。
+- **重装恢复**：若因换机或误删需要重新安装，可通过导入之前导出的备份文件一键恢复所有时段与额度规则；**但重新安装后，必须按照上述指引重新授予系统各项核心权限**。
 
 ---
 
