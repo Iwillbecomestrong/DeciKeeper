@@ -146,6 +146,21 @@ VIDEO1 = {
     ),
 }
 
+# 视频 1 的三幕分组：仅用于导出 markdown 的粗分层，VIDEO1 字典本身仍是唯一真相源。
+# 节点顺序、字数、时间码全部由 VIDEO1 推导，分组只决定 `##` 落在哪里。
+VIDEO1_ACTS = [
+    ("一、知止是什么", [
+        "01 开场｜三种手机角色", "02 适合谁",
+        "03 更确定的自由", "04 两个系统（概览）",
+    ]),
+    ("二、它怎么来的", [
+        "05 最开始我只是在提需求", "06 差点就停在这里",
+    ]),
+    ("三、为什么交给你", [
+        "07 为什么开源", "08 从使用者到创造者", "09 谢谢你们",
+    ]),
+]
+
 # ---------------------------------------------------------------------------
 # 视频 3 前置素材 / 独立短视频：《晚上我会限制 ChatGPT》
 # 目标 60 秒 / ~230 字
@@ -364,27 +379,37 @@ def export_video1(path):
     """
     lines = []
     total = sum(count(t) for t in VIDEO1.values())
+
+    # 先算好每个节点的时间码，分幕与节点共用，保证两者一致
     elapsed = 0.0
+    node_ts = {}
+    for name, text in VIDEO1.items():
+        n = count(text)
+        start = fmt_ts(elapsed)
+        elapsed += n / RATE
+        node_ts[name] = (start, fmt_ts(elapsed), n)
+
     lines.append("# 视频 1 定稿旁白")
     lines.append("")
     lines.append("> 《我做了一个自己每天都在用的软件，现在把它开源了》")
-    lines.append(f"> 全长约 {total / RATE:.1f} 分钟（{total} 字，@230 字/分钟）")
+    lines.append(f"> 全长约 {total / RATE:.1f} 分钟（{total} 字，@230 字/分钟），分三幕")
     lines.append(">")
     lines.append("> ⚠️ 本文件由 `narration_count.py --export` 自动生成，**请勿手改**。")
     lines.append("> 改稿请改 `narration_count.py` 里的 `VIDEO1` 字典后重新导出。")
     lines.append("")
 
-    for name, text in VIDEO1.items():
-        n = count(text)
-        start = fmt_ts(elapsed)
-        elapsed += n / RATE
-        end = fmt_ts(elapsed)
-        lines.append(f"## {name}")
+    for act_title, keys in VIDEO1_ACTS:
+        a_start = node_ts[keys[0]][0]
+        a_end = node_ts[keys[-1]][1]
+        a_chars = sum(node_ts[k][2] for k in keys)
+        lines.append(f"## {act_title}（{a_start} – {a_end} · {a_chars} 字）")
         lines.append("")
-        lines.append(f"`{start} – {end}`　·　{n} 字")
-        lines.append("")
-        lines.append(text)
-        lines.append("")
+        for k in keys:
+            start, end, n = node_ts[k]
+            lines.append(f"**{k}**　`{start} – {end}`　·　{n} 字")
+            lines.append("")
+            lines.append(VIDEO1[k])
+            lines.append("")
 
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
