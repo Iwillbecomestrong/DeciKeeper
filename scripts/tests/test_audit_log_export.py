@@ -117,6 +117,8 @@ class ClassifySourceTests(unittest.TestCase):
 
 class SummarizeTests(unittest.TestCase):
     def test_summarize_real_591_line_fixture(self):
+        if not os.path.isfile(FIXTURE_PATH):
+            self.skipTest("591-line fixture missing")
         lines = _load_fixture_lines()
         summary = aul.summarize(lines, source_file=FIXTURE_PATH)
 
@@ -136,6 +138,8 @@ class SummarizeTests(unittest.TestCase):
         self.assertEqual(summary["duplicateKeys"], [])
 
     def test_summarize_is_deterministic(self):
+        if not os.path.isfile(FIXTURE_PATH):
+            self.skipTest("591-line fixture missing")
         lines = _load_fixture_lines()
         a = aul.summarize(lines, source_file=FIXTURE_PATH)
         b = aul.summarize(lines, source_file=FIXTURE_PATH)
@@ -145,6 +149,8 @@ class SummarizeTests(unittest.TestCase):
         )
 
     def test_summarize_top_n_truncates(self):
+        if not os.path.isfile(FIXTURE_PATH):
+            self.skipTest("591-line fixture missing")
         lines = _load_fixture_lines()
         small = aul.summarize(lines, source_file="x", top_n=3)
         self.assertLessEqual(len(small["topTags"]), 3)
