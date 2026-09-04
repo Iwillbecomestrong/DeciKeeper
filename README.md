@@ -9,12 +9,13 @@
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-SDK%2026--36-green.svg)](app/build.gradle.kts)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-purple.svg)](gradle/libs.versions.toml)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
 
 [📖 使用手册](docs/使用手册.md) •
 [📐 系统规范 (SPEC)](SPEC.md) •
 [🗺️ 路线计划 (PLAN)](PLAN.md) •
 [📜 决策经验 (HISTORY)](HISTORY.md) •
+[🔄 更新日志](CHANGELOG.md) •
 [🤖 AI 协作协议](AGENT_CORE.md)
 
 </div>
@@ -49,18 +50,21 @@ IronWill 遵循模块职责清晰、单向依赖与就地契约（Local README G
 
 ```text
 IronWill/
+├── .github/              # 社区协作配置（Issue 模版、PR 模版、CONTRIBUTING.md、SECURITY.md）
 ├── app/                  # Android 客户端主工程（UI、Manager 业务层、Protection 防护层）
 │   └── README.md         # App 模块开发指南、分层架构规范与构建单测说明
 ├── docs/                 # 项目知识中心与规格档案
 │   ├── README.md         # 文档中心地图
 │   ├── ARCHITECTURE.md   # 核心系统架构、依赖方向与重构蓝图
 │   ├── DATA_SOURCES.md   # 词库与题面数据开源合规声明
+│   ├── THIRD_PARTY_NOTICES.md # 第三方开源组件许可证声明
 │   ├── 使用手册.md        # 面向用户的详尽图文操作手册
 │   ├── specs/            # 详细业务规格（requirements.md）
 │   ├── history/          # 历史缺陷排查追踪（issue_tracker.md）与证据样本
 │   └── images/           # 视觉图档与高清 Logo
 ├── scripts/              # 数据清洗合规管线、日志审计工具与测试
 │   └── README.md         # 脚本运行说明与自动化测试
+├── CHANGELOG.md          # 语义化版本更迭日志
 ├── SPEC.md               # 项目意图真相（系统确认规格）
 ├── PLAN.md               # 项目实现真相（阶段路线图与当前工作）
 ├── HISTORY.md            # 项目决策真相（关键 [DECISION] 与防回归红线）
@@ -103,7 +107,7 @@ adb install -r -d app/build/outputs/apk/debug/app-debug.apk
 ## 🤝 架构与贡献
 
 - **架构设计**：请阅读 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，严格遵循 `UI ➔ Manager ➔ Data` 单向依赖。
-- **贡献流程与红线**：提交 PR 前请仔细阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- **贡献流程与红线**：提交 PR 前请仔细阅读 [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) 及 [.github/SECURITY.md](.github/SECURITY.md)。
 - **已知历史陷阱**：修改锁屏、无障碍及前台判定前，必须阅读 [HISTORY.md](HISTORY.md) 与 [docs/history/issue_tracker.md](docs/history/issue_tracker.md)。
 - **多 AI 开发**：AI 编码助手请首先加载并遵循 [AGENT_CORE.md](AGENT_CORE.md)。
 
@@ -112,7 +116,7 @@ adb install -r -d app/build/outputs/apk/debug/app-debug.apk
 ## 📄 数据资产与版权声明
 
 - `app/src/main/assets/` 下的词库释义由 AI 辅助生成；真题题面源自教育部历年公开考研英语真题；商业书籍详细解析已完全从开源版本中剥离。
-- 详见 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)。请勿向本仓库提交任何来源于商业出版物或未经授权付费翻译抓取的数据。
+- 数据集来源详见 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)；第三方库许可证声明详见 [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md)。请勿向本仓库提交任何来源于商业出版物或未经授权付费翻译抓取的数据。
 
 ---
 

@@ -11,6 +11,7 @@
 docs/
 ├── ARCHITECTURE.md          # 核心系统架构设计、依赖流向与重构路线图
 ├── DATA_SOURCES.md          # 数据集来源、开源版权清洗合规与剥离说明
+├── THIRD_PARTY_NOTICES.md   # 第三方开源组件与库许可证声明
 ├── 使用手册.md               # 面向最终用户的详细功能配置与使用指南
 ├── specs/                   # 业务规格与详细需求
 │   └── requirements.md      # 全量产品需求规格（原 Requirements.md）
