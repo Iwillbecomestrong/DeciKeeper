@@ -21,6 +21,7 @@
     <string name="privacy_space_guard_toast_pending">⏳ 已申请关闭隐私空间拦截（明日生效，可与防卸载同次提交）</string>
     <string name="privacy_space_guard_toast_adaptation_off">✅ 适应期内，隐私空间拦截已立即关闭</string>
     <string name="privacy_space_guard_toast_need_a11y">⚠️ 请先开启无障碍服务</string>
+    <string name="a11y_service_not_ready_toast">⚠️ 无障碍服务待关闭或未开启，请先开启无障碍服务</string>
 
     <!-- Lock Penalty Dialog -->
     <string name="penalty_dialog_title">知止强制干预</string>

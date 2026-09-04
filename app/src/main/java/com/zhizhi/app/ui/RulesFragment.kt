@@ -117,6 +117,10 @@ class RulesFragment : Fragment() {
             return !isAccessibilityEnabled || !allPrerequisitesReady
         }
 
+        internal fun isA11yReady(systemEnabled: Boolean, pendingDisable: Boolean): Boolean {
+            return systemEnabled && !pendingDisable
+        }
+
         internal fun shouldShowWeeklyPrivilegeEntryInSettings(): Boolean = false
 
         // ─────────────────────────────────────────────────────────────────────
@@ -548,6 +552,13 @@ class RulesFragment : Fragment() {
             lastSwitchClickTime = now
 
             if (isChecked) {
+                if (!isA11yServiceReady(context)) {
+                    switchUninstallUiUpdating = true
+                    switchView.isChecked = false
+                    switchUninstallUiUpdating = false
+                    Toast.makeText(context, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    return@setOnCheckedChangeListener
+                }
                 AntiUninstallManager.setProtectionEnabled(context, true)
                 Toast.makeText(context, "✅ 防卸载保护已开启", Toast.LENGTH_SHORT).show()
                 updateAntiUninstallUI()
@@ -619,6 +630,13 @@ class RulesFragment : Fragment() {
             lastPermProtectionSwitchClickTime = now
 
             if (isChecked) {
+                if (!isA11yServiceReady(context)) {
+                    switchPermProtectionUiUpdating = true
+                    switchView.isChecked = false
+                    switchPermProtectionUiUpdating = false
+                    Toast.makeText(context, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    return@setOnCheckedChangeListener
+                }
                 // 防关权限保护：弹窗检查基础权限+锁屏显示+无障碍
                 switchPermProtectionUiUpdating = true
                 switchView.isChecked = false
@@ -664,6 +682,7 @@ class RulesFragment : Fragment() {
                     // 已开启，检查是否有待关闭标记需要清除
                     if (isA11yPendingDisable(context)) {
                         setA11yPendingDisable(context, false)
+                        updateAccessibilityServiceUI()
                         Toast.makeText(context, "已取消关闭申请", Toast.LENGTH_SHORT).show()
                     }
                     return@setOnCheckedChangeListener
@@ -680,6 +699,7 @@ class RulesFragment : Fragment() {
                     switchA11yServiceUiUpdating = true
                     switchView.isChecked = false
                     switchA11yServiceUiUpdating = false
+                    updateAccessibilityServiceUI()
                     return@setOnCheckedChangeListener
                 }
                 // 系统仍开启 → 弹窗确认关闭
@@ -813,6 +833,7 @@ class RulesFragment : Fragment() {
             switchA11yServiceUiUpdating = true
             switchView.isChecked = false
             switchA11yServiceUiUpdating = false
+            updateAccessibilityServiceUI()
             updateAntiUninstallUI()
             updatePermProtectionUI()
             updateAlarmPowerOffProtectionUI()
@@ -936,6 +957,7 @@ class RulesFragment : Fragment() {
             switchA11yServiceUiUpdating = true
             switchView.isChecked = false
             switchA11yServiceUiUpdating = false
+            updateAccessibilityServiceUI()
             updateAntiUninstallUI()
             updatePermProtectionUI()
             updateAlarmPowerOffProtectionUI()
@@ -1253,6 +1275,13 @@ class RulesFragment : Fragment() {
             if (switchAlarmPowerOffUiUpdating) return@setOnCheckedChangeListener
 
             if (isChecked) {
+                if (!isA11yServiceReady(context)) {
+                    switchAlarmPowerOffUiUpdating = true
+                    switchView.isChecked = false
+                    switchAlarmPowerOffUiUpdating = false
+                    Toast.makeText(context, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    return@setOnCheckedChangeListener
+                }
                 val prerequisite = getAlarmPowerOffPrerequisiteState(context)
                 if (!prerequisite.allReady) {
                     switchAlarmPowerOffUiUpdating = true
@@ -1344,7 +1373,7 @@ class RulesFragment : Fragment() {
 
         fun updateDialogUi() {
             val lockScreenOk = AlarmPowerOffProtectionManager.canUseFullScreenIntent(ctx)
-            val a11yOk = isAccessibilityServiceEnabled()
+            val a11yOk = isA11yServiceReady(ctx)
 
             tvMessage.text = buildString {
                 append("闹钟防关机保护会在闹钟挑战期间拦截关机菜单等系统入口。\n")
@@ -1353,7 +1382,7 @@ class RulesFragment : Fragment() {
                     append("⚠️ 锁屏显示未开启\n")
                 }
                 if (!a11yOk) {
-                    append("⚠️ 无障碍服务未开启\n")
+                    append("⚠️ 无障碍服务未开启或处于待关闭状态\n")
                 }
                 if (lockScreenOk && a11yOk) {
                     append("✅ 所有权限已齐全，可开启功能。")
@@ -1519,7 +1548,7 @@ class RulesFragment : Fragment() {
         fun updateDialogUi() {
             val permState = getHomePermissionState(ctx)
             val lockScreenOk = AlarmPowerOffProtectionManager.canUseFullScreenIntent(ctx)
-            val a11yOk = isAccessibilityServiceEnabled()
+            val a11yOk = isA11yServiceReady(ctx)
             val baseOk = permState.allGranted
 
             tvMessage.text = buildString {
@@ -1536,7 +1565,7 @@ class RulesFragment : Fragment() {
                     append("✅ 锁屏显示已开启\n")
                 }
                 if (!a11yOk) {
-                    append("⚠️ 无障碍服务未开启\n")
+                    append("⚠️ 无障碍服务未开启或处于待关闭状态\n")
                 } else {
                     append("✅ 无障碍已开启\n")
                 }
@@ -1819,7 +1848,7 @@ class RulesFragment : Fragment() {
 
     private fun getAlarmPowerOffPrerequisiteState(ctx: Context): AlarmPowerOffPrerequisiteState {
         val lockScreenReady = AlarmPowerOffProtectionManager.canUseFullScreenIntent(ctx)
-        val a11yReady = isAccessibilityServiceEnabled()
+        val a11yReady = isA11yServiceReady(ctx)
         return AlarmPowerOffPrerequisiteState(
             lockScreenReady = lockScreenReady,
             a11yReady = a11yReady
@@ -2214,7 +2243,7 @@ class RulesFragment : Fragment() {
 
         tvAccessibilityStatus?.let {
             if (finalPending) {
-                it.text = "状态: ⏳ 已申请关闭（次日生效）"
+                it.text = "状态: ⏳ 待关闭（明日生效）"
                 it.setTextColor(android.graphics.Color.parseColor("#FF9800"))
             } else if (a11yOk) {
                 it.text = "状态: ✅ 无障碍服务已开启，可启用各项保护"
@@ -2303,13 +2332,12 @@ class RulesFragment : Fragment() {
             lastPrivacySpaceGuardSwitchClickTime = now
 
             if (isChecked) {
-                // 开启必须无障碍已启用为前提
-                if (shouldBlockPrivacySpaceGuardEnable(isAccessibilityServiceEnabled())) {
+                // 开启必须无障碍已启用且非待关闭为前提
+                if (!isA11yServiceReady(context)) {
                     switchPrivacySpaceGuardUiUpdating = true
                     switchView.isChecked = false
                     switchPrivacySpaceGuardUiUpdating = false
-                    Toast.makeText(context, getString(R.string.privacy_space_guard_toast_need_a11y), Toast.LENGTH_SHORT).show()
-                    showPrivacySpaceGuardEnableGuideDialog()
+                    Toast.makeText(context, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
                     return@setOnCheckedChangeListener
                 }
                 // 无障碍已开 → 立即开启 (经 Manager)
@@ -2500,22 +2528,26 @@ class RulesFragment : Fragment() {
             .show()
     }
 
-    private fun isAccessibilityServiceEnabled(): Boolean {
-        val context = context ?: return false
-        val accessibilityManager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-        val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        return enabledServices?.contains(context.packageName) == true
+    private fun isAccessibilityServiceEnabled(ctx: Context? = context): Boolean {
+        val target = ctx ?: context ?: return false
+        val enabledServices = Settings.Secure.getString(target.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        return enabledServices?.contains(target.packageName) == true
     }
 
-    private fun isA11yPendingDisable(ctx: Context): Boolean {
+    internal fun isA11yPendingDisable(ctx: Context): Boolean {
         return ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean(KEY_A11Y_PENDING_DISABLE, false)
     }
 
-    private fun setA11yPendingDisable(ctx: Context, pending: Boolean) {
+    internal fun setA11yPendingDisable(ctx: Context, pending: Boolean) {
         ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_A11Y_PENDING_DISABLE, pending)
             .apply()
+    }
+
+    internal fun isA11yServiceReady(ctx: Context? = context): Boolean {
+        val target = ctx ?: context ?: return false
+        return isA11yReady(isAccessibilityServiceEnabled(target), isA11yPendingDisable(target))
     }
 }
