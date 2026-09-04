@@ -1,0 +1,42 @@
+# IronWill 架构决策与经验档案 (HISTORY)
+
+> **定位**：本文件是 IronWill 项目的**历史决策真相（Historical Decision Truth）**，沉淀核心架构演进决策、高价值教训与防回归红线。
+> 开源前完整的问题追踪与历史排查记录详见 [docs/history/issue_tracker.md](file:///g:/IronWIl0329/IronWill-OpenSource/docs/history/issue_tracker.md)。
+
+---
+
+## 1. 关键架构决策记录 [DECISION]
+
+### [DECISION-01] 闹钟状态与 Direct Boot 设备保护存储双写
+- **背景**：Android 设备强制关机重启后，在首次输入锁屏密码前处于 Direct Boot 模式，凭据加密存储（Credential Protected Storage）不可读，导致闹钟标志位丢失无法恢复震动。
+- **决策**：所有闹钟激活状态必须使用 `createDeviceProtectedStorageContext()` 双写到设备保护存储，且必须使用 `commit()` 同步写入，服务声明 `android:directBootAware="true"`。
+- **防坑警告**：Direct Boot 下 `startForeground` 若通知系统未就绪可能崩溃，必须用 `try-catch` 防护，绝不阻断唤醒。
+
+### [DECISION-02] 锁屏覆盖层代际机制 (Accessibility Generation Isolation)
+- **背景**：在 Vivo 等机型上，无障碍服务被系统回收再重连时，因静态 `_isLocked=true` 与视图残留，导致新前台黑名单请求误触发 `LOCK_ALREADY_ATTACHED` 短路，产生严重漏拦。
+- **决策**：`CoreService` 维护原子代际序号 `accessibilityGeneration: AtomicLong`，每次 `onServiceConnected` 递增；`LockWindowManager` 记录视图附着时的代际。仅当代际匹配时复用视图，代际过期立即强制重建。
+- **防坑警告**：防卸载锁（`_isAntiUninstallLock=true`）具备最高优先级，跨代际保留，不得被黑名单普通锁请求降级。
+
+### [DECISION-03] 防卸载拦截 5 秒热窗口对称化
+- **背景**：用户在系统设置中点击“强行停止”或“卸载”时，不同厂商弹窗出现时机与文本抓取存在时间差；深度遍历 AccessibilityNode 耗时长达数百毫秒，给用户留下操作时间缝隙。
+- **决策**：统一引入 5 秒热窗口（Hot Window）机制。一旦识别到进入设置关键页或点击敏感操作，立即激活热窗口，后续弹窗命中直接执行 BACK+HOME 退栈，跳过深层文本抓取。
+- **防坑警告**：加严拦截规则（如隐私空间添加应用）优先采用页面特征单闸立即拦截，严禁依赖耗时的节点深度文本比对。
+
+### [DECISION-04] 生效策略与法定基准 (Baseline) 比对
+- **背景**：若放宽规则与加严规则即时混合生效，用户易在自控崩溃时反复修改规则避锁。
+- **决策**：确立“加严立即生效，放松次日 08:00 生效”铁律。比对基准以每日 08:00 生成的快照文件 `iron_will_rules_baseline` 为准，杜绝以当天工作态作为比对源产生的漂移。
+
+### [DECISION-05] 临时放行分段阶梯惩罚
+- **背景**：早期固定 2 倍冷静期容易被恶意利用，用户会频繁短时间申请放行。
+- **决策**：冷却公式实施分段阶梯（0~60s: 1x, 61~120s: 2x, 121~180s: 3x）。申请时间越长，不仅扣除额度倍增，冷却锁定惩罚更呈指数上升。
+
+---
+
+## 2. 核心防回归红线与惨痛教训
+
+| 陷阱场景 | 根本原因 | 防御与防回归规则 |
+|:---|:---|:---|
+| **Vivo 视频/空闲误报桌面** | Vivo 系统在用户无操作看视频时，UsageStats 长期报系统桌面 | 引入 35s 桌面计时器兜底；到期时若检测到桌面且存在桌面累计，坚决执行重锁。 |
+| **息屏睡死到期不重锁** | 息屏期间前台包名常为空，重试超时后直接退出 | 重试超时后调用 `forceRelockAfterExpiry()` 强制弹锁屏。 |
+| **整型时间戳溢出漏洞** | 白名单跳过桌面计时器时未重置变量，导致 `now - 0` 计算出万亿毫秒累计差 | 任何时间差计算前，必须检查计时器激活标志位，严防默认值 0 参与时间运算。 |
+| **取证与业务决策串扰** | 曾尝试利用诊断投票修改黑名单放行判定 | **绝对红线**：诊断与取证系统只负责记录与分析，严禁直接参与任何业务决策。 |
