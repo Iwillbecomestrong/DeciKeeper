@@ -102,3 +102,4 @@ device_*.txt
 ironwill_event_log*.txt
 upslide.apk
 *.bak_*
+.workbuddy-ai/

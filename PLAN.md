@@ -13,7 +13,7 @@ graph TD
     C --> D[Phase 4: 全机型自动化测试与 CI 流水线完善]
 ```
 
-### Phase 1: 开源合规与仓库结构治理（当前进行中）
+### Phase 1: 开源合规与仓库结构治理（已完成闭环）
 - **目标**：完成代码库的开源治理闭环，建立符合现代化规范的文件布局、治理契约、Local README 门禁与社区协作模版。
 - **里程碑任务**：
   1. [x] 建立根级生活文档体系（`README.md`, `SPEC.md`, `PLAN.md`, `HISTORY.md`, `AGENT_CORE.md`）。
@@ -21,10 +21,12 @@ graph TD
   3. [x] 净化 Java 源码集（移除 `Overview.md`，移出 `image/` 下非代码资源）。
   4. [x] 规范视觉资产（灯塔图标规范化命名并嵌入 README）。
   5. [x] 整理与清理本地调试转储文件（统一收录至 `.local_debug/` 并纳入 gitignore）。
-  6. [ ] 社区协作建设（添加 Issue/PR 模版）。
-  7. [ ] 脚本测试鲁棒性修复（无外部私有真机日志时的安全跳过）。
+  6. [x] 社区协作建设（添加 Issue 模版、PR 模版、`CONTRIBUTING.md`、`SECURITY.md`）。
+  7. [x] 脚本测试鲁棒性修复（无外部私有真机日志时的安全跳过）。
+  8. [x] 版本更迭日志建立（遵循 Keep a Changelog 的 `CHANGELOG.md`）。
+  9. [x] 深度融合产品哲学理念与真实场景故事（`README.md`, `SPEC.md`, `docs/使用手册.md`）。
 
-### Phase 2: 核心业务 Manager 解耦与接口化（下一阶段）
+### Phase 2: 核心业务 Manager 解耦与接口化（进行中）
 - **目标**：对照 `docs/ARCHITECTURE.md`，将巨型单例对象按单一职责拆分，转为接口与纯对象，提升可测试性。
 - **重点重构对象**：
   1. `LockWindowManager`：拆分覆盖层生命周期、临时解锁到期重锁、休息面板与挑战控制器。
@@ -40,12 +42,17 @@ graph TD
 - 引入 GitHub Actions 矩阵测试（兼容纯 JVM 单测与 Robolectric）。
 - 完善主流厂商（Vivo / Xiaomi / Huawei / Samsung）无障碍与前台识别自动化真机测试用例。
 
+### Phase 5: 权限演进技术储备与长期防御（Android 17+ 预研）
+- **背景**：Android 17 高级保护模式可能进一步收紧侧载应用的 AccessibilityService（无障碍服务）。
+- **技术应对路线**：
+  - 预研双轨降级方案：`UsageStatsManager`（前台应用轮询轮查） + `SYSTEM_ALERT_WINDOW`（悬浮窗覆盖）。
+  - 当系统无障碍权限被收紧或用户未授权无障碍时，可平滑降级为使用情况统计与定时轮询拦截，确保自律边界永不失守。
+
 ---
 
 ## 2. 当前工作台 (Current Work Summary)
 
 - **当前分支**：`fix/app-window-lock-reason`
 - **当前重点**：
-  - 锁定开源文件结构，确保外部贡献者拿到仓库时能够一目了然定位代码与规范。
-  - 消除代码树异味（Java 目录下的 Markdown 与 PNG）。
-  - 保障 `gradlew` 与 `python -m unittest` 零门槛跑通。
+  - 将视频交接文档里的核心哲学、对比表、三大手机角色与三个出口，全面移植融入 `README.md`、`SPEC.md` 与 `docs/使用手册.md`。
+  - 确保全仓治理契约收敛，代码树无异味，测试 100% 通过。
