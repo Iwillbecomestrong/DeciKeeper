@@ -105,8 +105,8 @@ scope: 模块名，如 segment-blacklist、alarm、anti-uninstall
 | 锁屏判定/临时解锁 | MonitorService.kt、LockWindowManager.kt |
 | 闹钟 | AlarmScheduler.kt、AlarmChallengeManager.kt |
 | 防卸载/无障碍 | protection/ 目录、CoreService.kt |
-| 已知坑 | Issue_Tracker.md |
-| 需求与规则 | Requirements.md |
+| 已知坑与防回归 | [HISTORY.md](file:///g:/IronWIl0329/IronWill-OpenSource/HISTORY.md) · [docs/history/issue_tracker.md](file:///g:/IronWIl0329/IronWill-OpenSource/docs/history/issue_tracker.md) |
+| 需求与规则 | [SPEC.md](file:///g:/IronWIl0329/IronWill-OpenSource/SPEC.md) · [docs/specs/requirements.md](file:///g:/IronWIl0329/IronWill-OpenSource/docs/specs/requirements.md) |
 
 ## 8. 数据资产版权提醒
 
