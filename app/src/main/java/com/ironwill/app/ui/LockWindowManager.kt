@@ -424,6 +424,10 @@ object LockWindowManager {
     private val _isBlacklistLock = AtomicBoolean(false)
     val isBlacklistLock: Boolean get() = _isBlacklistLock.get()
 
+    // 🚀 [NEW] Flag to indicate lock is due to app time window restriction
+    private val _isAppWindowLock = AtomicBoolean(false)
+    val isAppWindowLock: Boolean get() = _isAppWindowLock.get()
+
     // [WP-1] Accessibility generation that successfully attached the current overlay.
     // Non-persistent, process-local. Committed ONLY after targetWM.addView succeeds.
     // -1 = no generation committed yet. Used to classify current vs stale locks.
@@ -1460,7 +1464,22 @@ object LockWindowManager {
     @Volatile
     private var lastLockReassertAt = 0L
 
-    fun showLockScreen(reason: String = "Unknown", isAntiUninstall: Boolean = false, isBlacklist: Boolean = false, forceBypassGrace: Boolean = false, blockedAppLabel: String? = null, blockedPackageName: String? = null, isScreenOnRedetection: Boolean = false, detectionSource: String = "UNKNOWN", detectionSnapshot: String = "", foregroundReportId: String? = null, foregroundRequestId: String? = null, foregroundRequestAtMs: Long = 0L, requestGeneration: Int = CoreService.getAccessibilityGeneration()) {
+    fun showLockScreen(
+        reason: String = "Unknown",
+        isAntiUninstall: Boolean = false,
+        isBlacklist: Boolean = false,
+        isAppWindowBlocked: Boolean = false,
+        forceBypassGrace: Boolean = false,
+        blockedAppLabel: String? = null,
+        blockedPackageName: String? = null,
+        isScreenOnRedetection: Boolean = false,
+        detectionSource: String = "UNKNOWN",
+        detectionSnapshot: String = "",
+        foregroundReportId: String? = null,
+        foregroundRequestId: String? = null,
+        foregroundRequestAtMs: Long = 0L,
+        requestGeneration: Int = CoreService.getAccessibilityGeneration()
+    ) {
         cancelTemporaryAccessExpiryRelockRetry()
         cancelEmergencyRelock()
         // 🚀 [Fix] Clear post-temp-access flag so the MonitorService Foreground Guard
@@ -1488,8 +1507,10 @@ object LockWindowManager {
         val initialIsAppWindowBlocked = blockedPackageName?.let { pkg ->
             AppWindowManager.isManaged(context, pkg) && !AppWindowManager.isAppAllowed(context, pkg)
         } ?: false
+        val effectiveIsAppWindowBlocked = isAppWindowBlocked || initialIsAppWindowBlocked
+        Log.d(TAG, "LockReason: blacklist=$isBlacklist appWindow=$effectiveIsAppWindowBlocked pkg=$blockedPackageName")
         currentLockRestrictionMode = resolveLockOverlayRestrictionMode(
-            isAppWindowBlocked = initialIsAppWindowBlocked,
+            isAppWindowBlocked = effectiveIsAppWindowBlocked,
             isWithinDndSegment = TimeRuleManager.getCurrentSegment(context) != null
         )
 
@@ -1703,6 +1724,7 @@ object LockWindowManager {
         _isLocked.set(true)
         _isAntiUninstallLock.set(isAntiUninstall)
         _isBlacklistLock.set(isBlacklist)
+        _isAppWindowLock.set(effectiveIsAppWindowBlocked)
         isLockAttachPending = true
         lockAttachScheduledAt = now
 
@@ -2012,6 +2034,7 @@ object LockWindowManager {
             _isLocked.set(false)
             _isAntiUninstallLock.set(false)
             _isBlacklistLock.set(false)
+            _isAppWindowLock.set(false)
             mBlockedAppLabel = null
             mLockEntryReasonRaw = null
             mDeferredLock = null  // 清除延迟锁屏
@@ -2065,6 +2088,7 @@ object LockWindowManager {
             _isLocked.set(false)
             _isAntiUninstallLock.set(false)
             _isBlacklistLock.set(false)
+            _isAppWindowLock.set(false)
             mActiveWindowManager = null
             isLockAttachPending = false
             lockAttachScheduledAt = 0L
@@ -2114,6 +2138,7 @@ object LockWindowManager {
                 _isLocked.set(false)
                 _isAntiUninstallLock.set(false)
                 _isBlacklistLock.set(false)
+                _isAppWindowLock.set(false)
                 mBlockedAppLabel = null
                 mLockEntryReasonRaw = null
 
@@ -2528,11 +2553,12 @@ object LockWindowManager {
     }
 
     private fun buildLockReasonPrefix(
-        isAppWindowBlocked: Boolean
+        isAppWindowBlocked: Boolean = _isAppWindowLock.get()
     ): String {
+        val effectiveAppWindowBlocked = isAppWindowBlocked || _isAppWindowLock.get()
         val reasonText = resolveDisplayedLockReason(
             rawReason = mLockEntryReasonRaw,
-            isAppWindowBlocked = isAppWindowBlocked,
+            isAppWindowBlocked = effectiveAppWindowBlocked,
             isAntiUninstall = isAntiUninstallLock,
             isBlacklist = isBlacklistLock,
             appLabel = mBlockedAppLabel,
@@ -2628,7 +2654,6 @@ object LockWindowManager {
                         view.findViewById<TextView>(R.id.tv_next_segment_info)?.text = "今日时段已结束"
                         view.findViewById<TextView>(R.id.tv_next_segment_info)?.visibility = View.VISIBLE
                     }
-                    return@post  // 跳过后续 DND 逻辑
                 } else {
                     // Normal Segment
                     tvCurrentRange?.text = "${currentSeg.name} (${currentSeg.formatTimeRange()})"
@@ -2772,7 +2797,7 @@ object LockWindowManager {
                 } else {
                     true
                 }
-                val isAppWindowBlocked = isAppWindowManaged && !isWindowOpen
+                val isAppWindowBlocked = (isAppWindowManaged && !isWindowOpen) || _isAppWindowLock.get()
                 isAppWindowRestrictionActive = isAppWindowBlocked
                 currentLockRestrictionMode = resolveLockOverlayRestrictionMode(
                     isAppWindowBlocked = isAppWindowBlocked,
@@ -4322,6 +4347,7 @@ object LockWindowManager {
             _isLocked.set(false)
             _isAntiUninstallLock.set(false)
             _isBlacklistLock.set(false)
+            _isAppWindowLock.set(false)
             mBlockedAppLabel = null
             mLockEntryReasonRaw = null
             isLockAttachPending = false
@@ -4512,6 +4538,7 @@ object LockWindowManager {
         _isLocked.set(false)
         _isAntiUninstallLock.set(false)
         _isBlacklistLock.set(false)
+        _isAppWindowLock.set(false)
         mBlockedAppLabel = null
         mLockEntryReasonRaw = null
         isLockAttachPending = false
@@ -5568,9 +5595,25 @@ object LockWindowManager {
             }
         )
         if (createLockScreen) {
+            val isAppWindowHit = if (packageName != null && AppWindowManager.isManaged(context, packageName)) {
+                !AppWindowManager.isAppAllowed(context, packageName)
+            } else {
+                false
+            }
+            val isCurrentBlacklist = if (packageName != null) {
+                val currentSeg = TimeRuleManager.getCurrentSegment(context)
+                if (currentSeg != null && currentSeg.listApps != null) {
+                    SegmentBlacklist.isInEffectiveList(context, currentSeg, packageName)
+                } else {
+                    CreditManager.getBlacklistApps(context).any { it.equals(packageName, ignoreCase = true) }
+                }
+            } else {
+                true
+            }
             showLockScreen(
                 reason = "Regular Lock",
-                isBlacklist = true,
+                isBlacklist = isCurrentBlacklist,
+                isAppWindowBlocked = isAppWindowHit,
                 forceBypassGrace = false,
                 blockedAppLabel = appLabel,
                 blockedPackageName = packageName,

@@ -1412,10 +1412,22 @@ class MonitorService : Service() {
             "VisibleBlacklist",
             "action=LOCK pkg=$pkg source=PRESENCE foreground=${mLastTopPackage ?: "null"} reason=BLACKLIST_VISIBLE_WINDOW"
         )
+        val curSeg = TimeRuleManager.getCurrentSegment(this)
+        val isAppWindowBlocked = AppWindowManager.isManaged(this, pkg) && !AppWindowManager.isAppAllowed(this, pkg)
+        val isRealBlacklist = if (curSeg != null && curSeg.listApps != null) {
+            SegmentBlacklist.isInEffectiveList(this, curSeg, pkg)
+        } else {
+            CreditManager.getBlacklistApps(this).any { it.equals(pkg, ignoreCase = true) }
+        }
+        Log.d(TAG, "LockReason: blacklist=$isRealBlacklist appWindow=$isAppWindowBlocked pkg=$pkg")
         LockWindowManager.showLockScreen(
-            reason = "Presence: $pkg", isBlacklist = true,
-            blockedAppLabel = appLabel, blockedPackageName = pkg,
-            detectionSource = "PRESENCE", detectionSnapshot = getDetectionSnapshot()
+            reason = "Presence: $pkg",
+            isBlacklist = isRealBlacklist,
+            isAppWindowBlocked = isAppWindowBlocked,
+            blockedAppLabel = appLabel,
+            blockedPackageName = pkg,
+            detectionSource = "PRESENCE",
+            detectionSnapshot = getDetectionSnapshot()
         )
         mPresentLockedPkg = pkg
         mPresentLockedAtMs = now
@@ -1711,8 +1723,25 @@ class MonitorService : Service() {
             forcedRelockTargetPackage = forcedRelockTargetPackage,
             now = now
         )
-        val resolvedPackageName = detectedTopPackage
+        var resolvedPackageName = detectedTopPackage
             ?: if (canUseTempRelockFallback) forcedRelockTargetPackage else null
+
+        var isMiniWindowOverridden = false
+        // 🚀 [NEW] Double-layer window matching:
+        // If Accessibility is enabled, and a blacklisted app is actually visible on screen (e.g. as a small window/PIP),
+        // we override resolvedPackageName with that blacklisted package BEFORE the null return check!
+        if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
+            val visiblePkgs = CoreService.lastVisiblePackagesFromWindows
+            val visibleBlacklistedPkg = visiblePkgs.firstOrNull { pkg ->
+                pkg != this.packageName && SegmentBlacklist.shouldLock(this, pkg)
+            }
+            if (visibleBlacklistedPkg != null) {
+                resolvedPackageName = visibleBlacklistedPkg
+                isMiniWindowOverridden = true
+                Log.d(TAG, "[MiniWindowOverrider] Overriding resolvedPackageName with visible blacklisted small window: $resolvedPackageName")
+            }
+        }
+
         if (resolvedPackageName == null) {
             Log.d(TAG, "[checkForegroundApp] No package detected, skipping blocking check")
             // [Diagnostics-only] emit NoLock report for unresolvable foreground
@@ -1764,24 +1793,7 @@ class MonitorService : Service() {
             fallbackCandidatePackage = null
         }
 
-                var effectivePackageName = fallbackCandidatePackage ?: packageName
-
-        var isMiniWindowOverridden = false
-        // 🚀 [NEW] Double-layer window matching:
-        // If Accessibility is enabled, and the current effective app is a safe app (like Launcher),
-        // but a blacklisted app is actually visible on screen (e.g. as a small window/PIP),
-        // we override effectivePackageName with that blacklisted package to ensure it gets locked!
-        if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
-            val visiblePkgs = CoreService.lastVisiblePackagesFromWindows
-            val visibleBlacklistedPkg = visiblePkgs.firstOrNull { pkg ->
-                pkg != this.packageName && SegmentBlacklist.shouldLock(this, pkg)
-            }
-            if (visibleBlacklistedPkg != null) {
-                effectivePackageName = visibleBlacklistedPkg
-                isMiniWindowOverridden = true
-                Log.d(TAG, "[MiniWindowOverrider] Overriding effectivePackageName with visible blacklisted small window: $effectivePackageName")
-            }
-        }
+        var effectivePackageName = if (isMiniWindowOverridden) resolvedPackageName else (fallbackCandidatePackage ?: packageName)
 
         // 🚀 [回到桌面宽限] 非桌面 → 桌面 过渡时启动 3s 小窗锁宽限
         // （覆盖系统 Home 键/手势返回桌面；锁屏"回到桌面"按钮已在 LockWindowManager 内启动；
@@ -2054,6 +2066,11 @@ class MonitorService : Service() {
         } else {
             false
         }
+        val isRealBlacklist = if (currentSeg != null && currentSeg.listApps != null) {
+            SegmentBlacklist.isInEffectiveList(this, currentSeg, effectivePackageName)
+        } else {
+            CreditManager.getBlacklistApps(this).any { it.equals(effectivePackageName, ignoreCase = true) }
+        }
         val shouldBlock = LockDecisionPolicy.shouldBlock(
             isBlacklisted = isBlacklisted,
             isSafe = isSafe,
@@ -2202,9 +2219,11 @@ class MonitorService : Service() {
                 // snapshot lets LockWindowManager classify a later request from a
                 // dead generation as stale. Do not derive this inside a posted UI callback.
                 val requestGeneration = CoreService.getAccessibilityGeneration()
+                Log.d(TAG, "LockReason: blacklist=$isRealBlacklist appWindow=$isAppWindowBlocked pkg=$effectivePackageName")
                 LockWindowManager.showLockScreen(
                     "Blocked: $effectivePackageName",
-                    isBlacklist = isBlacklisted,
+                    isBlacklist = isRealBlacklist,
+                    isAppWindowBlocked = isAppWindowBlocked,
                     blockedAppLabel = effectiveAppLabel,
                     blockedPackageName = effectivePackageName,
                     detectionSource = mLastTopEvidence.name,
@@ -2238,9 +2257,11 @@ class MonitorService : Service() {
              // before this owned ordinary blocked-app showLockScreen call, mirroring
              // the blacklist branch. Same reasons/metadata; only the generation is added.
              val requestGeneration2 = CoreService.getAccessibilityGeneration()
+             Log.d(TAG, "LockReason: blacklist=$isRealBlacklist appWindow=$isAppWindowBlocked pkg=$effectivePackageName")
              LockWindowManager.showLockScreen(
                  "Blocked: $effectivePackageName",
-                 isBlacklist = isBlacklisted,
+                 isBlacklist = isRealBlacklist,
+                 isAppWindowBlocked = isAppWindowBlocked,
                  blockedAppLabel = appLabel,
                  blockedPackageName = effectivePackageName,
                  detectionSource = mLastTopEvidence.name,
