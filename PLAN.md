@@ -52,9 +52,10 @@ graph TD
 
 ## 2. 当前工作台 (Current Work Summary)
 
-- **当前分支**：`fix/app-window-lock-reason`
+- **当前分支**：`main`（已建立与 Gitee 远端同步 `git@gitee.com:my_room_welcome_you/zhizhi.git`，本地仅保留 `main` 与 `dev`）
 - **当前重点**：
-  - 全面更名为「知止 (ZhiZhi)」，完成 Android 底层包名向 `com.zhizhi.app` 的彻底平移。
-  - 完成配置备份向后兼容旧版 IronWill 导入，确保老用户无缝迁移。
-  - 全套 Living Documents、文档中心与 B 站首发稿件名称同步升级。
-  - 确保 Kotlin 编译与自动化测试 100% 通过。
+  - [x] 全面更名为「知止 (ZhiZhi)」，完成 Android 底层包名向 `com.zhizhi.app` 的平移。
+  - [x] 完成配置备份向后兼容旧版 IronWill 导入，确保老用户无缝迁移。
+  - [x] 成功构建普通用户可直接安装的签名 Release APK：`知止-ZhiZhi-v0.2.0-release.apk`。
+  - [x] 规范主干与分支管理：重置 `main` 到最新提交，清理多余临时分支，并推送主干至 Gitee 仓库。
+
