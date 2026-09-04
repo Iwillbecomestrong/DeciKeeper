@@ -1,6 +1,6 @@
-# IronWill Android 应用模块 (app)
+# 知止 (ZhiZhi) Android 应用模块 (app)
 
-> **定位**：本模块是 IronWill 的 Android 客户端主程序源码集，负责 UI 交互呈现、前台检测、无障碍防护、勿扰时段与时间窗判定。
+> **定位**：本模块是「知止」的 Android 客户端主程序源码集，负责 UI 交互呈现、前台检测、无障碍防护、勿扰时段与时间窗判定。
 > 本文件同时作为开发人员与 AI 助手进入本模块的 **Local README Gate**。
 
 ---
@@ -11,7 +11,7 @@
 # 编译 Kotlin 源码
 .\gradlew.bat :app:compileDebugKotlin
 
-# 运行全量 JVM 单元测试（约 700+ 测试，纯 JVM 秒级运行，无需模拟器）
+# 运行全量 JVM 单元测试（纯 JVM 秒级运行，无需模拟器）
 .\gradlew.bat :app:testDebugUnitTest
 
 # 打包 Debug APK
@@ -26,10 +26,10 @@ adb install -r -d app/build/outputs/apk/debug/app-debug.apk
 
 ## 2. 代码包结构与职责划分
 
-源码根路径位于 `app/src/main/java/com/ironwill/app/`，严格遵循单向依赖架构：
+源码根路径位于 `app/src/main/java/com/zhizhi/app/`，严格遵循单向依赖架构：
 
 ```text
-com.ironwill.app
+com.zhizhi.app
 ├── manager/     # 业务规则管理器（CreditManager, TimeRuleManager, AppWindowManager 等）
 ├── ui/          # 视图展现层（Activity, Fragment, Adapter, Dialog）
 ├── protection/  # 系统级防护（无障碍拦截、防卸载、防强行停止、权限守护）

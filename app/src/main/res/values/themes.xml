@@ -1,20 +1,19 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.IronWill" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.ZhiZhi" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
-    <style name="Theme.IronWill" parent="Base.Theme.IronWill" />
+    <style name="Theme.ZhiZhi" parent="Base.Theme.ZhiZhi" />
 
-    <style name="Theme.IronWill.Transparent" parent="Theme.IronWill">
+    <style name="Theme.ZhiZhi.Transparent" parent="Theme.ZhiZhi">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>
 
-    <style name="Theme.IronWill.Alarm" parent="Theme.IronWill">
+    <style name="Theme.ZhiZhi.Alarm" parent="Theme.ZhiZhi">
         <item name="android:windowIsTranslucent">false</item>
         <item name="android:windowBackground">#0B1114</item>
         <item name="android:windowNoTitle">true</item>
@@ -25,4 +24,10 @@
         <item name="android:statusBarColor">#0B1114</item>
         <item name="android:navigationBarColor">#0B1114</item>
     </style>
+
+    <!-- Compatibility aliases -->
+    <style name="Base.Theme.IronWill" parent="Base.Theme.ZhiZhi" />
+    <style name="Theme.IronWill" parent="Theme.ZhiZhi" />
+    <style name="Theme.IronWill.Transparent" parent="Theme.ZhiZhi.Transparent" />
+    <style name="Theme.IronWill.Alarm" parent="Theme.ZhiZhi.Alarm" />
 </resources>

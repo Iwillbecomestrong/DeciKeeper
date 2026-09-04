@@ -1,6 +1,6 @@
 # 架构说明 (ARCHITECTURE)
 
-> 本文描述 IronWill 的目标架构与依赖方向。现有代码正在按此逐步重构（refactor/open-source 系列提交），
+> 本文描述「知止 (ZhiZhi)」的目标架构与依赖方向。现有代码正在按此逐步重构（refactor/open-source 系列提交），
 > 新代码必须遵守，旧代码在改动时顺手迁移。
 
 ## 1. 分层与依赖方向

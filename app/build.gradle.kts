@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ironwill.app"
+    namespace = "com.zhizhi.app"
     compileSdk {
         version = release(36)
     }
@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ironwill.app"
+        applicationId = "com.zhizhi.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

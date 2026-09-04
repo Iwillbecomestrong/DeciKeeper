@@ -33,5 +33,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "IronWill"
+rootProject.name = "ZhiZhi"
 include(":app")

@@ -1,7 +1,7 @@
-# IronWill 架构决策与经验档案 (HISTORY)
+# 知止 (ZhiZhi) 架构决策与经验档案 (HISTORY)
 
-> **定位**：本文件是 IronWill 项目的**历史决策真相（Historical Decision Truth）**，沉淀核心架构演进决策、高价值教训与防回归红线。
-> 开源前完整的问题追踪与历史排查记录详见 [docs/history/issue_tracker.md](file:///g:/IronWIl0329/IronWill-OpenSource/docs/history/issue_tracker.md)。
+> **定位**：本文件是「知止」项目的**历史决策真相（Historical Decision Truth）**，沉淀核心架构演进决策、高价值教训与防回归红线。
+> 开源前完整的问题追踪与历史排查记录详见 [docs/history/issue_tracker.md](docs/history/issue_tracker.md)。
 
 ---
 
@@ -29,6 +29,11 @@
 ### [DECISION-05] 临时放行分段阶梯惩罚
 - **背景**：早期固定 2 倍冷静期容易被恶意利用，用户会频繁短时间申请放行。
 - **决策**：冷却公式实施分段阶梯（0~60s: 1x, 61~120s: 2x, 121~180s: 3x）。申请时间越长，不仅扣除额度倍增，冷却锁定惩罚更呈指数上升。
+
+### [DECISION-06] 全面更名「知止 (ZhiZhi)」与包名重构 (com.zhizhi.app)
+- **背景**：原名称与现有外部商业应用产生冲突；开源首发需要更深刻独特的东方哲学意蕴（“知足不辱，知止不殆；知止而后有定”）。
+- **决策**：彻底更名为「知止」(ZhiZhi)，Android 包名全面平移至 `com.zhizhi.app`。同时在 `SettingsBackupManager` 中实现双协议解析，原生向后兼容 `ironwill_settings_backup` 导入，保障旧版数据无缝迁移。
+- **防坑警告**：包名变更后为全新独立应用，不可覆盖安装旧版，需通过导出/导入备份完成规则迁移。
 
 ---
 

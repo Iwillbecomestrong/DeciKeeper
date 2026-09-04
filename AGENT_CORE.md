@@ -1,6 +1,6 @@
 # AI 协作协议核心 (AGENT_CORE)
 
-> **定位**：本文件是所有 AI 编码助手（Claude / Gemini / Codex / Cursor 等）在 IronWill 项目中必须严格遵守的**唯一公共操作协议**。
+> **定位**：本文件是所有 AI 编码助手（Claude / Gemini / Codex / Cursor 等）在「知止 (ZhiZhi)」项目中必须严格遵守的**唯一公共操作协议**。
 > 各平台薄入口文件（`AGENTS.md`、`CLAUDE.md`、`GEMINI.md`）仅保留环境特例并指向本协议。
 
 ---

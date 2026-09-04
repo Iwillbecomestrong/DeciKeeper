@@ -1,11 +1,11 @@
-# IronWill 产品需求文档
+# 知止 产品需求文档
 
 > **维护说明**：本文档部分章节为历史快照；与当前代码不一致处，**以代码为准**。
 > 2026-08-14 已对齐开源版代码：按段黑名单已上线、翻译数据已 AI 重翻、后端已移除、商业详解解析已剥离。
 
 ## 0. 产品定位与核心哲学
 
-IronWill 是一款 Android 自律工具。核心逻辑：**用户事先定好规则 → 到了时间/遇到情况 → IronWill 自动锁机 → 必须消耗额度或完成任务才能解锁。** 它不商量，不提供"就这一次"的机会。
+知止 是一款 Android 自律工具。核心逻辑：**用户事先定好规则 → 到了时间/遇到情况 → 知止 自动锁机 → 必须消耗额度或完成任务才能解锁。** 它不商量，不提供"就这一次"的机会。
 
 ### 0.1 解决的痛点
 
@@ -217,7 +217,7 @@ Chrome Beta, QQ浏览器, 百度, 浏览器, vivo浏览器, 知乎  ← 纯娱�
 - 业务日按当日首个勿扰时段开始时间切换，统计日范围为“今日首段开始 → 明日首段开始”；当首段开始时间被调整时，统计日边界随之更新
 - **按段黑名单**：每个时段可配置独立黑名单；默认**继承全局黑名单**，一旦编辑保存即脱钩为独立名单，可一键“恢复为全局黑名单”；列表支持全选/反选
 - **按段黑名单同样遵守延迟生效**：加严（新增应用）立即生效，放松（移除应用/恢复全局）次日生效
-- **硬豁免应用**（IronWill 自身、桌面/启动器、输入法、电话、短信）不显示、不可锁定（详见 1.2）
+- **硬豁免应用**（知止 自身、桌面/启动器、输入法、电话、短信）不显示、不可锁定（详见 1.2）
 
 **涉及文件**：`TimeRuleManager.kt`, `TimeConfigFragment.kt`, `CoreService.kt`, `TimeSegmentJson.kt`, `SegmentBlacklist.kt`, `BlacklistStore.kt`, `AppSafetyClassifiers.kt`
 
@@ -228,7 +228,7 @@ Chrome Beta, QQ浏览器, 百度, 浏览器, vivo浏览器, 知乎  ← 纯娱�
 - **QQ/微信等通讯软件在黑名单中，但不在应用时间窗中**（白天可用，消耗额度）
 - 纯娱乐应用同时在黑名单和应用时间窗中（白天完全打不开）
 - 变更规则：有利立即生效，不利次日生效
-- **硬豁免应用**：IronWill 自身、桌面/启动器、输入法（IME）、电话、短信。这些应用永不显示在可配置列表中，也永远不会被锁定
+- **硬豁免应用**：知止 自身、桌面/启动器、输入法（IME）、电话、短信。这些应用永不显示在可配置列表中，也永远不会被锁定
 - 每个勿扰时段可配置独立黑名单（继承/脱钩/恢复，见 1.1）
 
 **涉及文件**：`CreditManager.kt`, `LockWindowManager.kt`, `BlacklistStore.kt`, `AppSafetyClassifiers.kt`, `SegmentBlacklist.kt`
@@ -270,14 +270,14 @@ Chrome Beta, QQ浏览器, 百度, 浏览器, vivo浏览器, 知乎  ← 纯娱�
 ### 1.6 防卸载保护
 
 - 拦截系统设置中的应用信息页、强行停止对话框、卸载确认框
-- **强行停止拦截地位与卸载一致**（v0.4.0）：`FORCE_STOP_DIALOG` 必须走与 `MONITORED_DIALOG_FAST_PATH_HOT` 完全相同的拦截路径（`handleDetection` + 5 秒热窗口 arm 体系），不依赖 VDialog 文本含”IronWill”字面；不依赖任何 VDialog 文本判定。确保”应用信息 → 桌面 → 别的应用 → 多任务重回信息界面 → 多次点强行停止”全部被拦截，不被 VDialog 文本变化绕过。
+- **强行停止拦截地位与卸载一致**（v0.4.0）：`FORCE_STOP_DIALOG` 必须走与 `MONITORED_DIALOG_FAST_PATH_HOT` 完全相同的拦截路径（`handleDetection` + 5 秒热窗口 arm 体系），不依赖 VDialog 文本含”知止”字面；不依赖任何 VDialog 文本判定。确保”应用信息 → 桌面 → 别的应用 → 多任务重回信息界面 → 多次点强行停止”全部被拦截，不被 VDialog 文本变化绕过。
 - 通过无障碍服务实时检测
-- 无障碍服务列表页必须放行：用户停留在”无障碍/已下载的服务”列表时不得拦截，避免影响其他 App 开启无障碍；仅进入 IronWill 无障碍详情页、停止服务确认页或关闭 IronWill 服务时才拦截
-- 从 IronWill 主动跳转去开启无障碍后，服务刚连接时需先短暂回到 IronWill 主界面并延迟开启无障碍关闭拦截，避免刚开启权限后卡在系统无障碍页
+- 无障碍服务列表页必须放行：用户停留在”无障碍/已下载的服务”列表时不得拦截，避免影响其他 App 开启无障碍；仅进入 知止 无障碍详情页、停止服务确认页或关闭 知止 服务时才拦截
+- 从 知止 主动跳转去开启无障碍后，服务刚连接时需先短暂回到 知止 主界面并延迟开启无障碍关闭拦截，避免刚开启权限后卡在系统无障碍页
 - 快速锁屏服务（`FastLockService`）覆盖进程启动真空期
 - 系统初始化覆盖层仅在防卸载预热未完成时显示，预热完成后同一进程内不再重复弹出
 - 支持多厂商适配（Vivo、小米、华为等）
-- **隐私空间 AddApp 页立即拦截**（v0.4.0）：识别隐私空间”添加应用”页（vivo “原子隐私系统” / iqoo.secure 等）打开瞬间即触发 `GLOBAL_ACTION_HOME` 退栈，不再等待列表中 IronWill 文本出现（用户手速快可绕过）。前提：`PrivacyProtectionManager.isEnforcing(context) == true`；开关 OFF 时本功能不生效。
+- **隐私空间 AddApp 页立即拦截**（v0.4.0）：识别隐私空间”添加应用”页（vivo “原子隐私系统” / iqoo.secure 等）打开瞬间即触发 `GLOBAL_ACTION_HOME` 退栈，不再等待列表中 知止 文本出现（用户手速快可绕过）。前提：`PrivacyProtectionManager.isEnforcing(context) == true`；开关 OFF 时本功能不生效。
 - 关闭防卸载保护需延迟至次日生效
 
 **涉及文件**：`AntiUninstallManager.kt`, `AntiUninstallProtection.kt`, `AccessibilityProtection.kt`, `FastLockService.kt`, `PrivacyProtectionManager.kt`
@@ -285,7 +285,7 @@ Chrome Beta, QQ浏览器, 百度, 浏览器, vivo浏览器, 知乎  ← 纯娱�
 ### 1.7 锁屏代际失效（v0.4.0）
 
 - **目的**：防止锁屏窗口在 CoreService 重连后被错误地标记为”已挂上”而不再重建。
-- **触发场景**：用户禁用 IronWill 无障碍 → 进程被杀 → 用户重新启用无障碍（CoreService `onServiceConnected`）→ 此时旧窗口代际已失效，但 `_isLocked=true` 与 `mLockView.parent != null` 可能仍跨代际延续，导致后续黑名单命中被 `LOCK_ALREADY_ATTACHED duplicate=true` 短路而不弹锁屏。
+- **触发场景**：用户禁用 知止 无障碍 → 进程被杀 → 用户重新启用无障碍（CoreService `onServiceConnected`）→ 此时旧窗口代际已失效，但 `_isLocked=true` 与 `mLockView.parent != null` 可能仍跨代际延续，导致后续黑名单命中被 `LOCK_ALREADY_ATTACHED duplicate=true` 短路而不弹锁屏。
 - **机制**：`CoreService` 维护单调递增 `accessibilityGeneration: AtomicLong`，仅在 `onServiceConnected()` +1。`LockWindowManager` 在 `addView` 成功后记录 `mAttachedLockGeneration`。`showLockScreen` 收到请求时显式对比代际，不匹配则视为 STALE，走 `resetLockState` + 重建路径。
 - **防卸载锁身份保护**：防卸载锁（`isAntiUninstallLock=true`）跨代际保留，不被黑名单请求降级。息屏 `shouldDismissForScreenOff` 也走纯 seam。
 - **可接受副作用**：OEM detach 后无覆盖层间隙（不可避免的视觉闪一次）。
@@ -342,9 +342,9 @@ Chrome Beta, QQ浏览器, 百度, 浏览器, vivo浏览器, 知乎  ← 纯娱�
 
 #### 1.7.3 闹钟同步到系统闹钟
 
-- **目的**：将 IronWill 闹钟同步到系统闹钟作为备份，防止 IronWill 权限异常导致漏掉重要闹钟
-- **行为**：点击"同步"按钮后，IronWill 自动退至后台，打开系统闹钟 App 让用户确认保存
-- **用户流程**：在 IronWill 闹钟页点击对应闹钟的"同步"→ 系统闹钟打开 → 用户确认保存 → 可按 Home 键或 Back 键自由离开（回到桌面，不会回到 IronWill）
+- **目的**：将 知止 闹钟同步到系统闹钟作为备份，防止 知止 权限异常导致漏掉重要闹钟
+- **行为**：点击"同步"按钮后，知止 自动退至后台，打开系统闹钟 App 让用户确认保存
+- **用户流程**：在 知止 闹钟页点击对应闹钟的"同步"→ 系统闹钟打开 → 用户确认保存 → 可按 Home 键或 Back 键自由离开（回到桌面，不会回到 知止）
 
 **涉及文件**：`AlarmFragment.kt`
 
@@ -457,7 +457,7 @@ Chrome Beta, QQ浏览器, 百度, 浏览器, vivo浏览器, 知乎  ← 纯娱�
 
 ## 5. 包名与版本
 
-- 包名：`com.ironwill.app`
+- 包名：`com.zhizhi.app`
 - 最低 SDK：26（Android 8.0）
 - 目标 SDK：36
 - 开源版起始版本：versionCode 1，versionName `0.2.0`（见 `app/build.gradle.kts`）

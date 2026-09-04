@@ -1,7 +1,7 @@
-# IronWill 分发与双推指南 (PUBLISHING)
+# 知止 (ZhiZhi) 分发与双推指南 (PUBLISHING)
 
 > **定位**：本文档是 Gitee / GitHub 双仓库初始化、构建产物分发与 Release 发布的
-> **唯一可执行清单**。策略前提见 [HANDOFF 交接文档第 4 节](#)：
+> **唯一可执行清单**。
 > **不上架任何应用商店**，只走自建发行渠道。
 > 最后核验：2026-09-04
 
@@ -27,7 +27,7 @@
 
 访问 <https://gitee.com/projects/new>，按以下填写：
 
-- 仓库名称：`IronWill`
+- 仓库名称：`ZhiZhi`（或 `IronWill`）
 - 归属：`my_room_welcome_you`
 - 是否开源：**公开**
 - 开发语言：`Kotlin`
@@ -43,7 +43,7 @@
 cd /g/IronWIl0329/IronWill-OpenSource
 
 # 用独立 remote，不要合并进 origin（原因见下方说明）
-git remote add gitee git@gitee.com:my_room_welcome_you/IronWill.git
+git remote add gitee git@gitee.com:my_room_welcome_you/ZhiZhi.git
 ```
 
 **为什么不用 `git remote set-url --add origin <gitee>`？**
@@ -70,20 +70,86 @@ git ls-remote gitee          # 应列出 main / dev 等分支
 git remote -v                # 应看到 origin=github, github, gitee 三组
 ```
 
+### 第 4 步 · 上传 APK 到 Releases（两端各传一份）
+
+> **选定方案 A**：Gitee 既镜像全量源码，也在 Releases 挂 APK。
+> 这样国内用户既能 `git clone`/读代码（信任链完整），又能直接下包。
+
+```bash
+# 同一个 debug APK，两端都传
+APK=app/build/outputs/apk/debug/app-debug.apk
+
+# GitHub：在仓库 Releases 页点「Draft a new release」，tag 如 v0.1.0，附上 APK
+# Gitee ：仓库「发行版」页点「创建发行版」，tag 保持一致，附上同一份 APK
+```
+
+Release 文案至少写明三件事：
+
+1. 无障碍权限的用途（应用检测 / 拦截限时 / 防卸载）；
+2. **卸载退出机制**：今天申请关闭 → 明天生效 → 之后可正常卸载；
+3. 安装前提：手动开启 AccessibilityService，Android 13+ 需先解除「受限设置」。
+
 ---
 
 ## 3. 分发渠道与分工
 
-| 渠道 | 角色 | 说明 |
-|:---|:---|:---|
-| **GitHub** | 协作主站 | 代码、Issues、PR、Actions、Releases。国外用户主要从这里拿包 |
-| **Gitee** | 国内下载镜像 | **不承担协作**。只做国内用户能打开的下载页 |
-| **酷安** | 国内社区曝光 | 玩机社区，对无障碍 + 防卸载类 App 最友好 |
-| **F-Droid** | 国外开源社区 | 需满足其构建可复现要求，可后置 |
+| 渠道 | 角色 | 源码 | 安装包 |
+|:---|:---|:---:|:---:|
+| **GitHub** | 协作主站 | ✅ | ✅（Releases） |
+| **Gitee** | 国内镜像 | ✅ **必须**（方案 A：全量镜像） | ✅（发行版） |
+| **酷安** | 国内社区曝光 | ➖ 挂链接 | ✅ |
+| **F-Droid** | 国外开源社区 | ✅ | ✅ |
 
 > 开源解决**信任**，分发解决**触达**，是两件独立的事。
 > 手动装包 + 手动开无障碍这两道门槛会筛掉大多数人，但留下的是高动机核心用户
 > ——这与产品理念自洽：**约束是自己主动戴上的，不是被推送的。**
+>
+> ⚠️ 关于「Gitee 推源码还是只发 APK」：已确认走**方案 A（源码 + APK 双推）**，
+> 理由见下方 **3.1 节**——全源码镜像才能兑现「不用相信我，可以直接看代码」的信任承诺，
+> 且单独挂 APK 不满足 GPL-3.0 第 6 条对源码随附的要求。
+> 除非万不得已（如开源审核长期卡住），不建议降级为「只发 APK」。
+
+---
+
+## 3.1 Gitee 必须推源码，不是可选项
+
+**结论：Gitee 上源码和 APK 都要有，同一仓库内两样都放，不是二选一。**
+
+| | 是什么 | 怎么放 | 服务谁 |
+|---|---|---|---|
+| **Gitee 仓库** | 完整源码 | `git push gitee main` | 想看代码、想改代码的人 |
+| **Gitee 发行版** | APK + Release Notes | 仓库页 → 发行版 → 上传 | 只想装来用的人 |
+
+### 四个理由
+
+1. **GPL-3.0 的硬性要求。** 第 6 条规定以目标码形式分发时必须同时提供对应源码。
+   只挂 APK 不给源码，严格讲不满足许可证。
+   且"源码在 GitHub"这条抗辩对 Gitee 用户不成立——
+   **Gitee 的存在理由恰恰是这些用户打不开 GitHub**，
+   对他们来说那个源码等于不存在。
+2. **视频 1 的核心承诺会塌。** 全片最重的一句是「不用相信我，可以直接看代码」。
+   国内观众打开 Gitee 只看到下载页，这句话就是空的——
+   而它要 preempt 的质疑（无障碍 + 防卸载）恰恰最需要源码支撑。
+3. **视频 3 需要它才成立。** 视频 3 讲"用 AI 修改开源 App"，
+   国内观众拿不到源码就跟着做不了，漏斗最后一层在国内直接断掉。
+4. **Gitee 的开源身份绑定源码仓库。** 开源审核审的是仓库；
+   只有 APK 没有源码仓库，在 Gitee 上就不是开源项目，拿不到开源项目的曝光位。
+
+### 节奏提醒
+
+**首发不要等 Gitee 审核。** 开源审核卡的是仓库可见性，不是发布节奏。
+先发 GitHub Release，Gitee 审核通过后再补推源码与 APK，
+**不要把 Gitee 审核时间当作发布的前置条件**（另见 5.1）。
+
+### 维护成本
+
+双推后两边要保持同步，否则代码会漂。固定用一条命令：
+
+```bash
+git push github main && git push gitee main
+```
+
+可以接受 Gitee 日常落后几天，但**大版本发布时两边必须对齐**。
 
 ---
 

@@ -1,6 +1,6 @@
-# IronWill 实施计划与演进路线 (PLAN)
+# 知止 (ZhiZhi) 实施计划与演进路线 (PLAN)
 
-> **定位**：本文件是 IronWill 项目的**实现路线真相（Implementation Truth）**，记录当前已确认的工程目标、阶段里程碑、核心依赖与当前推进的工作状态。
+> **定位**：本文件是「知止」项目的**实现路线真相（Implementation Truth）**，记录当前已确认的工程目标、阶段里程碑、核心依赖与当前推进的工作状态。
 
 ---
 
@@ -54,5 +54,7 @@ graph TD
 
 - **当前分支**：`fix/app-window-lock-reason`
 - **当前重点**：
-  - 将视频交接文档里的核心哲学、对比表、三大手机角色与三个出口，全面移植融入 `README.md`、`SPEC.md` 与 `docs/使用手册.md`。
-  - 确保全仓治理契约收敛，代码树无异味，测试 100% 通过。
+  - 全面更名为「知止 (ZhiZhi)」，完成 Android 底层包名向 `com.zhizhi.app` 的彻底平移。
+  - 完成配置备份向后兼容旧版 IronWill 导入，确保老用户无缝迁移。
+  - 全套 Living Documents、文档中心与 B 站首发稿件名称同步升级。
+  - 确保 Kotlin 编译与自动化测试 100% 通过。

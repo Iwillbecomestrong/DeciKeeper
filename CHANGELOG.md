@@ -7,6 +7,10 @@
 ## [Unreleased] - 开发中
 
 ### 核心改进 (Changed / Improved)
+- **全面更名「知止 (ZhiZhi)」**：
+  - 中文名正式定名为「知止」，英文代号「ZhiZhi」，寓意《道德经》*「知足不辱，知止不殆；知止而后有定。知道什么时候停止。不是禁止一切娱乐，而是在适当的时候停下来」*。
+  - Android 底层包名与 Application ID 彻底重构为 `com.zhizhi.app`，源码目录全面平移。
+  - 数据备份向后兼容：`SettingsBackupManager` 原生支持解析并导入旧版 `ironwill_settings_backup` 规则文件，老用户换新包名后一键无损迁移。
 - **开源结构治理**：全面引入 `project-organization` 规范，建立生活文档体系（`SPEC.md`, `PLAN.md`, `HISTORY.md`, `AGENT_CORE.md`）与 Local README 门禁（`app/`, `docs/`, `scripts/`）。
 - **代码集净化**：移除误入 Java 源码目录的非代码文件与截图，规范视觉图档路径。
 - **开源社区模版**：补充 `.github/` 下的 Bug 反馈、功能建议 Issue 模版及 Pull Request 审查模版。
