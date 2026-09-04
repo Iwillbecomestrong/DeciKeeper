@@ -305,6 +305,7 @@ VIDEO3 = {
 DOCS = {
     "video1": ("视频 1 · 我做了一个自己每天都在用的软件，现在把它开源了", VIDEO1, 8.0),
     "video2": ("视频 2 · 知止使用指南：如何建立自己的手机边界", VIDEO2, 10.0),
+    "video3": ("视频 3 · 不会 Android 开发，也能用 AI 修改开源 App？", VIDEO3, 7.0),
     "short": ("短视频 · 晚上我会限制 ChatGPT", SHORT_60S, 1.0),
 }
 
@@ -380,11 +381,45 @@ def export_video1(path):
     print(f"已导出：{path}（{total} 字 / {total / RATE:.1f} 分钟）")
 
 
+def export_video3(path):
+    """把视频 3 稿件导出为可直接照着念的 Markdown 定稿（同 video1 的单一真相源原则）。"""
+    lines = []
+    total = sum(count(t) for t in VIDEO3.values())
+    elapsed = 0.0
+    lines.append("# 视频 3 定稿旁白")
+    lines.append("")
+    lines.append("> 《不会 Android 开发，也能用 AI 修改开源 App？》")
+    lines.append(f"> 口播约 {total} 字（@230 字/分钟）+ 演示约 190s，全长约 7 分钟内")
+    lines.append(">")
+    lines.append("> ⚠️ 本文件由 `narration_count.py --export` 自动生成，**请勿手改**。")
+    lines.append("> 改稿请改 `narration_count.py` 里的 `VIDEO3` 字典后重新导出。")
+    lines.append("")
+    lines.append("> 演示节点（03/04/05/06）口播短、靠录屏撑时长，正文留白为刻意设计。")
+    lines.append("")
+
+    for name, text in VIDEO3.items():
+        n = count(text)
+        start = fmt_ts(elapsed)
+        elapsed += n / RATE
+        end = fmt_ts(elapsed)
+        lines.append(f"## {name}")
+        lines.append("")
+        lines.append(f"`{start} – {end}`　·　{n} 字")
+        lines.append("")
+        lines.append(text)
+        lines.append("")
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    print(f"已导出：{path}（{total} 字 / {total / RATE:.1f} 分钟）")
+
+
 def main():
     args = sys.argv[1:]
     if "--export" in args:
         here = os.path.dirname(os.path.abspath(__file__))
         export_video1(os.path.join(here, "video1_narration.md"))
+        export_video3(os.path.join(here, "video3_narration.md"))
         return
     keys = [a for a in args if a in DOCS] or list(DOCS)
     for k in keys:
