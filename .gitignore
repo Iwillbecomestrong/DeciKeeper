@@ -100,6 +100,6 @@ scripts/.ai_translation/
 scratch/
 device_*.txt
 ironwill_event_log*.txt
-upslide.apk
+*.apk
 *.bak_*
 .workbuddy-ai/
