@@ -2551,27 +2551,6 @@ object TimeRuleManager {
     }
 
     /**
-     * 🚀 [Helper] 检查当前是否在最后一个空档期（睡眠时间前）
-     * 用于 HomeFragment 弹性调度限制
-     */
-    fun isInLastGapPeriod(context: Context): Boolean {
-        val currentSeg = getCurrentSegment(context)
-        if (currentSeg != null) return false // 当前有时段，不在空档期
-        
-        val nextSeg = getNextSegment(context)
-        if (nextSeg == null) return true // 无下一个时段，视为最后空档期
-        
-        // 获取逻辑上的第一个时段
-        val logicalFirstIdx = getLogicalFirstSegmentIndex(context)
-        val segments = getTimeSegments(context)
-        if (logicalFirstIdx < 0 || segments.isEmpty()) return true
-        
-        val nextIdx = getNextSegmentIndex(context)
-        // 如果下一个时段就是逻辑第一个时段，说明当前在最后空档期
-        return nextIdx == logicalFirstIdx
-    }
-
-    /**
      * 🚀 [Helper] 标记首次设置完成（适应期结束）
      * 用于 HomeFragment 结束适应期
      */
@@ -2700,110 +2679,6 @@ object TimeRuleManager {
             }
         }
         return endCal.timeInMillis
-    }
-
-    /**
-     * 整体平移作息时间表
-     * @param minutes 平移分钟数 (正数=往后推迟, 负数=往前提前)
-     */
-    fun shiftSchedule(context: Context, minutes: Int) {
-        if (minutes == 0) return
-        val segments = getTimeSegments(context)
-        val newSegments = segments.map { seg ->
-            val startTotal = (seg.startHour * 60 + seg.startMinute + minutes + 1440) % 1440
-            val endTotal = (seg.endHour * 60 + seg.endMinute + minutes + 1440) % 1440
-            
-            seg.copy(
-                startHour = startTotal / 60,
-                startMinute = startTotal % 60,
-                endHour = endTotal / 60,
-                endMinute = endTotal % 60
-            )
-        }
-        
-        // Save and Sync
-        saveTimeSegments(context, newSegments)
-        // Ensure pending rules are also cleared or updated? 
-        // For simplicity, we only shift active rules as this is "Temporary Adjustment".
-        // But to avoid weird overrides if pending exists, maybe we should warn?
-        // User asked for "Temporary" usually implying immediate effect.
-        
-        // Sync to Service
-        val intent = android.content.Intent(context, MonitorService::class.java)
-        intent.action = MonitorService.ACTION_REFRESH_RULES
-        context.startService(intent)
-    }
-    /**
-     * [Flexible Shift] (Section 2.5)
-     * Allows shifting a segment's start time (and subsequent segments) by a small offset.
-     * @param segmentIndex Index of the target segment to shift.
-     * @param offsetMinutes Positive = Later (Delay), Negative = Earlier (Advance). Range [-15, 15].
-     * @return Success message or null if failed.
-     */
-    fun shiftSegmentSchedule(context: Context, segmentIndex: Int, offsetMinutes: Int): String? {
-        val segments = getTimeSegments(context).toMutableList()
-        if (segments.isEmpty()) return "No segments found"
-        
-        // 1. Validation
-        if (segmentIndex < 0 || segmentIndex >= segments.size) {
-            return "Invalid index."
-        }
-        if (offsetMinutes < -15 || offsetMinutes > 15) {
-            return "Offset must be within ±15 minutes."
-        }
-        if (offsetMinutes == 0) return "No offset provided."
-
-        // 🚀 [Rule] 20 Minute Notice Constraint
-        val targetSeg = segments[segmentIndex]
-        val cal = Calendar.getInstance()
-        val currentH = cal.get(Calendar.HOUR_OF_DAY)
-        val currentM = cal.get(Calendar.MINUTE)
-        val currentTotal = currentH * 60 + currentM
-        val startTotal = targetSeg.startHour * 60 + targetSeg.startMinute
-        
-        var minsUntilStart: Int
-        if (startTotal > currentTotal) {
-            minsUntilStart = startTotal - currentTotal
-        } else {
-            // Calculated for "Tomorrow" logic if needed, but for immediate shift usually current day.
-            minsUntilStart = (1440 - currentTotal) + startTotal
-        }
-        
-        if (minsUntilStart > 20) {
-             return "只能在时段开始前20分钟以内进行调整"
-        }
-
-        // 🚀 [Constraint] Late Start Limit Check
-        if (offsetMinutes > 0) {
-             if (offsetMinutes > targetSeg.limitMins) {
-                 return "无法推迟：剩余额度(${targetSeg.limitMins}min)不足以支付推迟时长(${offsetMinutes}min)"
-             }
-        }
-
-        // 🚀 [Fix] Apply Shift (Only Start Time, End Time Fixed)
-        val seg = segments[segmentIndex]
-        var newStartTotal = seg.startHour * 60 + seg.startMinute + offsetMinutes
-        newStartTotal = (newStartTotal + 1440) % 1440
-        
-        // Quota Adjustment: Early(-)=Reward(+), Late(+)=Penalty(-)
-        val newLimit = (seg.limitMins - offsetMinutes).coerceAtLeast(0)
-        
-        segments[segmentIndex] = seg.copy(
-            startHour = newStartTotal / 60,
-            startMinute = newStartTotal % 60,
-            limitMins = newLimit
-            // End Time Unchanged
-        )
-        
-        // Save Changes (Immediate)
-        saveTimeSegments(context, segments)
-        
-        // Notify Service
-        val intent = android.content.Intent(context, MonitorService::class.java)
-        intent.action = MonitorService.ACTION_REFRESH_RULES
-        context.startService(intent)
-         
-        return null // Success
     }
 
     // 🚀 [NEW] Centralized Refresh Time Access

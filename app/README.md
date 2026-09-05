@@ -70,3 +70,7 @@ com.zhizhi.app
 3. **资源命名规范**：
    - 布局：`activity_*.xml` / `fragment_*.xml` / `dialog_*.xml` / `item_*.xml`
    - 控件 ID：`tv_*` (TextView) / `btn_*` (Button) / `et_*` (EditText) / `switch_*` (Switch)
+
+### 首页时段展示
+
+首页展示当前及下一时段、额度结余与借用；不再提供弹性调度入口。时段编辑统一位于「专注规则」。

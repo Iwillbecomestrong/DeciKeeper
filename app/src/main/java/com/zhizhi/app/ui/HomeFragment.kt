@@ -30,7 +30,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -363,7 +362,6 @@ class HomeFragment : Fragment() {
         cardWeeklyPrivilegeEntry = view.findViewById(R.id.card_weekly_privilege_entry)
         tvWeeklyPrivilegeEntryStatus = view.findViewById(R.id.tv_weekly_privilege_entry_status)
         btnWeeklyPrivilegeEntry = view.findViewById(R.id.btn_weekly_privilege_entry)
-        tvCurrentSegmentRange?.setOnClickListener { showShiftScheduleDialog() }
         
         btnPermission = view.findViewById(R.id.btn_open_permission)
         btnHelp = view.findViewById(R.id.btn_help)
@@ -373,11 +371,6 @@ class HomeFragment : Fragment() {
         tvFreeTimeCountdown = view.findViewById(R.id.tv_free_time_countdown)
         btnStopFreeTime = view.findViewById(R.id.btn_stop_free_time)
         
-        // 弹性调度按钮
-        view.findViewById<Button>(R.id.btn_flexible_schedule)?.setOnClickListener {
-            showShiftScheduleDialog()
-        }
-
         // 适应期卡片
         cardAdaptation = view.findViewById(R.id.card_adaptation)
         btnEndAdaptation = view.findViewById(R.id.btn_end_adaptation)
@@ -1728,121 +1721,6 @@ class HomeFragment : Fragment() {
             .setView(layout)
             .setPositiveButton("完成", null)
             .show()
-    }
-
-    private fun showShiftScheduleDialog() {
-        val ctx = context ?: return
-        val nextSeg = TimeRuleManager.getNextSegment(ctx)
-        val segments = TimeRuleManager.getTimeSegments(ctx)
-        
-        if (segments.isEmpty() || nextSeg == null) {
-            Toast.makeText(ctx, "当前无法进行弹性调度", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        val currentSeg = TimeRuleManager.getCurrentSegment(ctx)
-        if (currentSeg != null) {
-            Toast.makeText(ctx, "⚠️ 弹性调度仅在空档期可用", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val isLastGap = TimeRuleManager.isInLastGapPeriod(ctx)
-        if (isLastGap) {
-            Toast.makeText(ctx, "⚠️ 最后空档期不可调整（睡眠时间）", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val maxLimit = kotlin.math.min(15, nextSeg.limitMins)
-
-        val layout = android.widget.LinearLayout(ctx).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(50, 40, 50, 40)
-            gravity = android.view.Gravity.CENTER_HORIZONTAL
-        }
-        
-        val tvInfo = TextView(ctx).apply {
-            text = if (maxLimit < 15) "⏰ 弹性调度 (限 ±$maxLimit 分钟)" else "⏰ 弹性调度 (限 ±15 分钟)"
-            textSize = 18f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            gravity = android.view.Gravity.CENTER
-        }
-        layout.addView(tvInfo)
-        
-        val tvDesc = TextView(ctx).apply {
-            text = "调整下一时段的开始时间\n(提前开始=奖励额度，推迟开始=扣除额度)"
-            textSize = 13f
-            gravity = android.view.Gravity.CENTER
-            setPadding(0, 16, 0, 32)
-        }
-        layout.addView(tvDesc)
-
-        val rgType = android.widget.RadioGroup(ctx).apply {
-            orientation = android.widget.LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER
-        }
-        val rbEarly = android.widget.RadioButton(ctx).apply { text = "🔥 提前开始"; id = View.generateViewId(); isChecked = true }
-        val rbLate = android.widget.RadioButton(ctx).apply { text = "😴 推迟开始"; id = View.generateViewId() }
-        rgType.addView(rbEarly)
-        rgType.addView(rbLate)
-        layout.addView(rgType)
-
-        val inputLayout = android.widget.LinearLayout(ctx).apply {
-            orientation = android.widget.LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER
-            setPadding(0, 20, 0, 30)
-        }
-        val etMins = EditText(ctx).apply {
-            hint = "0"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            width = 200
-            gravity = android.view.Gravity.CENTER
-            setText("0")
-        }
-        val tvUnit = TextView(ctx).apply { text = " 分钟" }
-        inputLayout.addView(etMins)
-        inputLayout.addView(tvUnit)
-        layout.addView(inputLayout)
-
-        var dialog: AlertDialog? = null
-
-        dialog = AlertDialog.Builder(ctx)
-            .setView(layout)
-            .setPositiveButton("确认调整", null)
-            .setNegativeButton("取消", null)
-            .create()
-
-        dialog.setOnShowListener {
-            val btnConfirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            btnConfirm.setOnClickListener {
-                val inputMins = etMins.text.toString().toIntOrNull() ?: 0
-                if (inputMins !in 0..maxLimit) {
-                    Toast.makeText(ctx, "调整幅度仅限 $maxLimit 分钟以内", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                if (inputMins == 0) {
-                    dialog.dismiss()
-                    return@setOnClickListener
-                }
-                
-                val isEarly = rbEarly.isChecked
-                val signedMins = if (isEarly) -inputMins else inputMins
-                
-                val nextIdx = TimeRuleManager.getNextSegmentIndex(ctx)
-                val result = TimeRuleManager.shiftSegmentSchedule(ctx, nextIdx, signedMins)
-                
-                if (result != null) {
-                    Toast.makeText(ctx, result, Toast.LENGTH_LONG).show()
-                    return@setOnClickListener
-                }
-                
-                updateQuotaDisplay()
-                val action = if (isEarly) "增加" else "减少"
-                Toast.makeText(ctx, "下一时段休息额度已${action} $inputMins 分钟", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-        }
-        
-        dialog.show()
     }
 
     private fun updateSetupGuide() {

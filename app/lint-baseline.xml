@@ -10059,17 +10059,6 @@
 
     <issue
         id="HardcodedText"
-        message="Hardcoded string &quot;⏰ 弹性调度 (±15分钟)&quot;, should use `@string` resource"
-        errorLine1="            android:text=&quot;⏰ 弹性调度 (±15分钟)&quot;"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/fragment_home.xml"
-            line="446"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="HardcodedText"
         message="Hardcoded string &quot;💎 每周特权&quot;, should use `@string` resource"
         errorLine1="                    android:text=&quot;💎 每周特权&quot;"
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~">

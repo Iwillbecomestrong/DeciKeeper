@@ -414,19 +414,6 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 🚀 弹性调度按钮 -->
-        <Button
-            android:id="@+id/btn_flexible_schedule"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginHorizontal="10dp"
-            android:layout_marginTop="12dp"
-            android:text="⏰ 弹性调度 (±15分钟)"
-            android:textSize="14sp"
-            android:backgroundTint="#7E57C2"
-            android:textColor="#FFFFFF"
-            app:cornerRadius="24dp"/>
-
         <androidx.cardview.widget.CardView
             android:id="@+id/card_weekly_privilege_entry"
             android:layout_width="match_parent"
