@@ -496,7 +496,7 @@ class ForegroundNormalEventTest {
     }
 
     private fun findLockWindowManagerSource(): java.io.File {
-        val relative = "app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt"
+        val relative = "app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt"
         return generateSequence(java.io.File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
             .map { java.io.File(it, relative) }
             .firstOrNull { it.isFile }

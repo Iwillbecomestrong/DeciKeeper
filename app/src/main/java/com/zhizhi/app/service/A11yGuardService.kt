@@ -95,7 +95,7 @@ class A11yGuardService : Service() {
 
     }
 
-    private val CHANNEL_ID = "IronWillGuardChannel"
+    private val CHANNEL_ID = "ZhiZhiGuardChannel"
     private val NOTIFICATION_ID = 2001
     private val TAG = "A11yGuardService"
     private val PREFS_NAME = "permission_monitor"
@@ -294,8 +294,8 @@ class A11yGuardService : Service() {
     }
 
     private fun buildNotification(isActive: Boolean, showWarning: Boolean): Notification {
-        var title = if (isActive) "IronWill 守护中" else "IronWill 运行中"
-        var content = if (isActive) "正在保护您的自律生活" else "防沉迷监测服务正在后台运行"
+        var title = if (isActive) "知止 守护中" else "知止 运行中"
+        var content = if (isActive) "正在守护您的自律边界" else "知止守护服务正在后台运行"
         
         if (!isActive && showWarning) {
             title = "⚠️ 服务已断开"
@@ -334,10 +334,10 @@ class A11yGuardService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "IronWill Guard Service",
+                "知止守护服务",
                 NotificationManager.IMPORTANCE_LOW
             )
-            channel.description = "Persistent notification for IronWill service monitoring"
+            channel.description = "知止后台服务守护监控通知"
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }

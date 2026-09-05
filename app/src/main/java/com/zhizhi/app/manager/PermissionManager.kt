@@ -60,7 +60,7 @@ object PermissionManager {
     private const val CHECK_INTERVAL_MS = 3_000L // 3秒检查一次
     private const val A11Y_SIGNAL_GRACE_MS = 15_000L
     private const val NOTIFICATION_THROTTLE_MS = 21_600_000L // 6小时通知限频
-    private const val NOTIFICATION_CHANNEL_ID = "IronWillPermChannel"
+    private const val NOTIFICATION_CHANNEL_ID = "ZhiZhiPermChannel"
     private const val NOTIFICATION_ID = 3001
     
     // 权限类型枚举
@@ -388,7 +388,7 @@ object PermissionManager {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = android.app.NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "权限监控",
+                "知止权限监控",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "权限丢失时立即提醒"

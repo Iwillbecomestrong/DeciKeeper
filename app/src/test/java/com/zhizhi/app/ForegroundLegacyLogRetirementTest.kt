@@ -11,8 +11,8 @@ import org.junit.Test
 class ForegroundLegacyLogRetirementTest {
     @Test
     fun defaultForegroundProductionPathHasNoLegacyPollingEmission() {
-        val core = source("app/src/main/java/com/ironwill/app/service/CoreService.kt")
-        val monitor = source("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
+        val core = source("app/src/main/java/com/zhizhi/app/service/CoreService.kt")
+        val monitor = source("app/src/main/java/com/zhizhi/app/service/MonitorService.kt")
 
         assertFalse("CoreService [DETECT] must be retired", core.contains("[DETECT] Blacklist app"))
         assertFalse("mini-window fallback polling export must be retired", core.contains("[MINI_WINDOW_FALLBACK]"))
@@ -39,7 +39,7 @@ class ForegroundLegacyLogRetirementTest {
      */
     @Test
     fun productCodeContainsNoChineseLegacyPenaltyEmission() {
-        val lockMgr = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
+        val lockMgr = source("app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt")
 
         assertFalse(
             "LockWindowManager must not emit `惩罚: 扣费` Chinese LogExporter call (REQ-010 已替换)",
@@ -58,7 +58,7 @@ class ForegroundLegacyLogRetirementTest {
      */
     @Test
     fun defaultForegroundProductionPathHasNoLegacyPollingEmission_fgDecision() {
-        val monitor = source("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
+        val monitor = source("app/src/main/java/com/zhizhi/app/service/MonitorService.kt")
 
         // 每次 `EventLog.fgDecision(...)` 调用都必须在自己的紧邻 if 块中受 `foregroundRaw` 门控。
         // 紧邻窗口设为 200 字符 — fgDecision 调用块约 ~16 行 Kotlin。
@@ -93,7 +93,7 @@ class ForegroundLegacyLogRetirementTest {
      */
     @Test
     fun rawForegroundDiagnosticSurvivesWhenForegroundRawEnabled() {
-        val monitor = source("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
+        val monitor = source("app/src/main/java/com/zhizhi/app/service/MonitorService.kt")
 
         // 必须存在受 `foregroundRaw` 门控的 `EventLog.fgDecision(...)` 调用
         // 用 200 字符紧邻窗口以确保是 fgDecision 自己被门控，不是用前面的 fgGuardCompressor.observe 门控误判
@@ -116,7 +116,7 @@ class ForegroundLegacyLogRetirementTest {
      */
     @Test
     fun penaltyWindowDiagnosticsRequireQuotaCalculation() {
-        val lockMgr = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
+        val lockMgr = source("app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt")
 
         // 4 行 `[Penalty]` 相关 Log.d 必须受 quotaCalculation 门控
         assertGuarded(lockMgr, "Log.d(TAG, \"[Penalty] screen-on re-detection", "DefaultLogDebugConfig.quotaCalculation")

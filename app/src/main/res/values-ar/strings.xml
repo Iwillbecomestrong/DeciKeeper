@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">IronWill</string>
-    <string name="accessibility_description">خدمة IronWill الأساسية. تحمي حالة الانضباط الذاتي وتمنع إلغاء التثبيت العرضي. يرجى الإبقاء عليها مفعلة لضمان الحماية.</string>
+    <string name="app_name">ZhiZhi</string>
+    <string name="accessibility_description">خدمة ZhiZhi الأساسية. تحمي حالة الانضباط الذاتي وتمنع إلغاء التثبيت العرضي. يرجى الإبقاء عليها مفعلة لضمان الحماية.</string>
 
     <string name="anti_uninstall_title">🛡️ حماية ضد إلغاء التثبيت</string>
-    <string name="anti_uninstall_message">تم اكتشاف محاولة لإلغاء التثبيت، أو إيقاف IronWill، أو إيقاف خدمة إمكانية الوصول. تم حظر الإجراء.\n\nللمتابعة، يرجى إيقاف تشغيل حماية ضد إلغاء التثبيت داخل التطبيق أولاً.</string>
+    <string name="anti_uninstall_message">تم اكتشاف محاولة لإلغاء التثبيت، أو إيقاف ZhiZhi، أو إيقاف خدمة إمكانية الوصول. تم حظر الإجراء.\n\nللمتابعة، يرجى إيقاف تشغيل حماية ضد إلغاء التثبيت داخل التطبيق أولاً.</string>
     <string name="btn_got_it">فهمت</string>
     <string name="btn_back">رجوع</string>
 </resources>

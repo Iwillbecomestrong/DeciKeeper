@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">IronWill</string>
-    <string name="accessibility_description">IronWill මූලික සේවාව. ඔබේ ස්වයං විනය තත්ත්වය ආරක්ෂා කරන අතර අහම්බෙන් අස්ථාපනය කිරීම වළක්වයි. ආරක්ෂාව සහතික කිරීම සඳහා කරුණාකර සක්‍රියව තබා ගන්න.</string>
+    <string name="app_name">ZhiZhi</string>
+    <string name="accessibility_description">ZhiZhi මූලික සේවාව. ඔබේ ස්වයං විනය තත්ත්වය ආරක්ෂා කරන අතර අහම්බෙන් අස්ථාපනය කිරීම වළක්වයි. ආරක්ෂාව සහතික කිරීම සඳහා කරුණාකර සක්‍රියව තබා ගන්න.</string>
 
     <string name="anti_uninstall_title">🛡️ අස්ථාපන ආරක්ෂණය</string>
-    <string name="anti_uninstall_message">IronWill අස්ථාපනය කිරීමට, නැවැත්වීමට හෝ ප්‍රවේශතා සේවාව ක්‍රියා විරහිත කිරීමට ගත් උත්සාහයක් හඳුනා ගන්නා ලදී. ක්‍රියාව අවහිර කරන ලදී.\n\nඉදිරියට යාමට, කරුණාකර පළමුව යෙදුම තුළ අස්ථාපන ආරක්ෂණය ක්‍රියා විරහිත කරන්න.</string>
+    <string name="anti_uninstall_message">ZhiZhi අස්ථාපනය කිරීමට, නැවැත්වීමට හෝ ප්‍රවේශතා සේවාව ක්‍රියා විරහිත කිරීමට ගත් උත්සාහයක් හඳුනා ගන්නා ලදී. ක්‍රියාව අවහිර කරන ලදී.\n\nඉදිරියට යාමට, කරුණාකර පළමුව යෙදුම තුළ අස්ථාපන ආරක්ෂණය ක්‍රියා විරහිත කරන්න.</string>
     <string name="btn_got_it">තේරුම් ගත්තා</string>
     <string name="btn_back">ආපසු</string>
 </resources>

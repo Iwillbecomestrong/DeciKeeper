@@ -240,9 +240,9 @@ class FastLockService : Service() {
     }
 
     private fun createNotification(): Notification {
-        val channelId = "ironwill_fast_lock"
+        val channelId = "zhizhi_fast_lock"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !notificationChannelCreated) {
-            val channel = NotificationChannel(channelId, "IronWill Startup Protection", NotificationManager.IMPORTANCE_MIN)
+            val channel = NotificationChannel(channelId, "知止开机保护", NotificationManager.IMPORTANCE_MIN)
             channel.setShowBadge(false)
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)

@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">IronWill</string>
-    <string name="accessibility_description">ບໍລິການຫຼັກ IronWill. ປົກປ້ອງສະຖານະວິໄນຕົນເອງຂອງທ່ານ ແລະປ້ອງກັນການຖອນການຕິດຕັ້ງໂດຍບັງເອີນ. ກະລຸນາເປີດໃຊ້ງານໄວ້ເພື່ອຮັບປະກັນການປົກປ້ອງ.</string>
+    <string name="app_name">ZhiZhi</string>
+    <string name="accessibility_description">ບໍລິການຫຼັກ ZhiZhi. ປົກປ້ອງສະຖານະວິໄນຕົນເອງຂອງທ່ານ ແລະປ້ອງກັນການຖອນການຕິດຕັ້ງໂດຍບັງເອີນ. ກະລຸນາເປີດໃຊ້ງານໄວ້ເພື່ອຮັບປະກັນການປົກປ້ອງ.</string>
 
     <string name="anti_uninstall_title">🛡️ ການປ້ອງກັນການຖອນການຕິດຕັ້ງ</string>
-    <string name="anti_uninstall_message">ກວດພົບຄວາມພະຍາຍາມຖອນການຕິດຕັ້ງ, ຢຸດ IronWill ຫຼືປິດບໍລິການການເຂົ້າເຖິງ. ການກະທຳຖືກບລັອກ.\n\nເພື່ອດຳເນີນການຕໍ່, ກະລຸນາປິດການປ້ອງກັນການຖອນການຕິດຕັ້ງພາຍໃນແອັບກ່ອນ.</string>
+    <string name="anti_uninstall_message">ກວດພົບຄວາມພະຍາຍາມຖອນການຕິດຕັ້ງ, ຢຸດ ZhiZhi ຫຼືປິດບໍລິການການເຂົ້າເຖິງ. ການກະທຳຖືກບລັອກ.\n\nເພື່ອດຳເນີນການຕໍ່, ກະລຸນາປິດການປ້ອງກັນການຖອນການຕິດຕັ້ງພາຍໃນແອັບກ່ອນ.</string>
     <string name="btn_got_it">ຮັບຊາບ</string>
     <string name="btn_back">ກັບຄືນ</string>
 </resources>

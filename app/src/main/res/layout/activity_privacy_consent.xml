@@ -17,7 +17,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="🛡️ IronWill"
+        android:text="🛡️ 知止"
         android:textSize="28sp"
         android:textStyle="bold"
         android:textColor="#FFFFFF"
@@ -26,7 +26,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="欢迎使用 IronWill"
+        android:text="欢迎使用知止"
         android:textSize="20sp"
         android:textColor="#FFFFFF"
         android:layout_marginTop="8dp"/>
@@ -38,7 +38,7 @@
         android:textSize="15sp"
         android:lineSpacingExtra="6dp"
         android:textColor="#E0E0E0"
-        android:text="在使用 IronWill 之前，请阅读并同意以下协议。\n\n点击「同意」即表示你已阅读、知晓并同意《用户协议》与《隐私政策》的全部内容。\n\n你也可以在「设置 → 关于我们」中随时查看与重新审阅。"/>
+        android:text="在使用知止之前，请阅读并同意以下协议。\n\n点击「同意」即表示你已阅读、知晓并同意《用户协议》与《隐私政策》的全部内容。\n\n你也可以在「设置 → 关于我们」中随时查看与重新审阅。"/>
 
     <LinearLayout
         android:layout_width="match_parent"

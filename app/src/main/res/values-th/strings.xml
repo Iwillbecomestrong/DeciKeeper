@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">IronWill</string>
-    <string name="accessibility_description">บริการหลัก IronWill ปกป้องสถานะวินัยในตนเองของคุณและป้องกันการถอนการติดตั้งโดยไม่ตั้งใจ โปรดเปิดใช้งานเพื่อให้แน่ใจว่ามีการป้องกัน</string>
+    <string name="app_name">ZhiZhi</string>
+    <string name="accessibility_description">บริการหลัก ZhiZhi ปกป้องสถานะวินัยในตนเองของคุณและป้องกันการถอนการติดตั้งโดยไม่ตั้งใจ โปรดเปิดใช้งานเพื่อให้แน่ใจว่ามีการป้องกัน</string>
 
     <string name="anti_uninstall_title">🛡️ การป้องกันการถอนการติดตั้ง</string>
-    <string name="anti_uninstall_message">ตรวจพบความพยายามในการถอนการติดตั้ง, หยุด IronWill หรือปิดบริการการเข้าถึง การดำเนินการถูกบล็อก\n\nหากต้องการดำเนินการต่อ โปรดปิดการป้องกันการถอนการติดตั้งภายในแอปก่อน</string>
+    <string name="anti_uninstall_message">ตรวจพบความพยายามในการถอนการติดตั้ง, หยุด ZhiZhi หรือปิดบริการการเข้าถึง การดำเนินการถูกบล็อก\n\nหากต้องการดำเนินการต่อ โปรดปิดการป้องกันการถอนการติดตั้งภายในแอปก่อน</string>
     <string name="btn_got_it">รับทราบ</string>
     <string name="btn_back">กลับ</string>
 </resources>

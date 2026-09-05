@@ -375,7 +375,7 @@ class AlarmChallengeEmergencyGuardService : Service() {
 
     private fun buildNotification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher)
-        .setContentTitle("IronWill 闹钟挑战进行中")
+        .setContentTitle("知止 闹钟挑战进行中")
         .setContentText("仅允许挑战界面和应急白名单应用")
         .setOngoing(true)
         .setPriority(NotificationCompat.PRIORITY_MIN)

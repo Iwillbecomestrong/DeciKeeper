@@ -133,7 +133,7 @@ class AlarmFragment : Fragment() {
             "1. 关闭「睡眠待机优化」\n" +
             "   路径：设置 → 电池 → 更多电池设置 → 关闭「睡眠待机优化 / 睡眠模式」\n\n" +
             "2. 允许「后台高耗电」\n" +
-            "   路径：设置 → 电池 → 后台耗电管理 → 找到 IronWill → 选择「允许后台耗电」"
+            "   路径：设置 → 电池 → 后台耗电管理 → 找到 知止 → 选择「允许后台耗电」"
         } else {
             "为防止系统在夜间锁屏或后台待机时冻结闹钟进程导致漏响，建议完成以下配置：\n\n" +
             "1. 忽略电池优化（允许后台无限制运行）\n" +
@@ -1640,7 +1640,7 @@ class AlarmFragment : Fragment() {
     private fun showSystemBackupHelpDialog() {
         AlertDialog.Builder(requireContext())
             .setTitle("同步到系统闹钟")
-            .setMessage("同步会把这个闹钟加入到系统闹钟，防止 IronWill 可能出现权限或者其他的问题影响你的正事。")
+            .setMessage("同步会把这个闹钟加入到系统闹钟，防止 知止 可能出现权限或者其他的问题影响你的正事。")
             .setPositiveButton("知道了", null)
             .show()
 
@@ -1652,7 +1652,7 @@ class AlarmFragment : Fragment() {
             putExtra(AlarmClock.EXTRA_HOUR, alarm.hour)
             putExtra(AlarmClock.EXTRA_MINUTES, alarm.minute)
             putExtra(AlarmClock.EXTRA_DAYS, daysToSystemFormat(alarm.days))
-            putExtra(AlarmClock.EXTRA_MESSAGE, "IronWill 备份闹钟")
+            putExtra(AlarmClock.EXTRA_MESSAGE, "知止 备份闹钟")
             putExtra(AlarmClock.EXTRA_SKIP_UI, false)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }

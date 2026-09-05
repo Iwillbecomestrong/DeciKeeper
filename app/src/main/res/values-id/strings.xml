@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">IronWill</string>
-    <string name="accessibility_description">Layanan Inti IronWill. Melindungi status disiplin diri Anda dan mencegah penghapusan aplikasi yang tidak disengaja. Harap biarkan aktif untuk memastikan perlindungan.</string>
+    <string name="app_name">ZhiZhi</string>
+    <string name="accessibility_description">Layanan Inti ZhiZhi. Melindungi status disiplin diri Anda dan mencegah penghapusan aplikasi yang tidak disengaja. Harap biarkan aktif untuk memastikan perlindungan.</string>
 
     <string name="anti_uninstall_title">🛡️ Perlindungan Anti-Copot Pemasangan</string>
-    <string name="anti_uninstall_message">Terdeteksi upaya mencopot pemasangan, menghentikan IronWill, atau mematikan layanan aksesibilitas. Tindakan diblokir.\n\nUntuk melanjutkan, harap matikan Perlindungan Anti-Copot Pemasangan di dalam aplikasi terlebih dahulu.</string>
+    <string name="anti_uninstall_message">Terdeteksi upaya mencopot pemasangan, menghentikan ZhiZhi, atau mematikan layanan aksesibilitas. Tindakan diblokir.\n\nUntuk melanjutkan, harap matikan Perlindungan Anti-Copot Pemasangan di dalam aplikasi terlebih dahulu.</string>
     <string name="btn_got_it">Mengerti</string>
     <string name="btn_back">Kembali</string>
 </resources>

@@ -73,9 +73,9 @@ class AboutActivity : AppCompatActivity() {
                 // REQ-5 Round 3 Fix #3: longVersionCode 自 API 28 引入，
                 // minSdk=26 在 8.0/8.1 上会 NoSuchFieldError，必须走 SDK 分支。
                 val longVersionCode = readLongVersionCodeCompat(info)
-                "IronWill v${info.versionName ?: "?"} (build $longVersionCode)"
+                "知止 v${info.versionName ?: "?"} (build $longVersionCode)"
             } catch (e: Exception) {
-                "IronWill"
+                "知止"
             }
     }
 

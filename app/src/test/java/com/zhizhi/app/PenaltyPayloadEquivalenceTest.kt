@@ -112,8 +112,8 @@ class PenaltyPayloadEquivalenceTest {
      */
     @Test
     fun allThreeChargeBranchesEmitEquivalentFieldShape() {
-        val credit = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
-        val bridgeSrc = source("app/src/main/java/com/ironwill/app/manager/QuotaConfigEventBridge.kt")
+        val credit = source("app/src/main/java/com/zhizhi/app/manager/CreditManager.kt")
+        val bridgeSrc = source("app/src/main/java/com/zhizhi/app/manager/QuotaConfigEventBridge.kt")
 
         // The bridge must expose all 7 detail parameters in recordPenalty's signature.
         listOf(
@@ -178,7 +178,7 @@ class PenaltyPayloadEquivalenceTest {
      */
     @Test
     fun penaltyTypeRemainsPenalty() {
-        val bridgeSrc = source("app/src/main/java/com/ironwill/app/manager/QuotaConfigEventBridge.kt")
+        val bridgeSrc = source("app/src/main/java/com/zhizhi/app/manager/QuotaConfigEventBridge.kt")
 
         assertTrue(
             "bridge must still type= PENALTY for penalty receipts",

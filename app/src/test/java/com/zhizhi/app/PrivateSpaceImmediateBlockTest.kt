@@ -612,7 +612,7 @@ class PrivateSpaceImmediateBlockTest {
             dir = dir.parentFile
         }
         requireNotNull(dir) { "Cannot locate project root" }
-        val file = File(dir, "app/src/main/java/com/ironwill/app/protection/AntiUninstallProtection.kt")
+        val file = File(dir, "app/src/main/java/com/zhizhi/app/protection/AntiUninstallProtection.kt")
         require(file.exists()) { "AntiUninstallProtection.kt not found at ${file.absolutePath}" }
         return file.readText(Charsets.UTF_8)
     }

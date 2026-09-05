@@ -43,7 +43,7 @@ class LockExitEvidenceDedupTest {
         assertEquals(1, Regex("""(?:^|\s)evidence=""").findAll(text).count())
         assertTrue(text.contains("evidence=DESKTOP_NOT_CONFIRMED|EVENTS"))
 
-        val source = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
+        val source = source("app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt")
         assertFalse(source.contains("LogExporter.i(\"LockScreen\", \"解锁:"))
         assertFalse(source.contains("LogExporter.i(\"LockScreen\", \"🏠 回到桌面"))
         assertFalse(source.contains("LogExporter.i(\"TempAccess\", \"临时解锁:"))

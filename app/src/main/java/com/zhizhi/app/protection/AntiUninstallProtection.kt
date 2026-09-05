@@ -93,7 +93,7 @@ class AntiUninstallProtection(private val context: Context) {
             "com.huawei.android.launcher", "com.miui.home", "com.oppo.launcher"
         )
 
-        val PROTECTED_APP_NAMES = setOf("IronWill", "Iron Will", "意引", "钢铁意志")
+        val PROTECTED_APP_NAMES = setOf("知止", "ZhiZhi", "IronWill", "Iron Will", "意引", "钢铁意志")
         
         // Multi-Language Uninstall Keywords
         val UNINSTALL_KEYWORDS = setOf(
@@ -273,6 +273,9 @@ class AntiUninstallProtection(private val context: Context) {
             if (content.contains("com.zhizhi.app", ignoreCase = true)) return true
             if (content.contains(protectedPackageName, ignoreCase = true)) return true
             val normalized = content.lowercase().replace(Regex("[^a-z0-9\u4e00-\u9fa5]"), "")
+            if (normalized.contains("知止")) return true
+            if (normalized.contains("zhizhi")) return true
+            if (normalized.contains("zhizhiapp")) return true
             if (normalized.contains("ironwill")) return true
             if (normalized.contains("ironwillapp")) return true
             if (normalized.contains("意引")) return true

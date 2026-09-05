@@ -1106,7 +1106,7 @@ class HomeFragment : Fragment() {
 
             activePermissionDialog = AlertDialog.Builder(ctx)
                 .setTitle("缺少悬浮窗权限")
-                .setMessage("IronWill 需要「显示在其他应用上层」权限才能显示锁屏界面。")
+                .setMessage("知止需要「显示在其他应用上层」权限才能显示锁屏界面。")
                 .setPositiveButton("去开启") { _, _ ->
                     try {
                         startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${ctx.packageName}")))
@@ -1137,7 +1137,7 @@ class HomeFragment : Fragment() {
 
         activePermissionDialog = AlertDialog.Builder(ctx)
             .setTitle("缺少使用情况访问权限")
-            .setMessage("IronWill 需要「使用情况访问」权限来识别前台应用并执行拦截。")
+            .setMessage("知止需要「使用情况访问」权限来识别前台应用并执行拦截。")
             .setPositiveButton("去开启") { _, _ ->
                 try {
                     startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
@@ -1332,7 +1332,7 @@ class HomeFragment : Fragment() {
                 if (allowManualConfirm) {
                     "$label 可能影响防护稳定性。$detectionNotice\n\n请先去系统设置确认是否已开启。$fastFeedbackNotice$stickyConfirmNotice"
                 } else {
-                    "$label 当前可由系统自动检测状态，暂不提供手动确认。\n\n请先去设置开启，返回后由 IronWill 自动识别。"
+                    "$label 当前可由系统自动检测状态，暂不提供手动确认。\n\n请先去设置开启，返回后由知止自动识别。"
                 }
             )
             .setPositiveButton("去设置") { _, _ ->

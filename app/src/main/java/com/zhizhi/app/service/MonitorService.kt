@@ -734,7 +734,7 @@ class MonitorService : Service() {
 
     private fun sendNotification(title: String, msg: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channelId = "ironwill_monitor_channel"
+            val channelId = "zhizhi_monitor_channel"
             val notification = NotificationCompat.Builder(this, channelId)
                 .setContentTitle(title)
                 .setContentText(msg)
@@ -921,11 +921,11 @@ class MonitorService : Service() {
     }
 
     private fun startForegroundService() {
-        val channelId = "ironwill_monitor_channel"
+        val channelId = "zhizhi_monitor_channel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "IronWill Monitor Service",
+                "知止后台监控服务",
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -933,8 +933,8 @@ class MonitorService : Service() {
         }
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("IronWill 正在运行")
-            .setContentText("正在监控应用使用情况...")
+            .setContentTitle("知止 正在运行")
+            .setContentText("正在守护自律时间边界...")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()

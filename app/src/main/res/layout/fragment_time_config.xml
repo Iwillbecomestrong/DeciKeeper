@@ -194,7 +194,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:layout_marginTop="24dp"
-            android:text="IronWill 系统将根据此设置自动执行勿扰计划"
+            android:text="知止将根据此设置自动执行勿扰计划"
             android:textColor="#006064"
             android:textSize="12sp"
             android:alpha="0.8"/>

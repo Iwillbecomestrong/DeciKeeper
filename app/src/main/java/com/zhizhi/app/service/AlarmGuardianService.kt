@@ -610,7 +610,7 @@ class AlarmGuardianService : Service() {
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("IronWill 守护中")
+                .setContentTitle("知止 守护中")
                 .setContentText(contentText)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setOngoing(true)
@@ -619,7 +619,7 @@ class AlarmGuardianService : Service() {
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("IronWill 守护中")
+                .setContentTitle("知止 守护中")
                 .setContentText(contentText)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setOngoing(true)

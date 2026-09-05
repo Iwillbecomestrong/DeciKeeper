@@ -344,7 +344,7 @@ class ConsumePenaltySecondsEpisodeTest {
      */
     @Test
     fun invalidKeyOrCapacityCommitsNothing() {
-        val src = java.io.File("src/main/java/com/ironwill/app/manager/CreditManager.kt")
+        val src = java.io.File("src/main/java/com/zhizhi/app/manager/CreditManager.kt")
             .readText()
 
         // The pre-compute block must guard against any null count key with
@@ -430,7 +430,7 @@ class ConsumePenaltySecondsEpisodeTest {
      */
     @Test
     fun allThreeSuccessPathsReturnSameReceiptShape() {
-        val src = java.io.File("src/main/java/com/ironwill/app/manager/CreditManager.kt")
+        val src = java.io.File("src/main/java/com/zhizhi/app/manager/CreditManager.kt")
             .readText()
 
         // Exactly one production recordPenalty call site (helper centralizes).

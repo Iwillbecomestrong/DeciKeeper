@@ -100,7 +100,7 @@ class PrivacyConsentActivity : AppCompatActivity() {
 
     private fun onDeclineClicked() {
         // 不写状态、保留"未同意"。下次启动还会再弹。
-        Toast.makeText(this, "已退出 IronWill", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "已退出知止", Toast.LENGTH_SHORT).show()
         Log.i(TAG, "User declined, finishing app")
         finishAffinity()
     }

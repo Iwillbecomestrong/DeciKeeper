@@ -701,7 +701,7 @@ class AlarmVibrationService : Service() {
      */
     private fun buildMinimalKeepAliveNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("IronWill")
+            .setContentTitle("知止")
             .setContentText("闹钟预热中...")
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setOngoing(true)

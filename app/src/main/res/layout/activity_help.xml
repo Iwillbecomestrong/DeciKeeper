@@ -30,7 +30,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📘 IronWill 使用说明"
+            android:text="📘 知止 使用说明"
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
@@ -68,7 +68,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="IronWill（钢铁意志）是一款旨在帮助你建立数字自律、夺回时间掌控权的高强度工具。通过「海面模式」的宁静视觉，我们将复杂的时间规则简化为四个航行阶段，帮助你平稳度过由于冲动产生的干扰波动。"
+                    android:text="知止是一款旨在帮助你建立数字自律、夺回时间掌控权的高强度工具。通过「海面模式」的宁静视觉，我们将复杂的时间规则简化为四个航行阶段，帮助你平稳度过由于冲动产生的干扰波动。"
                     android:textSize="15sp"
                     android:textColor="#424242"
                     android:lineSpacingExtra="4dp"/>
@@ -104,7 +104,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="• 黑名单模式：IronWill 采用「黑名单」管理机制。默认情况下，所有应用都是允许使用的。只有被你勾选进入黑名单的应用（如游戏、短视频等）才会在勿扰时段被拦截。\n\n• 分段监管：我们将一天分为多个时段，每个时段可以设置不同的休息时长。\n\n• 适应期：安装第一天为适应期，你可以随意调整设置并立即生效。适应期结束后，所有修改将严格执行「次日生效」逻辑。\n\n• 次日生效：为了防止在冲动时修改规则，所有的黑名单和时间修改都将在明天的 00:00 才正式生效。"
+                    android:text="• 黑名单模式：知止采用「黑名单」管理机制。默认情况下，所有应用都是允许使用的。只有被你勾选进入黑名单的应用（如游戏、短视频等）才会在勿扰时段被拦截。\n\n• 分段监管：我们将一天分为多个时段，每个时段可以设置不同的休息时长。\n\n• 适应期：安装第一天为适应期，你可以随意调整设置并立即生效。适应期结束后，所有修改将严格执行「次日生效」逻辑。\n\n• 次日生效：为了防止在冲动时修改规则，所有的黑名单和时间修改都将在明天的 00:00 才正式生效。"
                     android:textSize="15sp"
                     android:textColor="#424242"
                     android:lineSpacingExtra="4dp"/>
@@ -140,7 +140,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="1️⃣ 两种时间段\n• 勿扰时段：学习、工作、睡眠等专注时间，启动黑名单应用会被拦截。\n• 空闲时段（空档期）：勿扰时段之间的间隙，完全自由，不受任何限制。\n\n2️⃣ 拦截机制\n• 智能防卸载：平时允许使用设置和安装器。但如果检测到卸载对象是 IronWill，会立即强制锁屏惩罚。\n• 临时解锁：勿扰时段内，如果急需使用黑名单应用，可以使用「额度」申请临时解锁。\n\n3️⃣ 额度系统\n每个时段都有「可用时长」。\n每次临时解锁黑名单应用都会消耗额度。额度耗尽后，该时段将无法再打开黑名单应用。"
+                    android:text="1️⃣ 两种时间段\n• 勿扰时段：学习、工作、睡眠等专注时间，启动黑名单应用会被拦截。\n• 空闲时段（空档期）：勿扰时段之间的间隙，完全自由，不受任何限制。\n\n2️⃣ 拦截机制\n• 智能防卸载：平时允许使用设置和安装器。但如果检测到卸载对象是知止，会立即强制锁屏惩罚。\n• 临时解锁：勿扰时段内，如果急需使用黑名单应用，可以使用「额度」申请临时解锁。\n\n3️⃣ 额度系统\n每个时段都有「可用时长」。\n每次临时解锁黑名单应用都会消耗额度。额度耗尽后，该时段将无法再打开黑名单应用。"
                     android:textSize="15sp"
                     android:textColor="#424242"
                     android:lineSpacingExtra="4dp"/>

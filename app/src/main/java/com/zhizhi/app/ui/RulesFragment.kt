@@ -323,11 +323,11 @@ class RulesFragment : Fragment() {
 
         view.findViewById<View>(R.id.btn_hide_in_recent_tasks_help)?.setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("隐藏 IronWill 在多任务界面")
+                .setTitle("隐藏知止在多任务界面")
                 .setMessage(
-                    "防止用户划掉多进程时不小心误划 IronWill。\n\n" +
-                    "开关开启后,只要你不打开 IronWill 软件本身," +
-                    "在其它软件打开任务界面时 IronWill 就不会出现在最近任务列表里。"
+                    "防止用户划掉多进程时不小心误划知止。\n\n" +
+                    "开关开启后,只要你不打开知止软件本身," +
+                    "在其它软件打开任务界面时知止就不会出现在最近任务列表里。"
                 )
                 .setPositiveButton("知道了", null)
                 .show()
@@ -765,7 +765,7 @@ class RulesFragment : Fragment() {
                 "关闭流程：\n" +
                 "1. 点击「确认关闭」提交以上所有关闭申请\n" +
                 "2. 除闹钟防关机保护立即生效外，其余次日生效\n" +
-                "3. 生效后，可前往系统无障碍设置中关闭 IronWill 无障碍服务\n\n" +
+                "3. 生效后，可前往系统无障碍设置中关闭知止无障碍服务\n\n" +
                 "是否确认同时提交所有关闭申请？"
         }
         container.addView(tvMessage)
@@ -1185,7 +1185,7 @@ class RulesFragment : Fragment() {
             com.zhizhi.app.protection.AccessibilityProtection.markManualSettingsLaunch()
             try {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                Toast.makeText(ctx, "请在系统中找到「IronWill」并开启无障碍服务", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "请在系统中找到「知止」并开启无障碍服务", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(ctx, "无法打开无障碍设置", Toast.LENGTH_SHORT).show()
             }
@@ -1751,7 +1751,7 @@ class RulesFragment : Fragment() {
 
             tvMessage.text = buildString {
                 append("防卸载功能需要开启「无障碍服务」。\n")
-                append("开启后，IronWill 会保护关键防杀权限，防止应用被系统意外杀掉。\n\n")
+                append("开启后，知止会保护关键防杀权限，防止应用被系统意外杀掉。\n\n")
                 append("开启顺序：先补齐前置权限并开启无障碍，最后再开启防卸载。\n")
                 append("关闭规则：防卸载与无障碍都按延迟生效；支持同次提交双关闭，无需分两次等待。\n\n")
                 if (!prerequisite.baseReady) {
@@ -2055,7 +2055,7 @@ class RulesFragment : Fragment() {
         }
         if (!launched) {
             val guideMsg = if (Build.MANUFACTURER.lowercase().contains("vivo")) {
-                "操作步骤：\n1. 点击「电量」\n2. 点击「后台耗电管理」\n3. 找到 IronWill 并点击\n4. 选择「允许后台耗电」"
+                "操作步骤：\n1. 点击「电量」\n2. 点击「后台耗电管理」\n3. 找到知止并点击\n4. 选择「允许后台耗电」"
             } else {
                 "请在后台耗电管理中选择「允许后台耗电」"
             }
@@ -2290,8 +2290,8 @@ class RulesFragment : Fragment() {
         switchView.setOnCheckedChangeListener { _, isChecked ->
             if (switchHideInRecentTasksUiUpdating) return@setOnCheckedChangeListener
             RecentTasksHideManager.setHideEnabled(context, isChecked)
-            val msg = if (isChecked) "已开启。下次不在 IronWill 内打开多任务时生效"
-            else "已关闭。下次启动 IronWill 后会在多任务界面显示"
+            val msg = if (isChecked) "已开启。下次不在知止内打开多任务时生效"
+            else "已关闭。下次启动知止后会在多任务界面显示"
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
         }
     }

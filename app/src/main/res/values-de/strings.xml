@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">IronWill</string>
-    <string name="accessibility_description">IronWill-Kerndienst. Schützt Ihren Selbstdisziplin-Status und verhindert versehentliches Deinstallieren. Bitte aktiviert lassen, um den Schutz zu gewährleisten.</string>
+    <string name="app_name">ZhiZhi</string>
+    <string name="accessibility_description">ZhiZhi-Kerndienst. Schützt Ihren Selbstdisziplin-Status und verhindert versehentliches Deinstallieren. Bitte aktiviert lassen, um den Schutz zu gewährleisten.</string>
 
     <string name="anti_uninstall_title">🛡️ Deinstallationsschutz</string>
-    <string name="anti_uninstall_message">Versuch erkannt, IronWill zu deinstallieren, zu stoppen oder den Bedienungshilfen-Dienst zu deaktivieren. Aktion blockiert.\n\nUm fortzufahren, deaktivieren Sie bitte zuerst den Deinstallationsschutz in der App.</string>
+    <string name="anti_uninstall_message">Versuch erkannt, ZhiZhi zu deinstallieren, zu stoppen oder den Bedienungshilfen-Dienst zu deaktivieren. Aktion blockiert.\n\nUm fortzufahren, deaktivieren Sie bitte zuerst den Deinstallationsschutz in der App.</string>
     <string name="btn_got_it">Verstanden</string>
     <string name="btn_back">Zurück</string>
 </resources>

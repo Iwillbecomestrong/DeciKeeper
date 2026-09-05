@@ -97,8 +97,8 @@ class PendingMainActivityExtrasContractTest {
         // 本轮重写为 JSONObject 白名单,源代码中不能再出现 ObjectOutputStream
         // / ObjectInputStream / writeObject(bundle) / Serializable 等关键字。
         val candidates = listOf(
-            java.io.File("src/main/java/com/ironwill/app/ui/PendingMainActivityExtras.kt"),
-            java.io.File("app/src/main/java/com/ironwill/app/ui/PendingMainActivityExtras.kt")
+            java.io.File("src/main/java/com/zhizhi/app/ui/PendingMainActivityExtras.kt"),
+            java.io.File("app/src/main/java/com/zhizhi/app/ui/PendingMainActivityExtras.kt")
         )
         var src: String? = null
         for (f in candidates) {
@@ -127,8 +127,8 @@ class PendingMainActivityExtrasContractTest {
     fun pendingMainActivityExtrasHasWhitelistOnly() {
         // 防回归:白名单常量必须存在且恰好包含 String/Bool/Int/Long 四类。
         val candidates = listOf(
-            java.io.File("src/main/java/com/ironwill/app/ui/PendingMainActivityExtras.kt"),
-            java.io.File("app/src/main/java/com/ironwill/app/ui/PendingMainActivityExtras.kt")
+            java.io.File("src/main/java/com/zhizhi/app/ui/PendingMainActivityExtras.kt"),
+            java.io.File("app/src/main/java/com/zhizhi/app/ui/PendingMainActivityExtras.kt")
         )
         var src: String? = null
         for (f in candidates) {

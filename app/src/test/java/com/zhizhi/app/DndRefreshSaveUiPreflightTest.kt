@@ -42,7 +42,7 @@ class DndRefreshSaveUiPreflightTest {
      */
     @Test
     fun v14_dialog_message_literal_is_in_activity_save_path() {
-        val src = read("app/src/main/java/com/ironwill/app/ui/GlobalParamsActivity.kt")
+        val src = read("app/src/main/java/com/zhizhi/app/ui/GlobalParamsActivity.kt")
         assertTrue(
             "GlobalParamsActivity.kt must carry V14 message 'refresh time 必须配置在空档期或 DND 时段边界'",
             src.contains("refresh time 必须配置在空档期或 DND 时段边界")
@@ -58,7 +58,7 @@ class DndRefreshSaveUiPreflightTest {
      */
     @Test
     fun rejected_branch_returns_before_analyzeAndSave() {
-        val src = read("app/src/main/java/com/ironwill/app/ui/GlobalParamsActivity.kt")
+        val src = read("app/src/main/java/com/zhizhi/app/ui/GlobalParamsActivity.kt")
         assertTrue(
             "GlobalParamsActivity.kt save listener must reference MinuteBoundary.isRefreshLegal",
             src.contains("MinuteBoundary.isRefreshLegal")

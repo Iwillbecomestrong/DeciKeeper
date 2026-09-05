@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">IronWill</string>
-    <string name="accessibility_description">Service principal IronWill. Protège votre autodiscipline et empêche la désinstallation accidentelle. Veuillez laisser activé pour assurer la protection.</string>
+    <string name="app_name">ZhiZhi</string>
+    <string name="accessibility_description">Service principal ZhiZhi. Protège votre autodiscipline et empêche la désinstallation accidentelle. Veuillez laisser activé pour assurer la protection.</string>
 
     <string name="anti_uninstall_title">🛡️ Protection anti-désinstallation</string>
-    <string name="anti_uninstall_message">Tentative de désinstallation, d\'arrêt d\'IronWill ou de désactivation du service d\'accessibilité détectée. Action bloquée.\n\nPour continuer, veuillez d\'abord désactiver la protection anti-désinstallation dans l\'application.</string>
+    <string name="anti_uninstall_message">Tentative de désinstallation, d\'arrêt d\'ZhiZhi ou de désactivation du service d\'accessibilité détectée. Action bloquée.\n\nPour continuer, veuillez d\'abord désactiver la protection anti-désinstallation dans l\'application.</string>
     <string name="btn_got_it">Compris</string>
     <string name="btn_back">Retour</string>
 </resources>

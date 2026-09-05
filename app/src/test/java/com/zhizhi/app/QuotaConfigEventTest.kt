@@ -199,9 +199,9 @@ class QuotaConfigEventTest {
 
     @Test
     fun productionSaveBlacklistAndSaveGlobalParamsRouteThroughTheBridge() {
-        val credit = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
-        val timeRule = source("app/src/main/java/com/ironwill/app/manager/TimeRuleManager.kt")
-        val bridgeFile = source("app/src/main/java/com/ironwill/app/manager/QuotaConfigEventBridge.kt")
+        val credit = source("app/src/main/java/com/zhizhi/app/manager/CreditManager.kt")
+        val timeRule = source("app/src/main/java/com/zhizhi/app/manager/TimeRuleManager.kt")
+        val bridgeFile = source("app/src/main/java/com/zhizhi/app/manager/QuotaConfigEventBridge.kt")
 
         assertTrue(
             "saveBlacklistApps must invoke the CONFIG_CHANGE bridge call site",
@@ -219,8 +219,8 @@ class QuotaConfigEventTest {
 
     @Test
     fun productionBorrowAndPenaltySitesRecordActualOutcomesNotIntent() {
-        val credit = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
-        val bridgeFile = source("app/src/main/java/com/ironwill/app/manager/QuotaConfigEventBridge.kt")
+        val credit = source("app/src/main/java/com/zhizhi/app/manager/CreditManager.kt")
+        val bridgeFile = source("app/src/main/java/com/zhizhi/app/manager/QuotaConfigEventBridge.kt")
 
         assertTrue(
             "CreditManager must invoke QuotaConfigEventBridge.recordBorrow on successful borrow path",

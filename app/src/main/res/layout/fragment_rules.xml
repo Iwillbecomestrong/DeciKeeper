@@ -430,7 +430,7 @@
                             android:layout_height="wrap_content"
                             android:textColor="#0D47A1"
                             android:textSize="14sp"
-                            android:text="隐藏 IronWill 在多任务界面" />
+                            android:text="在多任务界面中隐藏知止" />
                         <TextView
                             android:id="@+id/btn_hide_in_recent_tasks_help"
                             android:layout_width="20dp"

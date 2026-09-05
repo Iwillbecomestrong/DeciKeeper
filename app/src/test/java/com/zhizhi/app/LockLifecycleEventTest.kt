@@ -291,8 +291,8 @@ class LockLifecycleEventTest {
 
     @Test
     fun productionLifecycleEntrypointsRecordRealRejectionsAndSettleAllReturnDesktopOutcomes() {
-        val lockWindow = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
-        val monitor = source("app/src/main/java/com/ironwill/app/service/MonitorService.kt")
+        val lockWindow = source("app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt")
+        val monitor = source("app/src/main/java/com/zhizhi/app/service/MonitorService.kt")
 
         assertTrue(lockWindow.split("recordRestRejected(").size > 2)
         assertTrue(lockWindow.split("recordPrivilegeRejected(").size > 2)
@@ -307,9 +307,9 @@ class LockLifecycleEventTest {
 
     @Test
     fun privilegeFalseResultsAreRejectedAtCreditManagerBoundaryForLockAndHomeCallers() {
-        val creditManager = source("app/src/main/java/com/ironwill/app/manager/CreditManager.kt")
-        val lockWindow = source("app/src/main/java/com/ironwill/app/ui/LockWindowManager.kt")
-        val homeFragment = source("app/src/main/java/com/ironwill/app/ui/HomeFragment.kt")
+        val creditManager = source("app/src/main/java/com/zhizhi/app/manager/CreditManager.kt")
+        val lockWindow = source("app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt")
+        val homeFragment = source("app/src/main/java/com/zhizhi/app/ui/HomeFragment.kt")
 
         val startBody = creditManager.substringAfter("fun startWeeklyPrivilege")
             .substringBefore("fun isInPrivilegeAdjustmentWindow")

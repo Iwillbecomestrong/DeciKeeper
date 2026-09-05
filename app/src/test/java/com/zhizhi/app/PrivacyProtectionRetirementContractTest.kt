@@ -84,7 +84,7 @@ class PrivacyProtectionRetirementContractTest {
     // =========================================================================
     @Test
     fun firstSuite_kotlinSource_doesNotExist() {
-        val f = File(mainSrcDir, "java/com/ironwill/app/protection/PrivacyProtection.kt")
+        val f = File(mainSrcDir, "java/com/zhizhi/app/protection/PrivacyProtection.kt")
         assertFalse(
             "First-suite file must be deleted: ${f.absolutePath}",
             f.exists()
@@ -112,7 +112,7 @@ class PrivacyProtectionRetirementContractTest {
     // =========================================================================
     @Test
     fun testScenarioManager_module23_firstSuiteKeywordIntegrity_isAbsent() {
-        val src = readMain("java/com/ironwill/app/TestScenarioManager.kt")
+        val src = readMain("java/com/zhizhi/app/TestScenarioManager.kt")
         assertFalse(
             "Module23 keyword integrity check (SEARCH_HISTORY_KEYWORDS mirror) must be removed",
             src.contains("PrivacyProtection.SEARCH_HISTORY_KEYWORDS") ||
@@ -125,7 +125,7 @@ class PrivacyProtectionRetirementContractTest {
     // =========================================================================
     @Test
     fun testScenarioManager_module29_firstSuiteLogicMirror_isAbsent() {
-        val src = readMain("java/com/ironwill/app/TestScenarioManager.kt")
+        val src = readMain("java/com/zhizhi/app/TestScenarioManager.kt")
         assertFalse(
             "Module29 first-suite logic mirror method must be removed",
             src.contains("runPrivacyProtectionLogicVerification")
@@ -145,7 +145,7 @@ class PrivacyProtectionRetirementContractTest {
     // =========================================================================
     @Test
     fun projectIndex_documents_firstSuiteReferences_removed() {
-        val overview = readMain("java/com/ironwill/app/Overview.md")
+        val overview = readMain("java/com/zhizhi/app/Overview.md")
         assertFalse(
             "Overview.md must drop protection/PrivacyProtection entry",
             overview.contains("protection/PrivacyProtection")
@@ -179,7 +179,7 @@ class PrivacyProtectionRetirementContractTest {
     // =========================================================================
     @Test
     fun secondSuite_productionIdentifiers_alive() {
-        val antiUninstall = readMain("java/com/ironwill/app/protection/AntiUninstallProtection.kt")
+        val antiUninstall = readMain("java/com/zhizhi/app/protection/AntiUninstallProtection.kt")
         assertTrue(
             "shouldBlockPrivateSpaceAddApp must still exist in second suite",
             antiUninstall.contains("shouldBlockPrivateSpaceAddApp")
@@ -199,7 +199,7 @@ class PrivacyProtectionRetirementContractTest {
     // =========================================================================
     @Test
     fun privacyProtectionManager_and_isEnforcing_alive() {
-        val manager = readMain("java/com/ironwill/app/manager/PrivacyProtectionManager.kt")
+        val manager = readMain("java/com/zhizhi/app/manager/PrivacyProtectionManager.kt")
         assertTrue(
             "PrivacyProtectionManager object must still exist",
             manager.contains("object PrivacyProtectionManager")

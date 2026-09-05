@@ -25,8 +25,8 @@ class AboutActivityLongVersionCodeTest {
 
     private fun readSourceFile(): String {
         val candidates = listOf(
-            java.io.File("src/main/java/com/ironwill/app/ui/AboutActivity.kt"),
-            java.io.File("app/src/main/java/com/ironwill/app/ui/AboutActivity.kt")
+            java.io.File("src/main/java/com/zhizhi/app/ui/AboutActivity.kt"),
+            java.io.File("app/src/main/java/com/zhizhi/app/ui/AboutActivity.kt")
         )
         for (file in candidates) {
             if (file.exists()) return file.readText(Charsets.UTF_8)

@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">IronWill</string>
-    <string name="accessibility_description">Dịch vụ cốt lõi IronWill. Bảo vệ trạng thái tự kỷ luật của bạn và ngăn chặn việc gỡ cài đặt ngẫu nhiên. Vui lòng bật để đảm bảo bảo vệ.</string>
+    <string name="app_name">ZhiZhi</string>
+    <string name="accessibility_description">Dịch vụ cốt lõi ZhiZhi. Bảo vệ trạng thái tự kỷ luật của bạn và ngăn chặn việc gỡ cài đặt ngẫu nhiên. Vui lòng bật để đảm bảo bảo vệ.</string>
 
     <string name="anti_uninstall_title">🛡️ Bảo vệ chống gỡ cài đặt</string>
-    <string name="anti_uninstall_message">Phát hiện nỗ lực gỡ cài đặt, dừng IronWill hoặc tắt dịch vụ trợ năng. Hành động bị chặn.\n\nĐể tiếp tục, vui lòng tắt Bảo vệ chống gỡ cài đặt trong ứng dụng trước.</string>
+    <string name="anti_uninstall_message">Phát hiện nỗ lực gỡ cài đặt, dừng ZhiZhi hoặc tắt dịch vụ trợ năng. Hành động bị chặn.\n\nĐể tiếp tục, vui lòng tắt Bảo vệ chống gỡ cài đặt trong ứng dụng trước.</string>
     <string name="btn_got_it">Đã hiểu</string>
     <string name="btn_back">Quay lại</string>
 </resources>

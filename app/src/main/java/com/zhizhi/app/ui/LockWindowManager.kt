@@ -3657,7 +3657,7 @@ object LockWindowManager {
         val dialogContext = if (isA11y) mCoreService!! else themedContext
 
         val dialog = AlertDialog.Builder(dialogContext)
-            .setTitle("IronWill Enforcement")
+            .setTitle("知止强制干预")
             .setMessage(
                 "确定要使用每周特权吗？\n\n" +
                     "• 每日仅可启用一次\n" +
@@ -6439,7 +6439,7 @@ object LockWindowManager {
         )
         
         // Update UI text
-        updateTimerText("IronWill 软件防卸载功能正在初始化", "无障碍服务恢复后自动消失，请稍候...")
+        updateTimerText("知止防卸载功能正在初始化", "无障碍服务恢复后自动消失，请稍候...")
         
         // Hide details
         Handler(Looper.getMainLooper()).post {

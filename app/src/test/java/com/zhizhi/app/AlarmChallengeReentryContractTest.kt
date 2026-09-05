@@ -10,7 +10,7 @@ import org.junit.Test
 class AlarmChallengeReentryContractTest {
     @Test
     fun activeAlarmChallengeButtonAlwaysRoutesToRecoveryEntryPoint() {
-        val adapter = source("app/src/main/java/com/ironwill/app/ui/AlarmListAdapter.kt")
+        val adapter = source("app/src/main/java/com/zhizhi/app/ui/AlarmListAdapter.kt")
 
         assertTrue(
             "when the visible Challenge button is clicked, stale internal overlay state must not block recovery",
@@ -20,7 +20,7 @@ class AlarmChallengeReentryContractTest {
 
     @Test
     fun challengeRecoveryRefreshesScreenWakeAndHandlesUnexpectedScreenOff() {
-        val window = source("app/src/main/java/com/ironwill/app/manager/AlarmWindowManager.kt")
+        val window = source("app/src/main/java/com/zhizhi/app/manager/AlarmWindowManager.kt")
 
         assertTrue(window.contains("fun reenterChallenge(context: Context, alarmId: Int)"))
         assertTrue(window.contains("CHALLENGE_REENTER_REQUEST"))
@@ -33,9 +33,9 @@ class AlarmChallengeReentryContractTest {
 
     @Test
     fun emergencyWhitelistIsVisibleInSettingsAndInsideTheChallenge() {
-        val provider = source("app/src/main/java/com/ironwill/app/ui/AlarmEmergencyWhitelistUiProvider.kt")
-        val alarmActivity = source("app/src/main/java/com/ironwill/app/ui/AlarmActivity.kt")
-        val guard = source("app/src/main/java/com/ironwill/app/service/AlarmChallengeEmergencyGuardService.kt")
+        val provider = source("app/src/main/java/com/zhizhi/app/ui/AlarmEmergencyWhitelistUiProvider.kt")
+        val alarmActivity = source("app/src/main/java/com/zhizhi/app/ui/AlarmActivity.kt")
+        val guard = source("app/src/main/java/com/zhizhi/app/service/AlarmChallengeEmergencyGuardService.kt")
 
         assertTrue(
             "global settings must install or refresh the whitelist card both when created and resumed",
@@ -81,8 +81,8 @@ class AlarmChallengeReentryContractTest {
 
     @Test
     fun clozePassageViewConfiguresLongOptionsInsteadOfLeavingFixedButtonsUntouched() {
-        val wordLookup = source("app/src/main/java/com/ironwill/app/ui/WordLookupTextView.kt")
-        val uiHelper = sourceOrNull("app/src/main/java/com/ironwill/app/ui/ClozeChallengeUi.kt")
+        val wordLookup = source("app/src/main/java/com/zhizhi/app/ui/WordLookupTextView.kt")
+        val uiHelper = sourceOrNull("app/src/main/java/com/zhizhi/app/ui/ClozeChallengeUi.kt")
 
         assertTrue(
             "the cloze passage view must configure its four sibling option buttons after attachment",
@@ -96,7 +96,7 @@ class AlarmChallengeReentryContractTest {
 
     @Test
     fun wordDetailsUseAnInViewAlarmOverlayBeforeTheLegacyDialogCallback() {
-        val wordLookup = source("app/src/main/java/com/ironwill/app/ui/WordLookupTextView.kt")
+        val wordLookup = source("app/src/main/java/com/zhizhi/app/ui/WordLookupTextView.kt")
         val overlayCall = "ClozeChallengeUi.showWordDetailInsideAlarmRoot"
         val legacyCallback = "onWordPressed?.invoke"
 
@@ -110,7 +110,7 @@ class AlarmChallengeReentryContractTest {
 
     @Test
     fun clozeSkipActionsOnlyChangeQuestionAndNeverCountAsCorrectProgress() {
-        val overlay = source("app/src/main/java/com/ironwill/app/ui/LockAlarmOverlay.kt")
+        val overlay = source("app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt")
         val skipBlock = overlay
             .substringAfter("btnClozeSkip.setOnClickListener {")
             .substringBefore("btnClozeBookmark.setOnClickListener {")
