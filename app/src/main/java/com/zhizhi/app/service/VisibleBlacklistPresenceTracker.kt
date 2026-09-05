@@ -221,29 +221,27 @@ class VisibleBlacklistPresenceTracker(
     fun onUsageEvent(pkg: String, eventType: Int, eventTimeMs: Long): PresenceTrackerAction {
         when (eventType) {
             ACTIVITY_STOPPED -> {
-                val hasRecentA11yEvents = CoreService.isPackageRecentlyActiveViaAccessibility(pkg, eventTimeMs, 3000L)
-                if (hasRecentA11yEvents) {
-                    Log.i(PRESENCE_DIAG_TAG, "[PRESENCE_STATE] Suppressing ACTIVITY_STOPPED clear for $pkg: active Accessibility events found")
-                } else {
-                    lastStoppedAtMap[pkg] = eventTimeMs
-                    closedAtMap[pkg] = eventTimeMs
-                    // 🛡️ STOPPED 是否属于当前 Session，应以“最后一次真实打开事件”为边界，而不是
-                    // Presence 的 wall-clock confirmedAt。Presence 可能在同一轮先于 UsageEvents 被确认，
-                    // 此时合法 STOPPED 的 eventTime 会略早于 confirmedAt，但仍晚于真实 FG/RESUMED。
-                    val currentOpenedAt = lastOpenedAtMap[pkg] ?: 0L
-                    val stoppedBelongsToCurrentLifecycle = currentOpenedAt > 0L && eventTimeMs >= currentOpenedAt
-                    if (currentPackage == pkg && state != PresenceTrackerState.NONE && stoppedBelongsToCurrentLifecycle) {
-                        val oldState = state
-                        resetInternal()
-                        logStateChange(
-                            pkg,
-                            oldState,
-                            PresenceTrackerState.NONE,
-                            reason = "USAGE_ACTIVITY_STOPPED(eventTime=$eventTimeMs>=openedAt=$currentOpenedAt)"
-                        )
-                        logAction(PresenceTrackerAction.CLEAR, pkg, reason = "USAGE_ACTIVITY_STOPPED")
-                        return PresenceTrackerAction.CLEAR
-                    }
+                // ACTIVITY_STOPPED is authoritative lifecycle evidence that the Activity is no longer visible.
+                // A final Accessibility event commonly arrives immediately before STOPPED while a floating
+                // window is closing; that recent event must not suppress the close tombstone or revive Presence.
+                lastStoppedAtMap[pkg] = eventTimeMs
+                closedAtMap[pkg] = eventTimeMs
+                // 🛡️ STOPPED 是否属于当前 Session，应以“最后一次真实打开事件”为边界，而不是
+                // Presence 的 wall-clock confirmedAt。Presence 可能在同一轮先于 UsageEvents 被确认，
+                // 此时合法 STOPPED 的 eventTime 会略早于 confirmedAt，但仍晚于真实 FG/RESUMED。
+                val currentOpenedAt = lastOpenedAtMap[pkg] ?: 0L
+                val stoppedBelongsToCurrentLifecycle = currentOpenedAt > 0L && eventTimeMs >= currentOpenedAt
+                if (currentPackage == pkg && state != PresenceTrackerState.NONE && stoppedBelongsToCurrentLifecycle) {
+                    val oldState = state
+                    resetInternal()
+                    logStateChange(
+                        pkg,
+                        oldState,
+                        PresenceTrackerState.NONE,
+                        reason = "USAGE_ACTIVITY_STOPPED(eventTime=$eventTimeMs>=openedAt=$currentOpenedAt)"
+                    )
+                    logAction(PresenceTrackerAction.CLEAR, pkg, reason = "USAGE_ACTIVITY_STOPPED")
+                    return PresenceTrackerAction.CLEAR
                 }
             }
             MOVE_TO_FG, ACTIVITY_RESUMED -> {
