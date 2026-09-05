@@ -151,12 +151,15 @@ class AntiUninstallProtection(private val context: Context) {
         // 馃敀 [Safe Context] 鏃犻殰纰嶈缃鎯呴〉鍏抽敭璇?- 鐢ㄦ埛鍦ㄦ椤甸潰绠＄悊IronWill鐨勬棤闅滅鏉冮檺锛屼笉搴旇Е鍙戦槻鍗歌浇
         val ACCESSIBILITY_CONTEXT_KEYWORDS = listOf(
             // 中文
-            "无障碍", "辅助功能", "已下载的服务", "已下载的应用", "使用 IronWill", "使用IronWill",
+            "无障碍", "辅助功能", "已下载的服务", "已下载的应用",
+            "使用 知止", "使用知止", "使用 IronWill", "使用IronWill",
             "無障礙", "輔助功能", "已下載的服務", "已下載的應用程式",
             // 英语
-            "Accessibility", "Downloaded services", "Downloaded apps", "Use IronWill",
+            "Accessibility", "Downloaded services", "Downloaded apps",
+            "Use ZhiZhi", "Use IronWill",
             // 日语
-            "ユーザー補助", "ダウンロードしたサービス", "ダウンロード済みのアプリ", "IronWillを使用",
+            "ユーザー補助", "ダウンロードしたサービス", "ダウンロード済みのアプリ",
+            "知止を使用", "ZhiZhiを使用", "IronWillを使用",
             // 韩语
             "접근성", "다운로드한 서비스", "다운로드한 앱",
             // 德语
@@ -528,7 +531,10 @@ class AntiUninstallProtection(private val context: Context) {
                 val pageContent = sb.toString()
                 
                 val isOurApp = PROTECTED_APP_NAMES.any { pageContent.contains(it, ignoreCase = true) }
+                                || pageContent.contains(context.packageName, ignoreCase = true)
+                                || pageContent.contains("com.zhizhi.app", ignoreCase = true)
                                 || pageContent.contains("com.ironwill", ignoreCase = true)
+                                || pageContent.contains("zhizhi", ignoreCase = true)
                                 || pageContent.contains("ironwill", ignoreCase = true)
                 
                 // 馃敀 鍙鏄?IronWill 鐨勫簲鐢ㄤ俊鎭〉灏辨嫤鎴紙鍚潈闄愰〉銆佸瓨鍌ㄩ〉绛夋墍鏈夊瓙椤甸潰锛?                // 鍥犱负鐢ㄦ埛鍙互閫氳繃"鏌ョ湅鎵€鏈夋潈闄?鍏抽棴鏃犻殰纰嶆潈闄愶紝蹇呴』鎷︽埅鏁翠釜椤甸潰
@@ -586,7 +592,11 @@ class AntiUninstallProtection(private val context: Context) {
                 val pageContent = sb.toString()
                 
                 val isOurApp = PROTECTED_APP_NAMES.any { pageContent.contains(it, ignoreCase = true) }
+                                || pageContent.contains(context.packageName, ignoreCase = true)
+                                || pageContent.contains("com.zhizhi.app", ignoreCase = true)
                                 || pageContent.contains("com.ironwill", ignoreCase = true)
+                                || pageContent.contains("zhizhi", ignoreCase = true)
+                                || pageContent.contains("ironwill", ignoreCase = true)
                 
                 if (isOurApp) {
                     Log.w(TAG, "!!! [Permission] IronWill 鐨勬潈闄愰〉闈㈣鎵撳紑! 绔嬪嵆鎷︽埅. Class=$eventClassName")
@@ -629,7 +639,10 @@ class AntiUninstallProtection(private val context: Context) {
             val pageContent = sb.toString()
             
             val isOurApp = PROTECTED_APP_NAMES.any { pageContent.contains(it, ignoreCase = true) }
+                            || pageContent.contains(context.packageName, ignoreCase = true)
+                            || pageContent.contains("com.zhizhi.app", ignoreCase = true)
                             || pageContent.contains("com.ironwill", ignoreCase = true)
+                            || pageContent.contains("zhizhi", ignoreCase = true)
                             || pageContent.contains("ironwill", ignoreCase = true)
             if (isOurApp && AccessibilityProtection.isAccessibilityServiceListContent(pageContent)) {
                 LogExporter.logEvent(TAG, "[Skip] Delayed accessibility service list")
@@ -928,6 +941,8 @@ class AntiUninstallProtection(private val context: Context) {
         if (!hasUninstall) return false
 
         val hasProtectedName = PROTECTED_APP_NAMES.any { eventText.contains(it, ignoreCase = true) } ||
+            eventText.contains(context.packageName, ignoreCase = true) ||
+            eventText.contains("com.zhizhi.app", ignoreCase = true) ||
             eventText.contains("com.ironwill", ignoreCase = true)
         if (hasProtectedName) return true
 
@@ -975,6 +990,8 @@ class AntiUninstallProtection(private val context: Context) {
         if (!hasUninstall) return false
 
         val hasProtectedName = PROTECTED_APP_NAMES.any { eventText.contains(it, ignoreCase = true) } ||
+            eventText.contains(context.packageName, ignoreCase = true) ||
+            eventText.contains("com.zhizhi.app", ignoreCase = true) ||
             eventText.contains("com.ironwill", ignoreCase = true)
         if (hasProtectedName) return true
 
@@ -1144,6 +1161,7 @@ class AntiUninstallProtection(private val context: Context) {
         val queries = linkedSetOf<String>().apply {
             addAll(PROTECTED_APP_NAMES)
             add(context.packageName)
+            add("zhizhi")
             add("ironwill")
         }
 
@@ -1221,6 +1239,8 @@ class AntiUninstallProtection(private val context: Context) {
         if (!hasMenuKeywords) return
 
         var hasProtectedName = PROTECTED_APP_NAMES.any { eventText.contains(it, ignoreCase = true) } ||
+            eventText.contains(context.packageName, ignoreCase = true) ||
+            eventText.contains("com.zhizhi.app", ignoreCase = true) ||
             eventText.contains("com.ironwill", ignoreCase = true)
 
         if (!hasProtectedName) {
@@ -1229,6 +1249,8 @@ class AntiUninstallProtection(private val context: Context) {
             collectAllText(root, sb, maxDepth = 4, maxChildren = 12)
             val combinedText = sb.toString()
             hasProtectedName = PROTECTED_APP_NAMES.any { combinedText.contains(it, ignoreCase = true) } ||
+                combinedText.contains(context.packageName, ignoreCase = true) ||
+                combinedText.contains("com.zhizhi.app", ignoreCase = true) ||
                 combinedText.contains("com.ironwill", ignoreCase = true)
         }
 
@@ -1253,7 +1275,10 @@ class AntiUninstallProtection(private val context: Context) {
 
         // 1. App Name Check - Also match package name pattern for App Info pages
         val hasAppName = PROTECTED_APP_NAMES.any { name -> content.contains(name, ignoreCase = true) }
+                         || content.contains(context.packageName, ignoreCase = true)
+                         || content.contains("com.zhizhi.app", ignoreCase = true)
                          || content.contains("com.ironwill", ignoreCase = true)
+                         || content.contains("zhizhi", ignoreCase = true)
                          || content.contains("ironwill", ignoreCase = true)
         if (!hasAppName) return null
 

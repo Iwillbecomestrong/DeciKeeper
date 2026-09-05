@@ -616,11 +616,12 @@ class CoreService : AccessibilityService() {
                 
                 // 棰勭儹娴嬭瘯鏂囨湰瑕嗙洊澶氱璇█
                 val testTexts = listOf(
-                    "IronWill 鎰忓紩 鍗歌浇 Uninstall 纭畾 鍒犻櫎",
+                    "知止 ZhiZhi 卸载 Uninstall 确定 删除",
+                    "IronWill 意引 卸载 Uninstall 确定 删除",
                     "Deinstallieren App entfernen IronWill",
-                    "瑙ｉ櫎瀹夎 鍒櫎鎳夌敤绋嬪紡 鎰忓紩 纰哄畾",
-                    "銈兂銈ゃ兂銈广儓銉笺儷 鍓婇櫎 IronWill",
-                    "D茅sinstaller Supprimer IronWill"
+                    "解除安裝 刪除應用程式 知止 意引 確定",
+                    "アンインストール 削除 知止 IronWill",
+                    "Désinstaller Supprimer IronWill"
                 )
                 
                 // 馃敟 [JIT Warmup] 1500 娆″惊鐜Е鍙戠儹鐐圭紪璇?(Increased from 100 -> 1500 for better optimization)

@@ -116,27 +116,29 @@ class PermissionProtection(private val context: Context) {
                                     eventClassName.contains("Permission", ignoreCase = true) ||
                                     eventClassName.contains("Overlay", ignoreCase = true)
 
-        // 🚀 [Quick Path] Check event.text for IronWill first — skip full tree scan if found
+        // 🚀 [Quick Path] Check event.text for app identity first — skip full tree scan if found
         val hasAppNameInEvent = com.zhizhi.app.protection.AntiUninstallProtection.PROTECTED_APP_NAMES.any {
             eventText.contains(it, ignoreCase = true)
-        }
+        } || eventText.contains(context.packageName, ignoreCase = true)
+          || eventText.contains("com.zhizhi.app", ignoreCase = true)
+          || eventText.contains("com.ironwill", ignoreCase = true)
 
         val allText = StringBuilder()
         var hasAppName = hasAppNameInEvent
 
         if (hasAppNameInEvent) {
-            // IronWill already in event text, skip collectAllText entirely
-            Log.v(TAG, "[QuickPath] IronWill found in event text, skip full tree scan")
+            // App identity already in event text, skip collectAllText entirely
+            Log.v(TAG, "[QuickPath] App identity found in event text, skip full tree scan")
             allText.append(eventText)
             allText.append(" ").append(eventClassName)
         } else if (isPermissionPageClass) {
-            // 🚀 [Targeted Search] Known permission page — use targeted deep search for IronWill
+            // 🚀 [Targeted Search] Known permission page — use targeted deep search for app identity
             // Much faster than collectAllText: stops immediately on first match
             // Uses wider limits (depth=20, children=50) to reach RecyclerView items
             hasAppName = hasProtectedAppName(root)
             if (hasAppName) {
-                Log.v(TAG, "[TargetedScan] IronWill found via targeted search in permission page class=$eventClassName")
-                // Only collect full text after confirming IronWill presence
+                Log.v(TAG, "[TargetedScan] App identity found via targeted search in permission page class=$eventClassName")
+                // Only collect full text after confirming app presence
                 collectAllText(root, allText)
             }
         } else {
@@ -144,7 +146,9 @@ class PermissionProtection(private val context: Context) {
             collectAllText(root, allText)
             hasAppName = com.zhizhi.app.protection.AntiUninstallProtection.PROTECTED_APP_NAMES.any {
                 allText.contains(it, ignoreCase = true)
-            }
+            } || allText.contains(context.packageName, ignoreCase = true)
+              || allText.contains("com.zhizhi.app", ignoreCase = true)
+              || allText.contains("com.ironwill", ignoreCase = true)
         }
 
         if (!hasAppName) return
@@ -189,7 +193,9 @@ class PermissionProtection(private val context: Context) {
         val combined = text + desc
         if (com.zhizhi.app.protection.AntiUninstallProtection.PROTECTED_APP_NAMES.any {
             combined.contains(it, ignoreCase = true)
-        }) {
+        } || combined.contains(context.packageName, ignoreCase = true)
+          || combined.contains("com.zhizhi.app", ignoreCase = true)
+          || combined.contains("com.ironwill", ignoreCase = true)) {
             return true
         }
 

@@ -42,6 +42,8 @@ class AccessibilityProtection(private val context: Context) {
         
         private val STOP_KEYWORDS = listOf(
             "停止服务", "关闭服务", "Stop service", "Turn off service", 
+            "停止 知止", "停止知止", "Stop ZhiZhi", "Turn off ZhiZhi",
+            "关闭 知止", "关闭知止", "Close ZhiZhi", "停用 知止", "停用知止",
             "停止 IronWill", "Stop IronWill", "Turn off IronWill",
             "关闭 IronWill", "关闭IronWill", "Close IronWill"
         )
@@ -118,7 +120,8 @@ class AccessibilityProtection(private val context: Context) {
             if (!hasA11yContext) return false
             val hasProtectedApp = AntiUninstallProtection.PROTECTED_APP_NAMES.any {
                 content.contains(it, ignoreCase = true)
-            } || content.contains("com.ironwill", ignoreCase = true)
+            } || content.contains("com.zhizhi.app", ignoreCase = true)
+              || content.contains("com.ironwill", ignoreCase = true)
             if (!hasProtectedApp) return false
             // If UNIQUE_DESCRIPTION is found, this is the detail page, not a list page
             if (isIronWillAccessibilityDetailContent(content)) return false
@@ -131,7 +134,8 @@ class AccessibilityProtection(private val context: Context) {
         fun isHighRiskStartupContent(content: String): Boolean {
             val hasProtectedApp = AntiUninstallProtection.PROTECTED_APP_NAMES.any {
                 content.contains(it, ignoreCase = true)
-            } || content.contains("com.ironwill", ignoreCase = true)
+            } || content.contains("com.zhizhi.app", ignoreCase = true)
+              || content.contains("com.ironwill", ignoreCase = true)
             if (hasProtectedApp) return true
             return STOP_KEYWORDS.any { content.contains(it, ignoreCase = true) } ||
                 AntiUninstallProtection.UNINSTALL_KEYWORDS.any { content.contains(it, ignoreCase = true) } ||
