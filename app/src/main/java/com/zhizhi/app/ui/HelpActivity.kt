@@ -306,7 +306,7 @@ class HelpActivity : AppCompatActivity() {
 
 八、寄语
 
-有所不为，而后可以有为。
+知止而后有定，定而后能静。
 
 ―
 
