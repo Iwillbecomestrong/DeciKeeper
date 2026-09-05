@@ -203,6 +203,7 @@ class HomeFragment : Fragment() {
     )
 
     // Home 页控件
+    private var cardPermissionStatus: CardView? = null
     private var tvStatus: TextView? = null
     private var tvProtectionStatus: TextView? = null
     private var tvCountdown: TextView? = null
@@ -342,6 +343,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun initViews(view: View) {
+        cardPermissionStatus = view.findViewById(R.id.card_permission_status)
         tvStatus = view.findViewById(R.id.tv_status)
         // [open-source] 原"长按运行自检套件"入口已移除（TestScenarioManager/TestScenarioRunner
         // 已迁入 test 源集，见 CONTRIBUTING.md 关键文件地图）。
@@ -1065,11 +1067,14 @@ class HomeFragment : Fragment() {
         val permState = getHomePermissionState(ctx)
         val permsDone = permState.allGranted
         if (permsDone) {
+            // 权限全了，整个状态卡片都不需要展示，保持主页极致简洁
+            cardPermissionStatus?.visibility = View.GONE
             tvStatus?.text = "状态：权限已就绪 (全面防护中)"
             tvStatus?.setTextColor(ctx.getColor(android.R.color.holo_green_dark))
             tvProtectionStatus?.visibility = View.GONE
             btnPermission?.visibility = View.GONE
         } else {
+            cardPermissionStatus?.visibility = View.VISIBLE
             tvStatus?.text = "状态：需设置权限 ⚠️"
             tvStatus?.setTextColor(ctx.getColor(android.R.color.holo_red_dark))
             tvProtectionStatus?.visibility = View.VISIBLE
