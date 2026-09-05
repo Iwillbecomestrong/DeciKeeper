@@ -49,8 +49,8 @@ object LogExporter {
 
     private const val TAG = "LogExporter"
 
-    // 开源版占位收件人（RFC 2606 保留域名，不会误发）：fork 后改为你的反馈邮箱。
-    const val DEFAULT_RECIPIENT = "support@example.com"
+    // 开源版开发者反馈邮箱
+    const val DEFAULT_RECIPIENT = "cyz200303@163.com"
     private const val INTERNAL_LOG_FILENAME = "ironwill_event_log.txt"
     private const val MAX_LOG_FILE_SIZE = 10 * 1024 * 1024L // 10MB, 增加日志容量以保存更长时间记录
     private val NORMAL_EVENT_HEADER = Regex(

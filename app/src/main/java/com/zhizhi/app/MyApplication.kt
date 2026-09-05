@@ -19,6 +19,7 @@
 package com.zhizhi.app
 
 import android.app.Application
+import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Handler
@@ -225,6 +226,7 @@ class MyApplication : Application() {
         // 历史版本曾在 ConfigPendingManager 中写入 "a11y_service_self_pending"
         // 作为永久生效的"自关授权"标记。新版本改为纯内存短期授权，旧 key 必须清理。
         cleanupLegacyA11ySelfPendingKey()
+        cleanupLegacyNotificationChannels()
 
         // REQ-5 合规 gate: 未来可能接入的统计/广告/推送/账号等"会收集个人信息的 SDK"
         // 全部收口在此；未同意时直接跳过并打审计日志。
@@ -289,6 +291,25 @@ class MyApplication : Application() {
             }
         } catch (e: Exception) {
             Log.e("IronWill", "Failed to cleanup legacy a11y_service_self_pending", e)
+        }
+    }
+
+    private fun cleanupLegacyNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+                val legacyChannels = listOf(
+                    "ironwill_monitor_channel",
+                    "IronWillGuardChannel",
+                    "IronWillPermChannel",
+                    "ironwill_fast_lock"
+                )
+                for (ch in legacyChannels) {
+                    nm.deleteNotificationChannel(ch)
+                }
+            } catch (e: Exception) {
+                Log.e("ZhiZhi", "Failed to delete legacy notification channels", e)
+            }
         }
     }
 

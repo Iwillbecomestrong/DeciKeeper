@@ -1,7 +1,10 @@
 # SPEC: 联系方式完善与问题反馈范式规范 (task-feedback-paradigm)
 
 ## 1. 背景与目标 (Goal)
-- 用户确认联系邮箱为 `cyz200303@163.com`，官方网站为 `暂无`。
+- 用户确认联系邮箱为 `cyz200303@163.com`。
+- 用户确认官方网站为：
+  - 官方网站（海外 / GitHub）：`https://github.com/Iwillbecomestrong/ZhiZhi`
+  - 官方网站（国内 / Gitee）：`https://gitee.com/my_room_welcome_you/zhizhi`
 - 当前应用内「设置 → 日志诊断 → 发送日志」由于代码中预设收件人为开源占位符 `support@example.com`，且缺少标准提报指引，导致用户无法正常反馈，开发者也无法获取足够的排错上下文。
 - 本任务旨在：
   1. 制定并固化「问题反馈与 Issue 提报 4 要素范式」。
@@ -16,13 +19,14 @@
 
 ### 3.1 渠道分级设计
 - **首选公开渠道（推荐）**：
-  - GitHub Issues: `https://github.com/Iwillbecomestrong/IronWill/issues`
-  - Gitee Issues: `https://gitee.com/my_room_welcome_you/ZhiZhi/issues`
+  - GitHub Issues: `https://github.com/Iwillbecomestrong/ZhiZhi/issues`
+  - Gitee Issues: `https://gitee.com/my_room_welcome_you/zhizhi/issues`
   - 适用：Bug 反馈、功能建议、使用疑问，公开透明且便于版本追踪与避免重复提报。
-- **私密/直接联系渠道**：
+- **官方网站与直接联系渠道**：
   - 联系邮箱：`cyz200303@163.com`
-  - 官方网站：暂无
-  - 适用：涉及个人隐私信息、不便公开讨论的问题、商务与通用咨询。
+  - 官方网站（海外 / GitHub）：`https://github.com/Iwillbecomestrong/ZhiZhi`
+  - 官方网站（国内 / Gitee）：`https://gitee.com/my_room_welcome_you/zhizhi`
+  - 适用：项目主页、源码查看、涉及个人隐私信息、不便公开讨论的问题、商务与通用咨询。
 - **应用内辅助工具定位**：
   - 入口：「设置 → 🧾 日志诊断 → 发送日志」
   - 定位：本地日志提取与取证工具，生成脱敏/精简后的 `app_log.txt`，供用户附加在 Issue 或邮件中。
@@ -61,6 +65,6 @@
 
 ## 5. 验收测试 (Acceptance Criteria)
 1. **代码契约测试**：编写或更新针对 `LogExporter.DEFAULT_RECIPIENT` 的单元测试，确保其值为 `"cyz200303@163.com"`。
-2. **合规文档断言测试**：验证 `contact_and_complaint.txt` 中包含 `cyz200303@163.com`、`暂无`，且不存在未填的常规联系占位符。
+2. **合规文档断言测试**：验证 `contact_and_complaint.txt` 中包含 `cyz200303@163.com`、GitHub 与 Gitee 官网链接与 Issues 链接，且不存在未填的常规联系占位符。
 3. **既有契约保护**：`LegalEntryRegistryTest` 7 项法务入口测试 100% 保持绿色通过。
 4. **Python 测试**：`python -m unittest discover -s scripts/tests` 保持全部通过。
