@@ -58,4 +58,5 @@ graph TD
   - [x] 完成配置备份向后兼容旧版 IronWill 导入，确保老用户无缝迁移。
   - [x] 成功构建普通用户可直接安装的签名 Release APK：`知止-ZhiZhi-v0.2.0-release.apk`。
   - [x] 规范主干与分支管理：重置 `main` 到最新提交，清理多余临时分支，并推送主干至 Gitee 仓库。
+  - [x] 完善联系方式与双官网配置（GitHub / Gitee），修正 LogExporter 默认收件人，确立 4 要素问题反馈范式并同步法务与用户手册。
 
