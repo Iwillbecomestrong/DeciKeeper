@@ -95,21 +95,11 @@
                   • Direct Boot 设备保护存储双写（防止关机避响）
 ```
 
----
-
-## 📦 为什么不上架应用商店？
-
-知止 **不上架任何商业应用商店（Google Play、国内主流应用市场等）**，这不仅不是妥协，而是由产品的纯粹性决定的：
-1. **权限特性决定**：知止的核心自律守护（前台精准捕获、毫秒退栈、防强停防卸载）建立在 Android 原生 AccessibilityService（无障碍服务）之上。各大应用商店对“无障碍 + 防卸载”的组合审核极其严苛、甚至零容忍。
-2. **信任与筛选机制**：开源解决的是**代码透明与安全信任**，上架解决的只是**流量触达**。手动下载 APK 并配置无障碍权限虽然有门槛，但天然留下的都是具有极强自律意愿的核心用户——**束缚必须是自己主动戴上的，才真正有效**。
-
----
-
-## 🛠️ 安装与部署指南
+## 📥 下载与安装指南
 
 ### 📱 普通用户安装（推荐）
 
-1. 从 [Releases 页面](https://github.com/Iwillbecomestrong/IronWill/releases) 下载最新发布的 `ZhiZhi-release.apk` 并直接安装。
+1. 从 [GitHub Releases](https://github.com/Iwillbecomestrong/ZhiZhi/releases) 或 [Gitee Releases](https://gitee.com/my_room_welcome_you/zhizhi/releases) 下载最新发布的 `知止-ZhiZhi-v0.2.0-release.apk` 安装包。
 2. **解除系统权限限制（Android 13+ 必读）**：
    由于开源侧载应用未走应用商店签名分发，Android 13 及更高版本会默认限制无障碍等关键权限。若开启无障碍服务时提示**“受限制的设置 / 出于安全考虑，此设置目前不可用”**，请执行一次性解除限制：
    > **进入系统「设置」➔「应用管理」➔ 找到「知止」➔ 点击右上角「⋮」（更多菜单）➔ 点击「允许受限制的设置」**。

@@ -16,17 +16,7 @@
             android:padding="16dp"
             android:gravity="center_horizontal">
 
-        <Button
-            android:id="@+id/btn_help"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:text="📘 使用说明"
-            android:textSize="13sp"
-            android:backgroundTint="#FF9800"
-            android:paddingHorizontal="20dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="12dp"
-            app:cornerRadius="19dp"/>
+
 
         <!-- 🚀 航行准备清单 (Setup Checklist) -->
         <androidx.cardview.widget.CardView
@@ -543,13 +533,25 @@
             android:id="@+id/tv_temp_access_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp"
+            android:layout_marginBottom="16dp"
             android:padding="10dp"
             android:text=""
             android:textSize="14sp"
             android:textColor="#888888"
             android:gravity="center"
             android:visibility="gone"/>
+
+        <Button
+            android:id="@+id/btn_help"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:text="📘 使用说明"
+            android:textSize="13sp"
+            android:backgroundTint="#FF9800"
+            android:paddingHorizontal="20dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="40dp"
+            app:cornerRadius="19dp"/>
         
     </LinearLayout>
 </ScrollView>
