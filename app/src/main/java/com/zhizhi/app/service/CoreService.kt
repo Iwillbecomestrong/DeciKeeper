@@ -1385,10 +1385,9 @@ class CoreService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        Log.d(TAG, "CoreService Interrupted")
-        Log.e("IronWill_Debug", "CRITICAL: CoreService Interrupted (onInterrupt). System might be killing it or user disabled it.")
-        isServiceActive = false
-        lastAccessibilitySignalTime = 0L
+        // Framework callback for interrupting Accessibility feedback, not a service disconnect.
+        // Android may continue delivering events after this callback, so connection state must remain valid.
+        Log.w("IronWill_Debug", "[Lifecycle] onInterrupt: feedback interrupted; service remains connected")
     }
 
     override fun onDestroy() {

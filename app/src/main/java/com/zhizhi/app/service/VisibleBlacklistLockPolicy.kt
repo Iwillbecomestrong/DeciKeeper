@@ -12,7 +12,11 @@ internal data class VisibleBlacklistLockInput(
 internal fun shouldTriggerVisibleBlacklistLock(
     input: VisibleBlacklistLockInput
 ): Boolean {
-    return input.presenceConfirmed &&
+    // Presence is specifically the small-window/PIP enforcement path. UsageStats can still
+    // discover candidates, but without a live AccessibilityService we do not trust that
+    // historical visibility signal enough to block. Ordinary foreground blocking is separate.
+    return CoreService.isServiceActive &&
+        input.presenceConfirmed &&
         input.isDndLocked &&
         !input.isPrivilegeActive &&
         !input.isLockShowing &&

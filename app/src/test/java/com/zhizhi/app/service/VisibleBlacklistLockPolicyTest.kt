@@ -1,10 +1,22 @@
 package com.zhizhi.app.service
 
+import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class VisibleBlacklistLockPolicyTest {
+
+    @Before
+    fun setUp() {
+        CoreService.isServiceActive = true
+    }
+
+    @After
+    fun tearDown() {
+        CoreService.isServiceActive = false
+    }
 
     @Test
     fun `test A - core bug - chatgpt in foreground and douyin in small window triggers lock`() {
@@ -121,6 +133,24 @@ class VisibleBlacklistLockPolicyTest {
 
         assertFalse(
             "When lock screen is already showing, do not trigger a new lock request (maintenance handles it)",
+            shouldTriggerVisibleBlacklistLock(input)
+        )
+    }
+
+    @Test
+    fun `test H - accessibility unavailable suppresses visible blacklist lock`() {
+        CoreService.isServiceActive = false
+        val input = VisibleBlacklistLockInput(
+            isDndLocked = true,
+            isPrivilegeActive = false,
+            isLockShowing = false,
+            isDesktopReturnGrace = false,
+            hasTemporaryAccessForTarget = false,
+            presenceConfirmed = true
+        )
+
+        assertFalse(
+            "Presence-based small-window blocking must be disabled when AccessibilityService is unavailable",
             shouldTriggerVisibleBlacklistLock(input)
         )
     }
