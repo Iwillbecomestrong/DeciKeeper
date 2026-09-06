@@ -70,8 +70,10 @@
   2. 收到另一个正常第三方应用或 Launcher 的前台事件；
   3. 屏幕关闭（`ACTION_SCREEN_OFF`）或锁屏（Keyguard locked）；
   4. 进程重启后状态从空开始，严禁仅凭旧持久化缓存直接锁定。
-- **边界即时锁定触发机制**：
-  当规则发生 `ALLOW → BLOCK` 边沿跃迁（如 23:00 勿扰时段开始、休息额度结束、应用时间窗关闭等）时，若常规 ForegroundGuard 无法获取近期事件，只要存在属于受限应用的未关闭活跃 Session，且屏幕未锁屏，立即执行边界即时锁定。锁定后消费边界标志，禁止普通稳态轮询无限制依赖旧 Session。
+- **边界即时锁定触发机制 (RuleBoundaryLockGate)**：
+  当规则发生 `ALLOW → BLOCK` 边沿跃迁（如 23:00 勿扰时段开始、休息额度结束、应用时间窗关闭等）时，若常规 ForegroundGuard 无法获取近期事件，只要存在属于受限应用的未关闭活跃 Session，且屏幕未锁屏，立即执行边界即时锁定。
+  - 判定准则由纯逻辑对象 `RuleBoundaryLockGate` 统一裁决并由独立单元测试守护，与 Android Service 解耦。
+  - 锁定后消费边界标志，禁止普通稳态轮询无限制依赖旧 Session。
 
 ---
 

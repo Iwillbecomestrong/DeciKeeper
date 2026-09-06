@@ -108,3 +108,4 @@
   2. **内存纯粹性与进程隔离**：Session 纯内存维护，**禁止跨进程持久化**，服务重启必须重新获取有效前台事件方可建立会话，杜绝旧持久化缓存误锁。
   3. **规则边沿跃迁单次锁定 (ALLOW → BLOCK)**：通过全局模式跃迁（Gap->DND、Rest->Work）及单应用拦截状态边沿检测，在规则刚刚收紧时激活一次性边界锁定权限。若常规守卫未过但存在未关闭的前台 Session 且屏幕未锁屏，即时触发锁机并消耗该权限，防止普通轮询无限制依赖旧会话。
   4. **FallbackGate 联动会话**：修改 `isSustainedForegroundFallbackEligible`，当具有活跃 Session 时允许 `USAGE_STATS` 维持资格，解决证据源切换抖动导致 60s 计数清零的痛点，同时天然阻断纯后台音频应用。
+  5. **边界门禁解耦与测试守护 (RuleBoundaryLockGate)**：将边界跃迁逻辑从 Android `MonitorService` 庞大流程中解耦为纯对象 `RuleBoundaryLockGate`，支持离线 100% 纯 JVM 单元测试，全面守护跨规则边界跃迁、稳态防无限重锁、息屏与锁屏阻断场景。

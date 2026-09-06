@@ -131,3 +131,43 @@ class ForegroundSessionTracker(
         currentSession = null
     }
 }
+
+/**
+ * 规则边界跃迁即时锁定判定输入参数（纯逻辑数据对象，不依赖 Android Framework）
+ */
+data class RuleBoundaryLockDecisionInput(
+    val isBlockedNow: Boolean,
+    val wasPreviouslyBlocked: Boolean,
+    val wasGap: Boolean,
+    val wasRest: Boolean,
+    val forceBoundaryCheck: Boolean,
+    val hasActiveForegroundSession: Boolean,
+    val isKeyguardLocked: Boolean,
+    val isScreenInteractive: Boolean
+)
+
+/**
+ * 规则边界跃迁即时锁定门禁逻辑
+ */
+object RuleBoundaryLockGate {
+    /**
+     * 判断当前是否处于规则从 ALLOW -> BLOCK 的边界跃迁，且具备即时触发锁定的资格。
+     *
+     * 判定准则：
+     * 1. 当前时刻该应用必须处于 BLOCK 范围（isBlockedNow == true）；
+     * 2. 必须存在未关闭的活跃前台 Session（hasActiveForegroundSession == true）；
+     * 3. 屏幕必须处于交互状态且未处于锁屏状态（!isKeyguardLocked && isScreenInteractive）；
+     * 4. 必须发生明确的状态边界跃迁（先前未被阻塞、或先前处于 Gap/Rest 模式、或设置了强制边界检查标记）；
+     * 5. 若已处于持续 BLOCK 稳态（wasPreviouslyBlocked && !wasGap && !wasRest && !forceBoundaryCheck），
+     *    则不予重复边界锁定，避免死循环重锁。
+     */
+    fun shouldAllowBoundaryLock(input: RuleBoundaryLockDecisionInput): Boolean {
+        if (!input.isBlockedNow) return false
+        if (!input.hasActiveForegroundSession) return false
+        if (input.isKeyguardLocked) return false
+        if (!input.isScreenInteractive) return false
+
+        val isBoundaryTransition = !input.wasPreviouslyBlocked || input.wasGap || input.wasRest || input.forceBoundaryCheck
+        return isBoundaryTransition
+    }
+}

@@ -1,6 +1,8 @@
 package com.zhizhi.app
 
 import com.zhizhi.app.service.ForegroundSessionTracker
+import com.zhizhi.app.service.RuleBoundaryLockDecisionInput
+import com.zhizhi.app.service.RuleBoundaryLockGate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -133,5 +135,120 @@ class ForegroundSessionTrackerTest {
 
         tracker.onKeyguardLocked(t0 + 5_000L)
         assertFalse("锁屏后，Session 应标记为关闭", tracker.isSessionActiveFor("com.tencent.mm"))
+    }
+
+    // ── RuleBoundaryLockGate 单元测试 ──
+
+    @Test
+    fun `rule boundary lock eligible on transition from allow to block`() {
+        val input = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            wasPreviouslyBlocked = false, // 之前未阻塞 -> 刚进入阻塞，发生边界跃迁
+            wasGap = false,
+            wasRest = false,
+            forceBoundaryCheck = false,
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertTrue("规则发生 ALLOW -> BLOCK 跃迁且有活跃 Session 时应允许锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(input))
+    }
+
+    @Test
+    fun `steady state block does not retrigger boundary lock`() {
+        val input = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            wasPreviouslyBlocked = true, // 之前已阻塞 -> 处于稳态，无边界跃迁
+            wasGap = false,
+            wasRest = false,
+            forceBoundaryCheck = false,
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertFalse("处于持续 BLOCK 稳态时，禁止重复触发边界锁定，防止无限重锁", RuleBoundaryLockGate.shouldAllowBoundaryLock(input))
+    }
+
+    @Test
+    fun `mode transition after gap or rest retriggers boundary lock`() {
+        val inputFromGap = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            wasPreviouslyBlocked = true,
+            wasGap = true, // 刚刚处于 Gap 模式，现在跨越边界
+            wasRest = false,
+            forceBoundaryCheck = false,
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertTrue("Gap 结束跨入 Block 边界应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputFromGap))
+
+        val inputFromRest = inputFromGap.copy(wasGap = false, wasRest = true)
+        assertTrue("Rest 休息结束跨入 Block 边界应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputFromRest))
+    }
+
+    @Test
+    fun `screen off or keyguard locked blocks boundary lock`() {
+        val base = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            wasPreviouslyBlocked = false,
+            wasGap = false,
+            wasRest = false,
+            forceBoundaryCheck = false,
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+
+        val keyguardLockedInput = base.copy(isKeyguardLocked = true)
+        assertFalse("Keyguard 处于锁屏状态时不应触发边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(keyguardLockedInput))
+
+        val screenOffInput = base.copy(isScreenInteractive = false)
+        assertFalse("屏幕息屏（非交互状态）时不应触发边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(screenOffInput))
+    }
+
+    @Test
+    fun `missing active session blocks boundary lock`() {
+        val input = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            wasPreviouslyBlocked = false,
+            wasGap = false,
+            wasRest = false,
+            forceBoundaryCheck = false,
+            hasActiveForegroundSession = false, // 无活跃 Session（已切出或关闭）
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertFalse("无活跃前台 Session 时不应触发边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(input))
+    }
+
+    @Test
+    fun `not blocked now blocks boundary lock`() {
+        val input = RuleBoundaryLockDecisionInput(
+            isBlockedNow = false, // 当前并不在黑名单/勿扰模式
+            wasPreviouslyBlocked = false,
+            wasGap = false,
+            wasRest = false,
+            forceBoundaryCheck = false,
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertFalse("当前应用不属于受限状态时不应触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(input))
+    }
+
+    @Test
+    fun `force boundary check flag forces boundary lock`() {
+        val input = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            wasPreviouslyBlocked = true, // 即便先前已阻断
+            wasGap = false,
+            wasRest = false,
+            forceBoundaryCheck = true, // 显式触发了强制边界检查
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertTrue("设置了强制边界检查标记时应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(input))
     }
 }

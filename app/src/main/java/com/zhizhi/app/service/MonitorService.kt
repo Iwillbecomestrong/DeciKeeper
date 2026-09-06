@@ -2007,11 +2007,18 @@ class MonitorService : Service() {
         val isKeyguardLocked = km?.isKeyguardLocked == true
         val isScreenInteractive = pm?.isInteractive ?: true
         val isBlockedNow = isBlacklisted && isDndLocked && !isPrivilege
-        val isBoundaryTransition = isBlockedNow && (!mPreviouslyBlockedPackages.contains(effectivePackageName) || mLastWasGap || mLastWasRest || mForceRuleBoundaryCheck)
-        val allowByRuleBoundary = isBoundaryTransition &&
-            hasActiveForegroundSession &&
-            !isKeyguardLocked &&
-            isScreenInteractive
+        val allowByRuleBoundary = RuleBoundaryLockGate.shouldAllowBoundaryLock(
+            RuleBoundaryLockDecisionInput(
+                isBlockedNow = isBlockedNow,
+                wasPreviouslyBlocked = mPreviouslyBlockedPackages.contains(effectivePackageName),
+                wasGap = mLastWasGap,
+                wasRest = mLastWasRest,
+                forceBoundaryCheck = mForceRuleBoundaryCheck,
+                hasActiveForegroundSession = hasActiveForegroundSession,
+                isKeyguardLocked = isKeyguardLocked,
+                isScreenInteractive = isScreenInteractive
+            )
+        )
 
         if (allowByRuleBoundary) {
             Log.w(
