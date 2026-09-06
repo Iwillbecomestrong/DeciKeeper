@@ -73,7 +73,8 @@
 - **边界即时锁定触发机制 (RuleBoundaryLockGate)**：
   当规则发生 `ALLOW → BLOCK` 边沿跃迁（如 23:00 勿扰时段开始、休息额度结束、应用时间窗关闭等）时，若常规 ForegroundGuard 无法获取近期事件，只要存在属于受限应用的未关闭活跃 Session，且屏幕未锁屏，立即执行边界即时锁定。
   - 判定准则由纯逻辑对象 `RuleBoundaryLockGate` 统一裁决并由独立单元测试守护，与 Android Service 解耦。
-  - **边界候选主动拉取 (Boundary Candidate Preemption)**：当常规解析器在静止状态下返回 `null`、桌面 `Launcher` 或 `Carrier` 且正处于规则边沿（`forceCheckThisCycle || isBusinessAllowToBlock`）时，主动拉取未关闭的活跃 Session 包名作为候选进行业务阻断与双锁判定，杜绝静止应用漏锁。
+  - **边界候选主动拉取 (Boundary Candidate Preemption)**：当常规解析器在静止状态下返回 `null`、桌面 `Launcher` 或 `Carrier`（显式包含 `com.vivo.upslide`、`com.vivo.launcher`、`com.bbk.launcher2` 等载体应用）且正处于规则边沿时，主动拉取未关闭的活跃 Session 包名作为候选进行业务阻断与双锁判定，杜绝静止应用漏锁。
+  - **业务状态持续记录与生命周期清理**：候选判定路径无论应用当前为 ALLOW 还是 BLOCK 均持续同步业务状态，确保在时段生效或应用时间窗 (AppWindow) 关闭时能够准确捕获 ALLOW → BLOCK 边沿；会话关闭、切换或进程重启时立即清理对应状态。
   - **动态输入法白名单注入**：前台会话噪声过滤采用 `CreditManager.isInputMethod(context, pkg)` 动态运行时输入法判定，避免第三方或自定义输入法杀死前台会话。
   - 锁定后消费边界标志，禁止普通稳态轮询无限制依赖旧 Session。
 

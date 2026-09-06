@@ -15,6 +15,8 @@ package com.zhizhi.app.service
 class ForegroundSessionTracker(
     private val isNoisePackagePredicate: (String) -> Boolean = ::defaultIsNoisePackage
 ) {
+    var onSessionClosed: ((String) -> Unit)? = null
+
     companion object {
         const val MOVE_TO_FG = 1
         const val MOVE_TO_BG = 2
@@ -120,6 +122,7 @@ class ForegroundSessionTracker(
                     mResumedActivities.clear()
                     cleanClass?.let { mResumedActivities.add(it) }
                     val prevPkg = existing?.packageName
+                    val wasOpen = existing?.closed == false
                     currentSession = Session(
                         packageName = packageName,
                         openedAtMs = eventTimeMs,
@@ -128,6 +131,9 @@ class ForegroundSessionTracker(
                     )
                     if (prevPkg != null && prevPkg != packageName) {
                         logDebug("Session replaced by $packageName, closed session for $prevPkg")
+                        if (wasOpen) {
+                            onSessionClosed?.invoke(prevPkg)
+                        }
                     } else {
                         logDebug("Opened active session for $packageName at $eventTimeMs")
                     }
@@ -136,7 +142,7 @@ class ForegroundSessionTracker(
 
             MOVE_TO_BG -> {
                 val existing = currentSession
-                if (existing != null && existing.packageName == packageName) {
+                if (existing != null && existing.packageName == packageName && !existing.closed) {
                     if (eventTimeMs >= existing.openedAtMs) {
                         mResumedActivities.clear()
                         currentSession = existing.copy(
@@ -144,6 +150,7 @@ class ForegroundSessionTracker(
                             closedAtMs = eventTimeMs
                         )
                         logDebug("Closed session for $packageName on MOVE_TO_BG at $eventTimeMs")
+                        onSessionClosed?.invoke(packageName)
                     }
                 }
             }
@@ -160,6 +167,7 @@ class ForegroundSessionTracker(
                                     closedAtMs = eventTimeMs
                                 )
                                 logDebug("Closed session for $packageName on ACTIVITY_STOPPED at $eventTimeMs")
+                                onSessionClosed?.invoke(packageName)
                             }
                         } else {
                             mResumedActivities.clear()
@@ -168,6 +176,7 @@ class ForegroundSessionTracker(
                                 closedAtMs = eventTimeMs
                             )
                             logDebug("Closed session for $packageName on ACTIVITY_STOPPED at $eventTimeMs")
+                            onSessionClosed?.invoke(packageName)
                         }
                     }
                 }
@@ -187,6 +196,7 @@ class ForegroundSessionTracker(
                                     closedAtMs = eventTimeMs
                                 )
                                 logDebug("Closed session for $packageName on ACTIVITY_PAUSED at $eventTimeMs")
+                                onSessionClosed?.invoke(packageName)
                             }
                         } else {
                             mResumedActivities.clear()
@@ -195,6 +205,7 @@ class ForegroundSessionTracker(
                                 closedAtMs = eventTimeMs
                             )
                             logDebug("Closed session for $packageName on ACTIVITY_PAUSED at $eventTimeMs")
+                            onSessionClosed?.invoke(packageName)
                         }
                     }
                 }
@@ -213,6 +224,7 @@ class ForegroundSessionTracker(
         if (!existing.closed) {
             currentSession = existing.copy(closed = true, closedAtMs = nowMs)
             logDebug("onScreenOff: closed session at $nowMs")
+            onSessionClosed?.invoke(existing.packageName)
         }
     }
 
@@ -227,6 +239,7 @@ class ForegroundSessionTracker(
         if (!existing.closed) {
             currentSession = existing.copy(closed = true, closedAtMs = nowMs)
             logDebug("onKeyguardLocked: closed session at $nowMs")
+            onSessionClosed?.invoke(existing.packageName)
         }
     }
 
@@ -247,7 +260,9 @@ class ForegroundSessionTracker(
     fun reset() {
         mLastInvalidationAtMs = System.currentTimeMillis()
         mResumedActivities.clear()
+        val prev = currentSession?.takeIf { !it.closed }?.packageName
         currentSession = null
+        prev?.let { onSessionClosed?.invoke(it) }
     }
 }
 
@@ -298,5 +313,123 @@ object RuleBoundaryLockGate {
             input.endedRest ||
             input.forceBoundaryCheck
         return isEdgeTransition
+    }
+}
+
+/**
+ * 边界候选判定输入参数（纯逻辑数据对象，不依赖 Android Framework）
+ */
+data class BoundaryCandidateInput(
+    val resolvedPackageName: String?,
+    val isCarrierPackage: Boolean,
+    val isRecentAppsOrLauncher: Boolean,
+    val isLockShowing: Boolean,
+    val isInDesktopReturnGrace: Boolean,
+    val homeClickPendingPackage: String?,
+    val activeSessionPackage: String?,
+    val isSessionClosed: Boolean,
+    val isSessionNoiseOrLauncherOrSelf: Boolean,
+    val isBusinessBlockedNow: Boolean,
+    val previousBusinessBlocked: Boolean?,
+    val leftGap: Boolean,
+    val endedRest: Boolean,
+    val forceBoundaryCheck: Boolean,
+    val isKeyguardLocked: Boolean,
+    val isScreenInteractive: Boolean
+)
+
+/**
+ * 边界候选判定裁决结果
+ */
+data class BoundaryCandidateResult(
+    val shouldLockCandidate: Boolean,
+    val candidatePackage: String? = null,
+    val updatedBusinessBlocked: Boolean? = null,
+    val reason: String
+)
+
+/**
+ * 规则边界候选抢占协调器 (BoundaryCandidateCoordinator)
+ *
+ * 核心契约：
+ * 1. 当常规解析器为 null（静止无事件）、Carrier（如 com.vivo.upslide / vivo launcher）或桌面/最近任务时，
+ *    进入候选抢占逻辑，防止静止应用在规则边沿漏锁；
+ * 2. 无论 Session 应用当前为 ALLOW 还是 BLOCK，均持续记录业务状态，保证从 ALLOW -> BLOCK 跃迁时可被精确捕获；
+ * 3. 门禁裁决委托给 RuleBoundaryLockGate，杜绝稳态重复锁定。
+ */
+object BoundaryCandidateCoordinator {
+    fun evaluate(input: BoundaryCandidateInput): BoundaryCandidateResult {
+        if (input.isLockShowing) {
+            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "LOCK_ALREADY_SHOWING")
+        }
+        if (input.isInDesktopReturnGrace) {
+            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "DESKTOP_RETURN_GRACE")
+        }
+
+        val sessionPkg = input.activeSessionPackage
+        if (sessionPkg.isNullOrBlank()) {
+            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "NO_ACTIVE_SESSION")
+        }
+        if (input.isSessionClosed) {
+            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "SESSION_CLOSED")
+        }
+        if (input.isSessionNoiseOrLauncherOrSelf) {
+            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "SESSION_PACKAGE_EXEMPT")
+        }
+        if (input.homeClickPendingPackage != null && input.homeClickPendingPackage == sessionPkg) {
+            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "HOME_CLICK_PENDING_SUPPRESSION")
+        }
+
+        // 常规解析器为 null、Carrier（如 com.vivo.upslide / vivo launcher）或桌面/最近任务时，进入抢占候选判定
+        val qualifiesForCandidatePreemption = input.resolvedPackageName == null ||
+            input.isCarrierPackage ||
+            input.isRecentAppsOrLauncher
+        if (!qualifiesForCandidatePreemption) {
+            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "RESOLVED_PACKAGE_NON_CARRIER")
+        }
+
+        // 🛡️ [Finding 2 修复] 无论该 Session 当前允许还是阻止，均立即更新业务拦截状态记录；
+        // 确保在 ALLOW 期间记录 false，在跃迁至 BLOCK 时能够准确识别 ALLOW -> BLOCK 边沿
+        val updatedBusinessBlocked = input.isBusinessBlockedNow
+        val previousBusinessBlocked = input.previousBusinessBlocked
+
+        if (!input.isBusinessBlockedNow) {
+            return BoundaryCandidateResult(
+                shouldLockCandidate = false,
+                candidatePackage = sessionPkg,
+                updatedBusinessBlocked = false,
+                reason = "SESSION_BUSINESS_ALLOWED"
+            )
+        }
+
+        val isBusinessAllowToBlock = (previousBusinessBlocked == false && input.isBusinessBlockedNow)
+        val allowByBoundary = RuleBoundaryLockGate.shouldAllowBoundaryLock(
+            RuleBoundaryLockDecisionInput(
+                isBlockedNow = true,
+                isBusinessAllowToBlock = isBusinessAllowToBlock,
+                leftGap = input.leftGap,
+                endedRest = input.endedRest,
+                forceBoundaryCheck = input.forceBoundaryCheck,
+                hasActiveForegroundSession = true,
+                isKeyguardLocked = input.isKeyguardLocked,
+                isScreenInteractive = input.isScreenInteractive
+            )
+        )
+
+        return if (allowByBoundary) {
+            BoundaryCandidateResult(
+                shouldLockCandidate = true,
+                candidatePackage = sessionPkg,
+                updatedBusinessBlocked = true,
+                reason = "BOUNDARY_LOCK_TRIGGERED"
+            )
+        } else {
+            BoundaryCandidateResult(
+                shouldLockCandidate = false,
+                candidatePackage = sessionPkg,
+                updatedBusinessBlocked = true,
+                reason = "BOUNDARY_GATE_REJECTED"
+            )
+        }
     }
 }

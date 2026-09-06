@@ -1,5 +1,8 @@
 package com.zhizhi.app
 
+import com.zhizhi.app.service.BoundaryCandidateCoordinator
+import com.zhizhi.app.service.BoundaryCandidateInput
+import com.zhizhi.app.service.BoundaryCandidateResult
 import com.zhizhi.app.service.ForegroundSessionTracker
 import com.zhizhi.app.service.RuleBoundaryLockDecisionInput
 import com.zhizhi.app.service.RuleBoundaryLockGate
@@ -589,6 +592,192 @@ class ForegroundSessionTrackerTest {
             isScreenInteractive = true
         )
         assertTrue("规则边沿跃迁且存在活跃 Session 时必须允许边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(boundaryInput))
+    }
+
+    // ── onSessionClosed 生命周期清理单元测试 ──
+
+    @Test
+    fun `onSessionClosed callback is invoked when session closes or is replaced`() {
+        val closedPackages = mutableListOf<String>()
+        val trackerWithCallback = ForegroundSessionTracker().apply {
+            onSessionClosed = { closedPackages.add(it) }
+        }
+
+        val t0 = 1_000_000L
+        trackerWithCallback.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.MOVE_TO_FG, t0)
+        assertTrue(closedPackages.isEmpty())
+
+        // 切换到另一个应用，旧应用应触发 onSessionClosed
+        trackerWithCallback.onUsageEvent("com.example.other", ForegroundSessionTracker.MOVE_TO_FG, t0 + 2_000L)
+        assertEquals(listOf("com.tencent.mm"), closedPackages)
+
+        // 后台事件触发 onSessionClosed
+        trackerWithCallback.onUsageEvent("com.example.other", ForegroundSessionTracker.MOVE_TO_BG, t0 + 4_000L)
+        assertEquals(listOf("com.tencent.mm", "com.example.other"), closedPackages)
+
+        // 重新开启应用后息屏
+        trackerWithCallback.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.MOVE_TO_FG, t0 + 6_000L)
+        trackerWithCallback.onScreenOff(t0 + 8_000L)
+        assertEquals(listOf("com.tencent.mm", "com.example.other", "com.tencent.mm"), closedPackages)
+    }
+
+    // ── BoundaryCandidateCoordinator 端到端决策测试 ──
+
+    @Test
+    fun `boundary coordinator - null resolver in ALLOW records false, transition to BLOCK locks, steady state rejects`() {
+        val sessionPkg = "com.tencent.mm"
+
+        // 1. 周期 1 (22:50)：静止状态 resolver 得到 null，当前属于 ALLOW 状态
+        val cycle1Input = BoundaryCandidateInput(
+            resolvedPackageName = null,
+            isCarrierPackage = false,
+            isRecentAppsOrLauncher = false,
+            isLockShowing = false,
+            isInDesktopReturnGrace = false,
+            homeClickPendingPackage = null,
+            activeSessionPackage = sessionPkg,
+            isSessionClosed = false,
+            isSessionNoiseOrLauncherOrSelf = false,
+            isBusinessBlockedNow = false, // ALLOW
+            previousBusinessBlocked = null,
+            leftGap = false,
+            endedRest = false,
+            forceBoundaryCheck = false,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        val cycle1Result = BoundaryCandidateCoordinator.evaluate(cycle1Input)
+        assertFalse("ALLOW 状态下不得锁定候选会话", cycle1Result.shouldLockCandidate)
+        assertEquals(false, cycle1Result.updatedBusinessBlocked)
+
+        // 2. 周期 2 (23:00)：DND 生效，跃迁至 BLOCK，resolver 依然为 null
+        val cycle2Input = BoundaryCandidateInput(
+            resolvedPackageName = null,
+            isCarrierPackage = false,
+            isRecentAppsOrLauncher = false,
+            isLockShowing = false,
+            isInDesktopReturnGrace = false,
+            homeClickPendingPackage = null,
+            activeSessionPackage = sessionPkg,
+            isSessionClosed = false,
+            isSessionNoiseOrLauncherOrSelf = false,
+            isBusinessBlockedNow = true, // 跃迁至 BLOCK
+            previousBusinessBlocked = cycle1Result.updatedBusinessBlocked, // false
+            leftGap = true,
+            endedRest = false,
+            forceBoundaryCheck = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        val cycle2Result = BoundaryCandidateCoordinator.evaluate(cycle2Input)
+        assertTrue("规则边沿跃迁且 resolver 为 null 时，必须锁定活跃候选 Session", cycle2Result.shouldLockCandidate)
+        assertEquals(sessionPkg, cycle2Result.candidatePackage)
+        assertEquals(true, cycle2Result.updatedBusinessBlocked)
+
+        // 3. 周期 3 (23:01)：稳态 BLOCK，resolver 依然为 null
+        val cycle3Input = BoundaryCandidateInput(
+            resolvedPackageName = null,
+            isCarrierPackage = false,
+            isRecentAppsOrLauncher = false,
+            isLockShowing = false,
+            isInDesktopReturnGrace = false,
+            homeClickPendingPackage = null,
+            activeSessionPackage = sessionPkg,
+            isSessionClosed = false,
+            isSessionNoiseOrLauncherOrSelf = false,
+            isBusinessBlockedNow = true, // 持续稳态 BLOCK
+            previousBusinessBlocked = cycle2Result.updatedBusinessBlocked, // true
+            leftGap = false,
+            endedRest = false,
+            forceBoundaryCheck = false,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        val cycle3Result = BoundaryCandidateCoordinator.evaluate(cycle3Input)
+        assertFalse("处于持续 BLOCK 稳态时，禁止重复锁定候选会话", cycle3Result.shouldLockCandidate)
+        assertEquals(true, cycle3Result.updatedBusinessBlocked)
+    }
+
+    @Test
+    fun `boundary coordinator - vivo carrier upslide triggers boundary candidate lock on transition`() {
+        val sessionPkg = "com.tencent.mm"
+
+        // Vivo 误报 carrier: com.vivo.upslide，规则边沿跃迁
+        val input = BoundaryCandidateInput(
+            resolvedPackageName = "com.vivo.upslide",
+            isCarrierPackage = true, // com.vivo.upslide 是 Carrier
+            isRecentAppsOrLauncher = true,
+            isLockShowing = false,
+            isInDesktopReturnGrace = false,
+            homeClickPendingPackage = null,
+            activeSessionPackage = sessionPkg,
+            isSessionClosed = false,
+            isSessionNoiseOrLauncherOrSelf = false,
+            isBusinessBlockedNow = true,
+            previousBusinessBlocked = false, // 之前在 ALLOW
+            leftGap = true,
+            endedRest = false,
+            forceBoundaryCheck = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        val result = BoundaryCandidateCoordinator.evaluate(input)
+        assertTrue("Vivo Carrier (com.vivo.upslide) 误报期间边沿跃迁必须主动拉取 Session 锁定", result.shouldLockCandidate)
+        assertEquals(sessionPkg, result.candidatePackage)
+    }
+
+    @Test
+    fun `boundary coordinator - app window only transition without dnd change triggers boundary lock`() {
+        val sessionPkg = "com.tencent.mm"
+
+        // 应用时间窗从 ALLOW 跨入 BLOCK（非 DND 时段切换，纯 AppWindow 闭合）
+        val input = BoundaryCandidateInput(
+            resolvedPackageName = "com.bbk.launcher2",
+            isCarrierPackage = true,
+            isRecentAppsOrLauncher = true,
+            isLockShowing = false,
+            isInDesktopReturnGrace = false,
+            homeClickPendingPackage = null,
+            activeSessionPackage = sessionPkg,
+            isSessionClosed = false,
+            isSessionNoiseOrLauncherOrSelf = false,
+            isBusinessBlockedNow = true, // AppWindow 闭合变为受阻
+            previousBusinessBlocked = false, // 先前在时间窗内记录为 ALLOW (false)
+            leftGap = false,
+            endedRest = false,
+            forceBoundaryCheck = false,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        val result = BoundaryCandidateCoordinator.evaluate(input)
+        assertTrue("应用时间窗仅凭 ALLOW->BLOCK 跃迁必须触发候选锁定", result.shouldLockCandidate)
+        assertEquals(sessionPkg, result.candidatePackage)
+    }
+
+    @Test
+    fun `boundary coordinator - home click pending suppresses candidate lock`() {
+        val sessionPkg = "com.tencent.mm"
+
+        val input = BoundaryCandidateInput(
+            resolvedPackageName = "com.bbk.launcher2",
+            isCarrierPackage = true,
+            isRecentAppsOrLauncher = true,
+            isLockShowing = false,
+            isInDesktopReturnGrace = false,
+            homeClickPendingPackage = sessionPkg, // 用户显式点击回到桌面
+            activeSessionPackage = sessionPkg,
+            isSessionClosed = false,
+            isSessionNoiseOrLauncherOrSelf = false,
+            isBusinessBlockedNow = true,
+            previousBusinessBlocked = false,
+            leftGap = true,
+            endedRest = false,
+            forceBoundaryCheck = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        val result = BoundaryCandidateCoordinator.evaluate(input)
+        assertFalse("用户显式点击回到桌面产生的 homeClickPending 必须抑制候选锁定", result.shouldLockCandidate)
     }
 }
 
