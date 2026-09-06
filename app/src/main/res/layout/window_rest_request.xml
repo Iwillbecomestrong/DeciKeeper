@@ -5,38 +5,56 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:background="#FFFFFF"
+    android:background="#F5F7F4"
     android:padding="24dp"
     android:clickable="true"
     android:focusable="true">
 
     <TextView
         android:id="@+id/tv_title"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="申请休息 / 额度管理"
         android:textSize="22sp"
         android:textStyle="bold"
-        android:textColor="#333333"
-        android:layout_marginBottom="24dp" />
+        android:textColor="#233128"
+        android:gravity="center"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:id="@+id/tv_rest_tier_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="休息只解除勿扰锁；应用时间窗仍按原计划生效"
+        android:textSize="13sp"
+        android:textColor="#66736A"
+        android:gravity="center"
+        android:layout_marginBottom="18dp" />
 
     <TextView
         android:id="@+id/tv_quota_hint"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="当前可用: 0min / 0次 | 可借用: 0min / 0次"
         android:textSize="14sp"
-        android:textColor="#666666"
-        android:layout_marginBottom="16dp" />
-        
+        android:textColor="#4B5A50"
+        android:gravity="center"
+        android:background="#FFFFFF"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="12dp"
+        android:layout_marginBottom="12dp" />
+
     <TextView
         android:id="@+id/tv_cooling_penalty_hint"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="⚠️ 冷静期内申请将消耗双倍额度和次数！"
-        android:textSize="14sp"
-        android:textColor="#FF5252"
+        android:text="冷静期内申请将消耗双倍额度和次数"
+        android:textSize="13sp"
+        android:textColor="#B55A45"
         android:textStyle="bold"
+        android:gravity="center"
+        android:background="#FFF3EF"
+        android:padding="10dp"
         android:visibility="gone"
         android:layout_marginBottom="8dp" />
 
@@ -45,7 +63,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="13sp"
-        android:textColor="#333333"
+        android:textColor="#4B5A50"
         android:gravity="center"
         android:visibility="gone"
         android:layout_marginBottom="16dp" />
@@ -54,10 +72,17 @@
         android:id="@+id/til_input"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="输入申请时长 (分钟)"
-        app:hintTextColor="#757575"
-        android:textColorHint="#999999"
-        android:layout_marginBottom="24dp">
+        android:hint="输入申请时长（分钟）"
+        app:boxBackgroundMode="outline"
+        app:boxBackgroundColor="#FFFFFF"
+        app:boxStrokeColor="#A8B6AA"
+        app:boxCornerRadiusTopStart="14dp"
+        app:boxCornerRadiusTopEnd="14dp"
+        app:boxCornerRadiusBottomStart="14dp"
+        app:boxCornerRadiusBottomEnd="14dp"
+        app:hintTextColor="#66736A"
+        android:textColorHint="#7B877F"
+        android:layout_marginBottom="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/tv_calm_minutes"
@@ -65,7 +90,8 @@
             android:layout_height="wrap_content"
             android:inputType="numberDecimal"
             android:gravity="center"
-            android:textColor="#333333"
+            android:textSize="18sp"
+            android:textColor="#233128"
             android:imeOptions="actionDone" />
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -78,32 +104,35 @@
         <Button
             android:id="@+id/btn_cancel_emergency"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:text="取消"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#CCCCCC"
-            android:layout_marginEnd="12dp" />
+            android:textAllCaps="false"
+            android:textColor="#415047"
+            android:backgroundTint="#E5EAE6"
+            android:layout_marginEnd="6dp" />
 
         <Button
             android:id="@+id/btn_confirm_calm"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:text="确认申请"
+            android:textAllCaps="false"
             android:textColor="#FFFFFF"
-            android:backgroundTint="#FF9800"
-            android:layout_marginStart="12dp" />
+            android:backgroundTint="#78917D"
+            android:layout_marginStart="6dp" />
     </LinearLayout>
-    
+
     <Button
         android:id="@+id/btn_stop_free_time"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="52dp"
         android:text="结束当前休息"
+        android:textAllCaps="false"
         android:textColor="#FFFFFF"
-        android:backgroundTint="#F44336"
+        android:backgroundTint="#B76858"
         android:visibility="gone"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="12dp" />
 
 </LinearLayout>
