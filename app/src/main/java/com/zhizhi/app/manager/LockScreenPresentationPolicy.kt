@@ -46,7 +46,13 @@ internal fun resolveLockOverlayRestrictionMode(
 internal fun shouldRouteEmergencyToPrivilege(
     mode: LockOverlayRestrictionMode
 ): Boolean {
-    // 仅 AppWindow 锁屏路由到特权；DND 锁屏走"申请休息"路径
+    // 兼容历史调用：特权现已作为所有锁屏的独立常驻按钮，主操作按钮分流为：时间窗->临时放行，勿扰->申请休息
+    return false
+}
+
+internal fun shouldRouteEmergencyToTempAccess(
+    mode: LockOverlayRestrictionMode
+): Boolean {
     return mode == LockOverlayRestrictionMode.APP_WINDOW
 }
 
@@ -54,29 +60,50 @@ internal fun resolveEmergencyActionPresentation(
     mode: LockOverlayRestrictionMode,
     privilegeUnavailableReason: String?,
     restExhausted: Boolean,
-    inAnyCooling: Boolean
+    inAnyCooling: Boolean,
+    coolingRemainingSeconds: Long = 0L
 ): EmergencyActionPresentation {
-    if (shouldRouteEmergencyToPrivilege(mode)) {
-        return if (privilegeUnavailableReason.isNullOrBlank()) {
-            EmergencyActionPresentation(label = "申请特权", enabled = true, alpha = 1.0f)
-        } else {
-            EmergencyActionPresentation(
-                label = "特权不可用($privilegeUnavailableReason)",
+    // 应用时间窗限制锁屏：主操作为【临时解锁】（短期解开任意锁，无额外勾选）
+    if (mode == LockOverlayRestrictionMode.APP_WINDOW) {
+        if (inAnyCooling) {
+            val label = if (coolingRemainingSeconds > 0) "⏳ 冷却中 (${coolingRemainingSeconds}s)" else "⏳ 冷却中"
+            return EmergencyActionPresentation(
+                label = label,
                 enabled = false,
                 alpha = 0.5f
             )
         }
+        return EmergencyActionPresentation(
+            label = "⚡ 临时解锁",
+            enabled = true,
+            alpha = 1.0f
+        )
     }
 
+    // 勿扰时段锁机：主操作为【申请休息】（专解勿扰锁）
     if (restExhausted) {
         return EmergencyActionPresentation(label = "休息已用完", enabled = false, alpha = 0.5f)
     }
 
     return EmergencyActionPresentation(
-        label = if (inAnyCooling) "⚠️ 冷静期申请 (加权扣费)" else "申请休息",
+        label = if (inAnyCooling) "⚠️ 冷静期申请 (加权扣费)" else "🌱 申请休息",
         enabled = true,
         alpha = 1.0f
     )
+}
+
+internal fun resolveWeeklyPrivilegePresentation(
+    privilegeUnavailableReason: String?
+): EmergencyActionPresentation {
+    return if (privilegeUnavailableReason.isNullOrBlank()) {
+        EmergencyActionPresentation(label = "👑 每周特权", enabled = true, alpha = 1.0f)
+    } else {
+        EmergencyActionPresentation(
+            label = "特权不可用($privilegeUnavailableReason)",
+            enabled = false,
+            alpha = 0.5f
+        )
+    }
 }
 
 internal fun resolveAllowedWindowSummaryForDisplay(

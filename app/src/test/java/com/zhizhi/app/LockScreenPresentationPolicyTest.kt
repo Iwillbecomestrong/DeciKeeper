@@ -27,19 +27,32 @@ class LockScreenPresentationPolicyTest {
         )
 
         assertEquals(LockOverlayRestrictionMode.APP_WINDOW, mode)
-        assertTrue(shouldRouteEmergencyToPrivilege(mode))
+        val presentation = resolveEmergencyActionPresentation(
+            mode = mode,
+            privilegeUnavailableReason = null,
+            restExhausted = false,
+            inAnyCooling = false
+        )
+        assertEquals("⚡ 临时解锁", presentation.label)
+        assertTrue(presentation.enabled)
     }
 
     @Test
-    fun dndLockAlsoRoutesEmergencyToPrivilege() {
+    fun dndLockShowsRestEntry() {
         val mode = resolveLockOverlayRestrictionMode(
             isAppWindowBlocked = false,
             isWithinDndSegment = true
         )
 
         assertEquals(LockOverlayRestrictionMode.DND, mode)
-        // DND 锁屏走"申请休息"路径，不路由到特权
-        assertFalse(shouldRouteEmergencyToPrivilege(mode))
+        val presentation = resolveEmergencyActionPresentation(
+            mode = mode,
+            privilegeUnavailableReason = null,
+            restExhausted = false,
+            inAnyCooling = false
+        )
+        assertEquals("🌱 申请休息", presentation.label)
+        assertTrue(presentation.enabled)
     }
 
     @Test
@@ -57,8 +70,7 @@ class LockScreenPresentationPolicyTest {
         )
 
         assertEquals(LockOverlayRestrictionMode.OTHER, mode)
-        assertFalse(shouldRouteEmergencyToPrivilege(mode))
-        assertEquals("申请休息", presentation.label)
+        assertEquals("🌱 申请休息", presentation.label)
         assertTrue(presentation.enabled)
     }
 
@@ -139,11 +151,6 @@ class LockScreenPresentationPolicyTest {
         assertEquals("20:30-22:30", summary)
     }
 
-    /**
-     * MUST_ADD_TESTS item 3: During a gap period with AppWindow blocked,
-     * the restriction mode must be APP_WINDOW (not OTHER), and the emergency
-     * button must route to privilege.
-     */
     @Test
     fun givenAppWindowBlocked_duringGap_period_showsAppWindowMode() {
         val mode = resolveLockOverlayRestrictionMode(
@@ -151,6 +158,28 @@ class LockScreenPresentationPolicyTest {
             isWithinDndSegment = false
         )
         assertEquals(LockOverlayRestrictionMode.APP_WINDOW, mode)
-        assertTrue(shouldRouteEmergencyToPrivilege(mode))
+        val presentation = resolveEmergencyActionPresentation(
+            mode = mode,
+            privilegeUnavailableReason = null,
+            restExhausted = false,
+            inAnyCooling = false
+        )
+        assertEquals("⚡ 临时解锁", presentation.label)
+        assertTrue(presentation.enabled)
+    }
+
+    @Test
+    fun givenAppWindowBlocked_duringCooling_disablesActionAndShowsCountdown() {
+        val mode = LockOverlayRestrictionMode.APP_WINDOW
+        val presentation = resolveEmergencyActionPresentation(
+            mode = mode,
+            privilegeUnavailableReason = null,
+            restExhausted = false,
+            inAnyCooling = true,
+            coolingRemainingSeconds = 45L
+        )
+        assertEquals("⏳ 冷却中 (45s)", presentation.label)
+        assertFalse(presentation.enabled)
+        assertEquals(0.5f, presentation.alpha, 0.01f)
     }
 }
