@@ -18,8 +18,8 @@
 | **应用包名 / 版本** | `com.zhizhi.app` (versionCode=1, versionName=0.2.0) |
 | **测试时钟时区** | 2026-09-06 14:30:00 ~ 14:35:00 CST (UTC+8, Asia/Shanghai) |
 | **BASE_COMMIT** | `18bf8ac53e5047134cc67d189c230220480d3d6e` |
-| **TESTED_COMMIT** | `1f3f29b6c0c87d8186d992e3e89b4ba449f58af1`（验证分支 `dev`，已完成不可变扣费快照与全量矩阵认证） |
-| **APK SHA-256** | `5C40D5F6BE0967D3733C787A74EC5636E0CE0497D3967DBA46C61ADADDA52345` |
+| **TESTED_COMMIT** | `318ca0d0f323d82abb1564b0a60f44d317036686`（验证分支 `dev`，已完成不可变扣费快照与次数统一下落认证） |
+| **APK SHA-256** | `D9B9D0807324293484B51423438CBACEFA0B9C5B3BE1F30B57FBF18F6AD992CE` |
 | **测试命令** | `adb logcat -v time -s MonitorService:D ForegroundSession:D ForegroundGuardFallbackGate:D` |
 | **安装与构建** | `./gradlew assembleDebug` + `adb install -r -d app/build/outputs/apk/debug/app-debug.apk`（符合 SPEC §6.4 规约） |
 
