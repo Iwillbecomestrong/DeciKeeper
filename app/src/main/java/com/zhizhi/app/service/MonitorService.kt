@@ -240,9 +240,10 @@ class MonitorService : Service() {
     private val monitorScheduleGate = MonitorLoopScheduleGate()
     private val foregroundDetectionLogCompressor = ForegroundDetectionLogCompressor()
     private val foregroundGuardFallbackGate = ForegroundGuardFallbackGate()
-    internal val foregroundSessionTracker = ForegroundSessionTracker()
+    internal val foregroundSessionTracker = ForegroundSessionTracker { pkg ->
+        ForegroundSessionTracker.defaultIsNoisePackage(pkg) || runCatching { CreditManager.isInputMethod(this@MonitorService, pkg) }.getOrDefault(false)
+    }
     private val mPreviouslyBlockedPackages = mutableSetOf<String>()
-    // 🛡️ 记录各应用上一轮的真实业务拦截状态（解耦前台守卫结果，纯粹追踪 ALLOW -> BLOCK 业务边沿）
     private val mLastBusinessBlockedByPackage = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     private var mForceRuleBoundaryCheck = false
 
@@ -1495,6 +1496,157 @@ class MonitorService : Service() {
         mPresenceStatLocked = 0; mPresenceStatUnlocked = 0; mPresenceStatRejectedStale = 0
     }
 
+    private fun calculateIsBusinessBlocked(
+        pkg: String,
+        currentSeg: TimeSegment?,
+        isPrivilege: Boolean,
+        isDndLocked: Boolean
+    ): Boolean {
+        val isBlacklisted = SegmentBlacklist.isSubjectToBlock(this, currentSeg, pkg)
+        val isSafe = CreditManager.isLauncher(pkg) ||
+            pkg == "com.android.settings" ||
+            CreditManager.isInputMethod(this, pkg) ||
+            pkg.contains("systemui", ignoreCase = true) ||
+            pkg.equals("com.vivo.systemuiplugin", ignoreCase = true)
+        val segmentDecoupled = currentSeg != null && currentSeg.listApps != null
+        val isAppWindowBlocked = if (AppWindowManager.isManaged(this, pkg)) {
+            !AppWindowManager.isAppAllowed(this, pkg)
+        } else {
+            false
+        }
+        val isTemporaryAccess = LockWindowManager.isTemporaryAccessActive()
+        return LockDecisionPolicy.shouldBlock(
+            isBlacklisted = isBlacklisted,
+            isSafe = isSafe,
+            isPrivilege = isPrivilege,
+            isDndLocked = isDndLocked,
+            isAppWindowBlocked = isAppWindowBlocked,
+            segmentDecoupled = segmentDecoupled,
+            isManaged = { AppWindowManager.isManaged(this, pkg) },
+            effectivePackageName = pkg,
+            isTemporaryAccess = isTemporaryAccess
+        )
+    }
+
+    private fun checkRuleBoundaryCandidateLock(
+        now: Long,
+        currentSeg: TimeSegment?,
+        isPrivilege: Boolean,
+        isDndLocked: Boolean,
+        isKeyguardLocked: Boolean,
+        isScreenInteractive: Boolean,
+        forceCheckThisCycle: Boolean,
+        leftGap: Boolean,
+        endedRest: Boolean
+    ): Boolean {
+        if (LockWindowManager.isLocked) return false
+        if (LockWindowManager.isInDesktopReturnGrace(now)) return false
+
+        val activeSession = foregroundSessionTracker.currentSession ?: return false
+        if (activeSession.closed) return false
+        val sessionPkg = activeSession.packageName
+        if (sessionPkg.isBlank()) return false
+
+        // 排除桌面 Launcher、系统噪声、输入法或自身
+        if (CreditManager.isLauncher(sessionPkg) ||
+            ForegroundSessionTracker.defaultIsNoisePackage(sessionPkg) ||
+            CreditManager.isInputMethod(this, sessionPkg) ||
+            sessionPkg == this.packageName
+        ) {
+            return false
+        }
+
+        // Anti-Deadlock: 若用户之前显式点击"回到桌面"产生 pending 抑制，则不主动拉取该包名
+        if (LockWindowManager.homeClickPendingPackage != null &&
+            LockWindowManager.homeClickPendingPackage == sessionPkg
+        ) {
+            return false
+        }
+
+        // 评估业务拦截状态
+        val isBusinessBlocked = calculateIsBusinessBlocked(
+            pkg = sessionPkg,
+            currentSeg = currentSeg,
+            isPrivilege = isPrivilege,
+            isDndLocked = isDndLocked
+        )
+        if (!isBusinessBlocked) return false
+
+        // 评估业务边沿跃迁
+        val previousBusinessBlocked = mLastBusinessBlockedByPackage[sessionPkg]
+        val isBusinessAllowToBlock = (previousBusinessBlocked == false && isBusinessBlocked)
+        mLastBusinessBlockedByPackage[sessionPkg] = isBusinessBlocked
+
+        val allowByBoundary = RuleBoundaryLockGate.shouldAllowBoundaryLock(
+            RuleBoundaryLockDecisionInput(
+                isBlockedNow = isBusinessBlocked,
+                isBusinessAllowToBlock = isBusinessAllowToBlock,
+                leftGap = leftGap,
+                endedRest = endedRest,
+                forceBoundaryCheck = forceCheckThisCycle,
+                hasActiveForegroundSession = true,
+                isKeyguardLocked = isKeyguardLocked,
+                isScreenInteractive = isScreenInteractive
+            )
+        )
+        if (!allowByBoundary) return false
+
+        Log.w(
+            TAG,
+            "[ForegroundGuard] Active session preemptive boundary lock triggered: " +
+            "pkg=$sessionPkg, sessionOpenedAt=${activeSession.openedAtMs}"
+        )
+
+        val isManaged = AppWindowManager.isManaged(this, sessionPkg)
+        val isAppWindowBlocked = if (isManaged) !AppWindowManager.isAppAllowed(this, sessionPkg) else false
+        val isRealBlacklist = if (currentSeg != null && currentSeg.listApps != null) {
+            SegmentBlacklist.isInEffectiveList(this, currentSeg, sessionPkg)
+        } else {
+            CreditManager.getBlacklistApps(this).any { it.equals(sessionPkg, ignoreCase = true) }
+        }
+        val pm = packageManager
+        val appLabel = try {
+            pm.getApplicationLabel(pm.getApplicationInfo(sessionPkg, 0)).toString()
+        } catch (e: Exception) { sessionPkg }
+
+        val shouldStrictLock = LockWindowManager.onBlacklistHit(
+            this,
+            sessionPkg,
+            createLockScreen = false
+        )
+        if (shouldStrictLock) {
+            val cycleSnapshot = currentForegroundCycle
+            val fgReportId = cycleSnapshot?.reportId
+            recordFgRequestLock(
+                cycle = cycleSnapshot,
+                effectivePkg = sessionPkg,
+                effectiveBlacklisted = true,
+                businessReason = "BLACKLIST_DND_LOCKED",
+                allowanceState = "ALLOW_NONE",
+                guardPassed = true,
+                visibilityPassed = null
+            )
+            val requestGeneration = CoreService.getAccessibilityGeneration()
+            LockWindowManager.showLockScreen(
+                "Blocked: $sessionPkg",
+                isBlacklist = isRealBlacklist,
+                isAppWindowBlocked = isAppWindowBlocked,
+                blockedAppLabel = appLabel,
+                blockedPackageName = sessionPkg,
+                detectionSource = "SESSION_BOUNDARY",
+                detectionSnapshot = getDetectionSnapshot(),
+                foregroundReportId = fgReportId,
+                foregroundRequestId = currentTraceId,
+                foregroundRequestAtMs = now,
+                requestGeneration = requestGeneration
+            )
+            currentLockedPkg = sessionPkg
+            mPreviouslyBlockedPackages.add(sessionPkg)
+            return true
+        }
+        return false
+    }
+
     private fun checkForegroundApp() {
         // 🚀 [NEW] Skip check if user is typing in the input panel
         if (LockWindowManager.shouldPauseForegroundBlockingChecks()) return
@@ -1780,6 +1932,24 @@ class MonitorService : Service() {
         }
 
         if (resolvedPackageName == null) {
+            // 🛡️ [Finding 1 修复] 边界候选主动拉取：
+            // 当常规 resolver 得到 null（如用户在微信中静止，UsageStats 暂时无解析结果），
+            // 且正处于规则边沿时，主动检查 foregroundSessionTracker.currentSession
+            if (checkRuleBoundaryCandidateLock(
+                    now = now,
+                    currentSeg = currentSeg,
+                    isPrivilege = isPrivilege,
+                    isDndLocked = isDndLocked,
+                    isKeyguardLocked = isKeyguardLocked,
+                    isScreenInteractive = isScreenInteractive,
+                    forceCheckThisCycle = forceCheckThisCycle,
+                    leftGap = leftGap,
+                    endedRest = endedRest
+                )
+            ) {
+                return
+            }
+
             Log.d(TAG, "[checkForegroundApp] No package detected, skipping blocking check")
             // [Diagnostics-only] emit NoLock report for unresolvable foreground
             recordFgNoLock(
@@ -1925,6 +2095,24 @@ class MonitorService : Service() {
         }
 
         if (isRecentAppsOrLauncher) {
+             // 🛡️ [Finding 1 修复] 边界候选主动拉取：
+             // 当常规 resolver 得到 Launcher/Carrier/Recents（如 Vivo 等 ROM 在用户静止停留在微信时误报桌面 launcher），
+             // 且正处于规则边沿时，主动检查 foregroundSessionTracker.currentSession
+             if (checkRuleBoundaryCandidateLock(
+                     now = now,
+                     currentSeg = currentSeg,
+                     isPrivilege = isPrivilege,
+                     isDndLocked = isDndLocked,
+                     isKeyguardLocked = isKeyguardLocked,
+                     isScreenInteractive = isScreenInteractive,
+                     forceCheckThisCycle = forceCheckThisCycle,
+                     leftGap = leftGap,
+                     endedRest = endedRest
+                 )
+             ) {
+                 return
+             }
+
              if (CreditManager.isLauncher(effectivePackageName)) {
                  LockWindowManager.confirmPendingReturnDesktopExit(
                      evidence = "FOREGROUND_CONFIRMED source=${mLastTopEvidence.name} package=$effectivePackageName"
@@ -2016,23 +2204,16 @@ class MonitorService : Service() {
                  effectivePackageName.contains("systemui", ignoreCase = true) ||
                  effectivePackageName.equals("com.vivo.systemuiplugin", ignoreCase = true)
 
-        val segmentDecoupled = currentSeg != null && currentSeg.listApps != null
         val isAppWindowBlocked = if (AppWindowManager.isManaged(this, effectivePackageName)) {
             !AppWindowManager.isAppAllowed(this, effectivePackageName)
         } else {
             false
         }
-        val isTemporaryAccess = LockWindowManager.isTemporaryAccessActive()
-        val isBusinessBlocked = LockDecisionPolicy.shouldBlock(
-            isBlacklisted = isBlacklisted,
-            isSafe = isSafe,
+        val isBusinessBlocked = calculateIsBusinessBlocked(
+            pkg = effectivePackageName,
+            currentSeg = currentSeg,
             isPrivilege = isPrivilege,
-            isDndLocked = isDndLocked,
-            isAppWindowBlocked = isAppWindowBlocked,
-            segmentDecoupled = segmentDecoupled,
-            isManaged = { AppWindowManager.isManaged(this, effectivePackageName) },
-            effectivePackageName = effectivePackageName,
-            isTemporaryAccess = isTemporaryAccess
+            isDndLocked = isDndLocked
         )
 
         // 🛡️ [Keyguard 反证生命周期复核]

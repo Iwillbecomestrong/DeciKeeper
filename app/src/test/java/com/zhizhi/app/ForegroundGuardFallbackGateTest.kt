@@ -16,7 +16,8 @@ class ForegroundGuardFallbackGateTest {
                 selectedPackage = "com.tencent.mm",
                 cachedPackage = "com.tencent.mm",
                 lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 900L
+                lastBackgroundEventTs = 900L,
+                hasActiveForegroundSession = true
             )
         )
     }
@@ -29,9 +30,27 @@ class ForegroundGuardFallbackGateTest {
                 selectedPackage = "com.tencent.mm",
                 cachedPackage = "com.tencent.mm",
                 lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 0L
+                lastBackgroundEventTs = 0L,
+                hasActiveForegroundSession = true
             )
         )
+    }
+
+    @Test
+    fun `fresh tracker with history evidence but no active session never forces fallback after 60s`() {
+        val eligible = isSustainedForegroundFallbackEligible(
+            evidenceSource = "HISTORY",
+            selectedPackage = "com.tencent.mm",
+            cachedPackage = "com.tencent.mm",
+            lastForegroundEventTs = 1_000L,
+            lastBackgroundEventTs = 0L,
+            hasActiveForegroundSession = false
+        )
+        assertFalse("未建立 active session 时历史事件不得具有保底资格", eligible)
+
+        val gate = ForegroundGuardFallbackGate(timeoutMs = 60_000L)
+        assertFalse(gate.shouldForce("com.tencent.mm", nowMs = 0L, eligible = eligible, guardPassed = false))
+        assertFalse(gate.shouldForce("com.tencent.mm", nowMs = 70_000L, eligible = eligible, guardPassed = false))
     }
 
     @Test

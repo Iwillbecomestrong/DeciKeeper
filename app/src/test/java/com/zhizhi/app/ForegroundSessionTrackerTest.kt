@@ -118,6 +118,25 @@ class ForegroundSessionTrackerTest {
     }
 
     @Test
+    fun `custom injected IME package does not kill active session`() {
+        val customImePackage = "com.custom.keyboard.typing"
+        val customTracker = ForegroundSessionTracker { pkg ->
+            ForegroundSessionTracker.defaultIsNoisePackage(pkg) || pkg == customImePackage
+        }
+
+        val t0 = 1_000_000L
+        customTracker.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.MOVE_TO_FG, t0)
+        assertTrue(customTracker.isSessionActiveFor("com.tencent.mm"))
+
+        // 弹出自定义包名输入法产生前台事件
+        customTracker.onUsageEvent(customImePackage, ForegroundSessionTracker.MOVE_TO_FG, t0 + 2_000L)
+
+        // 微信会话依然保持活跃
+        assertTrue("注入的动态输入法白名单应用不应破坏当前前台应用 Session", customTracker.isSessionActiveFor("com.tencent.mm"))
+        assertEquals("com.tencent.mm", customTracker.currentSession?.packageName)
+    }
+
+    @Test
     fun `screen off closes active session`() {
         val t0 = 1_000_000L
         tracker.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.MOVE_TO_FG, t0)
@@ -542,6 +561,34 @@ class ForegroundSessionTrackerTest {
             isScreenInteractive = true
         )
         assertFalse("首次观测到受阻应用（无先前明确 ALLOW 记录）绝不能被误当成 ALLOW->BLOCK 边沿锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(firstObservationInput))
+    }
+
+    @Test
+    fun `boundary transition allows lock for active session even if conventional resolver returned launcher or null`() {
+        // 用户在 22:50 进入微信，并持续停留在微信
+        val t2250 = 1_000_000L
+        tracker.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.MOVE_TO_FG, t2250)
+        assertTrue(tracker.isSessionActiveFor("com.tencent.mm"))
+
+        // 23:00 时规则从 ALLOW -> BLOCK 发生边沿跃迁
+        // 此时系统常规 resolver 因无新操作可能返回 null 或 vivo launcher
+        val activeSession = tracker.currentSession
+        assertNotNull(activeSession)
+        assertEquals("com.tencent.mm", activeSession?.packageName)
+        assertFalse(activeSession?.closed ?: true)
+
+        // 边界门禁判定：以活跃 Session 包名为候选进行边界门禁评估
+        val boundaryInput = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            isBusinessAllowToBlock = true, // 23:00 规则跃迁
+            leftGap = true,
+            endedRest = false,
+            forceBoundaryCheck = true,
+            hasActiveForegroundSession = tracker.isSessionActiveFor(activeSession!!.packageName),
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertTrue("规则边沿跃迁且存在活跃 Session 时必须允许边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(boundaryInput))
     }
 }
 

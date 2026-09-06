@@ -53,13 +53,13 @@ internal fun isSustainedForegroundFallbackEligible(
     lastBackgroundEventTs: Long,
     hasActiveForegroundSession: Boolean = false
 ): Boolean {
-    if (hasActiveForegroundSession) {
-        if (evidenceSource != "CACHE" && evidenceSource != "HISTORY" && evidenceSource != "USAGE_STATS") return false
-        if (selectedPackage != cachedPackage) return false
-        return true
-    }
-    if (evidenceSource != "CACHE" && evidenceSource != "HISTORY") return false
+    // 🛡️ [Finding 2 修复] SPEC 进程隔离与会话契约：
+    // 任何因前台证据陈旧（CACHE/HISTORY/USAGE_STATS）而要求 60s 保底锁定的场景，
+    // 必须且只能由当前进程内真实建立且未关闭的活跃前台 Session (hasActiveForegroundSession == true) 支撑。
+    // 无活跃 Session 时，严禁仅凭 12 小时历史事件或旧缓存触发保底锁定！
+    if (!hasActiveForegroundSession) return false
+    if (evidenceSource != "CACHE" && evidenceSource != "HISTORY" && evidenceSource != "USAGE_STATS") return false
     if (selectedPackage != cachedPackage) return false
-    if (lastForegroundEventTs <= 0L) return false
-    return lastBackgroundEventTs <= 0L || lastForegroundEventTs > lastBackgroundEventTs
+    return true
 }
+
