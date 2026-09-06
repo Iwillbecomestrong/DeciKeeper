@@ -242,6 +242,8 @@ class MonitorService : Service() {
     private val foregroundGuardFallbackGate = ForegroundGuardFallbackGate()
     internal val foregroundSessionTracker = ForegroundSessionTracker()
     private val mPreviouslyBlockedPackages = mutableSetOf<String>()
+    // 🛡️ 记录各应用上一轮的真实业务拦截状态（解耦前台守卫结果，纯粹追踪 ALLOW -> BLOCK 业务边沿）
+    private val mLastBusinessBlockedByPackage = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     private var mForceRuleBoundaryCheck = false
 
     // 诊断日志压缩器（去重高频 DIAG）
@@ -1281,9 +1283,9 @@ class MonitorService : Service() {
 
     // 🚀 [Presence Tracker] 状态机：负责跟踪已确认黑名单小窗的生命周期直到收到明确关闭证据
     private val mPresenceTracker = VisibleBlacklistPresenceTracker(desktopGraceDurationMs = 3000L)
-    // 🛡️ [High-Water Mark] 记录每个包最近处理过的事件时间戳，避免 30s UsageEvents 重复遍历导致旧事件重放
+    // 🛡️ [High-Water Mark] 记录每个包最近处理过的事件时间戳与同毫秒事件签名集合，避免 30s UsageEvents 重复遍历导致旧事件重放
     private val mLastProcessedPresenceEventAtMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
-    private val mLastProcessedPresenceEventType = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private val mProcessedSignaturesAtLastTs = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
 
     private fun establishVisibleBlacklistPresence(pkg: String, now: Long) {
         mPresenceTracker.onPresenceConfirmed(pkg, now)
@@ -1502,6 +1504,17 @@ class MonitorService : Service() {
         // completely bypassing the limitation where Accessibility doesn't receive events 
         // while the user is passively watching a PIP/small window video on the Home screen!
         val now = System.currentTimeMillis()
+        // 🛡️ [Keyguard 与屏幕状态前置反证 (Finding 3)]
+        // 在任何前台包名解析与早退分支前优先检测系统锁屏状态，确保锁屏时无条件失效 Session 并重置保底门禁
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val isKeyguardLocked = km?.isKeyguardLocked == true
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val isScreenInteractive = pm?.isInteractive ?: true
+        if (isKeyguardLocked || !isScreenInteractive) {
+            foregroundSessionTracker.onKeyguardLocked(now)
+            foregroundGuardFallbackGate.reset()
+        }
+
         if (CoreService.isServiceActive) {
             val snapshot = CoreService.captureWindowSnapshot(now)
             mPresenceTracker.onAccessibilitySnapshot(snapshot, now)
@@ -2022,12 +2035,8 @@ class MonitorService : Service() {
             isTemporaryAccess = isTemporaryAccess
         )
 
-        // 🛡️ [Keyguard 反证生命周期接线 (Finding 4)]
-        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
-        val isKeyguardLocked = km?.isKeyguardLocked == true
-        val isScreenInteractive = pm?.isInteractive ?: true
-        if (isKeyguardLocked) {
+        // 🛡️ [Keyguard 反证生命周期复核]
+        if (isKeyguardLocked || !isScreenInteractive) {
             foregroundSessionTracker.onKeyguardLocked(now)
             foregroundGuardFallbackGate.reset()
         }
@@ -2055,15 +2064,24 @@ class MonitorService : Service() {
             )
         }
 
-        // 🛡️ [Rule Boundary Lock] 规则从 ALLOW -> BLOCK 发生边界跃迁（如 23:00 勿扰开始、FreeTime 结束、时间窗关闭等）
-        // 若常规 Guard 无法确认（因旧前台事件超过 8 秒），但存在未关闭的前台 Session，且屏幕未锁屏，则允许边界即时锁定。
+        // 🛡️ [Rule Boundary Lock] 规则从 ALLOW -> BLOCK 发生业务边沿跃迁（Finding 1 & 2）
+        // 1. 解耦前台守卫结果，纯粹基于业务状态评估 ALLOW -> BLOCK 边沿；
+        // 2. 强制检测标志 mForceRuleBoundaryCheck 作为单次 token 在当前轮次立即消费清零，绝不跨周期泄漏至稳态。
+        val previousBusinessBlocked = mLastBusinessBlockedByPackage[effectivePackageName]
+        val isBusinessAllowToBlock = (previousBusinessBlocked == false && isBusinessBlocked)
+        mLastBusinessBlockedByPackage[effectivePackageName] = isBusinessBlocked
+
+        val forceCheckThisCycle = mForceRuleBoundaryCheck
+        mForceRuleBoundaryCheck = false // 立即消费，单次有效
+
         val allowByRuleBoundary = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = isBusinessBlocked,
-                wasPreviouslyBlocked = mPreviouslyBlockedPackages.contains(effectivePackageName),
+                wasPreviouslyBlocked = previousBusinessBlocked == true,
+                isBusinessAllowToBlock = isBusinessAllowToBlock,
                 leftGap = leftGap,
                 endedRest = endedRest,
-                forceBoundaryCheck = mForceRuleBoundaryCheck,
+                forceBoundaryCheck = forceCheckThisCycle,
                 hasActiveForegroundSession = hasActiveForegroundSession,
                 isKeyguardLocked = isKeyguardLocked,
                 isScreenInteractive = isScreenInteractive
@@ -2071,7 +2089,6 @@ class MonitorService : Service() {
         )
 
         if (allowByRuleBoundary) {
-            mForceRuleBoundaryCheck = false
             Log.w(
                 TAG,
                 "[ForegroundGuard] Allow lock by Rule Boundary (ALLOW->BLOCK) with active session: " +
@@ -3000,13 +3017,28 @@ class MonitorService : Service() {
             }
 
             val lastProcessedTs = mLastProcessedPresenceEventAtMs[eventPkg] ?: 0L
-            val lastProcessedType = mLastProcessedPresenceEventType[eventPkg] ?: -1
-            if (event.timeStamp > lastProcessedTs || (event.timeStamp == lastProcessedTs && type != lastProcessedType)) {
-                mLastProcessedPresenceEventAtMs[eventPkg] = event.timeStamp
-                mLastProcessedPresenceEventType[eventPkg] = type
+            val sig = "$type:$eventClass"
+            val shouldProcess = when {
+                event.timeStamp > lastProcessedTs -> {
+                    mLastProcessedPresenceEventAtMs[eventPkg] = event.timeStamp
+                    val newSet = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+                    newSet.add(sig)
+                    mProcessedSignaturesAtLastTs[eventPkg] = newSet
+                    true
+                }
+                event.timeStamp == lastProcessedTs -> {
+                    val sigSet = mProcessedSignaturesAtLastTs.computeIfAbsent(eventPkg) {
+                        java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+                    }
+                    sigSet.add(sig) // 返回 true 表示之前尚未处理过该特定签名
+                }
+                else -> false // 事件时间戳早于 high-water mark，属于 30s 窗口中已处理过的历史事件
+            }
+
+            if (shouldProcess) {
                 if (eventPkg.isNotBlank()) {
                     mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
-                    foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp)
+                    foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp, eventClass)
                 }
 
                 // [Diagnostics-only] 诊断小窗生命周期事件

@@ -59,7 +59,7 @@ graph TD
   - [x] 成功构建普通用户可直接安装的签名 Release APK：`知止-ZhiZhi-v0.2.0-release.apk`。
   - [x] 规范主干与分支管理：重置 `main` 到最新提交，清理多余临时分支，并推送主干至 Gitee 仓库。
   - [x] 完善联系方式与双官网配置（GitHub / Gitee），修正 LogExporter 默认收件人，确立 4 要素问题反馈范式并同步法务与用户手册。
-  - [x] 修复跨规则边界前台应用持续停留锁机失效漏洞：实现独立纯逻辑状态机 `ForegroundSessionTracker` 与双重边界跃迁门禁，联动治理 60s `ForegroundGuardFallbackGate`，覆盖 6 大场景纯 JVM 单元测试。
+  - [x] 修复跨规则边界前台应用持续停留锁机失效漏洞：实现独立纯逻辑状态机 `ForegroundSessionTracker` 与业务边沿门禁 `RuleBoundaryLockGate`，解耦守卫执行状态实现电平/边沿纯化；治理 Keyguard 前置失效与 FallbackGate 跨 Session 重置；实现 Activity 级生命周期跟踪与 UsageEvents 精准去重；输出 Vivo 真机取证报告（[docs/verification/2026-09-06-vivo-ui-session-verification.md](docs/verification/2026-09-06-vivo-ui-session-verification.md)）；全面覆盖纯 JVM 单元测试守护。
 
 
 ### 首页 UI 优化：弹性调度移除

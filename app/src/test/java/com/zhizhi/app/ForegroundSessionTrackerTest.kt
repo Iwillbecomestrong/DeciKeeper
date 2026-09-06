@@ -361,4 +361,114 @@ class ForegroundSessionTrackerTest {
         tracker.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.ACTIVITY_PAUSED, t0)
         assertFalse("同一毫秒内的离开反证事件必须正常生效并关闭 Session", tracker.isSessionActiveFor("com.tencent.mm"))
     }
+
+    @Test
+    fun `activity transition A paused then B resumed then A stopped preserves active session`() {
+        val pkg = "com.tencent.mm"
+        val classA = "com.tencent.mm.ui.LauncherUI"
+        val classB = "com.tencent.mm.plugin.sns.ui.SnsTimeLineUI"
+        val t0 = 1_000_000L
+
+        // 1. Activity A 进入前台
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0, classA)
+        assertTrue(tracker.isSessionActiveFor(pkg))
+
+        // 2. Activity A 暂停准备打开 Activity B (同毫秒或紧随其后)
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_PAUSED, t0 + 10L, classA)
+        assertTrue("A Paused 时 Session 仍应处于前台过渡期", tracker.isSessionActiveFor(pkg))
+
+        // 3. Activity B 恢复在前台
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0 + 20L, classB)
+        assertTrue("B Resumed 后 Session 保持活跃", tracker.isSessionActiveFor(pkg))
+
+        // 4. 迟到的 Activity A Stopped 事件到达 (关键修复：不得误关闭整个 package Session)
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_STOPPED, t0 + 30L, classA)
+        assertTrue("A Stopped 到达时因为 B 仍处于活跃前台，Session 绝不能被关闭", tracker.isSessionActiveFor(pkg))
+
+        // 5. 最终用户退出 B (B Stopped)
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_STOPPED, t0 + 1000L, classB)
+        assertFalse("当最后一个 Activity 也 Stopped 时，Session 必须正确关闭", tracker.isSessionActiveFor(pkg))
+    }
+
+    @Test
+    fun `activity transition in the same millisecond preserves active session`() {
+        val pkg = "com.tencent.mm"
+        val classA = "com.tencent.mm.ui.LauncherUI"
+        val classB = "com.tencent.mm.plugin.sns.ui.SnsTimeLineUI"
+        val t0 = 1_000_000L
+
+        // 同一毫秒内发生的事件序列：A Resumed -> A Paused -> B Resumed -> A Stopped
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0, classA)
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_PAUSED, t0, classA)
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0, classB)
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_STOPPED, t0, classA)
+
+        assertTrue("同一毫秒内的 A->B 切换后 Session 必须保持活跃", tracker.isSessionActiveFor(pkg))
+
+        // 随后 B 也 Stopped，关闭 Session
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_STOPPED, t0 + 50L, classB)
+        assertFalse("B Stopped 后 Session 关闭", tracker.isSessionActiveFor(pkg))
+    }
+
+    @Test
+    fun `force boundary check token is consumed and does not leak to subsequent steady state`() {
+        // 轮次 1: 规则边界发生，设置了 forceBoundaryCheck，但此时并没有活跃前台 Session (如未进入 App)
+        var forceToken = true
+        val forceThisCycle = forceToken
+        forceToken = false // 立即消费清零
+
+        val decisionCycle1 = RuleBoundaryLockGate.shouldAllowBoundaryLock(
+            RuleBoundaryLockDecisionInput(
+                isBlockedNow = true,
+                wasPreviouslyBlocked = true,
+                isBusinessAllowToBlock = false,
+                leftGap = false,
+                endedRest = false,
+                forceBoundaryCheck = forceThisCycle,
+                hasActiveForegroundSession = false, // 无活跃 Session
+                isKeyguardLocked = false,
+                isScreenInteractive = true
+            )
+        )
+        assertFalse("无活跃 Session 时边界检测必须返回 false", decisionCycle1)
+
+        // 轮次 2: 稳态运行，用户此时建立了 Session，但已处于稳态 BLOCK
+        // 因 forceToken 已经消费，本轮 forceBoundaryCheck 必须为 false
+        val decisionCycle2 = RuleBoundaryLockGate.shouldAllowBoundaryLock(
+            RuleBoundaryLockDecisionInput(
+                isBlockedNow = true,
+                wasPreviouslyBlocked = true,
+                isBusinessAllowToBlock = false,
+                leftGap = false,
+                endedRest = false,
+                forceBoundaryCheck = forceToken, // 已消费清零 (false)
+                hasActiveForegroundSession = true, // 有了 Session
+                isKeyguardLocked = false,
+                isScreenInteractive = true
+            )
+        )
+        assertFalse("旧 forceToken 必须已被消费，不得在下一稳态轮次泄漏导致误锁", decisionCycle2)
+    }
+
+    @Test
+    fun `explicit isBusinessAllowToBlock triggers boundary lock but steady state does not`() {
+        // 显式业务边沿跃迁 (ALLOW -> BLOCK，解耦前台守卫执行状态)
+        val edgeInput = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            wasPreviouslyBlocked = false,
+            isBusinessAllowToBlock = true,
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertTrue("业务边沿 ALLOW->BLOCK 必须触发边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(edgeInput))
+
+        // 随后进入稳态 BLOCK (isBusinessAllowToBlock = false)
+        val steadyInput = edgeInput.copy(
+            wasPreviouslyBlocked = true,
+            isBusinessAllowToBlock = false
+        )
+        assertFalse("稳态 BLOCK 期间禁止重复触发边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(steadyInput))
+    }
 }
+

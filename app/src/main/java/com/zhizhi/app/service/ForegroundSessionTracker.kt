@@ -50,12 +50,28 @@ class ForegroundSessionTracker(
     var currentSession: Session? = null
         private set
 
+    // 活跃的前台 Activity 集合 (同 package 内可能存在多个 Activity，例如 A 启动 B 时 A.paused -> B.resumed -> A.stopped)
+    private val mResumedActivities = mutableSetOf<String>()
+
     /**
      * 消费来自 UsageEvents 的生命周期事件。
+     *
+     * @param packageName 应用包名
+     * @param eventType UsageEvents.Event 事件类型
+     * @param eventTimeMs 事件时间戳
+     * @param className 可选的 Activity 类名。提供时将实现 Activity 级别的生命周期跟踪，
+     *                  防止 A -> B 页面切换时 A.STOPPED 误关闭正在前台的 B 页面。
      */
-    fun onUsageEvent(packageName: String, eventType: Int, eventTimeMs: Long) {
+    fun onUsageEvent(
+        packageName: String,
+        eventType: Int,
+        eventTimeMs: Long,
+        className: String? = null
+    ) {
         if (packageName.isBlank()) return
         if (isNoisePackagePredicate(packageName)) return
+
+        val cleanClass = className?.takeIf { it.isNotBlank() }
 
         when (eventType) {
             MOVE_TO_FG, ACTIVITY_RESUMED -> {
@@ -63,6 +79,8 @@ class ForegroundSessionTracker(
                 if (existing != null && existing.packageName == packageName) {
                     if (existing.closed) {
                         // 该应用此前关闭/退到后台，现在重新进入前台，开启新活跃 Session
+                        mResumedActivities.clear()
+                        cleanClass?.let { mResumedActivities.add(it) }
                         currentSession = Session(
                             packageName = packageName,
                             openedAtMs = eventTimeMs,
@@ -70,11 +88,13 @@ class ForegroundSessionTracker(
                             source = "USAGE_EVENTS"
                         )
                     } else {
-                        // 同一应用持续前台（重复 RESUMED），保留原有 openedAtMs
-                        // 若事件时间晚于 openedAtMs，不缩短已打开时间
+                        // 同一应用持续前台（内部 Activity 切换，如 Activity A -> Activity B）
+                        cleanClass?.let { mResumedActivities.add(it) }
                     }
                 } else {
                     // 其它应用（如第三方 App 或桌面 Launcher）进入前台，替换当前 Session
+                    mResumedActivities.clear()
+                    cleanClass?.let { mResumedActivities.add(it) }
                     currentSession = Session(
                         packageName = packageName,
                         openedAtMs = eventTimeMs,
@@ -84,15 +104,55 @@ class ForegroundSessionTracker(
                 }
             }
 
-            MOVE_TO_BG, ACTIVITY_PAUSED, ACTIVITY_STOPPED -> {
+            MOVE_TO_BG -> {
                 val existing = currentSession
                 if (existing != null && existing.packageName == packageName) {
-                    // 仅当反证事件发生在 Session 开启之后或同时，才关闭当前 Session
                     if (eventTimeMs >= existing.openedAtMs) {
+                        mResumedActivities.clear()
                         currentSession = existing.copy(
                             closed = true,
                             closedAtMs = eventTimeMs
                         )
+                    }
+                }
+            }
+
+            ACTIVITY_STOPPED -> {
+                val existing = currentSession
+                if (existing != null && existing.packageName == packageName && !existing.closed) {
+                    if (eventTimeMs >= existing.openedAtMs) {
+                        if (cleanClass != null) {
+                            mResumedActivities.remove(cleanClass)
+                            // 关键防回归：若当前 package 仍有其它已 resumed 的 Activity（如 A -> B 切换中迟到的 A stopped），
+                            // 绝不能误关闭整个 package Session
+                            if (mResumedActivities.isEmpty()) {
+                                currentSession = existing.copy(
+                                    closed = true,
+                                    closedAtMs = eventTimeMs
+                                )
+                            }
+                        } else {
+                            mResumedActivities.clear()
+                            currentSession = existing.copy(
+                                closed = true,
+                                closedAtMs = eventTimeMs
+                            )
+                        }
+                    }
+                }
+            }
+
+            ACTIVITY_PAUSED -> {
+                val existing = currentSession
+                if (existing != null && existing.packageName == packageName && !existing.closed) {
+                    if (eventTimeMs >= existing.openedAtMs) {
+                        // 若未提供 className，或者无任何 Activity 跟踪时，按 package 级反证关闭 Session
+                        if (cleanClass == null && mResumedActivities.isEmpty()) {
+                            currentSession = existing.copy(
+                                closed = true,
+                                closedAtMs = eventTimeMs
+                            )
+                        }
                     }
                 }
             }
@@ -104,6 +164,7 @@ class ForegroundSessionTracker(
      */
     fun onScreenOff(nowMs: Long) {
         val existing = currentSession ?: return
+        mResumedActivities.clear()
         if (!existing.closed) {
             currentSession = existing.copy(closed = true, closedAtMs = nowMs)
         }
@@ -114,6 +175,7 @@ class ForegroundSessionTracker(
      */
     fun onKeyguardLocked(nowMs: Long) {
         val existing = currentSession ?: return
+        mResumedActivities.clear()
         if (!existing.closed) {
             currentSession = existing.copy(closed = true, closedAtMs = nowMs)
         }
@@ -132,6 +194,7 @@ class ForegroundSessionTracker(
      * 重置状态机（服务销毁或手动重置）。
      */
     fun reset() {
+        mResumedActivities.clear()
         currentSession = null
     }
 }
@@ -141,7 +204,8 @@ class ForegroundSessionTracker(
  */
 data class RuleBoundaryLockDecisionInput(
     val isBlockedNow: Boolean,
-    val wasPreviouslyBlocked: Boolean,
+    val wasPreviouslyBlocked: Boolean = true,
+    val isBusinessAllowToBlock: Boolean = false,
     val leftGap: Boolean = false,
     val endedRest: Boolean = false,
     val forceBoundaryCheck: Boolean = false,
@@ -162,11 +226,12 @@ object RuleBoundaryLockGate {
      * 2. 必须存在未关闭的活跃前台 Session（hasActiveForegroundSession == true）；
      * 3. 屏幕必须处于交互状态且未处于锁屏状态（!isKeyguardLocked && isScreenInteractive）；
      * 4. 必须发生明确的状态边沿跃迁：
-     *    - 先前未被阻塞（!wasPreviouslyBlocked，如时间窗关闭或刚被规则收紧）；
+     *    - 显式业务状态从 ALLOW 跨入 BLOCK（isBusinessAllowToBlock == true，解耦前台守卫结果）；
+     *    - 或先前未被阻塞（!wasPreviouslyBlocked，如时间窗关闭或刚被规则收紧）；
      *    - 或刚刚离开 Gap 自由时段进入受阻时段（leftGap == true）；
      *    - 或刚刚结束 Rest 休息进入工作时段（endedRest == true）；
      *    - 或由外部信号激活了单次强制边界检测（forceBoundaryCheck == true）。
-     * 5. 若已处于持续 BLOCK 稳态（wasPreviouslyBlocked && !leftGap && !endedRest && !forceBoundaryCheck），
+     * 5. 若已处于持续 BLOCK 稳态（!isBusinessAllowToBlock && wasPreviouslyBlocked && !leftGap && !endedRest && !forceBoundaryCheck），
      *    则坚决不予重复边界锁定，防止无限重锁与守卫穿透。
      */
     fun shouldAllowBoundaryLock(input: RuleBoundaryLockDecisionInput): Boolean {
@@ -175,7 +240,12 @@ object RuleBoundaryLockGate {
         if (input.isKeyguardLocked) return false
         if (!input.isScreenInteractive) return false
 
-        val isEdgeTransition = !input.wasPreviouslyBlocked || input.leftGap || input.endedRest || input.forceBoundaryCheck
+        val isEdgeTransition = input.isBusinessAllowToBlock ||
+            !input.wasPreviouslyBlocked ||
+            input.leftGap ||
+            input.endedRest ||
+            input.forceBoundaryCheck
         return isEdgeTransition
     }
 }
+
