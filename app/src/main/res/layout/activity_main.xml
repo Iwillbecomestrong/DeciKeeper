@@ -1,24 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#F2F4F7">
-
-    <FrameLayout
-        android:id="@+id/fragment_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_above="@id/bottom_navigation" />
-
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="?attr/zzPageBg">
+    <FrameLayout android:id="@+id/fragment_container" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_above="@id/bottom_navigation" />
     <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottom_navigation"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:background="#FFFFFF"
-        android:elevation="8dp"
-        app:menu="@menu/bottom_nav_menu"
-        app:labelVisibilityMode="labeled" />
-
+        android:id="@+id/bottom_navigation" android:layout_width="match_parent" android:layout_height="72dp" android:layout_alignParentBottom="true"
+        android:background="?attr/zzSurface" android:elevation="0dp" app:menu="@menu/bottom_nav_menu" app:labelVisibilityMode="labeled"
+        app:itemIconTint="@color/nav_item_color" app:itemTextColor="@color/nav_item_color" app:itemIconSize="22dp"
+        app:itemActiveIndicatorEnabled="true" app:itemActiveIndicatorColor="?attr/zzAccentSoft" app:itemRippleColor="@android:color/transparent" />
 </RelativeLayout>
