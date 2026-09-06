@@ -15,8 +15,6 @@ class ForegroundGuardFallbackGateTest {
                 evidenceSource = "CACHE",
                 selectedPackage = "com.tencent.mm",
                 cachedPackage = "com.tencent.mm",
-                lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 900L,
                 hasActiveForegroundSession = true
             )
         )
@@ -29,8 +27,6 @@ class ForegroundGuardFallbackGateTest {
                 evidenceSource = "HISTORY",
                 selectedPackage = "com.tencent.mm",
                 cachedPackage = "com.tencent.mm",
-                lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 0L,
                 hasActiveForegroundSession = true
             )
         )
@@ -42,8 +38,6 @@ class ForegroundGuardFallbackGateTest {
             evidenceSource = "HISTORY",
             selectedPackage = "com.tencent.mm",
             cachedPackage = "com.tencent.mm",
-            lastForegroundEventTs = 1_000L,
-            lastBackgroundEventTs = 0L,
             hasActiveForegroundSession = false
         )
         assertFalse("未建立 active session 时历史事件不得具有保底资格", eligible)
@@ -60,8 +54,6 @@ class ForegroundGuardFallbackGateTest {
                 evidenceSource = "USAGE_STATS",
                 selectedPackage = "com.luna.music",
                 cachedPackage = "com.luna.music",
-                lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 900L,
                 hasActiveForegroundSession = false
             )
         )
@@ -74,23 +66,19 @@ class ForegroundGuardFallbackGateTest {
                 evidenceSource = "USAGE_STATS",
                 selectedPackage = "com.tencent.mm",
                 cachedPackage = "com.tencent.mm",
-                lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 0L,
                 hasActiveForegroundSession = true
             )
         )
     }
 
     @Test
-    fun `a newer background event cancels sustained foreground eligibility`() {
+    fun `session closed by background or leave evidence cancels sustained foreground eligibility`() {
         assertFalse(
             isSustainedForegroundFallbackEligible(
                 evidenceSource = "CACHE",
                 selectedPackage = "com.tencent.mm",
                 cachedPackage = "com.tencent.mm",
-                lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 1_100L,
-                hasActiveForegroundSession = true
+                hasActiveForegroundSession = false
             )
         )
     }

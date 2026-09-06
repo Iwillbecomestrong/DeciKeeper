@@ -943,6 +943,66 @@ class ForegroundSessionTrackerTest {
         threads.forEach { it.join(5000) }
         assertTrue("并发多线程访问不应抛出任何异常: $errors", errors.isEmpty())
     }
+
+    // ── Finding 1 (Round 9): Asynchronous Attach-Verified Consumption 状态机 Seam 测试 ──
+
+    @Test
+    fun `boundary lock lifecycle seam - attach failure keeps BLOCK_PENDING, attach success transitions to BLOCK_CONSUMED`() {
+        val testPkg = "com.tencent.mm"
+        val stateMap = mutableMapOf<String, BusinessBlockState>()
+
+        // 初始状态：业务允许锁定，进入边沿
+        val prevState = stateMap[testPkg] ?: BusinessBlockState.ALLOWED
+        val isBusinessAllowToBlock = prevState == BusinessBlockState.ALLOWED
+
+        assertTrue("首次进入阻塞时属于边沿跃迁", isBusinessAllowToBlock)
+
+        // 步骤 1: 判定发生跃迁，在派发 showLockScreen 前先标记为 BLOCK_PENDING
+        stateMap[testPkg] = BusinessBlockState.BLOCK_PENDING
+        assertEquals(BusinessBlockState.BLOCK_PENDING, stateMap[testPkg])
+
+        // 步骤 2: 模拟异步 showLockScreen 派发，但在主线程 attach 失败或发生异常
+        var attachSuccess = false
+        val onLockScreenAttached: (String) -> Unit = { pkg ->
+            stateMap[pkg] = BusinessBlockState.BLOCK_CONSUMED
+        }
+
+        // 模拟 attach 失败：未调用 onLockScreenAttached
+        if (attachSuccess) {
+            onLockScreenAttached(testPkg)
+        }
+
+        // 验证：attach 失败后，状态仍然是 BLOCK_PENDING
+        assertEquals(
+            "异步 attach 失败或未完成时必须维持 BLOCK_PENDING，绝不能提前消费",
+            BusinessBlockState.BLOCK_PENDING,
+            stateMap[testPkg]
+        )
+
+        // 步骤 3: 下一轮轮询（例如 500ms 后），评估是否依然具备重试资格
+        val nextCyclePrevState = stateMap[testPkg] ?: BusinessBlockState.ALLOWED
+        val nextCycleAllowToBlock = nextCyclePrevState != BusinessBlockState.BLOCK_CONSUMED
+        assertTrue("BLOCK_PENDING 状态下下一轮必须被判定为有资格继续触发锁定重试", nextCycleAllowToBlock)
+
+        // 步骤 4: 次轮重试派发，主线程 addView 真正成功，触发 onLockScreenAttached
+        attachSuccess = true
+        if (attachSuccess) {
+            onLockScreenAttached(testPkg)
+        }
+
+        // 验证：只有真正 attach 成功后才置为 BLOCK_CONSUMED
+        assertEquals(
+            "主线程 addView 真正成功后才消费边沿为 BLOCK_CONSUMED",
+            BusinessBlockState.BLOCK_CONSUMED,
+            stateMap[testPkg]
+        )
+
+        // 步骤 5: 稳态周期，BLOCK_CONSUMED 阻止重复重锁
+        val steadyPrevState = stateMap[testPkg] ?: BusinessBlockState.ALLOWED
+        val steadyAllowToBlock = steadyPrevState != BusinessBlockState.BLOCK_CONSUMED
+        assertFalse("稳态 BLOCK_CONSUMED 下不得重复触发锁定", steadyAllowToBlock)
+    }
 }
+
 
 

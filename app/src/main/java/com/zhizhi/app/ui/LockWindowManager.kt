@@ -85,7 +85,9 @@ import com.zhizhi.app.manager.resolveAllowedWindowSummaryForDisplay
 import com.zhizhi.app.manager.resolveAutomaticRestrictionRelease
 import com.zhizhi.app.manager.resolveEmergencyActionPresentation
 import com.zhizhi.app.manager.resolveLockOverlayRestrictionMode
+import com.zhizhi.app.manager.resolveWeeklyPrivilegePresentation
 import com.zhizhi.app.manager.shouldRouteEmergencyToPrivilege
+import com.zhizhi.app.manager.shouldRouteEmergencyToTempAccess
 import com.zhizhi.app.service.CoreService
 import com.zhizhi.app.service.MonitorService
 import com.zhizhi.app.util.ForegroundLockResultSettlementTracker
@@ -167,6 +169,14 @@ object LockWindowManager {
     private val lifecycleIdSequence = java.util.concurrent.atomic.AtomicLong(0L)
     private var activeLifecycleLock: LifecycleLockReference? = null
     private var pendingReturnDesktopExit: PendingReturnDesktopExit? = null
+
+    /**
+     * 🛡️ [Finding 1 修复] 锁屏真正成功 attach（addView 完成）后的可观测交付回调。
+     * 用于状态机精确由 BLOCK_PENDING 流转为 BLOCK_CONSUMED，杜绝提前消费。
+     */
+    @Volatile
+    var onLockScreenAttachedListener: ((packageName: String) -> Unit)? = null
+
     private var mWindowManager: WindowManager? = null
     private var mLockView: View? = null
     private var mContext: Context? = null
@@ -435,6 +445,7 @@ object LockWindowManager {
 
     // UI Elements
     private var btnEmergency: Button? = null
+    private var btnWeeklyPrivilege: Button? = null
     private var btnBackToHome: Button? = null
     private var btnTemporaryAccess: Button? = null
     private var btnTemporaryAccessQuickTen: Button? = null
@@ -1561,10 +1572,20 @@ object LockWindowManager {
                     // [Diagnostics-only] emit lock result for reassert path too,
                     // so every FG-traced request gets exactly one [锁屏结果] row.
                     logFgLockResult("显示成功", foregroundReportId, foregroundRequestId, blockedPackageName, reused = true, failureClass = null)
+                    if (blockedPackageName != null) {
+                        try {
+                            onLockScreenAttachedListener?.invoke(blockedPackageName)
+                        } catch (_: Throwable) {}
+                    }
                     return
                 } else {
                     // 不记录去重日志，避免洪水
                     logFgLockResult("显示成功", foregroundReportId, foregroundRequestId, blockedPackageName, reused = true, failureClass = null)
+                    if (blockedPackageName != null) {
+                        try {
+                            onLockScreenAttachedListener?.invoke(blockedPackageName)
+                        } catch (_: Throwable) {}
+                    }
                     return
                 }
             }
@@ -1779,6 +1800,13 @@ object LockWindowManager {
                 // ONLY after addView succeeds. A later request from a different
                 // generation will be classified STALE_REBUILD.
                 mAttachedLockGeneration = requestGeneration
+
+                // 🛡️ [Finding 1 修复] 锁屏真正成功 attach（addView 成功）后通知监听器消费业务边沿
+                if (blockedPackageName != null) {
+                    try {
+                        onLockScreenAttachedListener?.invoke(blockedPackageName)
+                    } catch (_: Throwable) {}
+                }
 
                 // Boundary 2 — real-display hit authority. This is the ONLY
                 // place where penalty hit counting + transaction commit fires.
@@ -2272,6 +2300,7 @@ object LockWindowManager {
         
         // Find Views
         btnEmergency = mLockView?.findViewById(R.id.btn_emergency)
+        btnWeeklyPrivilege = mLockView?.findViewById(R.id.btn_weekly_privilege)
         btnBackToHome = mLockView?.findViewById(R.id.btn_back_to_home)
         btnTemporaryAccess = mLockView?.findViewById(R.id.btn_temporary_access)
         btnTemporaryAccessQuickTen = mLockView?.findViewById(R.id.btn_temporary_access_quick_10)
@@ -2387,20 +2416,26 @@ object LockWindowManager {
             }
         }
         
-        // Emergency Button Logic
+        // 🌟 纯粹三按钮架构点击逻辑 (Three-Button Architecture)
+        // 1. 每周特权常驻按钮：长时间解开任意锁 (120min)
+        btnWeeklyPrivilege?.setSafeOnClickListener {
+            showWeeklyPrivilegeDialog(context)
+        }
+
+        // 2. 场景专属主操作按钮：
+        //    - 应用时间窗锁屏：⚡ 临时放行（短期解开任意锁，无额外勾选）
+        //    - 勿扰时段锁机：🌱 申请休息（专解勿扰锁）
         btnEmergency?.setSafeOnClickListener {
-             // DND / AppWindow 锁屏都只允许走特权，不再在锁屏入口展示“申请休息”。
-             if (shouldRouteEmergencyToPrivilege(currentLockRestrictionMode)) {
-                 showWeeklyPrivilegeDialog(context)
-             } else {
-                 if (isRestQuotaExhausted(context)) {
-                     recordRestRejectedLifecycle("QUOTA_INSUFFICIENT")
-                     Toast.makeText(context, "今日休息已用完，无法借用", Toast.LENGTH_SHORT).show()
-                     return@setSafeOnClickListener
-                 }
-                 // 🚀 [NEW] Show separate input window
-                 showRestWindow(context)
-             }
+            if (shouldRouteEmergencyToTempAccess(currentLockRestrictionMode)) {
+                showTempAccessWindow(context)
+            } else {
+                if (isRestQuotaExhausted(context)) {
+                    recordRestRejectedLifecycle("QUOTA_INSUFFICIENT")
+                    Toast.makeText(context, "今日休息已用完，无法借用", Toast.LENGTH_SHORT).show()
+                    return@setSafeOnClickListener
+                }
+                showRestWindow(context)
+            }
         }
 
         btnTemporaryAccess?.setSafeOnClickListener {
@@ -2852,11 +2887,17 @@ object LockWindowManager {
                         mainText = "勿扰锁定中"
                     }
                 }
-                // 冷却倒计时（副标题末尾，休息中的倒计时已移至卡片内显示）
-                if (CreditManager.isCooling(context) && !CreditManager.isFreeTime(context)) {
-                    val coolEnd = CreditManager.getCoolDownEnd(context)
-                    val remainSec = ((coolEnd - now + 999) / 1000).toInt()
-                    subText += "\n⏳ 休息冷却中 剩余 ${remainSec}s"
+                // 冷却倒计时（智能合并临时解锁冷却与休息冷却，副标题末尾展示）
+                val restCoolEnd = CreditManager.getCoolDownEnd(context)
+                val restRemainSec = if (now < restCoolEnd && !CreditManager.isFreeTime(context)) {
+                    ((restCoolEnd - now + 999) / 1000).toInt().coerceAtLeast(0)
+                } else 0
+                val tempRemainSec = getTemporaryReuseCooldownRemainingSeconds(now).toInt().coerceAtLeast(0)
+
+                if (tempRemainSec > 0 || restRemainSec > 0) {
+                    val coolLabel = if (tempRemainSec >= restRemainSec) "临时解锁冷却中" else "休息冷却中"
+                    val coolSec = maxOf(tempRemainSec, restRemainSec)
+                    subText += "\n⏳ $coolLabel 剩余 ${coolSec}s"
                 }
                 updateTimerText(mainText, subText)
 
@@ -2932,75 +2973,33 @@ object LockWindowManager {
         )
 
         val restExhausted = isRestQuotaExhausted(context)
-        val privilegeReason = if (shouldRouteEmergencyToPrivilege(currentLockRestrictionMode)) {
-            CreditManager.getWeeklyPrivilegeUnavailableReason(context)
-        } else {
-            null
-        }
-        val privilegeUnavailable = privilegeReason != null
-        // 🟢 [Fix] 临时解锁只依赖休息额度（不检查特权），有休息额度就能用
-        // startTemporaryAccess 本身就是扣休息额度，不受时间窗限制影响
-        val noQuota = restExhausted
+        val privilegeReason = CreditManager.getWeeklyPrivilegeUnavailableReason(context)
 
         val restCoolEnd = CreditManager.getCoolDownEnd(context)
-        btnTemporaryAccess?.visibility = View.VISIBLE
-        if (noQuota) {
-            // 额度耗尽优先显示，避免冷却期误以为还能用
-            btnTemporaryAccess?.text = "额度不足-无法临时解锁"
-            btnTemporaryAccess?.isEnabled = false
-            btnTemporaryAccess?.alpha = 0.55f
-        } else if (tempCooldownRemain > 0) {
-            // 临时解锁自身冷却中：不可用，显示倒计时
-            btnTemporaryAccess?.text = "临时使用冷却 ${tempCooldownRemain}s"
-            btnTemporaryAccess?.isEnabled = false
-            btnTemporaryAccess?.alpha = 0.55f
-        } else if (CreditManager.isCooling(context)) {
-            // 休息冷却期内（休息已结束，且临时解锁自身没冷却）：可用，加权扣费提示
-            btnTemporaryAccess?.text = "触碰冷却临时解锁（加权扣费）"
-            btnTemporaryAccess?.isEnabled = true
-            btnTemporaryAccess?.alpha = 1.0f
-        } else {
-            val maxMinText = formatTemporaryAccessSecondsAsMinutes(tempAccessMaxSeconds)
-            btnTemporaryAccess?.text = "超级临时使用受限应用(<=" + maxMinText + "min)"
-            btnTemporaryAccess?.isEnabled = true
-            btnTemporaryAccess?.alpha = 1.0f
-        }
-
-        // 二级应急独立按钮（冷却中应急 10s）
-        if (tempCooldownRemain > 0 && emergencyRemainingUses > 0 && emergencyGapRemain <= 0L) {
-            btnTemporaryAccessQuickTen?.visibility = View.VISIBLE
-            btnTemporaryAccessQuickTen?.text = "二级应急10s(剩余${emergencyRemainingUses}次)"
-            btnTemporaryAccessQuickTen?.isEnabled = true
-            btnTemporaryAccessQuickTen?.alpha = 1.0f
-        } else if (tempCooldownRemain > 0 && emergencyRemainingUses > 0) {
-            btnTemporaryAccessQuickTen?.visibility = View.VISIBLE
-            btnTemporaryAccessQuickTen?.text = "二级应急·等待${emergencyGapRemain}s"
-            btnTemporaryAccessQuickTen?.isEnabled = false
-            btnTemporaryAccessQuickTen?.alpha = 0.55f
-        } else if (tempCooldownRemain > 0) {
-            btnTemporaryAccessQuickTen?.visibility = View.VISIBLE
-            btnTemporaryAccessQuickTen?.text = "二级应急·不可用"
-            btnTemporaryAccessQuickTen?.isEnabled = false
-            btnTemporaryAccessQuickTen?.alpha = 0.55f
-        } else {
-            // 不在冷却中，不需要显示二级应急按钮
-            btnTemporaryAccessQuickTen?.visibility = View.GONE
-            btnTemporaryAccessQuickTen?.isEnabled = false
-        }
-        btnTemporaryAccessHelp?.visibility = View.VISIBLE
-        btnTemporaryAccessHelp?.isEnabled = true
-        btnTemporaryAccessHelp?.alpha = 0.9f
-
-        // 🚀 [UI] Update main REST button text — 冷却期内（休息冷却或临时解锁冷却）都显示加权警告
         val tempCoolActive = tempCooldownRemain > 0
         val inAnyCooling = now < restCoolEnd || tempCoolActive
 
+        // 🌟 纯粹三按钮架构渲染：彻底隐藏旧独立临时按钮，收敛为主操作 + 每周特权 + 回到桌面
+        btnTemporaryAccess?.visibility = View.GONE
+        btnTemporaryAccessQuickTen?.visibility = View.GONE
+        btnTemporaryAccessHelp?.visibility = View.GONE
+
+        // 1. 每周特权按钮状态更新
+        val weeklyPresentation = resolveWeeklyPrivilegePresentation(privilegeReason)
+        btnWeeklyPrivilege?.visibility = View.VISIBLE
+        btnWeeklyPrivilege?.text = weeklyPresentation.label
+        btnWeeklyPrivilege?.isEnabled = weeklyPresentation.enabled
+        btnWeeklyPrivilege?.alpha = weeklyPresentation.alpha
+
+        // 2. 场景专属主操作按钮更新 (时间窗->临时放行, 勿扰->申请休息)
         val emergencyPresentation = resolveEmergencyActionPresentation(
             mode = currentLockRestrictionMode,
             privilegeUnavailableReason = privilegeReason,
             restExhausted = restExhausted,
-            inAnyCooling = inAnyCooling
+            inAnyCooling = inAnyCooling,
+            coolingRemainingSeconds = tempCooldownRemain
         )
+        btnEmergency?.visibility = View.VISIBLE
         btnEmergency?.text = emergencyPresentation.label
         btnEmergency?.isEnabled = emergencyPresentation.enabled
         btnEmergency?.alpha = emergencyPresentation.alpha
@@ -3014,18 +3013,34 @@ object LockWindowManager {
             val now = System.currentTimeMillis()
             val view = mLockView ?: return
 
-            // 1. 副标题倒计时（每秒更新秒数）：冷却倒计时（休息中的倒计时已移至卡片内显示）
+            // 1. 副标题倒计时（每秒更新秒数）：智能合并临时解锁与休息冷却倒计时
             val subStatusView = view.findViewById<TextView>(R.id.tv_sub_status)
             if (subStatusView != null) {
                 val curText = subStatusView.text?.toString() ?: ""
-                // 冷却期倒计时（仅不在休息时显示）
-                val coolEnd = CreditManager.getCoolDownEnd(ctx)
-                if (now < coolEnd && !CreditManager.isFreeTime(ctx) && curText.contains("⏳ 休息冷却中")) {
-                    val remainSec = ((coolEnd - now + 999) / 1000).toInt()
-                    subStatusView.text = (subStatusView.text?.toString() ?: curText).replace(Regex("⏳ 休息冷却中 剩余 \\d+s"), "⏳ 休息冷却中 剩余 ${remainSec}s")
-                } else if (now >= coolEnd && curText.contains("⏳ 休息冷却中")) {
+                val restCoolEnd = CreditManager.getCoolDownEnd(ctx)
+                val restRemainSec = if (now < restCoolEnd && !CreditManager.isFreeTime(ctx)) {
+                    ((restCoolEnd - now + 999) / 1000).toInt().coerceAtLeast(0)
+                } else 0
+                val tempRemainSec = getTemporaryReuseCooldownRemainingSeconds(now).toInt().coerceAtLeast(0)
+
+                val hasCooldownPattern = curText.contains("冷却中 剩余")
+                if (tempRemainSec > 0 || restRemainSec > 0) {
+                    val coolLabel = if (tempRemainSec >= restRemainSec) "临时解锁冷却中" else "休息冷却中"
+                    val coolSec = maxOf(tempRemainSec, restRemainSec)
+                    if (hasCooldownPattern) {
+                        subStatusView.text = curText.replace(
+                            Regex("⏳ (?:临时解锁|休息)?冷却中 剩余 \\d+s"),
+                            "⏳ $coolLabel 剩余 ${coolSec}s"
+                        )
+                    } else {
+                        subStatusView.text = "$curText\n⏳ $coolLabel 剩余 ${coolSec}s"
+                    }
+                } else if (hasCooldownPattern) {
                     // 冷却结束，移除冷却行
-                    subStatusView.text = curText.replace(Regex("\n⏳ 休息冷却中 剩余 \\d+s"), "")
+                    subStatusView.text = curText.replace(
+                        Regex("\n?⏳ (?:临时解锁|休息)?冷却中 剩余 \\d+s"),
+                        ""
+                    )
                 }
             }
 
@@ -3362,6 +3377,9 @@ object LockWindowManager {
 
     fun getActiveTemporaryAccessTargetPackage(): String? =
         temporaryAccessTargetPackageName?.takeIf { temporaryAccessUntil > System.currentTimeMillis() }
+
+    fun isTemporaryAccessActive(): Boolean =
+        temporaryAccessUntil > System.currentTimeMillis()
     @Volatile
     private var isAppWindowRestrictionActive: Boolean = false
 
@@ -3439,6 +3457,10 @@ object LockWindowManager {
             isInputPanelOpen = true
 
             // Bind Views
+            val tvTitle = mRestWindow?.findViewById<TextView>(R.id.tv_title)
+            tvTitle?.text = "🌱 申请休息 (仅解开勿扰锁)"
+            mRestWindow?.findViewById<View>(R.id.tv_rest_tier_hint)?.visibility = View.VISIBLE
+
             val btnCancel = mRestWindow?.findViewById<Button>(R.id.btn_cancel_emergency)
             val btnConfirm = mRestWindow?.findViewById<Button>(R.id.btn_confirm_calm)
             val etInput = mRestWindow?.findViewById<EditText>(R.id.tv_calm_minutes) // Note: ID is tv_calm_minutes in XML
@@ -3801,6 +3823,12 @@ object LockWindowManager {
 
     private fun showTempAccessWindow(context: Context) {
         if (mRestWindow != null) return
+        val now = System.currentTimeMillis()
+        val inTempCooling = getTemporaryReuseCooldownRemainingSeconds(now) > 0L
+        if (inTempCooling) {
+            Toast.makeText(context, "临时解锁冷却中，请等待倒计时结束", Toast.LENGTH_SHORT).show()
+            return
+        }
         val maxSeconds = getTemporaryAccessMaxSeconds(context)
 
         try {
@@ -3838,14 +3866,29 @@ object LockWindowManager {
 
             // Bind views and customize for temp unlock
             val tvTitle = mRestWindow?.findViewById<TextView>(R.id.tv_title)
-            tvTitle?.text = "⏱️ 超级临时使用受限应用"
+            tvTitle?.text = "⚡ 临时解锁 (短期解开任意锁)"
+            mRestWindow?.findViewById<View>(R.id.tv_rest_tier_hint)?.visibility = View.GONE
 
             val tvQuotaHint = mRestWindow?.findViewById<TextView>(R.id.tv_quota_hint)
+            val currentSegment = TimeRuleManager.getCurrentSegment(context)
+            val isInDndSegment = currentSegment != null
+            val isInRest = CreditManager.isFreeTime(context)
+
             val availMins = CreditManager.getRemainingMinutes(context)
             val borrowableMins = CreditManager.getMaxBorrowableMinutes(context)
             val availCount = CreditManager.getRemainingUsableCount(context)
             val borrowableCount = CreditManager.getMaxBorrowableUsableCount(context)
-            tvQuotaHint?.text = "当前可用: ${formatMinutesForLock(availMins)}min / ${formatUsableCountHalfUnits(availCount)}次 | 可借用: ${formatMinutesForLock(borrowableMins)}min / ${formatUsableCountHalfUnits(borrowableCount)}次"
+
+            val quotaPresentation = resolveTemporaryAccessQuotaPresentation(
+                isInDndSegment = isInDndSegment,
+                isInRest = isInRest,
+                availMinsFormatted = formatMinutesForLock(availMins),
+                availCountFormatted = formatUsableCountHalfUnits(availCount),
+                borrowableMinsFormatted = formatMinutesForLock(borrowableMins),
+                borrowableCountFormatted = formatUsableCountHalfUnits(borrowableCount)
+            )
+            tvQuotaHint?.text = quotaPresentation.hintText
+            tvQuotaHint?.setTextColor(android.graphics.Color.parseColor(quotaPresentation.hintColorHex))
 
             val etInput = mRestWindow?.findViewById<EditText>(R.id.tv_calm_minutes)
             val maxMinutes = maxSeconds / 60.0
@@ -3874,16 +3917,20 @@ object LockWindowManager {
             fun updateDeductionPreview() {
                 val rawMinutes = etInput?.text?.toString()?.trim()
                 if (!isTemporaryAccessMinuteInputValid(rawMinutes, maxMinutes)) {
-                    tvDeductionDetail?.text = ""
+                    if (quotaPresentation.isFreeScenario) {
+                        tvDeductionDetail?.text = quotaPresentation.defaultDetailText
+                        tvDeductionDetail?.setTextColor(android.graphics.Color.parseColor(quotaPresentation.hintColorHex))
+                        tvDeductionDetail?.visibility = View.VISIBLE
+                    } else {
+                        tvDeductionDetail?.text = ""
+                        tvDeductionDetail?.visibility = View.GONE
+                    }
                     tvCoolingHint?.visibility = View.GONE
                     return
                 }
                 val sec = temporaryAccessMinutesToSeconds(rawMinutes!!.toDouble())
 
                 val now = System.currentTimeMillis()
-                val currentSegment = TimeRuleManager.getCurrentSegment(context)
-                val isInDndSegment = currentSegment != null
-                val isInRest = CreditManager.isFreeTime(context)
 
                 // Calculate free segment seconds
                 val freeSec: Int
@@ -3915,10 +3962,16 @@ object LockWindowManager {
 
                 if (dndSec <= 0) {
                     // All free
-                    tvDeductionDetail?.text = "空档期/休息中临时解锁不扣时间也不扣次数"
+                    val freeReason = if (isInRest) "休息时段" else "自由空档期"
+                    tvDeductionDetail?.text = "💡 当前处于${freeReason}，本次临时解锁免费（不扣时间与次数，不计入预支）"
+                    tvDeductionDetail?.setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+                    tvDeductionDetail?.visibility = View.VISIBLE
                     tvCoolingHint?.visibility = View.GONE
                     return
                 }
+
+                tvDeductionDetail?.setTextColor(android.graphics.Color.parseColor("#333333"))
+                tvDeductionDetail?.visibility = View.VISIBLE
 
                 // Cooling overlap calculation
                 // 休息中：冷却只对休息结束后的 DND 部分生效（isCooling() 在休息中返回 false）
@@ -3984,6 +4037,7 @@ object LockWindowManager {
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateDeductionPreview() }
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
+            updateDeductionPreview()
 
             // Confirm: 统一交给 startTemporaryAccess 做额度预检、冷却加权确认和扣费
             btnConfirm?.setOnClickListener {
@@ -4358,7 +4412,8 @@ object LockWindowManager {
             return
         }
         val accessUntil = now + seconds * 1000L
-        val newCooldownUntil = accessUntil + calculateTemporaryReuseCooldownMs(seconds, maxSeconds)
+        val globalCoolSec = TimeRuleManager.getCoolDownRestSeconds(context).let { if (it > 0) it else 60 }
+        val newCooldownUntil = accessUntil + calculateTemporaryReuseCooldownMs(seconds, maxSeconds, globalCoolSec)
         val cooldownUntil = maxOf(activeCooldownUntil, newCooldownUntil)
         val cooldownAfterAccessRemainMs = (cooldownUntil - accessUntil).coerceAtLeast(0L)
         val cooldownSeconds = (cooldownAfterAccessRemainMs + 999L) / 1000L
@@ -4368,6 +4423,8 @@ object LockWindowManager {
         temporaryAccessChargedMinutes =
             (currentChargeSecondsForSession + nextChargeSecondsForSession) / 60.0
         temporaryReuseCooldownUntil = cooldownUntil
+        // 🚀 同步更新全局休息冷静期结束时间，确保临时解锁后与休息冷却完全互通统一
+        CreditManager.setCoolDownEnd(context, cooldownUntil)
         temporaryAccessExpiredAt = 0L
         temporaryAccessTargetPackageName = lastBlockedPackageName
         if (cooldownUntil <= now) {
@@ -4517,10 +4574,15 @@ object LockWindowManager {
         resetConsecutiveNormalLockState("temporary_access_started")
         totalSegmentBlacklistHits = 0
 
+        val freeTag = when {
+            !isInDndSegment -> "（空档期免扣额度）"
+            isInFreeTime -> "（休息中免扣额度）"
+            else -> ""
+        }
         if (cooldownSeconds > 0L) {
-            Toast.makeText(context, "已放行 ${seconds}s，结束后需等待 ${cooldownSeconds}s 才可再次使用", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "已放行 ${seconds}s${freeTag}，结束后需等待 ${cooldownSeconds}s 才可再次使用", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "已放行 ${seconds}s，本次无冷却", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "已放行 ${seconds}s${freeTag}，本次无冷却", Toast.LENGTH_SHORT).show()
         }
         // 🛡️ [Anti-Zombie] 直接强制移除锁屏视图，不依赖 isLocked 标志位
         // 因为 startTemporaryAccess 已经扣了额度、设了冷却，锁屏必须消失
@@ -4588,9 +4650,15 @@ object LockWindowManager {
         totalSec: Int
     ): Int = calculateWeightedRestCountImpl(freeSec, dndSec, coolOverlapSec, totalSec)
 
-    internal fun calculateTemporaryReuseCooldownMs(seconds: Int, maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS): Long {
-        // 所有临时解锁统一进入分段冷却计算，不再对 ≤10s 免冷却
-        // 从大到小排列（与 CreditManager.calculateWeightedBorrowSeconds 保持一致，便于 grep）
+    internal fun calculateTemporaryReuseCooldownMs(
+        seconds: Int,
+        maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS,
+        unifiedCooldownSeconds: Int? = null
+    ): Long {
+        // 🚀 若传入统一冷静期间隙配置（全局参数），直接采用统一冷静期秒数
+        if (unifiedCooldownSeconds != null && unifiedCooldownSeconds > 0) {
+            return unifiedCooldownSeconds * 1000L
+        }
         val normalized = normalizeTemporaryAccessSeconds(seconds, maxSeconds)
         val tierThreeSeconds = (normalized - 120).coerceAtLeast(0)
         val tierTwoSeconds = ((normalized - TEMP_ACCESS_COOLDOWN_SINGLE_RATE_UPPER_SECONDS).coerceIn(0, 60))
@@ -6597,7 +6665,8 @@ internal fun calculateQuotaCountFromWeightedSeconds(
     if (requestedSec <= 0) return 0
     val baseHalfUnits = when (actionType) {
         QuotaActionType.UNLOCK -> 1
-        QuotaActionType.REST -> 2
+        // 动态短休息支持：≤3分钟(180秒)扣 0.5 次 (1个 HalfUnit)，>3分钟扣 1.0 次 (2个 HalfUnits)
+        QuotaActionType.REST -> if (requestedSec <= 180) 1 else 2
     }
     val weightedRatio = weightedCostSec.coerceAtLeast(0).toDouble() / requestedSec.toDouble()
     val rawHalfUnits = baseHalfUnits * weightedRatio
@@ -6642,6 +6711,43 @@ internal fun isTemporaryAccessMinuteInputValid(raw: String?, maxMinutes: Double)
     val minutes = text.toDoubleOrNull() ?: return false
     val safeMax = maxMinutes.coerceIn(0.1, 3.0)
     return minutes >= 0.1 && minutes <= safeMax
+}
+
+internal data class TemporaryAccessQuotaPresentation(
+    val hintText: String,
+    val hintColorHex: String,
+    val defaultDetailText: String,
+    val isFreeScenario: Boolean
+)
+
+internal fun resolveTemporaryAccessQuotaPresentation(
+    isInDndSegment: Boolean,
+    isInRest: Boolean,
+    availMinsFormatted: String,
+    availCountFormatted: String,
+    borrowableMinsFormatted: String,
+    borrowableCountFormatted: String
+): TemporaryAccessQuotaPresentation {
+    return when {
+        !isInDndSegment -> TemporaryAccessQuotaPresentation(
+            hintText = "🟢 当前处于自由空档期：临时解锁免扣额度（不消耗时长与次数，不计入预支）",
+            hintColorHex = "#2E7D32",
+            defaultDetailText = "💡 当前处于自由空档期，本次临时解锁免费（不扣除时间与次数额度）",
+            isFreeScenario = true
+        )
+        isInRest -> TemporaryAccessQuotaPresentation(
+            hintText = "🟢 当前处于休息时段：临时解锁免扣额度（不消耗时长与次数，不计入预支）",
+            hintColorHex = "#2E7D32",
+            defaultDetailText = "💡 当前处于休息中，本次临时解锁免费（不扣除时间与次数额度）",
+            isFreeScenario = true
+        )
+        else -> TemporaryAccessQuotaPresentation(
+            hintText = "当前可用: ${availMinsFormatted}min / ${availCountFormatted}次 | 可借用: ${borrowableMinsFormatted}min / ${borrowableCountFormatted}次",
+            hintColorHex = "#666666",
+            defaultDetailText = "",
+            isFreeScenario = false
+        )
+    }
 }
 
 internal fun temporaryAccessMinutesToSeconds(minutes: Double): Int {

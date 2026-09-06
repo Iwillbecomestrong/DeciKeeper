@@ -820,6 +820,10 @@ class MonitorService : Service() {
         // 🚀 [Init] Ensure default blacklist is populated on first run
         CreditManager.initDefaultBlacklist(this)
         LockWindowManager.init(this)
+        // 🛡️ [Finding 1 修复] 锁屏真正成功 attach 渲染后（或已处于稳态 attach 时），才消费业务边沿为 BLOCK_CONSUMED
+        LockWindowManager.onLockScreenAttachedListener = { pkg ->
+            mLastBusinessBlockStateByPackage[pkg] = BusinessBlockState.BLOCK_CONSUMED
+        }
         
         // 🚀 [Moved] FastLockService stop logic moved to MonitorRunnable
         // to ensure it only stops after the first status check is complete.
@@ -922,6 +926,7 @@ class MonitorService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        LockWindowManager.onLockScreenAttachedListener = null
         isRunning = false
         cancelMonitorLoop()
         monitorThread?.quitSafely()
@@ -1653,8 +1658,9 @@ class MonitorService : Service() {
             )
             currentLockedPkg = targetPkg
             mPreviouslyBlockedPackages.add(targetPkg)
-            // 🛡️ [Finding 1 修复] 锁屏真正执行成功，消费边沿状态
-            mLastBusinessBlockStateByPackage[targetPkg] = BusinessBlockState.BLOCK_CONSUMED
+            // 🛡️ [Finding 1 修复] 状态保持 BLOCK_PENDING，只有在 targetWM.addView() 成功（或已 attach）时
+            // 由 onLockScreenAttachedListener 回调置为 BLOCK_CONSUMED；
+            // 异步 attach 失败、取消或未 dispatch 时均保持 BLOCK_PENDING 支持次轮重试。
             return true
         }
         return false
@@ -2253,8 +2259,6 @@ class MonitorService : Service() {
                 evidenceSource = mLastTopEvidence.name,
                 selectedPackage = effectivePackageName,
                 cachedPackage = mLastTopPackage,
-                lastForegroundEventTs = mLastForegroundEventTs,
-                lastBackgroundEventTs = mLastBackgroundEventTs,
                 hasActiveForegroundSession = hasActiveForegroundSession
             )
         val forceGuardFallback = foregroundGuardFallbackGate.shouldForce(
@@ -2533,7 +2537,6 @@ class MonitorService : Service() {
                     requestGeneration = requestGeneration
                 )
                 currentLockedPkg = effectivePackageName
-                mLastBusinessBlockStateByPackage[effectivePackageName] = BusinessBlockState.BLOCK_CONSUMED
             }
         } else {
              val pm = packageManager
@@ -2572,7 +2575,6 @@ class MonitorService : Service() {
                  requestGeneration = requestGeneration2
              )
              currentLockedPkg = effectivePackageName
-             mLastBusinessBlockStateByPackage[effectivePackageName] = BusinessBlockState.BLOCK_CONSUMED
         }
     }
 
