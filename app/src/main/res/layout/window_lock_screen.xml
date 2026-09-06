@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F7F4"
+    android:background="?attr/zzPageBg"
     android:keepScreenOn="true">
 
     <View
@@ -18,217 +18,110 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
         android:clipToPadding="false"
-        android:paddingBottom="238dp">
-
+        android:fillViewport="true"
+        android:paddingBottom="230dp">
         <LinearLayout
             android:id="@+id/layout_background_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:gravity="center_horizontal"
+            android:orientation="vertical"
             android:paddingStart="22dp"
-            android:paddingEnd="22dp"
             android:paddingTop="52dp"
-            android:paddingBottom="32dp">
+            android:paddingEnd="22dp"
+            android:paddingBottom="28dp">
 
             <TextView
                 android:id="@+id/tv_timer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text=""
-                android:textColor="#2F4034"
-                android:textSize="27sp"
                 android:fontFamily="monospace"
-                android:textStyle="bold"
                 android:gravity="center"
-                android:includeFontPadding="false" />
+                android:includeFontPadding="false"
+                android:text=""
+                android:textColor="?attr/zzText"
+                android:textSize="27sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_sub_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text=""
-                android:textColor="#5F6E64"
-                android:textSize="14sp"
+                android:layout_marginTop="9dp"
                 android:gravity="center"
                 android:lineSpacingExtra="3dp"
-                android:paddingHorizontal="10dp" />
+                android:paddingHorizontal="10dp"
+                android:text=""
+                android:textColor="?attr/zzMuted"
+                android:textSize="13sp" />
 
-            <LinearLayout
+            <androidx.cardview.widget.CardView
                 android:id="@+id/layout_quota_bubble"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:background="#FFFFFF"
-                android:elevation="1dp"
-                android:padding="10dp">
-
-                <LinearLayout
-                    android:id="@+id/layout_current_segment_card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:background="#F7F9F7"
-                    android:paddingHorizontal="18dp"
-                    android:paddingVertical="16dp">
-
-                    <TextView
-                        android:id="@+id/tv_current_segment_range"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="本阶段 (08:00 - 12:00)"
-                        android:textColor="#5F7566"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        android:gravity="center"
-                        android:layout_marginBottom="12dp" />
-
+                android:layout_marginTop="18dp"
+                app:cardBackgroundColor="?attr/zzSurface"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
                     <LinearLayout
+                        android:id="@+id/layout_current_segment_card"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center">
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="时长"
-                                android:textColor="#7D8981"
-                                android:textSize="11sp" />
-
-                            <TextView
-                                android:id="@+id/tv_stat_time_big"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="--"
-                                android:textColor="#233128"
-                                android:textSize="28sp"
-                                android:textStyle="bold"
-                                android:fontFamily="monospace"
-                                android:singleLine="true"
-                                android:maxLines="1"
-                                android:includeFontPadding="false" />
+                        android:background="@drawable/bg_zz_card_soft"
+                        android:backgroundTint="?attr/zzAccentSofter"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="18dp"
+                        android:paddingVertical="16dp">
+                        <TextView android:id="@+id/tv_current_segment_range" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="本阶段" android:textColor="?attr/zzAccentStrong" android:textSize="12sp" android:textStyle="bold" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="11dp" android:gravity="center" android:orientation="horizontal">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="可用时长" android:textColor="?attr/zzMuted" android:textSize="10sp" />
+                                <TextView android:id="@+id/tv_stat_time_big" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:fontFamily="monospace" android:includeFontPadding="false" android:maxLines="1" android:text="--" android:textColor="?attr/zzText" android:textSize="29sp" android:textStyle="bold" />
+                            </LinearLayout>
+                            <View android:layout_width="1dp" android:layout_height="42dp" android:background="?attr/zzLine" />
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="可用次数" android:textColor="?attr/zzMuted" android:textSize="10sp" />
+                                <TextView android:id="@+id/tv_usable_count_big" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:fontFamily="monospace" android:includeFontPadding="false" android:maxLines="1" android:text="--" android:textColor="?attr/zzText" android:textSize="29sp" android:textStyle="bold" />
+                            </LinearLayout>
                         </LinearLayout>
-
-                        <View
-                            android:layout_width="1dp"
-                            android:layout_height="42dp"
-                            android:background="#DDE3DE" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="次数"
-                                android:textColor="#7D8981"
-                                android:textSize="11sp" />
-
-                            <TextView
-                                android:id="@+id/tv_usable_count_big"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="--"
-                                android:textColor="#233128"
-                                android:textSize="28sp"
-                                android:textStyle="bold"
-                                android:fontFamily="monospace"
-                                android:singleLine="true"
-                                android:maxLines="1"
-                                android:includeFontPadding="false" />
-                        </LinearLayout>
+                        <TextView android:id="@+id/tv_stat_time_detail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="" android:textColor="?attr/zzMuted" android:textSize="10sp" />
+                        <TextView android:id="@+id/tv_surplus_borrow_line" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:gravity="center" android:text="" android:textColor="?attr/zzSuccess" android:textSize="10sp" android:visibility="gone" />
+                        <TextView android:id="@+id/tv_rest_countdown_in_card" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:gravity="center" android:text="" android:textColor="?attr/zzSuccess" android:textSize="10sp" android:visibility="gone" />
                     </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/tv_stat_time_detail"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:text="(额度--/--)"
-                        android:textColor="#7D8981"
-                        android:textSize="11sp" />
-
-                    <TextView
-                        android:id="@+id/tv_surplus_borrow_line"
+                    <LinearLayout
+                        android:id="@+id/layout_next_segment_card"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text=""
-                        android:textColor="#68866F"
-                        android:textSize="11sp"
+                        android:layout_marginTop="9dp"
+                        android:background="@drawable/bg_zz_card_soft"
+                        android:backgroundTint="?attr/zzSurface2"
                         android:gravity="center"
-                        android:paddingHorizontal="4dp"
-                        android:paddingVertical="3dp"
-                        android:visibility="gone" />
-
-                    <TextView
-                        android:id="@+id/tv_rest_countdown_in_card"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:text=""
-                        android:textColor="#68866F"
-                        android:textSize="11sp"
-                        android:gravity="center"
-                        android:visibility="gone" />
+                        android:orientation="vertical"
+                        android:paddingHorizontal="18dp"
+                        android:paddingVertical="13dp">
+                        <TextView android:id="@+id/tv_next_segment_info" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="下一阶段：计算中…" android:textAlignment="center" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
                 </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/layout_next_segment_card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:background="#EEF2EE"
-                    android:paddingHorizontal="18dp"
-                    android:paddingVertical="13dp"
-                    android:layout_marginTop="8dp">
-
-                    <TextView
-                        android:id="@+id/tv_next_segment_info"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="下一阶段: 计算中..."
-                        android:textColor="#66736A"
-                        android:textSize="12sp"
-                        android:gravity="center"
-                        android:textAlignment="center" />
-                </LinearLayout>
-            </LinearLayout>
+            </androidx.cardview.widget.CardView>
 
             <TextView
                 android:id="@+id/tv_penalty_hit_count"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:textColor="#B45B4D"
+                android:background="@drawable/bg_zz_card_soft"
+                android:backgroundTint="?attr/zzDangerSoft"
+                android:gravity="center"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="8dp"
+                android:textColor="?attr/zzDanger"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                android:gravity="center"
-                android:visibility="gone"
-                android:background="#FFF1EE"
-                android:paddingVertical="8dp"
-                android:paddingHorizontal="14dp" />
+                android:visibility="gone" />
         </LinearLayout>
     </ScrollView>
 
@@ -237,90 +130,86 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:background="?attr/zzPageBg"
         android:orientation="vertical"
-        android:background="#F5F7F4"
         android:paddingHorizontal="16dp"
-        android:paddingTop="10dp"
+        android:paddingTop="9dp"
         android:paddingBottom="16dp">
 
         <Button
             android:id="@+id/btn_back_to_home"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="回到桌面"
+            android:layout_height="50dp"
+            android:backgroundTint="?attr/zzSurface2"
+            android:text="返回桌面"
             android:textAllCaps="false"
-            android:textColor="#405047"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="#E2E8E3" />
+            android:textColor="?attr/zzText"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
-        <LinearLayout
+        <!-- 单一主操作槽：业务层仍可分别控制两个既有按钮，但视觉上永远只占中间一层。 -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:layout_height="54dp"
             android:layout_marginTop="8dp">
-
             <Button
                 android:id="@+id/btn_temporary_access"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:backgroundTint="?attr/zzAccent"
                 android:text="临时解锁"
                 android:textAllCaps="false"
-                android:textColor="#FFFFFF"
+                android:textColor="@android:color/white"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:backgroundTint="#849B89"
                 android:visibility="gone" />
-
+            <Button
+                android:id="@+id/btn_emergency"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:backgroundTint="?attr/zzAccent"
+                android:text="申请休息 / 额度管理"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
             <ImageButton
                 android:id="@+id/btn_temporary_access_help"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginStart="6dp"
-                android:backgroundTint="#E2E8E3"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="5dp"
+                android:background="@drawable/bg_zz_pill"
+                android:backgroundTint="?attr/zzAccentSoft"
                 android:contentDescription="临时使用说明"
+                android:padding="8dp"
                 android:src="@android:drawable/ic_menu_help"
-                android:tint="#607066"
+                android:tint="?attr/zzAccentStrong"
                 android:visibility="gone" />
-        </LinearLayout>
+        </FrameLayout>
 
         <Button
             android:id="@+id/btn_temporary_access_quick_10"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="8dp"
-            android:visibility="gone"
-            android:backgroundTint="#C28765"
-            android:text="冷却中应急 10 秒"
+            android:layout_height="46dp"
+            android:layout_marginTop="7dp"
+            android:backgroundTint="?attr/zzWarning"
+            android:text="冷静期应急 10 秒"
             android:textAllCaps="false"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btn_emergency"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="8dp"
-            android:visibility="gone"
-            android:backgroundTint="#78917D"
-            android:text="申请休息"
-            android:textAllCaps="false"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btn_weekly_privilege"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="50dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="#B79A69"
+            android:backgroundTint="?attr/zzAltSoft"
             android:text="每周特权"
             android:textAllCaps="false"
-            android:textColor="#FFFFFF"
+            android:textColor="?attr/zzAlt"
             android:textSize="15sp"
             android:textStyle="bold"
             android:visibility="gone" />
@@ -330,38 +219,22 @@
         android:id="@+id/view_penalty_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#66000000"
-        android:visibility="gone"
+        android:background="#52000000"
         android:clickable="true"
+        android:elevation="30dp"
         android:focusable="true"
-        android:elevation="30dp">
-
+        android:visibility="gone">
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginHorizontal="24dp"
-            android:background="#FFFFFF"
-            android:padding="20dp"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/tv_penalty_message"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#27342B"
-                android:textSize="14sp"
-                android:lineSpacingExtra="4dp" />
-
-            <Button
-                android:id="@+id/btn_penalty_ok"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="16dp"
-                android:text="确认"
-                android:textAllCaps="false"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#78917D" />
+            android:background="@drawable/bg_zz_card"
+            android:backgroundTint="?attr/zzSurface"
+            android:orientation="vertical"
+            android:padding="20dp">
+            <TextView android:id="@+id/tv_penalty_message" android:layout_width="match_parent" android:layout_height="wrap_content" android:lineSpacingExtra="4dp" android:textColor="?attr/zzText" android:textSize="14sp" />
+            <Button android:id="@+id/btn_penalty_ok" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="16dp" android:backgroundTint="?attr/zzAccent" android:text="确认" android:textAllCaps="false" android:textColor="@android:color/white" />
         </LinearLayout>
     </FrameLayout>
 
@@ -369,59 +242,24 @@
         android:id="@+id/view_borrow_confirm_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#66000000"
-        android:visibility="gone"
+        android:background="#52000000"
         android:clickable="true"
+        android:elevation="31dp"
         android:focusable="true"
-        android:elevation="31dp">
-
+        android:visibility="gone">
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginHorizontal="24dp"
-            android:background="#FFFFFF"
-            android:padding="20dp"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/tv_borrow_confirm_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="借用额度确认"
-                android:textColor="#A45B45"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:layout_marginBottom="10dp" />
-
-            <TextView
-                android:id="@+id/tv_borrow_confirm_message"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#344139"
-                android:textSize="14sp"
-                android:lineSpacingExtra="4dp" />
-
-            <Button
-                android:id="@+id/btn_borrow_confirm_ok"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="16dp"
-                android:text="确认借用"
-                android:textAllCaps="false"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#B46F57" />
-
-            <Button
-                android:id="@+id/btn_borrow_confirm_cancel"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="8dp"
-                android:text="取消"
-                android:textAllCaps="false"
-                android:textColor="#415047"
-                android:backgroundTint="#E5EAE6" />
+            android:background="@drawable/bg_zz_card"
+            android:backgroundTint="?attr/zzSurface"
+            android:orientation="vertical"
+            android:padding="20dp">
+            <TextView android:id="@+id/tv_borrow_confirm_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="借用额度确认" android:textColor="?attr/zzWarning" android:textSize="18sp" android:textStyle="bold" />
+            <TextView android:id="@+id/tv_borrow_confirm_message" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:lineSpacingExtra="4dp" android:textColor="?attr/zzText" android:textSize="14sp" />
+            <Button android:id="@+id/btn_borrow_confirm_ok" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="16dp" android:backgroundTint="?attr/zzWarning" android:text="确认借用" android:textAllCaps="false" android:textColor="@android:color/white" />
+            <Button android:id="@+id/btn_borrow_confirm_cancel" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:backgroundTint="?attr/zzSurface2" android:text="取消" android:textAllCaps="false" android:textColor="?attr/zzText" />
         </LinearLayout>
     </FrameLayout>
 
@@ -429,107 +267,24 @@
         android:id="@+id/layout_emergency_options"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:background="#F5F7F4"
-        android:padding="24dp"
-        android:visibility="gone"
-        android:elevation="20dp"
+        android:background="?attr/zzPageBg"
         android:clickable="true"
-        android:focusable="true">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="申请休息 / 额度管理"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="#233128"
-            android:gravity="center"
-            android:layout_marginBottom="18dp" />
-
-        <TextView
-            android:id="@+id/tv_quota_hint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="当前可用: 0min / 0次 | 可借用: 0min / 0次"
-            android:textSize="14sp"
-            android:textColor="#4B5A50"
-            android:gravity="center"
-            android:background="#FFFFFF"
-            android:padding="12dp"
-            android:layout_marginBottom="12dp" />
-
-        <TextView
-            android:id="@+id/tv_cooling_penalty_hint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="冷静期内申请将消耗双倍额度和次数"
-            android:textSize="13sp"
-            android:textColor="#B45B4D"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:visibility="gone"
-            android:layout_marginBottom="12dp" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="输入申请时长（分钟）"
-            app:boxBackgroundMode="outline"
-            app:boxBackgroundColor="#FFFFFF"
-            app:boxStrokeColor="#A8B6AA"
-            android:layout_marginBottom="20dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_calm_minutes"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="number"
-                android:gravity="center"
-                android:textColor="#233128"
-                android:imeOptions="actionDone" />
+        android:elevation="20dp"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:visibility="gone">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="申请休息 / 额度管理" android:textColor="?attr/zzText" android:textSize="22sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tv_quota_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@drawable/bg_zz_card" android:backgroundTint="?attr/zzSurface" android:gravity="center" android:padding="12dp" android:text="当前可用: 0min / 0次 | 可借用: 0min / 0次" android:textColor="?attr/zzMuted" android:textSize="13sp" />
+        <TextView android:id="@+id/tv_cooling_penalty_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:gravity="center" android:text="冷静期内申请将消耗双倍额度和次数" android:textColor="?attr/zzDanger" android:textSize="12sp" android:textStyle="bold" android:visibility="gone" />
+        <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:layout_marginBottom="18dp" android:hint="输入申请时长（分钟）" app:boxBackgroundColor="?attr/zzSurface" app:boxBackgroundMode="outline" app:boxStrokeColor="?attr/zzAccent">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_calm_minutes" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:imeOptions="actionDone" android:inputType="number" android:textColor="?attr/zzText" />
         </com.google.android.material.textfield.TextInputLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <Button
-                android:id="@+id/btn_cancel_emergency"
-                android:layout_width="0dp"
-                android:layout_height="50dp"
-                android:layout_weight="1"
-                android:text="取消"
-                android:textAllCaps="false"
-                android:textColor="#415047"
-                android:backgroundTint="#E5EAE6"
-                android:layout_marginEnd="6dp" />
-
-            <Button
-                android:id="@+id/btn_confirm_calm"
-                android:layout_width="0dp"
-                android:layout_height="50dp"
-                android:layout_weight="1"
-                android:text="确认申请"
-                android:textAllCaps="false"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#78917D"
-                android:layout_marginStart="6dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:orientation="horizontal">
+            <Button android:id="@+id/btn_cancel_emergency" android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:backgroundTint="?attr/zzSurface2" android:text="取消" android:textAllCaps="false" android:textColor="?attr/zzText" />
+            <Button android:id="@+id/btn_confirm_calm" android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1" android:layout_marginStart="6dp" android:backgroundTint="?attr/zzAccent" android:text="确认申请" android:textAllCaps="false" android:textColor="@android:color/white" />
         </LinearLayout>
-
-        <Button
-            android:id="@+id/btn_stop_free_time_emergency"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:text="结束当前休息"
-            android:textAllCaps="false"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#B76858"
-            android:visibility="gone"
-            android:layout_marginTop="12dp" />
+        <Button android:id="@+id/btn_stop_free_time_emergency" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="12dp" android:backgroundTint="?attr/zzDanger" android:text="结束当前休息" android:textAllCaps="false" android:textColor="@android:color/white" android:visibility="gone" />
     </LinearLayout>
-
 </FrameLayout>
