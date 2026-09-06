@@ -144,8 +144,8 @@ class ForegroundSessionTrackerTest {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
             wasPreviouslyBlocked = false, // 之前未阻塞 -> 刚进入阻塞，发生边界跃迁
-            wasGap = false,
-            wasRest = false,
+            leftGap = false,
+            endedRest = false,
             forceBoundaryCheck = false,
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
@@ -159,8 +159,8 @@ class ForegroundSessionTrackerTest {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
             wasPreviouslyBlocked = true, // 之前已阻塞 -> 处于稳态，无边界跃迁
-            wasGap = false,
-            wasRest = false,
+            leftGap = false,
+            endedRest = false,
             forceBoundaryCheck = false,
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
@@ -170,12 +170,31 @@ class ForegroundSessionTrackerTest {
     }
 
     @Test
+    fun `steady state gap or rest does not trigger boundary lock`() {
+        // 稳态处于 Gap 自由时段中，应用已被阻塞但没有发生边沿跃迁
+        val steadyGap = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            wasPreviouslyBlocked = true,
+            leftGap = false, // 处于稳态 Gap，并未发生离开 Gap 跃迁
+            endedRest = false,
+            forceBoundaryCheck = false,
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertFalse("稳态 Gap 期间不应误把 level 当 edge 触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(steadyGap))
+
+        val steadyRest = steadyGap.copy(endedRest = false)
+        assertFalse("稳态 Rest 期间不应触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(steadyRest))
+    }
+
+    @Test
     fun `mode transition after gap or rest retriggers boundary lock`() {
         val inputFromGap = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
             wasPreviouslyBlocked = true,
-            wasGap = true, // 刚刚处于 Gap 模式，现在跨越边界
-            wasRest = false,
+            leftGap = true, // 刚离开 Gap 模式进入时段，边沿跃迁
+            endedRest = false,
             forceBoundaryCheck = false,
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
@@ -183,7 +202,7 @@ class ForegroundSessionTrackerTest {
         )
         assertTrue("Gap 结束跨入 Block 边界应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputFromGap))
 
-        val inputFromRest = inputFromGap.copy(wasGap = false, wasRest = true)
+        val inputFromRest = inputFromGap.copy(leftGap = false, endedRest = true)
         assertTrue("Rest 休息结束跨入 Block 边界应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputFromRest))
     }
 
@@ -192,8 +211,8 @@ class ForegroundSessionTrackerTest {
         val base = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
             wasPreviouslyBlocked = false,
-            wasGap = false,
-            wasRest = false,
+            leftGap = false,
+            endedRest = false,
             forceBoundaryCheck = false,
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
@@ -212,8 +231,8 @@ class ForegroundSessionTrackerTest {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
             wasPreviouslyBlocked = false,
-            wasGap = false,
-            wasRest = false,
+            leftGap = false,
+            endedRest = false,
             forceBoundaryCheck = false,
             hasActiveForegroundSession = false, // 无活跃 Session（已切出或关闭）
             isKeyguardLocked = false,
@@ -227,8 +246,8 @@ class ForegroundSessionTrackerTest {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = false, // 当前并不在黑名单/勿扰模式
             wasPreviouslyBlocked = false,
-            wasGap = false,
-            wasRest = false,
+            leftGap = false,
+            endedRest = false,
             forceBoundaryCheck = false,
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
@@ -242,8 +261,8 @@ class ForegroundSessionTrackerTest {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
             wasPreviouslyBlocked = true, // 即便先前已阻断
-            wasGap = false,
-            wasRest = false,
+            leftGap = false,
+            endedRest = false,
             forceBoundaryCheck = true, // 显式触发了强制边界检查
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
@@ -270,8 +289,8 @@ class ForegroundSessionTrackerTest {
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = blockedNow,
                 wasPreviouslyBlocked = wasPreviouslyBlocked,
-                wasGap = true,
-                wasRest = false,
+                leftGap = false,
+                endedRest = false,
                 forceBoundaryCheck = false,
                 hasActiveForegroundSession = tracker.isSessionActiveFor(pkg),
                 isKeyguardLocked = false,
@@ -302,8 +321,8 @@ class ForegroundSessionTrackerTest {
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = true,
                 wasPreviouslyBlocked = false,
-                wasGap = false,
-                wasRest = false,
+                leftGap = false,
+                endedRest = false,
                 forceBoundaryCheck = true,
                 hasActiveForegroundSession = tracker.isSessionActiveFor(pkg),
                 isKeyguardLocked = false,
@@ -311,5 +330,35 @@ class ForegroundSessionTrackerTest {
             )
         )
         assertFalse("无活跃 Session 时绝对不能触发边界锁定", boundaryDecision)
+    }
+
+    @Test
+    fun `vivo systemui and upslide noise packages do not kill session but launcher does`() {
+        val t0 = 1_000_000L
+        tracker.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.MOVE_TO_FG, t0)
+        assertTrue(tracker.isSessionActiveFor("com.tencent.mm"))
+
+        // Vivo 状态栏/通知栏插件
+        tracker.onUsageEvent("com.vivo.systemuiplugin", ForegroundSessionTracker.MOVE_TO_FG, t0 + 1_000L)
+        assertTrue("com.vivo.systemuiplugin 不应破坏前台 Session", tracker.isSessionActiveFor("com.tencent.mm"))
+
+        // Vivo 系统导航手势
+        tracker.onUsageEvent("com.vivo.upslide", ForegroundSessionTracker.MOVE_TO_FG, t0 + 2_000L)
+        assertTrue("com.vivo.upslide 不应破坏前台 Session", tracker.isSessionActiveFor("com.tencent.mm"))
+
+        // 系统桌面 Launcher 切入
+        tracker.onUsageEvent("com.bbk.launcher2", ForegroundSessionTracker.MOVE_TO_FG, t0 + 3_000L)
+        assertFalse("桌面 Launcher 切入必须替换/关闭原前台 Session", tracker.isSessionActiveFor("com.tencent.mm"))
+    }
+
+    @Test
+    fun `same millisecond resume and paused events close session correctly`() {
+        val t0 = 1_000_000L
+        tracker.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.MOVE_TO_FG, t0)
+        assertTrue(tracker.isSessionActiveFor("com.tencent.mm"))
+
+        // 在同一毫秒内先后收到 RESUMED 与 PAUSED
+        tracker.onUsageEvent("com.tencent.mm", ForegroundSessionTracker.ACTIVITY_PAUSED, t0)
+        assertFalse("同一毫秒内的离开反证事件必须正常生效并关闭 Session", tracker.isSessionActiveFor("com.tencent.mm"))
     }
 }

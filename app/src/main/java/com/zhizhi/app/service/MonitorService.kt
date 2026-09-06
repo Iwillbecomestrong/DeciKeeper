@@ -983,6 +983,7 @@ class MonitorService : Service() {
                 Intent.ACTION_SCREEN_OFF -> {
                     Log.d(TAG, "Screen OFF -> Pausing Monitor")
                     foregroundSessionTracker.onScreenOff(System.currentTimeMillis())
+                    foregroundGuardFallbackGate.reset()
                     cancelMonitorLoop()
                 }
                 Intent.ACTION_SCREEN_ON -> {
@@ -1282,6 +1283,7 @@ class MonitorService : Service() {
     private val mPresenceTracker = VisibleBlacklistPresenceTracker(desktopGraceDurationMs = 3000L)
     // 🛡️ [High-Water Mark] 记录每个包最近处理过的事件时间戳，避免 30s UsageEvents 重复遍历导致旧事件重放
     private val mLastProcessedPresenceEventAtMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val mLastProcessedPresenceEventType = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
     private fun establishVisibleBlacklistPresence(pkg: String, now: Long) {
         mPresenceTracker.onPresenceConfirmed(pkg, now)
@@ -1635,7 +1637,9 @@ class MonitorService : Service() {
         val wasRest = mLastWasRest
         val currentIsGap = !isInSegment
         val currentIsRest = isFreeTime
-        if ((wasGap && !currentIsGap) || (wasRest && !currentIsRest)) {
+        val leftGap = wasGap && !currentIsGap
+        val endedRest = wasRest && !currentIsRest
+        if (leftGap || endedRest) {
             mForceRuleBoundaryCheck = true
         }
         mLastWasGap = currentIsGap
@@ -1846,7 +1850,10 @@ class MonitorService : Service() {
             return
         }
 
-        if (effectivePackageName == this.packageName) return
+        if (effectivePackageName == this.packageName) {
+            foregroundGuardFallbackGate.reset()
+            return
+        }
 
         if (fallbackCandidatePackage != null) {
             LogExporter.logEvent(
@@ -1857,6 +1864,7 @@ class MonitorService : Service() {
 
         if (PwaBypassManager.shouldBypassTopPackage(this, effectivePackageName)) {
             LogExporter.logEvent("MonitorService", "[PWA绕过] skip lock for pkg=$effectivePackageName")
+            foregroundGuardFallbackGate.reset()
             // [Diagnostics-only] emit NoLock for PWA bypass
             recordFgNoLock(
                 cycle = currentForegroundCycle,
@@ -1918,6 +1926,7 @@ class MonitorService : Service() {
                  )
              }
              // Explicitly RETURN to prevent any blocking
+             foregroundGuardFallbackGate.reset()
              return
         }
 
@@ -2020,6 +2029,7 @@ class MonitorService : Service() {
         val isScreenInteractive = pm?.isInteractive ?: true
         if (isKeyguardLocked) {
             foregroundSessionTracker.onKeyguardLocked(now)
+            foregroundGuardFallbackGate.reset()
         }
         val hasActiveForegroundSession = foregroundSessionTracker.isSessionActiveFor(effectivePackageName)
 
@@ -2051,8 +2061,8 @@ class MonitorService : Service() {
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = isBusinessBlocked,
                 wasPreviouslyBlocked = mPreviouslyBlockedPackages.contains(effectivePackageName),
-                wasGap = wasGap,
-                wasRest = wasRest,
+                leftGap = leftGap,
+                endedRest = endedRest,
                 forceBoundaryCheck = mForceRuleBoundaryCheck,
                 hasActiveForegroundSession = hasActiveForegroundSession,
                 isKeyguardLocked = isKeyguardLocked,
@@ -2061,6 +2071,7 @@ class MonitorService : Service() {
         )
 
         if (allowByRuleBoundary) {
+            mForceRuleBoundaryCheck = false
             Log.w(
                 TAG,
                 "[ForegroundGuard] Allow lock by Rule Boundary (ALLOW->BLOCK) with active session: " +
@@ -2989,8 +3000,10 @@ class MonitorService : Service() {
             }
 
             val lastProcessedTs = mLastProcessedPresenceEventAtMs[eventPkg] ?: 0L
-            if (event.timeStamp > lastProcessedTs) {
+            val lastProcessedType = mLastProcessedPresenceEventType[eventPkg] ?: -1
+            if (event.timeStamp > lastProcessedTs || (event.timeStamp == lastProcessedTs && type != lastProcessedType)) {
                 mLastProcessedPresenceEventAtMs[eventPkg] = event.timeStamp
+                mLastProcessedPresenceEventType[eventPkg] = type
                 if (eventPkg.isNotBlank()) {
                     mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
                     foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp)

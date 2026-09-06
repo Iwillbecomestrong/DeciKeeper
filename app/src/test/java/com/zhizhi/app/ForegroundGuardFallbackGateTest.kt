@@ -108,4 +108,20 @@ class ForegroundGuardFallbackGateTest {
         assertFalse(gate.shouldForce("com.tencent.mm", nowMs = 30_000L, eligible = true, guardPassed = true))
         assertFalse(gate.shouldForce("com.tencent.mm", nowMs = 70_000L, eligible = true, guardPassed = false))
     }
+
+    @Test
+    fun `explicit reset cancels pending fallback timer across sessions`() {
+        val gate = ForegroundGuardFallbackGate(timeoutMs = 60_000L)
+
+        // App 在 0s 进入 pending
+        assertFalse(gate.shouldForce("com.tencent.mm", nowMs = 0L, eligible = true, guardPassed = false))
+
+        // 用户回桌面、息屏或锁屏，触发 explicit reset
+        gate.reset()
+
+        // 70s 后用户再次进入该应用，因之前已被 reset，本次必须重新开始计时，绝不能立即 force
+        assertFalse("显式 reset 后再次进入必须重新累计 60s，绝不能继承之前的计时", gate.shouldForce("com.tencent.mm", nowMs = 70_000L, eligible = true, guardPassed = false))
+        assertFalse(gate.shouldForce("com.tencent.mm", nowMs = 129_999L, eligible = true, guardPassed = false))
+        assertTrue(gate.shouldForce("com.tencent.mm", nowMs = 130_000L, eligible = true, guardPassed = false))
+    }
 }

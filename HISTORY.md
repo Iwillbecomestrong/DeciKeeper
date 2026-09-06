@@ -110,3 +110,5 @@
   4. **FallbackGate 联动会话**：修改 `isSustainedForegroundFallbackEligible`，当具有活跃 Session 时允许 `USAGE_STATS` 维持资格，解决证据源切换抖动导致 60s 计数清零的痛点，同时天然阻断纯后台音频应用。
   5. **边界门禁解耦与测试守护 (RuleBoundaryLockGate)**：将边界跃迁逻辑从 Android `MonitorService` 庞大流程中解耦为纯对象 `RuleBoundaryLockGate`，支持离线 100% 纯 JVM 单元测试，全面守护跨规则边界跃迁、稳态防无限重锁、息屏与锁屏阻断场景。
   6. **完整双锁判定提前与 Keyguard 生命周期接线**：提前使用 `LockDecisionPolicy.shouldBlock` 计算最终业务拦截状态，统一覆盖 DND 勿扰与应用时间窗（App Window）双锁边界；Keyguard 锁定立即执行 `onKeyguardLocked` 永久关闭旧会话，防止解锁后旧 Session 残留。
+  7. **状态机电平与边沿严格解耦**：`RuleBoundaryLockGate` 坚决杜绝把 `wasGap` / `wasRest` 等持续状态（Level）作为放行依据，改为显式边沿跃迁标志 `leftGap`（`wasGap && !currentIsGap`）与 `endedRest`（`wasRest && !currentIsRest`），仅在脱离自由时段的瞬间激活一次；单次边界标记 `mForceRuleBoundaryCheck` 触发后立即消费清零，彻底防范稳态期间无限重锁或守卫穿透。
+  8. **跨 Session 显式生命周期治理与系统 UI 噪声过滤**：在用户回到桌面、PWA 绕过、进入自研主界面、锁屏及息屏等切出场景，显式调用 `foregroundGuardFallbackGate.reset()`，断绝 60s 降级保底计时跨 Session 泄漏；将系统 UI 噪声过滤精准扩展至 Vivo 状态栏插件（`com.vivo.systemuiplugin`）与手势导航（`com.vivo.upslide`），同时白名单保护桌面 Launcher 绝不被误判为噪声。

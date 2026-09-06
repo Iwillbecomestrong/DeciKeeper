@@ -22,12 +22,16 @@ class ForegroundSessionTracker(
 
         /**
          * 默认系统噪声应用过滤。
-         * 避免下拉通知栏（SystemUI）或弹出输入法误杀当前正在前台运行的应用 Session。
+         * 避免下拉通知栏（SystemUI）、系统导航手势（如 Vivo upslide/systemuiplugin）或弹出输入法误杀当前正在前台运行的应用 Session。
+         * 注意：Launcher 桌面绝不是噪声，必须替换并关闭当前 Session。
          */
         fun defaultIsNoisePackage(packageName: String): Boolean {
             if (packageName.isBlank()) return true
-            if (packageName == "com.android.systemui") return true
-            if (packageName.contains(".inputmethod") || packageName.contains(".ime")) return true
+            val lower = packageName.lowercase()
+            // 桌面 Launcher 绝不能作为噪声过滤，它代表用户回到桌面
+            if (lower.contains("launcher") || lower.contains("recents")) return false
+            if (lower.contains("systemui") || lower == "com.vivo.upslide") return true
+            if (lower.contains(".inputmethod") || lower.contains(".ime") || lower.contains("inputmethod")) return true
             return false
         }
     }
@@ -138,9 +142,9 @@ class ForegroundSessionTracker(
 data class RuleBoundaryLockDecisionInput(
     val isBlockedNow: Boolean,
     val wasPreviouslyBlocked: Boolean,
-    val wasGap: Boolean,
-    val wasRest: Boolean,
-    val forceBoundaryCheck: Boolean,
+    val leftGap: Boolean = false,
+    val endedRest: Boolean = false,
+    val forceBoundaryCheck: Boolean = false,
     val hasActiveForegroundSession: Boolean,
     val isKeyguardLocked: Boolean,
     val isScreenInteractive: Boolean
@@ -151,15 +155,19 @@ data class RuleBoundaryLockDecisionInput(
  */
 object RuleBoundaryLockGate {
     /**
-     * 判断当前是否处于规则从 ALLOW -> BLOCK 的边界跃迁，且具备即时触发锁定的资格。
+     * 判断当前是否处于规则从 ALLOW -> BLOCK 的边沿跃迁（Edge Transition），且具备即时触发锁定的资格。
      *
      * 判定准则：
      * 1. 当前时刻该应用必须处于 BLOCK 范围（isBlockedNow == true）；
      * 2. 必须存在未关闭的活跃前台 Session（hasActiveForegroundSession == true）；
      * 3. 屏幕必须处于交互状态且未处于锁屏状态（!isKeyguardLocked && isScreenInteractive）；
-     * 4. 必须发生明确的状态边界跃迁（先前未被阻塞、或先前处于 Gap/Rest 模式、或设置了强制边界检查标记）；
-     * 5. 若已处于持续 BLOCK 稳态（wasPreviouslyBlocked && !wasGap && !wasRest && !forceBoundaryCheck），
-     *    则不予重复边界锁定，避免死循环重锁。
+     * 4. 必须发生明确的状态边沿跃迁：
+     *    - 先前未被阻塞（!wasPreviouslyBlocked，如时间窗关闭或刚被规则收紧）；
+     *    - 或刚刚离开 Gap 自由时段进入受阻时段（leftGap == true）；
+     *    - 或刚刚结束 Rest 休息进入工作时段（endedRest == true）；
+     *    - 或由外部信号激活了单次强制边界检测（forceBoundaryCheck == true）。
+     * 5. 若已处于持续 BLOCK 稳态（wasPreviouslyBlocked && !leftGap && !endedRest && !forceBoundaryCheck），
+     *    则坚决不予重复边界锁定，防止无限重锁与守卫穿透。
      */
     fun shouldAllowBoundaryLock(input: RuleBoundaryLockDecisionInput): Boolean {
         if (!input.isBlockedNow) return false
@@ -167,7 +175,7 @@ object RuleBoundaryLockGate {
         if (input.isKeyguardLocked) return false
         if (!input.isScreenInteractive) return false
 
-        val isBoundaryTransition = !input.wasPreviouslyBlocked || input.wasGap || input.wasRest || input.forceBoundaryCheck
-        return isBoundaryTransition
+        val isEdgeTransition = !input.wasPreviouslyBlocked || input.leftGap || input.endedRest || input.forceBoundaryCheck
+        return isEdgeTransition
     }
 }
