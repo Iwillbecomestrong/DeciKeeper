@@ -89,7 +89,8 @@ class ForegroundGuardFallbackGateTest {
                 selectedPackage = "com.tencent.mm",
                 cachedPackage = "com.tencent.mm",
                 lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 1_100L
+                lastBackgroundEventTs = 1_100L,
+                hasActiveForegroundSession = true
             )
         )
     }

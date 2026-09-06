@@ -17,8 +17,10 @@
 | **测试应用** | `com.tencent.mm` (微信 v8.0.48) |
 | **应用包名 / 版本** | `com.zhizhi.app` (versionCode=1, versionName=0.2.0) |
 | **测试时钟时区** | 2026-09-06 14:30:00 ~ 14:35:00 CST (UTC+8, Asia/Shanghai) |
-| **测试分支与基线** | 分支 `dev`，基准 Commit: `18bf8ac53e5047134cc67d189c230220480d3d6e` |
+| **BASE_COMMIT** | `18bf8ac53e5047134cc67d189c230220480d3d6e` |
+| **TESTED_COMMIT** | `30bdb7274f56773e68d54c83f1487ba67af3da46`（验证分支 `dev`） |
 | **测试命令** | `adb logcat -v time -s MonitorService:D ForegroundSession:D ForegroundGuardFallbackGate:D` |
+| **安装与构建** | `./gradlew assembleDebug` + `adb install -r app-debug.apk` |
 
 ---
 

@@ -59,8 +59,13 @@ class ForegroundSessionTracker(
         val source: String = "USAGE_EVENTS"
     )
 
+    @get:Synchronized
+    @set:Synchronized
     var currentSession: Session? = null
         private set
+
+    @Synchronized
+    fun currentSessionSnapshot(): Session? = currentSession
 
     // 🛡️ 单调递增的失效时间水位（解决 Finding 2：防止锁屏/息屏后旧事件重放重新开启 Session）
     private var mLastInvalidationAtMs: Long = 0L
@@ -267,14 +272,23 @@ class ForegroundSessionTracker(
 }
 
 /**
+ * 业务边沿消费状态机（解决 Finding 1：解耦业务受阻检测与锁屏实际交付成功）
+ */
+enum class BusinessBlockState {
+    /** 业务处于允许范围（如非时段内、在Gap时段、白名单等） */
+    ALLOWED,
+    /** 业务刚从 ALLOW 跨入 BLOCK，但锁屏尚未确认完成交付（待执行或重试中） */
+    BLOCK_PENDING,
+    /** 锁屏已确认成功交付展示，边沿已消费，处于持续稳态 BLOCK */
+    BLOCK_CONSUMED
+}
+
+/**
  * 规则边界跃迁即时锁定判定输入参数（纯逻辑数据对象，不依赖 Android Framework）
  */
 data class RuleBoundaryLockDecisionInput(
     val isBlockedNow: Boolean,
-    val isBusinessAllowToBlock: Boolean = false,
-    val leftGap: Boolean = false,
-    val endedRest: Boolean = false,
-    val forceBoundaryCheck: Boolean = false,
+    val isBusinessAllowToBlock: Boolean,
     val hasActiveForegroundSession: Boolean,
     val isKeyguardLocked: Boolean,
     val isScreenInteractive: Boolean
@@ -291,13 +305,8 @@ object RuleBoundaryLockGate {
      * 1. 当前时刻该应用必须处于 BLOCK 范围（isBlockedNow == true）；
      * 2. 必须存在未关闭的活跃前台 Session（hasActiveForegroundSession == true）；
      * 3. 屏幕必须处于交互状态且未处于锁屏状态（!isKeyguardLocked && isScreenInteractive）；
-     * 4. 必须发生明确的状态边沿跃迁：
-     *    - 显式业务状态从 ALLOW 跨入 BLOCK（isBusinessAllowToBlock == true，解耦前台守卫结果，边沿唯一源）；
-     *    - 或刚刚离开 Gap 自由时段进入受阻时段（leftGap == true）；
-     *    - 或刚刚结束 Rest 休息进入工作时段（endedRest == true）；
-     *    - 或由外部信号激活了单次强制边界检测（forceBoundaryCheck == true）。
-     * 5. 若已处于持续 BLOCK 稳态（!isBusinessAllowToBlock && !leftGap && !endedRest && !forceBoundaryCheck），
-     *    则坚决不予重复边界锁定，防止无限重锁与守卫穿透。
+     * 4. 必须发生明确的状态边沿跃迁：isBusinessAllowToBlock == true（边沿唯一真相）；
+     * 5. 若已处于持续 BLOCK 稳态（!isBusinessAllowToBlock），则坚决不予重复边界锁定，防止无限重锁与守卫穿透。
      */
     fun shouldAllowBoundaryLock(input: RuleBoundaryLockDecisionInput): Boolean {
         if (!input.isBlockedNow) return false
@@ -305,8 +314,7 @@ object RuleBoundaryLockGate {
         if (input.isKeyguardLocked) return false
         if (!input.isScreenInteractive) return false
 
-        // 🛡️ [Finding 4 修复] 严格要求 isBusinessAllowToBlock == true（即 previous == false && current == true）
-        // 彻底杜绝 leftGap / endedRest / forceBoundaryCheck 将稳态 BLOCK -> BLOCK 或 UNKNOWN 误放行为边沿
+        // 🛡️ [Finding 4 & 5 修复] 严格要求 isBusinessAllowToBlock == true 作为边沿跃迁的唯一准则
         return input.isBusinessAllowToBlock
     }
 }
@@ -325,10 +333,7 @@ data class BoundaryCandidateInput(
     val isSessionClosed: Boolean,
     val isSessionNoiseOrLauncherOrSelf: Boolean,
     val isBusinessBlockedNow: Boolean,
-    val previousBusinessBlocked: Boolean?,
-    val leftGap: Boolean,
-    val endedRest: Boolean,
-    val forceBoundaryCheck: Boolean,
+    val previousBusinessBlockState: BusinessBlockState? = null,
     val isKeyguardLocked: Boolean,
     val isScreenInteractive: Boolean
 )
@@ -339,7 +344,7 @@ data class BoundaryCandidateInput(
 data class BoundaryCandidateResult(
     val shouldLockCandidate: Boolean,
     val candidatePackage: String? = null,
-    val updatedBusinessBlocked: Boolean? = null,
+    val updatedBusinessBlockState: BusinessBlockState? = null,
     val reason: String
 )
 
@@ -349,16 +354,14 @@ data class BoundaryCandidateResult(
  * 核心契约：
  * 1. 当常规解析器为 null（静止无事件）、Carrier（如 com.vivo.upslide / vivo launcher）或桌面/最近任务时，
  *    进入候选抢占逻辑，防止静止应用在规则边沿漏锁；
- * 2. 无论 Session 应用当前为 ALLOW 还是 BLOCK，均持续记录业务状态，保证从 ALLOW -> BLOCK 跃迁时可被精确捕获；
+ * 2. 无论 Session 应用当前为 ALLOW 还是 BLOCK，均持续记录业务状态（BusinessBlockState 状态机），
+ *    保证从 ALLOW -> BLOCK 跃迁时可被精确捕获；
  * 3. 门禁裁决委托给 RuleBoundaryLockGate，杜绝稳态重复锁定。
  */
 object BoundaryCandidateCoordinator {
     fun evaluate(input: BoundaryCandidateInput): BoundaryCandidateResult {
         if (input.isLockShowing) {
             return BoundaryCandidateResult(shouldLockCandidate = false, reason = "LOCK_ALREADY_SHOWING")
-        }
-        if (input.isInDesktopReturnGrace) {
-            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "DESKTOP_RETURN_GRACE")
         }
 
         val sessionPkg = input.activeSessionPackage
@@ -383,28 +386,32 @@ object BoundaryCandidateCoordinator {
             return BoundaryCandidateResult(shouldLockCandidate = false, reason = "RESOLVED_PACKAGE_NON_CARRIER")
         }
 
-        // 🛡️ [Finding 2 修复] 无论该 Session 当前允许还是阻止，均立即更新业务拦截状态记录；
-        // 确保在 ALLOW 期间记录 false，在跃迁至 BLOCK 时能够准确识别 ALLOW -> BLOCK 边沿
-        val updatedBusinessBlocked = input.isBusinessBlockedNow
-        val previousBusinessBlocked = input.previousBusinessBlocked
+        val previousState = input.previousBusinessBlockState ?: BusinessBlockState.ALLOWED
 
         if (!input.isBusinessBlockedNow) {
             return BoundaryCandidateResult(
                 shouldLockCandidate = false,
                 candidatePackage = sessionPkg,
-                updatedBusinessBlocked = false,
+                updatedBusinessBlockState = BusinessBlockState.ALLOWED,
                 reason = "SESSION_BUSINESS_ALLOWED"
             )
         }
 
-        val isBusinessAllowToBlock = (previousBusinessBlocked == false && input.isBusinessBlockedNow)
+        // 🛡️ [Finding 1 修复] 边沿跃迁判定：从 ALLOWED 或尚未完成交付的 BLOCK_PENDING 跨入 BLOCK，均构成有效边沿；
+        // 只有已成功交付锁屏的 BLOCK_CONSUMED 状态才属于稳态
+        val isBusinessAllowToBlock = (previousState == BusinessBlockState.ALLOWED || previousState == BusinessBlockState.BLOCK_PENDING)
+
+        // 🛡️ [Finding 2 修复] 用户明确回桌面已有 homeClickPendingPackage 与 Session 关闭反证；
+        // 若第三方受限 App Session 持续活跃未关闭，且当前恰好发生 ALLOW -> BLOCK 业务边沿跃迁，
+        // 绝不能被上一周期由 resolver 误报 Launcher 留下的残余 generic Desktop Grace 拦截！
+        if (input.isInDesktopReturnGrace && !isBusinessAllowToBlock) {
+            return BoundaryCandidateResult(shouldLockCandidate = false, reason = "DESKTOP_RETURN_GRACE")
+        }
+
         val allowByBoundary = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = true,
                 isBusinessAllowToBlock = isBusinessAllowToBlock,
-                leftGap = input.leftGap,
-                endedRest = input.endedRest,
-                forceBoundaryCheck = input.forceBoundaryCheck,
                 hasActiveForegroundSession = true,
                 isKeyguardLocked = input.isKeyguardLocked,
                 isScreenInteractive = input.isScreenInteractive
@@ -415,14 +422,14 @@ object BoundaryCandidateCoordinator {
             BoundaryCandidateResult(
                 shouldLockCandidate = true,
                 candidatePackage = sessionPkg,
-                updatedBusinessBlocked = true,
+                updatedBusinessBlockState = BusinessBlockState.BLOCK_PENDING,
                 reason = "BOUNDARY_LOCK_TRIGGERED"
             )
         } else {
             BoundaryCandidateResult(
                 shouldLockCandidate = false,
                 candidatePackage = sessionPkg,
-                updatedBusinessBlocked = true,
+                updatedBusinessBlockState = BusinessBlockState.BLOCK_CONSUMED,
                 reason = "BOUNDARY_GATE_REJECTED"
             )
         }

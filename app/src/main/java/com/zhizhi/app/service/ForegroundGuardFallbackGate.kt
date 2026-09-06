@@ -11,9 +11,12 @@ package com.zhizhi.app.service
 internal class ForegroundGuardFallbackGate(
     private val timeoutMs: Long = 60_000L
 ) {
+    @Volatile
     private var pendingPackage: String? = null
+    @Volatile
     private var pendingSinceMs: Long? = null
 
+    @Synchronized
     fun shouldForce(
         packageName: String,
         nowMs: Long,
@@ -35,6 +38,7 @@ internal class ForegroundGuardFallbackGate(
         return nowMs - startedAt >= timeoutMs
     }
 
+    @Synchronized
     fun reset() {
         pendingPackage = null
         pendingSinceMs = null
@@ -49,17 +53,18 @@ internal fun isSustainedForegroundFallbackEligible(
     evidenceSource: String,
     selectedPackage: String,
     cachedPackage: String?,
-    lastForegroundEventTs: Long,
-    lastBackgroundEventTs: Long,
+    lastForegroundEventTs: Long = 0L,
+    lastBackgroundEventTs: Long = 0L,
     hasActiveForegroundSession: Boolean = false
 ): Boolean {
-    // 🛡️ [Finding 2 修复] SPEC 进程隔离与会话契约：
+    // 🛡️ SPEC 进程隔离与会话契约：
     // 任何因前台证据陈旧（CACHE/HISTORY/USAGE_STATS）而要求 60s 保底锁定的场景，
-    // 必须且只能由当前进程内真实建立且未关闭的活跃前台 Session (hasActiveForegroundSession == true) 支撑。
-    // 无活跃 Session 时，严禁仅凭 12 小时历史事件或旧缓存触发保底锁定！
+    // 必须且只能由当前进程内真实建立且未关闭的活跃前台 Session (hasActiveForegroundSession == true) 支撑，
+    // 且前台事件时间戳必须晚于后台事件时间戳（无离开反证）。
     if (!hasActiveForegroundSession) return false
     if (evidenceSource != "CACHE" && evidenceSource != "HISTORY" && evidenceSource != "USAGE_STATS") return false
     if (selectedPackage != cachedPackage) return false
+    if (lastBackgroundEventTs > 0L && lastBackgroundEventTs >= lastForegroundEventTs) return false
     return true
 }
 

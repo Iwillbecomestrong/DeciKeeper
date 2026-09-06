@@ -244,12 +244,12 @@ class MonitorService : Service() {
         ForegroundSessionTracker.defaultIsNoisePackage(pkg) || runCatching { CreditManager.isInputMethod(this@MonitorService, pkg) }.getOrDefault(false)
     }.apply {
         onSessionClosed = { pkg ->
-            mLastBusinessBlockedByPackage.remove(pkg)
+            mLastBusinessBlockStateByPackage.remove(pkg)
             foregroundGuardFallbackGate.reset()
         }
     }
     private val mPreviouslyBlockedPackages = mutableSetOf<String>()
-    private val mLastBusinessBlockedByPackage = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val mLastBusinessBlockStateByPackage = java.util.concurrent.ConcurrentHashMap<String, BusinessBlockState>()
     private var mForceRuleBoundaryCheck = false
 
     // 诊断日志压缩器（去重高频 DIAG）
@@ -1547,7 +1547,7 @@ class MonitorService : Service() {
         leftGap: Boolean,
         endedRest: Boolean
     ): Boolean {
-        val activeSession = foregroundSessionTracker.currentSession
+        val activeSession = foregroundSessionTracker.currentSessionSnapshot()
         val sessionPkg = activeSession?.packageName
         val isSessionNoiseOrLauncherOrSelf = if (sessionPkg != null) {
             CreditManager.isLauncher(sessionPkg) ||
@@ -1565,7 +1565,7 @@ class MonitorService : Service() {
             )
         } else false
 
-        val previousBusinessBlocked = if (sessionPkg != null) mLastBusinessBlockedByPackage[sessionPkg] else null
+        val previousBusinessBlockState = if (sessionPkg != null) mLastBusinessBlockStateByPackage[sessionPkg] else null
 
         val decision = BoundaryCandidateCoordinator.evaluate(
             BoundaryCandidateInput(
@@ -1579,23 +1579,22 @@ class MonitorService : Service() {
                 isSessionClosed = activeSession?.closed ?: true,
                 isSessionNoiseOrLauncherOrSelf = isSessionNoiseOrLauncherOrSelf,
                 isBusinessBlockedNow = isBusinessBlockedNow,
-                previousBusinessBlocked = previousBusinessBlocked,
-                leftGap = leftGap,
-                endedRest = endedRest,
-                forceBoundaryCheck = forceCheckThisCycle,
+                previousBusinessBlockState = previousBusinessBlockState,
                 isKeyguardLocked = isKeyguardLocked,
                 isScreenInteractive = isScreenInteractive
             )
         )
 
-        // 持续同步业务状态记录（解决 Finding 2 & Finding 5）：
-        // 1. 若当前业务判定为 ALLOW，同步更新为 false，以便后续能捕获 ALLOW -> BLOCK 跃迁；
-        // 2. 若边界门禁拒绝（稳态 BLOCK），同步更新为 true；
-        // 3. 🛡️ [Finding 5 修复] 若 shouldLockCandidate == true，严禁在此立即将状态置为 true！
-        //    因为后续 LockWindowManager.onBlacklistHit() 可能因瞬时条件（如 1s 动作宽限 mDismissUntil）拒绝而未真正展示锁屏；
-        //    必须且只能在 shouldStrictLock == true 且 showLockScreen 真正成功发起时才消费边沿状态置为 true。
-        if (sessionPkg != null && !decision.shouldLockCandidate && decision.updatedBusinessBlocked != null) {
-            mLastBusinessBlockedByPackage[sessionPkg] = decision.updatedBusinessBlocked
+        // 持续同步业务状态记录（解决 Finding 1 & 2）：
+        // 1. 若当前判定为 ALLOW，同步更新为 ALLOWED；
+        // 2. 候选触发时保持 BLOCK_PENDING，锁屏成功交付后才置为 BLOCK_CONSUMED；
+        // 3. 稳态 BLOCK 门禁拒绝时置为 BLOCK_CONSUMED。
+        if (sessionPkg != null && decision.updatedBusinessBlockState != null) {
+            if (!decision.shouldLockCandidate || decision.updatedBusinessBlockState == BusinessBlockState.ALLOWED) {
+                mLastBusinessBlockStateByPackage[sessionPkg] = decision.updatedBusinessBlockState
+            } else {
+                mLastBusinessBlockStateByPackage[sessionPkg] = BusinessBlockState.BLOCK_PENDING
+            }
         }
 
         if (!decision.shouldLockCandidate || decision.candidatePackage == null) {
@@ -1654,8 +1653,8 @@ class MonitorService : Service() {
             )
             currentLockedPkg = targetPkg
             mPreviouslyBlockedPackages.add(targetPkg)
-            // 🛡️ [Finding 5 修复] 锁屏真正执行成功，消费边沿状态
-            mLastBusinessBlockedByPackage[targetPkg] = true
+            // 🛡️ [Finding 1 修复] 锁屏真正执行成功，消费边沿状态
+            mLastBusinessBlockStateByPackage[targetPkg] = BusinessBlockState.BLOCK_CONSUMED
             return true
         }
         return false
@@ -2122,6 +2121,7 @@ class MonitorService : Service() {
             if (!LockWindowManager.isLockScreenViewAttached()) {
                 Log.d(TAG, "[StatePreservation] Lock view detached for $effectivePackageName, allowing re-lock")
             } else {
+                mLastBusinessBlockStateByPackage[effectivePackageName] = BusinessBlockState.BLOCK_CONSUMED
                 // [Diagnostics-only] emit NoLock for already-attached lock
                 recordFgNoLock(
                     cycle = currentForegroundCycle,
@@ -2272,18 +2272,24 @@ class MonitorService : Service() {
 
         // 🛡️ [Rule Boundary Lock] 规则从 ALLOW -> BLOCK 发生业务边沿跃迁（Finding 1 & 2）
         // 1. 解耦前台守卫结果，纯粹基于业务状态评估 ALLOW -> BLOCK 边沿；
-        // 2. 强制检测标志 forceCheckThisCycle 已在入口无条件消费清零，绝不跨周期泄漏至稳态。
-        val previousBusinessBlocked = mLastBusinessBlockedByPackage[effectivePackageName]
-        val isBusinessAllowToBlock = (previousBusinessBlocked == false && isBusinessBlocked)
-        mLastBusinessBlockedByPackage[effectivePackageName] = isBusinessBlocked
+        // 2. 状态机：ALLOW -> BLOCK_PENDING -> BLOCK_CONSUMED；
+        //    仅当锁屏真正成功执行交付后才置为 BLOCK_CONSUMED，被瞬时宽限拒绝时保持 BLOCK_PENDING 支持次轮立即重试。
+        val previousBlockState = mLastBusinessBlockStateByPackage[effectivePackageName] ?: BusinessBlockState.ALLOWED
+        val isBusinessAllowToBlock = if (!isBusinessBlocked) {
+            mLastBusinessBlockStateByPackage[effectivePackageName] = BusinessBlockState.ALLOWED
+            false
+        } else {
+            val isEdge = (previousBlockState == BusinessBlockState.ALLOWED || previousBlockState == BusinessBlockState.BLOCK_PENDING)
+            if (isEdge) {
+                mLastBusinessBlockStateByPackage[effectivePackageName] = BusinessBlockState.BLOCK_PENDING
+            }
+            isEdge
+        }
 
         val allowByRuleBoundary = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = isBusinessBlocked,
                 isBusinessAllowToBlock = isBusinessAllowToBlock,
-                leftGap = leftGap,
-                endedRest = endedRest,
-                forceBoundaryCheck = forceCheckThisCycle,
                 hasActiveForegroundSession = hasActiveForegroundSession,
                 isKeyguardLocked = isKeyguardLocked,
                 isScreenInteractive = isScreenInteractive
@@ -2527,6 +2533,7 @@ class MonitorService : Service() {
                     requestGeneration = requestGeneration
                 )
                 currentLockedPkg = effectivePackageName
+                mLastBusinessBlockStateByPackage[effectivePackageName] = BusinessBlockState.BLOCK_CONSUMED
             }
         } else {
              val pm = packageManager
@@ -2565,6 +2572,7 @@ class MonitorService : Service() {
                  requestGeneration = requestGeneration2
              )
              currentLockedPkg = effectivePackageName
+             mLastBusinessBlockStateByPackage[effectivePackageName] = BusinessBlockState.BLOCK_CONSUMED
         }
     }
 
