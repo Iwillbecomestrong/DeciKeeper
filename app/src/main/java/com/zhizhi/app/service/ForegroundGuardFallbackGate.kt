@@ -46,8 +46,14 @@ internal fun isSustainedForegroundFallbackEligible(
     selectedPackage: String,
     cachedPackage: String?,
     lastForegroundEventTs: Long,
-    lastBackgroundEventTs: Long
+    lastBackgroundEventTs: Long,
+    hasActiveForegroundSession: Boolean = false
 ): Boolean {
+    if (hasActiveForegroundSession) {
+        if (evidenceSource != "CACHE" && evidenceSource != "HISTORY" && evidenceSource != "USAGE_STATS") return false
+        if (selectedPackage != cachedPackage) return false
+        return true
+    }
     if (evidenceSource != "CACHE" && evidenceSource != "HISTORY") return false
     if (selectedPackage != cachedPackage) return false
     if (lastForegroundEventTs <= 0L) return false

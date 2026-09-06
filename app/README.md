@@ -14,12 +14,12 @@
 # 运行全量 JVM 单元测试（纯 JVM 秒级运行，无需模拟器）
 .\gradlew.bat :app:testDebugUnitTest
 
-# 打包 Debug APK
-.\gradlew.bat :app:assembleDebug
-# 产物位置：app/build/outputs/apk/debug/app-debug.apk
+# 打包 Release APK（默认推荐）
+.\gradlew.bat :app:assembleRelease
+# 产物位置：app/build/outputs/apk/release/app-release.apk
 
 # 真机覆盖安装（严禁 uninstall，否则清空用户本地配置与词库）
-adb install -r -d app/build/outputs/apk/debug/app-debug.apk
+adb install -r -d app/build/outputs/apk/release/app-release.apk
 ```
 
 ---
@@ -57,7 +57,7 @@ com.zhizhi.app
 | **勿扰时段 (DND)** | `manager/TimeRuleManager.kt` | 时段增删改查、跨午夜时段归一化、加严/放松差异化生效 |
 | **名单与配额** | `manager/CreditManager.kt`<br>`manager/SegmentBlacklist.kt` | 黑名单生效判定、休息额度计算、借用惩罚与阶梯冷静期计算 |
 | **时间窗管控** | `manager/AppWindowManager.kt` | 纯娱乐应用在勿扰间隙（Gap）及全天的时间窗限制与延迟生效 |
-| **前台监控** | `service/MonitorService.kt` | 前台应用识别、滑窗投票、双锁触发证据链合成 |
+| **前台监控** | `service/MonitorService.kt`<br>`service/ForegroundSessionTracker.kt` | 前台应用识别、滑窗投票、未关闭前台会话跟踪、规则边界锁定 |
 | **覆盖层状态机** | `manager/LockWindowManager.kt` | 锁屏 Window 管理、代际（Generation）验证、到期重锁兜底 |
 | **防卸载守护** | `protection/AntiUninstallProtection.kt`<br>`service/CoreService.kt` | 无障碍事件捕获、5秒热窗口拦截、设置页退栈 |
 

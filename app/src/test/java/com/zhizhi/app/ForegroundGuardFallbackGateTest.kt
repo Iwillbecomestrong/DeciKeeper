@@ -35,14 +35,29 @@ class ForegroundGuardFallbackGateTest {
     }
 
     @Test
-    fun `usage stats never qualifies for sustained fallback`() {
+    fun `usage stats never qualifies for sustained fallback without active session`() {
         assertFalse(
             isSustainedForegroundFallbackEligible(
                 evidenceSource = "USAGE_STATS",
                 selectedPackage = "com.luna.music",
                 cachedPackage = "com.luna.music",
                 lastForegroundEventTs = 1_000L,
-                lastBackgroundEventTs = 900L
+                lastBackgroundEventTs = 900L,
+                hasActiveForegroundSession = false
+            )
+        )
+    }
+
+    @Test
+    fun `usage stats qualifies for sustained fallback when active foreground session exists`() {
+        assertTrue(
+            isSustainedForegroundFallbackEligible(
+                evidenceSource = "USAGE_STATS",
+                selectedPackage = "com.tencent.mm",
+                cachedPackage = "com.tencent.mm",
+                lastForegroundEventTs = 1_000L,
+                lastBackgroundEventTs = 0L,
+                hasActiveForegroundSession = true
             )
         )
     }

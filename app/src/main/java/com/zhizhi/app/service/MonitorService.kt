@@ -19,6 +19,7 @@
 package com.zhizhi.app.service
 
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -30,6 +31,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -238,6 +240,9 @@ class MonitorService : Service() {
     private val monitorScheduleGate = MonitorLoopScheduleGate()
     private val foregroundDetectionLogCompressor = ForegroundDetectionLogCompressor()
     private val foregroundGuardFallbackGate = ForegroundGuardFallbackGate()
+    internal val foregroundSessionTracker = ForegroundSessionTracker()
+    private val mPreviouslyBlockedPackages = mutableSetOf<String>()
+    private var mForceRuleBoundaryCheck = false
 
     // 诊断日志压缩器（去重高频 DIAG）
     private val visCheckCompressor = DiagnosticCompressor<VisCheckStableKey>("VIS_CHECK_DIAG")
@@ -565,6 +570,13 @@ class MonitorService : Service() {
     fun requestImmediateForegroundCheck(reason: String) {
         val handler = backgroundHandler ?: return
         Log.d(TAG, "[requestImmediateForegroundCheck] reason=$reason")
+        if (reason.contains("DND", ignoreCase = true) ||
+            reason.contains("BOUNDARY", ignoreCase = true) ||
+            reason.contains("RULE", ignoreCase = true) ||
+            reason.contains("START", ignoreCase = true)
+        ) {
+            mForceRuleBoundaryCheck = true
+        }
         handler.post { checkForegroundApp() }
     }
 
@@ -970,6 +982,7 @@ class MonitorService : Service() {
             when (intent.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     Log.d(TAG, "Screen OFF -> Pausing Monitor")
+                    foregroundSessionTracker.onScreenOff(System.currentTimeMillis())
                     cancelMonitorLoop()
                 }
                 Intent.ACTION_SCREEN_ON -> {
@@ -1964,13 +1977,15 @@ class MonitorService : Service() {
             effectivePackageName == currentLockedPkg &&
             !LockWindowManager.isLockScreenViewAttached()
         val guardResult = shouldEnforceLockForCurrentTop(effectivePackageName, now)
+        val hasActiveForegroundSession = foregroundSessionTracker.isSessionActiveFor(effectivePackageName)
         val sustainedForegroundFallbackEligible =
             isBlacklisted && isDndLocked && isSustainedForegroundFallbackEligible(
                 evidenceSource = mLastTopEvidence.name,
                 selectedPackage = effectivePackageName,
                 cachedPackage = mLastTopPackage,
                 lastForegroundEventTs = mLastForegroundEventTs,
-                lastBackgroundEventTs = mLastBackgroundEventTs
+                lastBackgroundEventTs = mLastBackgroundEventTs,
+                hasActiveForegroundSession = hasActiveForegroundSession
             )
         val forceGuardFallback = foregroundGuardFallbackGate.shouldForce(
             packageName = effectivePackageName,
@@ -1981,11 +1996,33 @@ class MonitorService : Service() {
         if (forceGuardFallback) {
             Log.w(
                 TAG,
-                "[ForegroundGuard] Force lock after 60s sustained CACHE/HISTORY uncertainty: pkg=$effectivePackageName"
+                "[ForegroundGuard] Force lock after 60s sustained CACHE/HISTORY/SESSION uncertainty: pkg=$effectivePackageName"
             )
         }
+
+        // 🛡️ [Rule Boundary Lock] 规则从 ALLOW -> BLOCK 发生边界跃迁（如 23:00 勿扰开始、FreeTime 结束、时间窗关闭等）
+        // 若常规 Guard 无法确认（因旧前台事件超过 8 秒），但存在未关闭的前台 Session，且屏幕未锁屏，则允许边界即时锁定。
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val isKeyguardLocked = km?.isKeyguardLocked == true
+        val isScreenInteractive = pm?.isInteractive ?: true
+        val isBlockedNow = isBlacklisted && isDndLocked && !isPrivilege
+        val isBoundaryTransition = isBlockedNow && (!mPreviouslyBlockedPackages.contains(effectivePackageName) || mLastWasGap || mLastWasRest || mForceRuleBoundaryCheck)
+        val allowByRuleBoundary = isBoundaryTransition &&
+            hasActiveForegroundSession &&
+            !isKeyguardLocked &&
+            isScreenInteractive
+
+        if (allowByRuleBoundary) {
+            Log.w(
+                TAG,
+                "[ForegroundGuard] Allow lock by Rule Boundary (ALLOW->BLOCK) with active session: " +
+                "pkg=$effectivePackageName, sessionOpenedAt=${foregroundSessionTracker.currentSession?.openedAtMs}"
+            )
+        }
+
         val passedForegroundGuard = allowByFallback || forceRelockAfterTemporaryAccess ||
-            forcePostTempAccessRelock || isDetachedRelock || isMiniWindowOverridden || guardResult || forceGuardFallback
+            forcePostTempAccessRelock || isDetachedRelock || isMiniWindowOverridden || guardResult || forceGuardFallback || allowByRuleBoundary
         // [Diagnostics-only] record guard result on cycle
         currentForegroundCycle?.recordGuardResult(passed = passedForegroundGuard, reason = mLastTopEvidence.name)
 
@@ -2079,7 +2116,8 @@ class MonitorService : Service() {
             isAppWindowBlocked = isAppWindowBlocked,
             segmentDecoupled = segmentDecoupled,
             isManaged = { AppWindowManager.isManaged(this, effectivePackageName) },
-            effectivePackageName = effectivePackageName
+            effectivePackageName = effectivePackageName,
+            isTemporaryAccess = LockWindowManager.isTemporaryAccessActive()
         )
 
         // 诊断日志压缩
@@ -2101,6 +2139,7 @@ class MonitorService : Service() {
         }
 
         if (!shouldBlock) {
+            mPreviouslyBlockedPackages.remove(effectivePackageName)
             // 🚀 [Billing Logic - MOVED]
             // Only deduct minutes if the app is BLACKLISTED and NOT BLOCKED (e.g. consuming quota/free time)
             // If the user is staring at a lock screen, we should NOT charge them.
@@ -2170,6 +2209,8 @@ class MonitorService : Service() {
 
         // 🛡️ Reset counter as we found a target app
         safeAppCounter = 0
+        mPreviouslyBlockedPackages.add(effectivePackageName)
+        mForceRuleBoundaryCheck = false
 
         // 5. Blocking (Status text will be set by LockWindowManager.updateStatus)
         // We are blocking, so we DO NOT bill the user.
@@ -2930,6 +2971,7 @@ class MonitorService : Service() {
                 mLastProcessedPresenceEventAtMs[eventPkg] = event.timeStamp
                 if (eventPkg.isNotBlank()) {
                     mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
+                    foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp)
                 }
 
                 // [Diagnostics-only] 诊断小窗生命周期事件
