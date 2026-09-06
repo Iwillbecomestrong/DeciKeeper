@@ -3,8 +3,10 @@ package com.zhizhi.app
 import com.zhizhi.app.data.calculateTemporaryAccessQuotaPlan
 import com.zhizhi.app.ui.TemporaryAccessChargeSnapshot
 import com.zhizhi.app.ui.resolveTemporaryAccessChargeSnapshot
+import com.zhizhi.app.ui.shouldCommitTemporaryAccessCount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TemporaryAccessChargeSnapshotTest {
@@ -120,7 +122,7 @@ class TemporaryAccessChargeSnapshotTest {
     }
 
     /**
-     * Test F: 预检 Preview 与实际结算 Settlement 具有 100% 确定性同源性
+     * Test F1: 预检 Preview 与实际结算 Settlement 纯函数输入一致时 100% deterministic
      */
     @Test
     fun previewAndSettlementUseIdenticalChargeSnapshot() {
@@ -148,5 +150,118 @@ class TemporaryAccessChargeSnapshotTest {
         assertEquals("Preview 与 Settlement 冷却重叠必须一致", previewSnapshot.coolingSec, settlementSnapshot.coolingSec)
         assertEquals("Preview 与 Settlement 时间费用必须一致", previewSnapshot.weightedTimeCostSec, settlementSnapshot.weightedTimeCostSec)
         assertEquals("Preview 与 Settlement 次数费用必须一致", previewSnapshot.weightedCountHalfUnits, settlementSnapshot.weightedCountHalfUnits)
+    }
+
+    /**
+     * Test F2: Settlement gate 消费 snapshot 的次数结果
+     */
+    @Test
+    fun settlementGateConsumesSnapshotCountDirectly() {
+        val snapshot = resolveTemporaryAccessChargeSnapshot(
+            requestedSec = 60,
+            freeSec = 0,
+            coolingAnchorMs = 100_000L,
+            existingCooldownEndMs = 0L
+        )
+        assertTrue(
+            "快照有次数且未预扣、处于DND时，settlement gate 必须执行次数扣除",
+            shouldCommitTemporaryAccessCount(
+                quotaAlreadyDeducted = false,
+                isInDndSegment = true,
+                weightedCountHalfUnits = snapshot.weightedCountHalfUnits
+            )
+        )
+    }
+
+    /**
+     * Test G: Rest 跨 DND 必须产生 count
+     */
+    @Test
+    fun restEndingDuringTemporaryAccess_chargesDndCountPortion() {
+        val now = 100_000L
+        val freeTimeEnd = now + 60_000L
+
+        val snapshot = resolveTemporaryAccessChargeSnapshot(
+            requestedSec = 180,
+            freeSec = 60,
+            coolingAnchorMs = freeTimeEnd,
+            existingCooldownEndMs = 0L
+        )
+
+        assertEquals(60, snapshot.freeSec)
+        assertEquals(120, snapshot.dndSec)
+        assertEquals(0, snapshot.coolingSec)
+        assertEquals(120, snapshot.weightedTimeCostSec)
+        assertEquals(1, snapshot.weightedCountHalfUnits)
+    }
+
+    /**
+     * Test H: 从 Rest 开始也不得阻止 count settlement
+     */
+    @Test
+    fun startedInRest_butSnapshotHasCount_commitsCount() {
+        assertTrue(
+            "即使请求开始时在休息，只要 snapshot.weightedCountHalfUnits > 0 且在DND，必须扣除次数",
+            shouldCommitTemporaryAccessCount(
+                quotaAlreadyDeducted = false,
+                isInDndSegment = true,
+                weightedCountHalfUnits = 1
+            )
+        )
+    }
+
+    /**
+     * Test I: 全程 Rest 仍保持免费
+     */
+    @Test
+    fun allWithinRest_hasZeroCountAndDoesNotCommit() {
+        val snapshot = resolveTemporaryAccessChargeSnapshot(
+            requestedSec = 60,
+            freeSec = 60,
+            coolingAnchorMs = 100_000L,
+            existingCooldownEndMs = 0L
+        )
+
+        assertEquals(0, snapshot.dndSec)
+        assertEquals(0, snapshot.weightedCountHalfUnits)
+
+        assertFalse(
+            "全程休息期间 snapshot count 为 0，绝不扣次数",
+            shouldCommitTemporaryAccessCount(
+                quotaAlreadyDeducted = false,
+                isInDndSegment = true,
+                weightedCountHalfUnits = snapshot.weightedCountHalfUnits
+            )
+        )
+    }
+
+    /**
+     * Test J: 已由 quota transaction 预扣时绝不重复扣
+     */
+    @Test
+    fun prechargedPlan_neverDoubleCommitsCount() {
+        assertFalse(
+            "quotaAlreadyDeducted 为 true 时绝不得二次落账",
+            shouldCommitTemporaryAccessCount(
+                quotaAlreadyDeducted = true,
+                isInDndSegment = true,
+                weightedCountHalfUnits = 2
+            )
+        )
+    }
+
+    /**
+     * Test K: Gap 不扣
+     */
+    @Test
+    fun gapNeverCommitsTemporaryCount() {
+        assertFalse(
+            "Gap 非 DND 期间不扣次数",
+            shouldCommitTemporaryAccessCount(
+                quotaAlreadyDeducted = false,
+                isInDndSegment = false,
+                weightedCountHalfUnits = 0
+            )
+        )
     }
 }

@@ -4459,9 +4459,14 @@ object LockWindowManager {
             Log.d(TAG, "startTemporaryAccess[DEDUCT] SKIP: isInDndSegment=false (gap period, no deduction)")
         }
 
-        // 🆕 消耗可用次数（非休息中、非空档期免费段）
-        // 🛡️ [Finding 1 修复] 直接使用 chargeSnapshot.weightedCountHalfUnits，与预检保持完全同一不可变快照
-        if (!quotaAlreadyDeducted && !isInFreeTime && !isInGap) {
+        // 🆕 消耗可用次数（以不可变 chargeSnapshot 结果为唯一事实）
+        if (
+            shouldCommitTemporaryAccessCount(
+                quotaAlreadyDeducted = quotaAlreadyDeducted,
+                isInDndSegment = isInDndSegment,
+                weightedCountHalfUnits = chargeSnapshot.weightedCountHalfUnits
+            )
+        ) {
             val countCostHalfUnits = chargeSnapshot.weightedCountHalfUnits
             val countRemaining = CreditManager.getRemainingUsableCount(context) // halfUnits
             if (countRemaining < countCostHalfUnits) {
@@ -6682,6 +6687,16 @@ internal fun resolveTemporaryAccessChargeSnapshot(
         weightedTimeCostSec = weightedTimeCostSec,
         weightedCountHalfUnits = weightedCountHalfUnits
     )
+}
+
+internal fun shouldCommitTemporaryAccessCount(
+    quotaAlreadyDeducted: Boolean,
+    isInDndSegment: Boolean,
+    weightedCountHalfUnits: Int
+): Boolean {
+    return !quotaAlreadyDeducted &&
+        isInDndSegment &&
+        weightedCountHalfUnits > 0
 }
 
 internal data class TemporaryAccessQuotaPresentation(
