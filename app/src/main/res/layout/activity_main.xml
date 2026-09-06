@@ -7,6 +7,7 @@
         android:layout_alignParentBottom="true"
         android:background="?attr/zzSurface"
         android:elevation="0dp"
+        app:itemBackground="@drawable/bg_bottom_nav_item"
         app:itemIconSize="22dp"
         app:itemIconTint="@color/nav_item_color"
         app:itemRippleColor="@android:color/transparent"
