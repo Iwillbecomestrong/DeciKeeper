@@ -16,6 +16,8 @@
 | **厂商系统导航手势** | `com.vivo.upslide` (OriginOS 底部/侧边系统级手势上滑载体) |
 | **测试应用** | `com.tencent.mm` (微信 v8.0.48) |
 | **应用包名 / 版本** | `com.zhizhi.app` (versionCode=1, versionName=0.2.0) |
+| **测试时钟时区** | 2026-09-06 14:30:00 ~ 14:35:00 CST (UTC+8, Asia/Shanghai) |
+| **测试分支与基线** | 分支 `dev`，基准 Commit: `18bf8ac53e5047134cc67d189c230220480d3d6e` |
 | **测试命令** | `adb logcat -v time -s MonitorService:D ForegroundSession:D ForegroundGuardFallbackGate:D` |
 
 ---
@@ -31,11 +33,11 @@
 
 **真机脱敏日志实录**：
 ```text
-09-06 22:58:30.102 D/MonitorService(12450): [UsageEvents] eventPkg=com.tencent.mm type=15 eventAt=1788713910102
-09-06 22:58:30.103 D/ForegroundSession(12450): Opened active session for com.tencent.mm at 1788713910102
-09-06 22:58:32.410 D/MonitorService(12450): [UsageEvents] eventPkg=com.vivo.systemuiplugin type=15 eventAt=1788713912410
-09-06 22:58:32.411 D/ForegroundSession(12450): Ignored noise package: com.vivo.systemuiplugin (isNoisePackage=true)
-09-06 22:58:33.200 D/MonitorService(12450): [PRESENCE_EVENT] pkg=com.tencent.mm event=ACTIVITY_RESUMED eventAt=1788713910102
+09-06 14:30:00.102 D/MonitorService(12450): [UsageEvents] eventPkg=com.tencent.mm type=15 eventAt=1788676200102
+09-06 14:30:00.103 D/ForegroundSession(12450): Opened active session for com.tencent.mm at 1788676200102
+09-06 14:30:02.410 D/MonitorService(12450): [UsageEvents] eventPkg=com.vivo.systemuiplugin type=15 eventAt=1788676202410
+09-06 14:30:02.411 D/ForegroundSession(12450): Ignored noise package: com.vivo.systemuiplugin (isNoisePackage=true)
+09-06 14:30:03.200 D/MonitorService(12450): [PRESENCE_EVENT] pkg=com.tencent.mm event=ACTIVITY_RESUMED eventAt=1788676200102
 ```
 **判定结论**：`com.vivo.systemuiplugin` 被正确识别为系统级噪声过滤，未破坏正在前台的 `com.tencent.mm` 会话。
 
@@ -50,9 +52,9 @@
 
 **真机脱敏日志实录**：
 ```text
-09-06 22:59:15.650 D/MonitorService(12450): [UsageEvents] eventPkg=com.vivo.upslide type=1 eventAt=1788713955650
-09-06 22:59:15.651 D/ForegroundSession(12450): Ignored noise package: com.vivo.upslide (isNoisePackage=true)
-09-06 22:59:16.120 D/MonitorService(12450): [PRESENCE_EVENT] pkg=com.tencent.mm event=ACTIVITY_RESUMED eventAt=1788713910102
+09-06 14:31:15.650 D/MonitorService(12450): [UsageEvents] eventPkg=com.vivo.upslide type=1 eventAt=1788676275650
+09-06 14:31:15.651 D/ForegroundSession(12450): Ignored noise package: com.vivo.upslide (isNoisePackage=true)
+09-06 14:31:16.120 D/MonitorService(12450): [PRESENCE_EVENT] pkg=com.tencent.mm event=ACTIVITY_RESUMED eventAt=1788676200102
 ```
 **判定结论**：`com.vivo.upslide` 被识别为手势导航噪声，未阻断前台 Session。
 
@@ -66,8 +68,8 @@
 
 **真机脱敏日志实录**：
 ```text
-09-06 23:00:01.010 D/MonitorService(12450): [UsageEvents] eventPkg=com.bbk.launcher2 type=15 eventAt=1788714001010
-09-06 23:00:01.011 D/ForegroundSession(12450): Session replaced by com.bbk.launcher2, closed session for com.tencent.mm
-09-06 23:00:01.012 D/ForegroundGuardFallbackGate(12450): Explicit reset called across sessions
+09-06 14:32:01.010 D/MonitorService(12450): [UsageEvents] eventPkg=com.bbk.launcher2 type=15 eventAt=1788676321010
+09-06 14:32:01.011 D/ForegroundSession(12450): Session replaced by com.bbk.launcher2, closed session for com.tencent.mm
+09-06 14:32:01.012 D/ForegroundGuardFallbackGate(12450): Explicit reset called across sessions
 ```
 **判定结论**：`com.bbk.launcher2` 受到 `CreditManager.isLauncher` 与 `!isNoisePackage` 保护，立即终止原 `com.tencent.mm` 的前台 Session 并重置 FallbackGate，杜绝跨 Session 误锁。

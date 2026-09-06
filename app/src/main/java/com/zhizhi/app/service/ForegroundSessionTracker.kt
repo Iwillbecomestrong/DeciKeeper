@@ -305,14 +305,9 @@ object RuleBoundaryLockGate {
         if (input.isKeyguardLocked) return false
         if (!input.isScreenInteractive) return false
 
-        // 🛡️ [Finding 4 修复] 坚决移除旧的 !input.wasPreviouslyBlocked 遗留分支；
-        // isBusinessAllowToBlock 必须是业务 ALLOW -> BLOCK 边沿跃迁的唯一来源。
-        // 首次观测 (UNKNOWN) 绝不会误判为边沿跃迁。
-        val isEdgeTransition = input.isBusinessAllowToBlock ||
-            input.leftGap ||
-            input.endedRest ||
-            input.forceBoundaryCheck
-        return isEdgeTransition
+        // 🛡️ [Finding 4 修复] 严格要求 isBusinessAllowToBlock == true（即 previous == false && current == true）
+        // 彻底杜绝 leftGap / endedRest / forceBoundaryCheck 将稳态 BLOCK -> BLOCK 或 UNKNOWN 误放行为边沿
+        return input.isBusinessAllowToBlock
     }
 }
 

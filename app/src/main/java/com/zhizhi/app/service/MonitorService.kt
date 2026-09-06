@@ -245,6 +245,7 @@ class MonitorService : Service() {
     }.apply {
         onSessionClosed = { pkg ->
             mLastBusinessBlockedByPackage.remove(pkg)
+            foregroundGuardFallbackGate.reset()
         }
     }
     private val mPreviouslyBlockedPackages = mutableSetOf<String>()
@@ -1587,8 +1588,13 @@ class MonitorService : Service() {
             )
         )
 
-        // 持续同步业务状态记录（解决 Finding 2：ALLOW 状态记录 false，边沿跃迁能够准确捕获）
-        if (sessionPkg != null && decision.updatedBusinessBlocked != null) {
+        // 持续同步业务状态记录（解决 Finding 2 & Finding 5）：
+        // 1. 若当前业务判定为 ALLOW，同步更新为 false，以便后续能捕获 ALLOW -> BLOCK 跃迁；
+        // 2. 若边界门禁拒绝（稳态 BLOCK），同步更新为 true；
+        // 3. 🛡️ [Finding 5 修复] 若 shouldLockCandidate == true，严禁在此立即将状态置为 true！
+        //    因为后续 LockWindowManager.onBlacklistHit() 可能因瞬时条件（如 1s 动作宽限 mDismissUntil）拒绝而未真正展示锁屏；
+        //    必须且只能在 shouldStrictLock == true 且 showLockScreen 真正成功发起时才消费边沿状态置为 true。
+        if (sessionPkg != null && !decision.shouldLockCandidate && decision.updatedBusinessBlocked != null) {
             mLastBusinessBlockedByPackage[sessionPkg] = decision.updatedBusinessBlocked
         }
 
@@ -1648,6 +1654,8 @@ class MonitorService : Service() {
             )
             currentLockedPkg = targetPkg
             mPreviouslyBlockedPackages.add(targetPkg)
+            // 🛡️ [Finding 5 修复] 锁屏真正执行成功，消费边沿状态
+            mLastBusinessBlockedByPackage[targetPkg] = true
             return true
         }
         return false
@@ -2015,6 +2023,41 @@ class MonitorService : Service() {
         // （覆盖系统 Home 键/手势返回桌面；锁屏"回到桌面"按钮已在 LockWindowManager 内启动；
         // 已在宽限期内则不续期，防止桌面/误报抖动无限延长宽限）
         val isEffLauncher = CreditManager.isLauncher(effectivePackageName)
+        val isCarrierOrRecentAppsOrLauncher = isCarrierPackage ||
+            isEffLauncher ||
+            effectivePackageName.contains("launcher") ||
+            effectivePackageName.contains("recents")
+
+        if (!CreditManager.isLauncher(effectivePackageName)) {
+            LockWindowManager.failPendingReturnDesktopExitForForeground(effectivePackageName, mLastTopEvidence.name)
+        }
+
+        // 🛡️ [Finding 3 修复] 边界候选主动抢占必须发生在“更新桌面状态与开启桌面 Grace”之前：
+        // 当常规 resolver 得到 Launcher/Carrier/Recents（如 Vivo 等 ROM 在用户静止停留在微信时误报桌面 launcher 或 upslide），
+        // 且正处于规则边沿时，必须优先拉取 Session 进行抢占检查，绝不能被本轮误报建立的 3s 桌面 Grace 拦截！
+        if (isCarrierOrRecentAppsOrLauncher) {
+            if (checkRuleBoundaryCandidateLock(
+                    now = now,
+                    resolvedPackageName = effectivePackageName,
+                    isCarrierPackage = isCarrierPackage,
+                    isRecentAppsOrLauncher = isCarrierOrRecentAppsOrLauncher,
+                    currentSeg = currentSeg,
+                    isPrivilege = isPrivilege,
+                    isDndLocked = isDndLocked,
+                    isKeyguardLocked = isKeyguardLocked,
+                    isScreenInteractive = isScreenInteractive,
+                    forceCheckThisCycle = forceCheckThisCycle,
+                    leftGap = leftGap,
+                    endedRest = endedRest
+                )
+            ) {
+                return
+            }
+        }
+
+        // 🚀 [回到桌面宽限] 非桌面 → 桌面 过渡时启动 3s 小窗锁宽限
+        // （覆盖系统 Home 键/手势返回桌面；锁屏"回到桌面"按钮已在 LockWindowManager 内启动；
+        // 已在宽限期内则不续期，防止桌面/误报抖动无限延长宽限）
         if (isEffLauncher && !lastEffectiveWasLauncher && !LockWindowManager.isInDesktopReturnGrace(now)) {
             LockWindowManager.setDesktopReturnGrace(now)
             mPresenceTracker.onDesktopReturn(now)
@@ -2094,38 +2137,7 @@ class MonitorService : Service() {
         }
         
         // 🚀 [Rule] Explicitly ALLOW Recent Apps / Launcher / SystemUI / Carriers
-        // 包含 Vivo upslide / bbk launcher / 系统桌面及最近任务
-        val isCarrierOrRecentAppsOrLauncher = isCarrierPackage ||
-            CreditManager.isLauncher(effectivePackageName) ||
-            effectivePackageName.contains("launcher") ||
-            effectivePackageName.contains("recents")
-
-        if (!CreditManager.isLauncher(effectivePackageName)) {
-            LockWindowManager.failPendingReturnDesktopExitForForeground(effectivePackageName, mLastTopEvidence.name)
-        }
-
         if (isCarrierOrRecentAppsOrLauncher) {
-             // 🛡️ [Finding 1 修复] 边界候选主动拉取：
-             // 当常规 resolver 得到 Launcher/Carrier/Recents（如 Vivo 等 ROM 在用户静止停留在微信时误报桌面 launcher 或 upslide），
-             // 且正处于规则边沿时，主动检查 foregroundSessionTracker.currentSession
-             if (checkRuleBoundaryCandidateLock(
-                     now = now,
-                     resolvedPackageName = effectivePackageName,
-                     isCarrierPackage = isCarrierPackage,
-                     isRecentAppsOrLauncher = isCarrierOrRecentAppsOrLauncher,
-                     currentSeg = currentSeg,
-                     isPrivilege = isPrivilege,
-                     isDndLocked = isDndLocked,
-                     isKeyguardLocked = isKeyguardLocked,
-                     isScreenInteractive = isScreenInteractive,
-                     forceCheckThisCycle = forceCheckThisCycle,
-                     leftGap = leftGap,
-                     endedRest = endedRest
-                 )
-             ) {
-                 return
-             }
-
              if (CreditManager.isLauncher(effectivePackageName)) {
                  LockWindowManager.confirmPendingReturnDesktopExit(
                      evidence = "FOREGROUND_CONFIRMED source=${mLastTopEvidence.name} package=$effectivePackageName"

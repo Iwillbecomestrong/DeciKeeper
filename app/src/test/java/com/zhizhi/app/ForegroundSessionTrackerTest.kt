@@ -3,6 +3,7 @@ package com.zhizhi.app
 import com.zhizhi.app.service.BoundaryCandidateCoordinator
 import com.zhizhi.app.service.BoundaryCandidateInput
 import com.zhizhi.app.service.BoundaryCandidateResult
+import com.zhizhi.app.service.ForegroundGuardFallbackGate
 import com.zhizhi.app.service.ForegroundSessionTracker
 import com.zhizhi.app.service.RuleBoundaryLockDecisionInput
 import com.zhizhi.app.service.RuleBoundaryLockGate
@@ -211,21 +212,30 @@ class ForegroundSessionTrackerTest {
     }
 
     @Test
-    fun `mode transition after gap or rest retriggers boundary lock`() {
-        val inputFromGap = RuleBoundaryLockDecisionInput(
+    fun `mode transition after gap or rest requires isBusinessAllowToBlock`() {
+        // 1. 若业务未发生边沿跃迁（例如此前在 Gap 期间已被 AppWindow 阻断，即 isBusinessAllowToBlock == false）
+        // 则 leftGap 或 endedRest 绝不能凭时间结构变化放行锁定
+        val inputBlockedDuringGap = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
             isBusinessAllowToBlock = false,
-            leftGap = true, // 刚离开 Gap 模式进入时段，边沿跃迁
+            leftGap = true,
             endedRest = false,
             forceBoundaryCheck = false,
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
             isScreenInteractive = true
         )
-        assertTrue("Gap 结束跨入 Block 边界应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputFromGap))
+        assertFalse("此前已受阻（isBusinessAllowToBlock=false）时，leftGap 不得误放行锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputBlockedDuringGap))
 
-        val inputFromRest = inputFromGap.copy(leftGap = false, endedRest = true)
-        assertTrue("Rest 休息结束跨入 Block 边界应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputFromRest))
+        val inputBlockedDuringRest = inputBlockedDuringGap.copy(leftGap = false, endedRest = true)
+        assertFalse("此前已受阻（isBusinessAllowToBlock=false）时，endedRest 不得误放行锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputBlockedDuringRest))
+
+        // 2. 若 Gap 结束时业务状态确实从 ALLOW 跃迁至 BLOCK (isBusinessAllowToBlock == true)，则允许锁定
+        val inputTransitionFromGap = inputBlockedDuringGap.copy(isBusinessAllowToBlock = true)
+        assertTrue("Gap 结束且业务状态从 ALLOW->BLOCK 跃迁时必须允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputTransitionFromGap))
+
+        val inputTransitionFromRest = inputBlockedDuringRest.copy(isBusinessAllowToBlock = true)
+        assertTrue("Rest 结束且业务状态从 ALLOW->BLOCK 跃迁时必须允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputTransitionFromRest))
     }
 
     @Test
@@ -279,18 +289,23 @@ class ForegroundSessionTrackerTest {
     }
 
     @Test
-    fun `force boundary check flag forces boundary lock`() {
-        val input = RuleBoundaryLockDecisionInput(
+    fun `force boundary check flag does not override lack of business edge transition`() {
+        // 当业务状态尚未跃迁（isBusinessAllowToBlock == false，例如持续稳态 BLOCK 或 UNKNOWN 首次观测）
+        val inputWithoutEdge = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
             isBusinessAllowToBlock = false,
             leftGap = false,
             endedRest = false,
-            forceBoundaryCheck = true, // 显式触发了强制边界检查
+            forceBoundaryCheck = true, // 外部触发了单次强制边界检测
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
             isScreenInteractive = true
         )
-        assertTrue("设置了强制边界检查标记时应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(input))
+        assertFalse("无业务 ALLOW->BLOCK 跃迁时，forceBoundaryCheck 绝不能凭空放行锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputWithoutEdge))
+
+        // 当存在业务边沿跃迁时，允许触发锁定
+        val inputWithEdge = inputWithoutEdge.copy(isBusinessAllowToBlock = true)
+        assertTrue("存在业务边沿跃迁时允许触发边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(inputWithEdge))
     }
 
     @Test
@@ -778,6 +793,167 @@ class ForegroundSessionTrackerTest {
         )
         val result = BoundaryCandidateCoordinator.evaluate(input)
         assertFalse("用户显式点击回到桌面产生的 homeClickPending 必须抑制候选锁定", result.shouldLockCandidate)
+    }
+
+    // ── Finding 2: FallbackGate 跨 Session 计时继承隔离测试 ──
+
+    @Test
+    fun `fallback gate resets on session closed preventing cross-session time accumulation`() {
+        val fallbackGate = ForegroundGuardFallbackGate(timeoutMs = 60_000L)
+        val trackerWithReset = ForegroundSessionTracker().apply {
+            onSessionClosed = { _ ->
+                fallbackGate.reset()
+            }
+        }
+        val pkg = "com.tencent.mm"
+
+        // 1. Session 1: 用户进入微信，在 t = 0 建立 Session
+        val t0 = 1_000_000L
+        trackerWithReset.onUsageEvent(pkg, ForegroundSessionTracker.MOVE_TO_FG, t0)
+        assertTrue(trackerWithReset.isSessionActiveFor(pkg))
+
+        // t = 0 首次检测：初始化 pending
+        assertFalse(fallbackGate.shouldForce(pkg, t0, eligible = true, guardPassed = false))
+
+        // t = 50s：持续在微信，尚未达到 60s 超时
+        assertFalse(fallbackGate.shouldForce(pkg, t0 + 50_000L, eligible = true, guardPassed = false))
+
+        // 2. t = 52s：用户退后台（MOVE_TO_BG），Session 关闭，必须触发 fallbackGate.reset()
+        trackerWithReset.onUsageEvent(pkg, ForegroundSessionTracker.MOVE_TO_BG, t0 + 52_000L)
+        assertFalse(trackerWithReset.isSessionActiveFor(pkg))
+
+        // 3. t = 54s：用户重新进入微信，开启 Session 2
+        val tNewSession = t0 + 54_000L
+        trackerWithReset.onUsageEvent(pkg, ForegroundSessionTracker.MOVE_TO_FG, tNewSession)
+        assertTrue(trackerWithReset.isSessionActiveFor(pkg))
+
+        // 首次检测新 Session
+        assertFalse(fallbackGate.shouldForce(pkg, tNewSession, eligible = true, guardPassed = false))
+
+        // 4. t = 64s (新 Session 仅持续了 10s)：
+        // 关键断言：若未发生跨 Session 泄漏，10s 绝对不能触发 60s 保底锁！
+        assertFalse(
+            "新 Session 仅运行 10s，绝不能继承旧 Session 积累的 50s 计时导致误锁",
+            fallbackGate.shouldForce(pkg, tNewSession + 10_000L, eligible = true, guardPassed = false)
+        )
+
+        // 5. t = 114s (新 Session 真正持续满 60s)：达到超时，允许触发
+        assertTrue(
+            "新 Session 自身独立持续满 60s 时应正常触发保底锁",
+            fallbackGate.shouldForce(pkg, tNewSession + 60_000L, eligible = true, guardPassed = false)
+        )
+    }
+
+    // ── Finding 3: 误报 Launcher 时在建立 Grace 前抢占候选锁定测试 ──
+
+    @Test
+    fun `boundary coordinator - resolver reporting launcher preempts candidate lock before grace is established`() {
+        val sessionPkg = "com.tencent.mm"
+
+        // 当 resolver 误报 Launcher (com.bbk.launcher2)，在尚未开启桌面 Grace 前评估候选
+        val preGraceInput = BoundaryCandidateInput(
+            resolvedPackageName = "com.bbk.launcher2",
+            isCarrierPackage = false,
+            isRecentAppsOrLauncher = true, // 识别为桌面
+            isLockShowing = false,
+            isInDesktopReturnGrace = false, // 尚未建立桌面 Grace
+            homeClickPendingPackage = null,
+            activeSessionPackage = sessionPkg,
+            isSessionClosed = false,
+            isSessionNoiseOrLauncherOrSelf = false,
+            isBusinessBlockedNow = true, // 23:00 规则边沿跃迁
+            previousBusinessBlocked = false, // 先前为 ALLOW
+            leftGap = true,
+            endedRest = false,
+            forceBoundaryCheck = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        val result = BoundaryCandidateCoordinator.evaluate(preGraceInput)
+        assertTrue("在更新桌面 Grace 之前执行候选抢占必须成功触发锁定", result.shouldLockCandidate)
+        assertEquals(sessionPkg, result.candidatePackage)
+        assertEquals("BOUNDARY_LOCK_TRIGGERED", result.reason)
+    }
+
+    // ── Finding 4 & 5: 稳态 BLOCK 严格门禁与瞬时拒绝边沿保留测试 ──
+
+    @Test
+    fun `rule boundary gate rejects steady state block even with leftGap endedRest or forceBoundaryCheck`() {
+        val steadyBlockWithAllTokens = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            isBusinessAllowToBlock = false, // 稳态 BLOCK，无 ALLOW->BLOCK 跃迁
+            leftGap = true,
+            endedRest = true,
+            forceBoundaryCheck = true,
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertFalse(
+            "稳态 BLOCK（isBusinessAllowToBlock=false）即使伴随 leftGap/endedRest/forceBoundaryCheck 亦必须坚决拒绝锁定",
+            RuleBoundaryLockGate.shouldAllowBoundaryLock(steadyBlockWithAllTokens)
+        )
+    }
+
+    @Test
+    fun `transient lock screen suppression preserves edge transition for subsequent retry`() {
+        val sessionPkg = "com.tencent.mm"
+        val businessBlockedMap = mutableMapOf<String, Boolean>()
+
+        // 初始时刻在 ALLOW 记录为 false
+        businessBlockedMap[sessionPkg] = false
+
+        // 1. 23:00 边沿跃迁，Coordinator 命中 shouldLockCandidate = true
+        val edgeInput = BoundaryCandidateInput(
+            resolvedPackageName = null,
+            isCarrierPackage = false,
+            isRecentAppsOrLauncher = false,
+            isLockShowing = false,
+            isInDesktopReturnGrace = false,
+            homeClickPendingPackage = null,
+            activeSessionPackage = sessionPkg,
+            isSessionClosed = false,
+            isSessionNoiseOrLauncherOrSelf = false,
+            isBusinessBlockedNow = true,
+            previousBusinessBlocked = businessBlockedMap[sessionPkg], // false
+            leftGap = true,
+            endedRest = false,
+            forceBoundaryCheck = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        val edgeDecision = BoundaryCandidateCoordinator.evaluate(edgeInput)
+        assertTrue(edgeDecision.shouldLockCandidate)
+
+        // 模拟瞬时抑制（如动作宽限 mDismissUntil 导致 shouldStrictLock = false 未真正展示锁屏）
+        val shouldStrictLock = false
+        if (shouldStrictLock) {
+            businessBlockedMap[sessionPkg] = true
+        }
+        // 关键断言：未成功展示锁屏时，业务状态绝不能被提前消费置为 true
+        assertEquals("瞬时抑制时 map 必须保持 false，不得提前消费边沿", false, businessBlockedMap[sessionPkg])
+
+        // 2. 下一检测周期（500ms 后宽限结束）：
+        // 因为 map 依然为 false，本轮仍然能够识别 ALLOW -> BLOCK 边沿跃迁！
+        val retryInput = edgeInput.copy(
+            previousBusinessBlocked = businessBlockedMap[sessionPkg] // 依然为 false
+        )
+        val retryDecision = BoundaryCandidateCoordinator.evaluate(retryInput)
+        assertTrue("次轮重试时边沿状态未丢失，仍应触发候选锁定", retryDecision.shouldLockCandidate)
+
+        // 本轮宽限已过，锁屏成功发起，消费边沿
+        val retryStrictLock = true
+        if (retryStrictLock) {
+            businessBlockedMap[sessionPkg] = true
+        }
+        assertEquals(true, businessBlockedMap[sessionPkg])
+
+        // 3. 第 3 周期（稳态）：已消费为 true，必须拒绝锁定
+        val steadyInput = edgeInput.copy(
+            previousBusinessBlocked = businessBlockedMap[sessionPkg] // true
+        )
+        val steadyDecision = BoundaryCandidateCoordinator.evaluate(steadyInput)
+        assertFalse("边沿消费后进入稳态 BLOCK，必须拒绝重复锁定", steadyDecision.shouldLockCandidate)
     }
 }
 
