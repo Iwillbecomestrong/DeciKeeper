@@ -44,13 +44,15 @@ object LockDecisionPolicy {
         isAppWindowBlocked: Boolean,
         segmentDecoupled: Boolean,
         isManaged: () -> Boolean,
-        effectivePackageName: String
+        effectivePackageName: String,
+        isTemporaryAccess: Boolean = false
     ): Boolean {
+        if (isSafe || isPrivilege || isTemporaryAccess) {
+            return false
+        }
         return when {
             isBlacklisted -> {
-                if (isSafe || isPrivilege) {
-                    false
-                } else if (isDndLocked) {
+                if (isDndLocked) {
                     // 勿扰锁未解开：即使时间窗开放，也必须拦截
                     Log.d(TAG, "[shouldBlock] Blocked by DND: pkg=$effectivePackageName")
                     true

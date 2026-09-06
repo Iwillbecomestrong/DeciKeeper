@@ -1631,8 +1631,15 @@ class MonitorService : Service() {
         }
         
         // Update State Memory (Crucial: Update regardless of package detection)
-        mLastWasGap = !isInSegment
-        mLastWasRest = isFreeTime
+        val wasGap = mLastWasGap
+        val wasRest = mLastWasRest
+        val currentIsGap = !isInSegment
+        val currentIsRest = isFreeTime
+        if ((wasGap && !currentIsGap) || (wasRest && !currentIsRest)) {
+            mForceRuleBoundaryCheck = true
+        }
+        mLastWasGap = currentIsGap
+        mLastWasRest = currentIsRest
 
         // 🧹 [Cleanup] Clear stale lockedPkg when lock screen is not showing.
         // currentLockedPkg is set on every lock but never cleared, causing the
@@ -1977,9 +1984,47 @@ class MonitorService : Service() {
             effectivePackageName == currentLockedPkg &&
             !LockWindowManager.isLockScreenViewAttached()
         val guardResult = shouldEnforceLockForCurrentTop(effectivePackageName, now)
+
+        // 🚀 [提前计算最终锁策略业务状态 (Finding 2)]
+        // 解决跨规则边界与时间窗闭合判定：完整评估 DND、应用时间窗（App Window）、特权、白名单与临时放行状态
+        val isSafe = CreditManager.isLauncher(effectivePackageName) || 
+                 effectivePackageName == "com.android.settings" ||
+                 CreditManager.isInputMethod(this, effectivePackageName) ||
+                 // 系统导航 / SystemUI 属于系统组件，永不拦截（红线，见 SegmentBlacklist.isHardExempt）
+                 effectivePackageName.contains("systemui", ignoreCase = true) ||
+                 effectivePackageName.equals("com.vivo.systemuiplugin", ignoreCase = true)
+
+        val segmentDecoupled = currentSeg != null && currentSeg.listApps != null
+        val isAppWindowBlocked = if (AppWindowManager.isManaged(this, effectivePackageName)) {
+            !AppWindowManager.isAppAllowed(this, effectivePackageName)
+        } else {
+            false
+        }
+        val isTemporaryAccess = LockWindowManager.isTemporaryAccessActive()
+        val isBusinessBlocked = LockDecisionPolicy.shouldBlock(
+            isBlacklisted = isBlacklisted,
+            isSafe = isSafe,
+            isPrivilege = isPrivilege,
+            isDndLocked = isDndLocked,
+            isAppWindowBlocked = isAppWindowBlocked,
+            segmentDecoupled = segmentDecoupled,
+            isManaged = { AppWindowManager.isManaged(this, effectivePackageName) },
+            effectivePackageName = effectivePackageName,
+            isTemporaryAccess = isTemporaryAccess
+        )
+
+        // 🛡️ [Keyguard 反证生命周期接线 (Finding 4)]
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val isKeyguardLocked = km?.isKeyguardLocked == true
+        val isScreenInteractive = pm?.isInteractive ?: true
+        if (isKeyguardLocked) {
+            foregroundSessionTracker.onKeyguardLocked(now)
+        }
         val hasActiveForegroundSession = foregroundSessionTracker.isSessionActiveFor(effectivePackageName)
+
         val sustainedForegroundFallbackEligible =
-            isBlacklisted && isDndLocked && isSustainedForegroundFallbackEligible(
+            isBusinessBlocked && isSustainedForegroundFallbackEligible(
                 evidenceSource = mLastTopEvidence.name,
                 selectedPackage = effectivePackageName,
                 cachedPackage = mLastTopPackage,
@@ -2002,17 +2047,12 @@ class MonitorService : Service() {
 
         // 🛡️ [Rule Boundary Lock] 规则从 ALLOW -> BLOCK 发生边界跃迁（如 23:00 勿扰开始、FreeTime 结束、时间窗关闭等）
         // 若常规 Guard 无法确认（因旧前台事件超过 8 秒），但存在未关闭的前台 Session，且屏幕未锁屏，则允许边界即时锁定。
-        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
-        val isKeyguardLocked = km?.isKeyguardLocked == true
-        val isScreenInteractive = pm?.isInteractive ?: true
-        val isBlockedNow = isBlacklisted && isDndLocked && !isPrivilege
         val allowByRuleBoundary = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
-                isBlockedNow = isBlockedNow,
+                isBlockedNow = isBusinessBlocked,
                 wasPreviouslyBlocked = mPreviouslyBlockedPackages.contains(effectivePackageName),
-                wasGap = mLastWasGap,
-                wasRest = mLastWasRest,
+                wasGap = wasGap,
+                wasRest = wasRest,
                 forceBoundaryCheck = mForceRuleBoundaryCheck,
                 hasActiveForegroundSession = hasActiveForegroundSession,
                 isKeyguardLocked = isKeyguardLocked,
@@ -2095,37 +2135,12 @@ class MonitorService : Service() {
             currentForegroundCycle?.recordVisibilityResult(passed = true, reason = "VISIBLE")
         }
 
-        // 🚀 [Fix] Re-add missing classification logic
-        val isSafe = CreditManager.isLauncher(effectivePackageName) || 
-                 effectivePackageName == "com.android.settings" ||
-                 CreditManager.isInputMethod(this, effectivePackageName) ||
-                 // 系统导航 / SystemUI 属于系统组件，永不拦截（红线，见 SegmentBlacklist.isHardExempt）
-                 effectivePackageName.contains("systemui", ignoreCase = true) ||
-                 effectivePackageName.equals("com.vivo.systemuiplugin", ignoreCase = true)
-
-        // 3. 双锁判定：勿扰锁优先拦截，勿扰解锁后再检查时间窗；特权绕过两把锁
-        val segmentDecoupled = currentSeg != null && currentSeg.listApps != null
-        val isAppWindowBlocked = if (AppWindowManager.isManaged(this, effectivePackageName)) {
-            !AppWindowManager.isAppAllowed(this, effectivePackageName)
-        } else {
-            false
-        }
         val isRealBlacklist = if (currentSeg != null && currentSeg.listApps != null) {
             SegmentBlacklist.isInEffectiveList(this, currentSeg, effectivePackageName)
         } else {
             CreditManager.getBlacklistApps(this).any { it.equals(effectivePackageName, ignoreCase = true) }
         }
-        val shouldBlock = LockDecisionPolicy.shouldBlock(
-            isBlacklisted = isBlacklisted,
-            isSafe = isSafe,
-            isPrivilege = isPrivilege,
-            isDndLocked = isDndLocked,
-            isAppWindowBlocked = isAppWindowBlocked,
-            segmentDecoupled = segmentDecoupled,
-            isManaged = { AppWindowManager.isManaged(this, effectivePackageName) },
-            effectivePackageName = effectivePackageName,
-            isTemporaryAccess = LockWindowManager.isTemporaryAccessActive()
-        )
+        val shouldBlock = isBusinessBlocked
 
         // 诊断日志压缩
         if (isBlacklisted) {

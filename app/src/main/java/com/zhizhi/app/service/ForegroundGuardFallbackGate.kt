@@ -4,9 +4,9 @@ package com.zhizhi.app.service
  * Safety net for a blacklisted app that was already in the foreground when a DND segment starts.
  *
  * The normal foreground guard remains authoritative. This gate only activates when the selected
- * package is backed by an unclosed CACHE/HISTORY foreground event and remains the same package
- * continuously for [timeoutMs]. USAGE_STATS is intentionally excluded so background audio cannot
- * earn the fallback merely by refreshing usage timestamps.
+ * package is backed by an unclosed CACHE/HISTORY foreground event (or USAGE_STATS when backed by an
+ * unclosed active foreground session) and remains the same package continuously for [timeoutMs].
+ * Plain background audio without an active session cannot earn the fallback by merely refreshing usage timestamps.
  */
 internal class ForegroundGuardFallbackGate(
     private val timeoutMs: Long = 60_000L

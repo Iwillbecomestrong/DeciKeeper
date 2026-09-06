@@ -251,4 +251,65 @@ class ForegroundSessionTrackerTest {
         )
         assertTrue("设置了强制边界检查标记时应允许触发锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(input))
     }
+
+    @Test
+    fun `app window closing during gap triggers rule boundary lock`() {
+        val pkg = "com.bilibili.app"
+        val t0 = 1_000_000L
+
+        // 用户在 Gap 期间、时间窗尚开放时进入该应用
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.MOVE_TO_FG, t0)
+        assertTrue(tracker.isSessionActiveFor(pkg))
+
+        // 持续使用超过 8s 后时间窗关闭（发生 ALLOW -> BLOCK 跃迁）
+        // 模拟 LockDecisionPolicy 判定从 false -> true
+        val blockedNow = true
+        val wasPreviouslyBlocked = false // 之前时间窗开放，未被阻塞
+
+        val boundaryDecision = RuleBoundaryLockGate.shouldAllowBoundaryLock(
+            RuleBoundaryLockDecisionInput(
+                isBlockedNow = blockedNow,
+                wasPreviouslyBlocked = wasPreviouslyBlocked,
+                wasGap = true,
+                wasRest = false,
+                forceBoundaryCheck = false,
+                hasActiveForegroundSession = tracker.isSessionActiveFor(pkg),
+                isKeyguardLocked = false,
+                isScreenInteractive = true
+            )
+        )
+        assertTrue("应用时间窗在 Gap 期关闭时，未关闭的活跃前台 Session 必须触发边界即时锁定", boundaryDecision)
+    }
+
+    @Test
+    fun `keyguard lock closes session permanently so unlock without new event cannot lock`() {
+        val pkg = "com.tencent.mm"
+        val t0 = 1_000_000L
+
+        // 进入前台
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.MOVE_TO_FG, t0)
+        assertTrue(tracker.isSessionActiveFor(pkg))
+
+        // 用户按电源键锁屏（Keyguard locked）
+        tracker.onKeyguardLocked(t0 + 5_000L)
+        assertFalse("锁屏后 Session 必须立即失效关闭", tracker.isSessionActiveFor(pkg))
+
+        // 用户解锁屏幕（此时若没有新的 MOVE_TO_FG 事件），旧 Session 依然保持关闭
+        assertFalse("解锁后若无新前台事件，旧 Session 依然必须无效", tracker.isSessionActiveFor(pkg))
+
+        // 此时规则发生任何变化都不应因旧 Session 误触发
+        val boundaryDecision = RuleBoundaryLockGate.shouldAllowBoundaryLock(
+            RuleBoundaryLockDecisionInput(
+                isBlockedNow = true,
+                wasPreviouslyBlocked = false,
+                wasGap = false,
+                wasRest = false,
+                forceBoundaryCheck = true,
+                hasActiveForegroundSession = tracker.isSessionActiveFor(pkg),
+                isKeyguardLocked = false,
+                isScreenInteractive = true
+            )
+        )
+        assertFalse("无活跃 Session 时绝对不能触发边界锁定", boundaryDecision)
+    }
 }
