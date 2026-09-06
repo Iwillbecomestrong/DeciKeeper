@@ -61,6 +61,7 @@ class UiMasterLayoutContractTest {
         val xml = layout("window_rest_request.xml")
         listOf(
             "@+id/tv_title",
+            "@+id/tv_rest_tier_hint",
             "@+id/tv_quota_hint",
             "@+id/tv_cooling_penalty_hint",
             "@+id/tv_deduction_detail",
