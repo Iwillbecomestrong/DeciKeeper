@@ -3973,31 +3973,22 @@ object LockWindowManager {
                 tvDeductionDetail?.setTextColor(android.graphics.Color.parseColor("#333333"))
                 tvDeductionDetail?.visibility = View.VISIBLE
 
-                // Cooling overlap calculation
-                // 休息中：冷却只对休息结束后的 DND 部分生效（isCooling() 在休息中返回 false）
-                val coolEndMs = CreditManager.getCoolDownEnd(context)
-                val isInRestCooling: Boolean
-                val coolRemainSec: Int
-                if (isInRest) {
-                    val freeEndMs = CreditManager.getFreeTimeEnd(context)
-                    isInRestCooling = coolEndMs > freeEndMs
-                    coolRemainSec = if (isInRestCooling) {
-                        maxOf(0, ((coolEndMs - freeEndMs + 999) / 1000).toInt())
-                    } else 0
-                } else {
-                    isInRestCooling = CreditManager.isCooling(context)
-                    coolRemainSec = if (isInRestCooling) {
-                        maxOf(0, ((coolEndMs - now + 999) / 1000).toInt())
-                    } else 0
-                }
-                val coolOverlapSec = minOf(dndSec, coolRemainSec)
-                val normalSec = dndSec - coolOverlapSec
-                val totalTimeCost = calculateWeightedQuotaSeconds(normalSec, coolOverlapSec)
-
-                // 次数消耗: 加权公式 — 空档/休息 × 0、勿扰非冷却 × 1、冷却重叠 × 2，四舍五入到 [0,2]
-                // WHY: 原 `coolOverlapSec / sec × 2` 只计算冷却重叠比例，勿扰非冷却的 ×1 与空档/休息 ×0
-                //     都被隐式吞掉。统一收敛到 calculateWeightedRestCount 避免多处逻辑漂移。
-                val countCost = calculateQuotaCountFromWeightedSeconds(totalTimeCost, sec)
+                // Cooling overlap calculation: 使用请求开始前已存在的冷却快照，与结算完全同源
+                val reuseRemain = getTemporaryReuseCooldownRemainingSeconds(now)
+                val existingCooldownEndMs = maxOf(
+                    CreditManager.getCoolDownEnd(context),
+                    if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L
+                )
+                val coolingAnchorMs = if (isInRest) CreditManager.getFreeTimeEnd(context) else now
+                val chargeSnapshot = resolveTemporaryAccessChargeSnapshot(
+                    requestedSec = sec,
+                    freeSec = freeSec,
+                    coolingAnchorMs = coolingAnchorMs,
+                    existingCooldownEndMs = existingCooldownEndMs
+                )
+                val coolOverlapSec = chargeSnapshot.coolingSec
+                val totalTimeCost = chargeSnapshot.weightedTimeCostSec
+                val countCost = chargeSnapshot.weightedCountHalfUnits
 
                 val sb = StringBuilder("扣除详情：\n")
                 if (freeSec > 0) sb.append("• 免费段: ${formatTemporaryAccessSecondsAsMinutes(freeSec)}分钟（不扣时间/次数）\n")
@@ -4024,7 +4015,7 @@ object LockWindowManager {
 
                 tvDeductionDetail?.text = sb.toString()
 
-                if (isInRestCooling) {
+                if (chargeSnapshot.coolingSec > 0) {
                     tvCoolingHint?.visibility = View.VISIBLE
                     tvCoolingHint?.text = "⚠️ 触碰到冷却期会加权扣费（空档/休息×0、勿扰×1、冷却重叠×2）"
                 } else {
@@ -4229,47 +4220,36 @@ object LockWindowManager {
         )
         val isEmergencyInCooldown = isEmergencyTemporaryAccessDuringCooldown(reuseRemain, seconds)
 
+        val existingCooldownEndMs = maxOf(
+            CreditManager.getCoolDownEnd(context),
+            if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L
+        )
+        val freeSec: Int = if (isInFreeTime) {
+            val freeEndMs = CreditManager.getFreeTimeEnd(context)
+            minOf(seconds, maxOf(0, ((freeEndMs - now + 999) / 1000).toInt()))
+        } else if (isInGap) {
+            seconds
+        } else {
+            0
+        }
+        val coolingAnchorMs = if (isInFreeTime) CreditManager.getFreeTimeEnd(context) else now
+        val chargeSnapshot = resolveTemporaryAccessChargeSnapshot(
+            requestedSec = seconds,
+            freeSec = freeSec,
+            coolingAnchorMs = coolingAnchorMs,
+            existingCooldownEndMs = existingCooldownEndMs
+        )
+
+        val coolOverlapSec = chargeSnapshot.coolingSec
+        val effectiveSeconds = chargeSnapshot.weightedTimeCostSec
+        val countCost = chargeSnapshot.weightedCountHalfUnits
+
         // 二级应急（10s 冷却中）不扣额度，无需检查休息额度
         if (isInDndSegment && !isEmergencyInCooldown) {
-            // 🚀 [Fix] 全部用秒计算，只在最后调扣费函数时才转分钟（避免 ceil 到 0.1min 导致膨胀）
-            val isInRest = CreditManager.isFreeTime(context)
-            val baseCoolEndMs = CreditManager.getCoolDownEnd(context)
-            val unifiedCoolEndMs = maxOf(baseCoolEndMs, if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L)
-
-            // Free/DND split
-            val freeSec: Int = if (isInRest) {
-                val freeEndMs = CreditManager.getFreeTimeEnd(context)
-                minOf(seconds, maxOf(0, ((freeEndMs - now + 999) / 1000).toInt()))
-            } else 0
-            val dndSec = seconds - freeSec
-
-            // Cooling detection: 检查休息或临时解锁冷却是否延伸到有效时段
-            val isInRestCooling: Boolean
-            val coolRemainSec: Int
-            if (isInRest) {
-                val freeEndMs = CreditManager.getFreeTimeEnd(context)
-                isInRestCooling = unifiedCoolEndMs > freeEndMs
-                coolRemainSec = if (isInRestCooling) {
-                    maxOf(0, ((unifiedCoolEndMs - freeEndMs + 999) / 1000).toInt())
-                } else 0
-            } else {
-                isInRestCooling = unifiedCoolEndMs > now
-                coolRemainSec = if (isInRestCooling) {
-                    maxOf(0, ((unifiedCoolEndMs - now + 999) / 1000).toInt())
-                } else 0
-            }
-            val coolOverlapSec = minOf(dndSec, coolRemainSec)
-            val normalSec = dndSec - coolOverlapSec
-            val effectiveSeconds = calculateWeightedQuotaSeconds(normalSec, coolOverlapSec)
             val remainingSecs = kotlin.math.round(CreditManager.getRemainingMinutes(context) * 60).toInt()
-            Log.d(TAG, "startTemporaryAccess[DIAG] BORROW_CHECK seconds=$seconds freeSec=$freeSec dndSec=$dndSec isInRestCooling=$isInRestCooling coolOverlapSec=$coolOverlapSec effectiveSeconds=$effectiveSeconds remainingSecs=$remainingSecs needBorrow=${remainingSecs < effectiveSeconds}")
+            Log.d(TAG, "startTemporaryAccess[DIAG] BORROW_CHECK seconds=$seconds freeSec=$freeSec dndSec=${chargeSnapshot.dndSec} coolOverlapSec=$coolOverlapSec effectiveSeconds=$effectiveSeconds remainingSecs=$remainingSecs needBorrow=${remainingSecs < effectiveSeconds}")
 
-            // 🚀 次数消耗: 加权公式（与位置 B/A 收敛到同一函数，避免逻辑漂移）
-            //   此处上下文 isInDndSegment=true 且 !isEmergencyInCooldown，但 freeSec 可能 > 0
-            //   （如果 isInFreeTime=true，会有一段休息秒数），所以显式传入 freeSec
-            val countCost = calculateQuotaCountFromWeightedSeconds(effectiveSeconds, seconds)
-
-            if (!quotaAlreadyDeducted && isInDndSegment && !isEmergencyInCooldown && effectiveSeconds > 0) {
+            if (!quotaAlreadyDeducted && effectiveSeconds > 0) {
                 val countRemaining = CreditManager.getRemainingUsableCount(context)
                 val effCountLimit = currentSegment.getEffectiveUsableCountLimit()
                 if (effCountLimit == 0) {
@@ -4305,9 +4285,9 @@ object LockWindowManager {
                         maxSeconds = maxSeconds,
                         plan = quotaPlan,
                         freeSec = freeSec,
-                        dndSec = dndSec,
+                        dndSec = chargeSnapshot.dndSec,
                         coolingSec = coolOverlapSec,
-                        freeLabel = if (isInRest) "休息时段" else "空档期"
+                        freeLabel = if (isInFreeTime) "休息时段" else "空档期"
                     )
                     return
                 }
@@ -4445,62 +4425,26 @@ object LockWindowManager {
         // [勿扰时段扣除休息额度] 在勿扰时段临时解锁需要扣除休息额度
         // 空档期不扣额度（空档期本来就是休息的），二级应急（10s冷却中）已提前返回
         // 🆕 免扣场景：休息中也不扣时间（spec §免扣场景）
+        // 🛡️ [Finding 1 修复] 结算直接消费预检确定的 chargeSnapshot，严禁重新读取已被本次修改的冷却状态！
         if (isInDndSegment && !quotaAlreadyDeducted) {
-            // 🚀 计算免费秒数（休息剩余时间 → 这部分不扣费）
-            val freeSec: Int = if (isInFreeTime) {
-                val freeEndMs = CreditManager.getFreeTimeEnd(context)
-                val nowMs = System.currentTimeMillis()
-                minOf(seconds, maxOf(0, ((freeEndMs - nowMs + 999) / 1000).toInt()))
-            } else {
-                0
-            }
-            val dndSec = seconds - freeSec  // 实际付费秒数
-
+            val dndSec = chargeSnapshot.dndSec
             if (dndSec > 0) {
-                // 🚀 [Rule] 两层规则：
-                //   休息冷却期 → ×2加权
-                //   普通DND → 单倍
-                //   休息中 → 由 freeSec 处理，不扣费
-                val minutesBase = calculateTemporaryAccessMinutes(dndSec)
-                // 休息中冷却检测：isCooling() 在休息中返回 false，需直接检查冷却是否延伸到 DND
-                val coolEndMs = CreditManager.getCoolDownEnd(context)
-                val isInRestCooling: Boolean
-                val coolOverlapDndSec: Int
-                if (isInFreeTime) {
-                    val freeEndMs = CreditManager.getFreeTimeEnd(context)
-                    isInRestCooling = coolEndMs > freeEndMs
-                    coolOverlapDndSec = if (isInRestCooling) {
-                        minOf(dndSec, maxOf(0, ((coolEndMs - freeEndMs + 999) / 1000).toInt()))
-                    } else 0
-                } else {
-                    isInRestCooling = CreditManager.isCooling(context)
-                    val coolRemainSec = if (isInRestCooling) {
-                        maxOf(0, ((coolEndMs - now + 999) / 1000).toInt())
-                    } else 0
-                    coolOverlapDndSec = minOf(dndSec, coolRemainSec)
-                }
-                val normalDndSec = dndSec - coolOverlapDndSec
-                val effectiveMinutes = calculateWeightedQuotaSeconds(normalDndSec, coolOverlapDndSec) / 60.0
-                val label = if (isInRestCooling) "REST_COOLING" else "NORMAL"
+                val effectiveMinutes = chargeSnapshot.weightedTimeCostSec / 60.0
                 val remainingMins = CreditManager.getRemainingMinutes(context)
 
-                Log.d(TAG, "startTemporaryAccess[DEDUCT] seconds=$seconds dndSec=$dndSec freeSec=$freeSec minutesBase=$minutesBase isInRestCooling=$isInRestCooling effectiveMinutes=$effectiveMinutes remainingMins=$remainingMins label=$label")
+                Log.d(TAG, "startTemporaryAccess[DEDUCT] seconds=$seconds dndSec=$dndSec freeSec=${chargeSnapshot.freeSec} effectiveMinutes=$effectiveMinutes remainingMins=$remainingMins coolingSec=${chargeSnapshot.coolingSec}")
 
                 if (remainingMins >= effectiveMinutes) {
-                    currentChargeSecondsForSession = kotlin.math.round(effectiveMinutes * 60.0).toInt()
+                    currentChargeSecondsForSession = chargeSnapshot.weightedTimeCostSec
                     nextChargeSecondsForSession = 0
                     borrowChargeSecondsForSession = 0
                     Log.d(TAG, "startTemporaryAccess[DEDUCT] consuming $effectiveMinutes minutes (sufficient)")
                     CreditManager.consumeMinutes(context, effectiveMinutes)
-                    val afterRemaining = CreditManager.getRemainingMinutes(context)
-                    Log.d(TAG, "startTemporaryAccess[DEDUCT] after consume: remainingMins=$afterRemaining (delta=${remainingMins - afterRemaining})")
                 } else {
                     currentChargeSecondsForSession = kotlin.math.round(remainingMins * 60.0).toInt()
                     Log.d(TAG, "startTemporaryAccess[DEDUCT] insufficient! consuming $remainingMins, borrowing ${effectiveMinutes - remainingMins}")
                     if (remainingMins > 0) {
                         CreditManager.consumeMinutes(context, remainingMins)
-                        val afterRemaining = CreditManager.getRemainingMinutes(context)
-                        Log.d(TAG, "startTemporaryAccess[DEDUCT] after consume: remainingMins=$afterRemaining (delta=${remainingMins - afterRemaining})")
                     }
                     val borrowMins = effectiveMinutes - remainingMins
                     nextChargeSecondsForSession = kotlin.math.round(borrowMins * 120.0).toInt()
@@ -4509,43 +4453,26 @@ object LockWindowManager {
                     Log.d(TAG, "startTemporaryAccess[DEDUCT] after borrow: borrowMins=$borrowMins penalty=${borrowMins * 2}")
                 }
             } else {
-                Log.d(TAG, "startTemporaryAccess[DEDUCT] SKIP: dndSec=$dndSec freeSec=$freeSec (all free, no deduction)")
+                Log.d(TAG, "startTemporaryAccess[DEDUCT] SKIP: dndSec=$dndSec freeSec=${chargeSnapshot.freeSec} (all free, no deduction)")
             }
         } else {
             Log.d(TAG, "startTemporaryAccess[DEDUCT] SKIP: isInDndSegment=false (gap period, no deduction)")
         }
 
         // 🆕 消耗可用次数（非休息中、非空档期免费段）
-        // 注意：空档期和休息中的临时解锁不扣时间也不扣次数（spec §免扣场景）
-        // 🎯 临时解锁 baseHalfUnits=1 (=0.5 次)，不冷却 = 0.5 次，全冷却 = 1.0 次
+        // 🛡️ [Finding 1 修复] 直接使用 chargeSnapshot.weightedCountHalfUnits，与预检保持完全同一不可变快照
         if (!quotaAlreadyDeducted && !isInFreeTime && !isInGap) {
-            val isInRestCooling = CreditManager.isCooling(context)
-            val nowMs = System.currentTimeMillis()
-            val coolRemainSec = if (isInRestCooling) {
-                val coolEndMs = CreditManager.getCoolDownEnd(context)
-                maxOf(0, ((coolEndMs - nowMs + 999) / 1000).toInt())
-            } else 0
-            val coolOverlapSec = minOf(seconds, coolRemainSec)
-            // 🆕 [half-step] 使用 UsableCount.weightedHalfUnits 计算 halfUnits
-            //   baseHalfUnits=1 (临时解锁) × 加权：非冷却=1 halfUnit(0.5次)，全冷却=2 halfUnits(1次)
-            val countCostHalfUnits = UsableCount.weightedHalfUnits(
-                baseHalfUnits = CountAction.TEMPORARY_ACCESS.baseHalfUnits,
-                totalDuration = seconds.toLong(),
-                cooldownOverlap = coolOverlapSec.toLong()
-            )
-
+            val countCostHalfUnits = chargeSnapshot.weightedCountHalfUnits
             val countRemaining = CreditManager.getRemainingUsableCount(context) // halfUnits
             if (countRemaining < countCostHalfUnits) {
-                // Need to borrow count (halfUnits)
                 val deficitHalfUnits = countCostHalfUnits - countRemaining
                 CreditManager.borrowCountFromNext(context, deficitHalfUnits)
             }
             CreditManager.consumeUsableCountWeighted(context, countCostHalfUnits)
             Log.i(
                 TAG,
-                "startTemporaryAccess: consumed $countCostHalfUnits halfUnits (${"%.1f".format(countCostHalfUnits / 2.0)}次) " +
-                        "(isInRestCooling=$isInRestCooling coolOverlapSec=$coolOverlapSec), " +
-                        "remaining=${CreditManager.getRemainingUsableCount(context)} halfUnits (${"%.1f".format(CreditManager.getRemainingUsableCount(context) / 2.0)}次)"
+                "startTemporaryAccess: consumed $countCostHalfUnits halfUnits (${"%.1f".format(countCostHalfUnits / 2.0)}次), " +
+                        "coolingSec=${chargeSnapshot.coolingSec}, remaining=${CreditManager.getRemainingUsableCount(context)} halfUnits (${"%.1f".format(CreditManager.getRemainingUsableCount(context) / 2.0)}次)"
             )
         }
 
@@ -6706,6 +6633,55 @@ internal fun isTemporaryAccessMinuteInputValid(raw: String?, maxMinutes: Double)
     val minutes = text.toDoubleOrNull() ?: return false
     val safeMax = maxMinutes.coerceIn(0.1, 3.0)
     return minutes >= 0.1 && minutes <= safeMax
+}
+
+internal data class TemporaryAccessChargeSnapshot(
+    val freeSec: Int,
+    val dndSec: Int,
+    val coolingSec: Int,
+    val normalDndSec: Int,
+    val weightedTimeCostSec: Int,
+    val weightedCountHalfUnits: Int
+)
+
+internal fun resolveTemporaryAccessChargeSnapshot(
+    requestedSec: Int,
+    freeSec: Int,
+    coolingAnchorMs: Long,
+    existingCooldownEndMs: Long
+): TemporaryAccessChargeSnapshot {
+    val safeRequested = requestedSec.coerceAtLeast(0)
+    val safeFree = freeSec.coerceIn(0, safeRequested)
+    val dndSec = safeRequested - safeFree
+
+    val remainingCoolingSec =
+        ((existingCooldownEndMs - coolingAnchorMs + 999L) / 1000L)
+            .toInt()
+            .coerceAtLeast(0)
+
+    val coolingSec = minOf(dndSec, remainingCoolingSec)
+    val normalSec = dndSec - coolingSec
+
+    val weightedTimeCostSec =
+        calculateWeightedQuotaSeconds(
+            normalDndSec = normalSec,
+            coolingSec = coolingSec
+        )
+
+    val weightedCountHalfUnits =
+        calculateQuotaCountFromWeightedSeconds(
+            weightedCostSec = weightedTimeCostSec,
+            requestedSec = safeRequested
+        )
+
+    return TemporaryAccessChargeSnapshot(
+        freeSec = safeFree,
+        dndSec = dndSec,
+        coolingSec = coolingSec,
+        normalDndSec = normalSec,
+        weightedTimeCostSec = weightedTimeCostSec,
+        weightedCountHalfUnits = weightedCountHalfUnits
+    )
 }
 
 internal data class TemporaryAccessQuotaPresentation(
