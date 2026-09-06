@@ -88,6 +88,7 @@ import com.zhizhi.app.manager.resolveLockOverlayRestrictionMode
 import com.zhizhi.app.manager.resolveWeeklyPrivilegePresentation
 import com.zhizhi.app.manager.shouldRouteEmergencyToPrivilege
 import com.zhizhi.app.manager.shouldRouteEmergencyToTempAccess
+import com.zhizhi.app.manager.shouldShowStandaloneTemporaryAccess
 import com.zhizhi.app.service.CoreService
 import com.zhizhi.app.service.MonitorService
 import com.zhizhi.app.util.ForegroundLockResultSettlementTracker
@@ -2979,8 +2980,13 @@ object LockWindowManager {
         val tempCoolActive = tempCooldownRemain > 0
         val inAnyCooling = now < restCoolEnd || tempCoolActive
 
-        // 🌟 纯粹三按钮架构渲染：彻底隐藏旧独立临时按钮，收敛为主操作 + 每周特权 + 回到桌面
-        btnTemporaryAccess?.visibility = View.GONE
+        // 🌟 纯粹三出口架构渲染：DND 模式下主操作为申请休息，同时保留独立的临时放行入口
+        btnTemporaryAccess?.visibility =
+            if (shouldShowStandaloneTemporaryAccess(currentLockRestrictionMode)) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
         btnTemporaryAccessQuickTen?.visibility = View.GONE
         btnTemporaryAccessHelp?.visibility = View.GONE
 
@@ -3823,12 +3829,6 @@ object LockWindowManager {
 
     private fun showTempAccessWindow(context: Context) {
         if (mRestWindow != null) return
-        val now = System.currentTimeMillis()
-        val inTempCooling = getTemporaryReuseCooldownRemainingSeconds(now) > 0L
-        if (inTempCooling) {
-            Toast.makeText(context, "临时解锁冷却中，请等待倒计时结束", Toast.LENGTH_SHORT).show()
-            return
-        }
         val maxSeconds = getTemporaryAccessMaxSeconds(context)
 
         try {
@@ -4233,7 +4233,8 @@ object LockWindowManager {
         if (isInDndSegment && !isEmergencyInCooldown) {
             // 🚀 [Fix] 全部用秒计算，只在最后调扣费函数时才转分钟（避免 ceil 到 0.1min 导致膨胀）
             val isInRest = CreditManager.isFreeTime(context)
-            val coolEndMs = CreditManager.getCoolDownEnd(context)
+            val baseCoolEndMs = CreditManager.getCoolDownEnd(context)
+            val unifiedCoolEndMs = maxOf(baseCoolEndMs, if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L)
 
             // Free/DND split
             val freeSec: Int = if (isInRest) {
@@ -4242,19 +4243,19 @@ object LockWindowManager {
             } else 0
             val dndSec = seconds - freeSec
 
-            // Cooling detection: 休息中检查冷却是否延伸到休息结束后的 DND 部分
+            // Cooling detection: 检查休息或临时解锁冷却是否延伸到有效时段
             val isInRestCooling: Boolean
             val coolRemainSec: Int
             if (isInRest) {
                 val freeEndMs = CreditManager.getFreeTimeEnd(context)
-                isInRestCooling = coolEndMs > freeEndMs
+                isInRestCooling = unifiedCoolEndMs > freeEndMs
                 coolRemainSec = if (isInRestCooling) {
-                    maxOf(0, ((coolEndMs - freeEndMs + 999) / 1000).toInt())
+                    maxOf(0, ((unifiedCoolEndMs - freeEndMs + 999) / 1000).toInt())
                 } else 0
             } else {
-                isInRestCooling = CreditManager.isCooling(context)
+                isInRestCooling = unifiedCoolEndMs > now
                 coolRemainSec = if (isInRestCooling) {
-                    maxOf(0, ((coolEndMs - now + 999) / 1000).toInt())
+                    maxOf(0, ((unifiedCoolEndMs - now + 999) / 1000).toInt())
                 } else 0
             }
             val coolOverlapSec = minOf(dndSec, coolRemainSec)
@@ -4311,11 +4312,6 @@ object LockWindowManager {
                     return
                 }
             }
-        }
-        if (shouldBlockTemporaryAccessByReuseCooldown(reuseRemain, seconds)) {
-            rejectTemporaryAccessLifecycle("COOLDOWN_ACTIVE", now + reuseRemain * 1000L)
-            Toast.makeText(context, "超级临时冷却中，仅可申请10秒二级临时放行", Toast.LENGTH_SHORT).show()
-            return
         }
         if (isEmergencyInCooldown && !canUseTemporaryEmergencyDuringCooldown(
                 reuseRemain,
@@ -4672,9 +4668,8 @@ object LockWindowManager {
         requestedSeconds: Int,
         maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS
     ): Boolean {
-        if (reuseRemainSeconds <= 0L) return false
-        val normalized = normalizeTemporaryAccessSeconds(requestedSeconds, maxSeconds)
-        return normalized != TEMP_ACCESS_COOLDOWN_FREE_SECONDS
+        // SPEC §3.2 契约：冷静期再犯进入加权双倍扣除，不再硬性阻断临时放行
+        return false
     }
 
     internal fun shouldShowTemporaryEmergencyTenButton(reuseRemainSeconds: Long): Boolean {

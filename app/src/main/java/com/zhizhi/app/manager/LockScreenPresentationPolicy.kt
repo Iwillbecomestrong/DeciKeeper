@@ -56,6 +56,12 @@ internal fun shouldRouteEmergencyToTempAccess(
     return mode == LockOverlayRestrictionMode.APP_WINDOW
 }
 
+internal fun shouldShowStandaloneTemporaryAccess(
+    mode: LockOverlayRestrictionMode
+): Boolean {
+    return mode == LockOverlayRestrictionMode.DND
+}
+
 internal fun resolveEmergencyActionPresentation(
     mode: LockOverlayRestrictionMode,
     privilegeUnavailableReason: String?,
@@ -63,22 +69,24 @@ internal fun resolveEmergencyActionPresentation(
     inAnyCooling: Boolean,
     coolingRemainingSeconds: Long = 0L
 ): EmergencyActionPresentation {
-    // 应用时间窗限制锁屏：主操作为【临时解锁】（短期解开任意锁，无额外勾选）
+    // 应用时间窗限制锁屏：主操作为【临时解锁】（冷静期再犯双倍扣除，不硬性禁用）
     if (mode == LockOverlayRestrictionMode.APP_WINDOW) {
-        if (inAnyCooling) {
-            val label = if (coolingRemainingSeconds > 0) "⏳ 冷却中 (${coolingRemainingSeconds}s)" else "⏳ 冷却中"
-            return EmergencyActionPresentation(
-                label = label,
-                enabled = false,
-                alpha = 0.5f
-            )
+        val label = if (inAnyCooling) {
+            if (coolingRemainingSeconds > 0L) {
+                "⚡ 临时解锁（冷却加权 ${coolingRemainingSeconds}s）"
+            } else {
+                "⚡ 临时解锁（冷却加权）"
+            }
+        } else {
+            "⚡ 临时解锁"
         }
         return EmergencyActionPresentation(
-            label = "⚡ 临时解锁",
+            label = label,
             enabled = true,
             alpha = 1.0f
         )
     }
+
 
     // 勿扰时段锁机：主操作为【申请休息】（专解勿扰锁）
     if (restExhausted) {
