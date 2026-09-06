@@ -143,7 +143,7 @@ class ForegroundSessionTrackerTest {
     fun `rule boundary lock eligible on transition from allow to block`() {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
-            wasPreviouslyBlocked = false, // 之前未阻塞 -> 刚进入阻塞，发生边界跃迁
+            isBusinessAllowToBlock = true, // 明确发生 ALLOW -> BLOCK 业务边沿跃迁
             leftGap = false,
             endedRest = false,
             forceBoundaryCheck = false,
@@ -158,7 +158,7 @@ class ForegroundSessionTrackerTest {
     fun `steady state block does not retrigger boundary lock`() {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
-            wasPreviouslyBlocked = true, // 之前已阻塞 -> 处于稳态，无边界跃迁
+            isBusinessAllowToBlock = false, // 处于稳态 BLOCK，无 ALLOW->BLOCK 跃迁
             leftGap = false,
             endedRest = false,
             forceBoundaryCheck = false,
@@ -174,7 +174,7 @@ class ForegroundSessionTrackerTest {
         // 稳态处于 Gap 自由时段中，应用已被阻塞但没有发生边沿跃迁
         val steadyGap = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
-            wasPreviouslyBlocked = true,
+            isBusinessAllowToBlock = false,
             leftGap = false, // 处于稳态 Gap，并未发生离开 Gap 跃迁
             endedRest = false,
             forceBoundaryCheck = false,
@@ -192,7 +192,7 @@ class ForegroundSessionTrackerTest {
     fun `mode transition after gap or rest retriggers boundary lock`() {
         val inputFromGap = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
-            wasPreviouslyBlocked = true,
+            isBusinessAllowToBlock = false,
             leftGap = true, // 刚离开 Gap 模式进入时段，边沿跃迁
             endedRest = false,
             forceBoundaryCheck = false,
@@ -210,7 +210,7 @@ class ForegroundSessionTrackerTest {
     fun `screen off or keyguard locked blocks boundary lock`() {
         val base = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
-            wasPreviouslyBlocked = false,
+            isBusinessAllowToBlock = true,
             leftGap = false,
             endedRest = false,
             forceBoundaryCheck = false,
@@ -230,7 +230,7 @@ class ForegroundSessionTrackerTest {
     fun `missing active session blocks boundary lock`() {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
-            wasPreviouslyBlocked = false,
+            isBusinessAllowToBlock = true,
             leftGap = false,
             endedRest = false,
             forceBoundaryCheck = false,
@@ -245,7 +245,7 @@ class ForegroundSessionTrackerTest {
     fun `not blocked now blocks boundary lock`() {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = false, // 当前并不在黑名单/勿扰模式
-            wasPreviouslyBlocked = false,
+            isBusinessAllowToBlock = false,
             leftGap = false,
             endedRest = false,
             forceBoundaryCheck = false,
@@ -260,7 +260,7 @@ class ForegroundSessionTrackerTest {
     fun `force boundary check flag forces boundary lock`() {
         val input = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
-            wasPreviouslyBlocked = true, // 即便先前已阻断
+            isBusinessAllowToBlock = false,
             leftGap = false,
             endedRest = false,
             forceBoundaryCheck = true, // 显式触发了强制边界检查
@@ -281,14 +281,14 @@ class ForegroundSessionTrackerTest {
         assertTrue(tracker.isSessionActiveFor(pkg))
 
         // 持续使用超过 8s 后时间窗关闭（发生 ALLOW -> BLOCK 跃迁）
-        // 模拟 LockDecisionPolicy 判定从 false -> true
+        // 模拟 LockDecisionPolicy 判定从 false -> true，isBusinessAllowToBlock 变为 true
         val blockedNow = true
-        val wasPreviouslyBlocked = false // 之前时间窗开放，未被阻塞
+        val isBusinessAllowToBlock = true // 之前时间窗开放为 ALLOW，现在关闭为 BLOCK
 
         val boundaryDecision = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = blockedNow,
-                wasPreviouslyBlocked = wasPreviouslyBlocked,
+                isBusinessAllowToBlock = isBusinessAllowToBlock,
                 leftGap = false,
                 endedRest = false,
                 forceBoundaryCheck = false,
@@ -320,7 +320,7 @@ class ForegroundSessionTrackerTest {
         val boundaryDecision = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = true,
-                wasPreviouslyBlocked = false,
+                isBusinessAllowToBlock = false,
                 leftGap = false,
                 endedRest = false,
                 forceBoundaryCheck = true,
@@ -375,9 +375,8 @@ class ForegroundSessionTrackerTest {
 
         // 2. Activity A 暂停准备打开 Activity B (同毫秒或紧随其后)
         tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_PAUSED, t0 + 10L, classA)
-        assertTrue("A Paused 时 Session 仍应处于前台过渡期", tracker.isSessionActiveFor(pkg))
 
-        // 3. Activity B 恢复在前台
+        // 3. Activity B 恢复在前台，Session 重新激活/维持
         tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0 + 20L, classB)
         assertTrue("B Resumed 后 Session 保持活跃", tracker.isSessionActiveFor(pkg))
 
@@ -420,7 +419,6 @@ class ForegroundSessionTrackerTest {
         val decisionCycle1 = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = true,
-                wasPreviouslyBlocked = true,
                 isBusinessAllowToBlock = false,
                 leftGap = false,
                 endedRest = false,
@@ -437,7 +435,6 @@ class ForegroundSessionTrackerTest {
         val decisionCycle2 = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = true,
-                wasPreviouslyBlocked = true,
                 isBusinessAllowToBlock = false,
                 leftGap = false,
                 endedRest = false,
@@ -455,7 +452,6 @@ class ForegroundSessionTrackerTest {
         // 显式业务边沿跃迁 (ALLOW -> BLOCK，解耦前台守卫执行状态)
         val edgeInput = RuleBoundaryLockDecisionInput(
             isBlockedNow = true,
-            wasPreviouslyBlocked = false,
             isBusinessAllowToBlock = true,
             hasActiveForegroundSession = true,
             isKeyguardLocked = false,
@@ -465,10 +461,88 @@ class ForegroundSessionTrackerTest {
 
         // 随后进入稳态 BLOCK (isBusinessAllowToBlock = false)
         val steadyInput = edgeInput.copy(
-            wasPreviouslyBlocked = true,
             isBusinessAllowToBlock = false
         )
         assertFalse("稳态 BLOCK 期间禁止重复触发边界锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(steadyInput))
     }
+
+    @Test
+    fun `activity A resumed then paused without subsequent B resumed becomes inactive`() {
+        val pkg = "com.tencent.mm"
+        val classA = "com.tencent.mm.ui.LauncherUI"
+        val t0 = 1_000_000L
+
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0, classA)
+        assertTrue(tracker.isSessionActiveFor(pkg))
+
+        // Activity A 暂停，且没有后续 Activity B resumed
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_PAUSED, t0 + 100L, classA)
+        assertFalse("Activity A 暂停且没有后续页面恢复时，Session 必须正确标记为关闭", tracker.isSessionActiveFor(pkg))
+    }
+
+    @Test
+    fun `stale events occurring at or before screen off cannot reopen session`() {
+        val pkg = "com.tencent.mm"
+        val t0 = 1_000_000L
+
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0)
+        assertTrue(tracker.isSessionActiveFor(pkg))
+
+        // 用户息屏 at T = t0 + 5000L
+        tracker.onScreenOff(t0 + 5_000L)
+        assertFalse(tracker.isSessionActiveFor(pkg))
+
+        // 后台 30s UsageEvents 重复扫描，吐出发生在息屏前 (T-1) 或息屏时 (T) 的旧 RESUMED 事件
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0 + 4_999L)
+        assertFalse("息屏时刻之前的旧事件绝对不能重新开启 Session", tracker.isSessionActiveFor(pkg))
+
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0 + 5_000L)
+        assertFalse("息屏时刻当下的旧事件绝对不能重新开启 Session", tracker.isSessionActiveFor(pkg))
+
+        // 只有屏幕重新点亮、真正发生在息屏之后的全新事件才允许开启 Session
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0 + 5_001L)
+        assertTrue("息屏之后发生的全新真实前台事件方可开启 Session", tracker.isSessionActiveFor(pkg))
+    }
+
+    @Test
+    fun `stale events occurring at or before keyguard lock cannot reopen session`() {
+        val pkg = "com.tencent.mm"
+        val t0 = 1_000_000L
+
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0)
+        assertTrue(tracker.isSessionActiveFor(pkg))
+
+        // 锁屏 at T = t0 + 5000L
+        tracker.onKeyguardLocked(t0 + 5_000L)
+        assertFalse(tracker.isSessionActiveFor(pkg))
+
+        // 旧事件重放
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0 + 4_500L)
+        assertFalse("锁屏时间戳之前的事件不得恢复 Session", tracker.isSessionActiveFor(pkg))
+
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0 + 5_000L)
+        assertFalse("锁屏时间戳当下的事件不得恢复 Session", tracker.isSessionActiveFor(pkg))
+
+        // 解锁后若无新事件，依然保持 inactive
+        assertFalse(tracker.isSessionActiveFor(pkg))
+
+        // 锁屏之后的有效新事件
+        tracker.onUsageEvent(pkg, ForegroundSessionTracker.ACTIVITY_RESUMED, t0 + 6_000L)
+        assertTrue(tracker.isSessionActiveFor(pkg))
+    }
+
+    @Test
+    fun `unknown previous business state does not trigger boundary lock`() {
+        // 首次观测到应用处于 BLOCK 状态（previousBusinessBlocked == null -> isBusinessAllowToBlock == false）
+        val firstObservationInput = RuleBoundaryLockDecisionInput(
+            isBlockedNow = true,
+            isBusinessAllowToBlock = false, // UNKNOWN 不算 ALLOW->BLOCK 边沿
+            hasActiveForegroundSession = true,
+            isKeyguardLocked = false,
+            isScreenInteractive = true
+        )
+        assertFalse("首次观测到受阻应用（无先前明确 ALLOW 记录）绝不能被误当成 ALLOW->BLOCK 边沿锁定", RuleBoundaryLockGate.shouldAllowBoundaryLock(firstObservationInput))
+    }
 }
+
 

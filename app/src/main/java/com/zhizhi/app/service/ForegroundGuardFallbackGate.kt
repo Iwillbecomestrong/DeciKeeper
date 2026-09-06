@@ -38,6 +38,10 @@ internal class ForegroundGuardFallbackGate(
     fun reset() {
         pendingPackage = null
         pendingSinceMs = null
+        try {
+            android.util.Log.d("ForegroundGuardFallbackGate", "Explicit reset called across sessions")
+        } catch (_: Throwable) {
+        }
     }
 }
 

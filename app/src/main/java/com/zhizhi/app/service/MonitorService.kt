@@ -1652,9 +1652,9 @@ class MonitorService : Service() {
         val currentIsRest = isFreeTime
         val leftGap = wasGap && !currentIsGap
         val endedRest = wasRest && !currentIsRest
-        if (leftGap || endedRest) {
-            mForceRuleBoundaryCheck = true
-        }
+        // 🛡️ [Finding 3 修复] 单次边沿标志立即提取为当前轮次局部变量，并在任何早退分支之前立即消费清零，绝不跨周期残留
+        val forceCheckThisCycle = mForceRuleBoundaryCheck || leftGap || endedRest
+        mForceRuleBoundaryCheck = false
         mLastWasGap = currentIsGap
         mLastWasRest = currentIsRest
 
@@ -2066,18 +2066,14 @@ class MonitorService : Service() {
 
         // 🛡️ [Rule Boundary Lock] 规则从 ALLOW -> BLOCK 发生业务边沿跃迁（Finding 1 & 2）
         // 1. 解耦前台守卫结果，纯粹基于业务状态评估 ALLOW -> BLOCK 边沿；
-        // 2. 强制检测标志 mForceRuleBoundaryCheck 作为单次 token 在当前轮次立即消费清零，绝不跨周期泄漏至稳态。
+        // 2. 强制检测标志 forceCheckThisCycle 已在入口无条件消费清零，绝不跨周期泄漏至稳态。
         val previousBusinessBlocked = mLastBusinessBlockedByPackage[effectivePackageName]
         val isBusinessAllowToBlock = (previousBusinessBlocked == false && isBusinessBlocked)
         mLastBusinessBlockedByPackage[effectivePackageName] = isBusinessBlocked
 
-        val forceCheckThisCycle = mForceRuleBoundaryCheck
-        mForceRuleBoundaryCheck = false // 立即消费，单次有效
-
         val allowByRuleBoundary = RuleBoundaryLockGate.shouldAllowBoundaryLock(
             RuleBoundaryLockDecisionInput(
                 isBlockedNow = isBusinessBlocked,
-                wasPreviouslyBlocked = previousBusinessBlocked == true,
                 isBusinessAllowToBlock = isBusinessAllowToBlock,
                 leftGap = leftGap,
                 endedRest = endedRest,
@@ -3037,6 +3033,7 @@ class MonitorService : Service() {
 
             if (shouldProcess) {
                 if (eventPkg.isNotBlank()) {
+                    Log.d(TAG, "[UsageEvents] eventPkg=$eventPkg type=$type eventAt=${event.timeStamp}")
                     mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
                     foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp, eventClass)
                 }
