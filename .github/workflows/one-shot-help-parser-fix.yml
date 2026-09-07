@@ -1,0 +1,131 @@
+name: One-shot Help parser repair
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: write
+
+jobs:
+  repair-help-parser:
+    if: github.head_ref == 'ai/time-rules-spec-sync'
+    runs-on: [self-hosted, Windows, X64]
+    steps:
+      - name: Check out task branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Repair escaped Kotlin parser literals
+        shell: powershell
+        run: |
+          $script = @'
+          from pathlib import Path
+          import re
+
+          root = Path.cwd()
+          help_path = root / 'app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt'
+          workflow_path = root / '.github/workflows/one-shot-help-parser-fix.yml'
+          text = help_path.read_text(encoding='utf-8')
+
+          pattern = re.compile(
+              r'    private fun parseSections\(fullText: String\): List<HelpSection> \{.*?\n// ========== UI \u6784\u5efa ==========',
+              re.DOTALL,
+          )
+
+          parser = r'''    private fun parseSections(fullText: String): List<HelpSection> {
+              val sections = mutableListOf<HelpSection>()
+              val lines = fullText.split("\n")
+              var currentTitle = ""
+              var currentContent = StringBuilder()
+              var currentLevel = 1
+
+              fun flush() {
+                  val content = currentContent.toString().trim('\n', ' ')
+                  if (currentTitle.isNotEmpty()) {
+                      sections.add(HelpSection(currentTitle, content, currentLevel))
+                  }
+              }
+
+              for (line in lines) {
+                  val trimmed = line.trim()
+                  if (trimmed.isEmpty() || trimmed == "---") continue
+
+                  val markdownLevel = trimmed.takeWhile { it == '#' }.length
+                  val markdownTitle = if (
+                      markdownLevel in 1..3 &&
+                      trimmed.length > markdownLevel &&
+                      trimmed[markdownLevel] == ' '
+                  ) {
+                      trimmed.substring(markdownLevel + 1).trim()
+                  } else {
+                      null
+                  }
+
+                  val legacyH1 = Regex("^[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]+\u3001.+$").find(trimmed)
+                  val legacyH2 = Regex("^\\d+\\.\\d+\\s.+$").find(trimmed)
+
+                  when {
+                      markdownTitle != null -> {
+                          flush()
+                          currentTitle = markdownTitle
+                          currentContent = StringBuilder()
+                          currentLevel = if (Regex("^\\d+\\.\\d+\\s.+$").matches(markdownTitle)) 2 else 1
+                      }
+                      legacyH1 != null -> {
+                          flush()
+                          currentTitle = trimmed
+                          currentContent = StringBuilder()
+                          currentLevel = 1
+                      }
+                      legacyH2 != null -> {
+                          flush()
+                          currentTitle = trimmed
+                          currentContent = StringBuilder()
+                          currentLevel = 2
+                      }
+                      else -> {
+                          if (currentContent.isNotEmpty()) currentContent.append("\n")
+                          currentContent.append(trimmed)
+                      }
+                  }
+              }
+              flush()
+              return sections
+          }
+
+          // ========== UI \u6784\u5efa =========='''
+
+          text, count = pattern.subn(lambda _: parser, text, count=1)
+          if count != 1:
+              raise RuntimeError(f'Expected one damaged parseSections block, replaced {count}')
+
+          text = text.replace(
+              ' * 1. \u6784\u5efa\u5e76\u6e32\u67d3\u5e2e\u52a9\u6587\u672c\u5185\u5bb9\u3002',
+              ' * 1. \u8bfb\u53d6\u5e76\u6e32\u67d3\u6784\u5efa\u751f\u6210\u7684\u4f7f\u7528\u624b\u518c\u8d44\u6e90\u3002',
+              1,
+          )
+
+          if 'fullText.split("\\n")' not in text:
+              raise RuntimeError('Parser newline split literal was not repaired')
+          if 'currentContent.append("\\n")' not in text:
+              raise RuntimeError('Parser newline append literal was not repaired')
+          if 'assets.open("\u4f7f\u7528\u624b\u518c.md")' not in text:
+              raise RuntimeError('Canonical manual asset loader missing')
+
+          help_path.write_text(text, encoding='utf-8', newline='\n')
+          workflow_path.unlink()
+          '@
+
+          $scriptPath = Join-Path $env:RUNNER_TEMP 'repair_help_parser.py'
+          [System.IO.File]::WriteAllText($scriptPath, $script, (New-Object System.Text.UTF8Encoding($false)))
+          python $scriptPath
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt .github/workflows/one-shot-help-parser-fix.yml
+          git diff --cached --check
+          git commit -m 'fix(help): repair generated manual parser'
+          git push origin HEAD:${{ github.head_ref }}
