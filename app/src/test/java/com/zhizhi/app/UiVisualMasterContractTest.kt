@@ -42,6 +42,31 @@ class UiVisualMasterContractTest {
     }
 
     @Test
+    fun secondaryScreensAlsoFollowTheSeasonalMaster() {
+        listOf(
+            "activity_bookmark.xml",
+            "activity_schedule_preview.xml",
+            "activity_app_window_preview.xml",
+            "activity_about.xml",
+            "activity_legal_document.xml",
+            "activity_privacy_consent.xml"
+        ).forEach { name ->
+            val xml = layout(name)
+            assertTrue("$name must use seasonal theme attributes", xml.contains("?attr/zz"))
+            assertFalse("$name must not keep old cyan/blue page chrome", xml.contains("#00838F") || xml.contains("#006064") || xml.contains("#0D47A1"))
+        }
+    }
+
+    @Test
+    fun bookmarkDynamicUiUsesThemeTokensInsteadOfLegacyCyanPalette() {
+        val kt = source("src/main/java/com/zhizhi/app/ui/BookmarkActivity.kt")
+        assertTrue(kt.contains("ThemeManager.apply(this)"))
+        listOf("#00838F", "#00695C", "#004D40", "#E0F2F1", "#90A4AE").forEach {
+            assertFalse("BookmarkActivity must not hard-code legacy palette $it", kt.contains(it))
+        }
+    }
+
+    @Test
     fun statisticsMatchesApprovedProductDecisions() {
         val xml = layout("fragment_statistics.xml")
         assertTrue(xml.contains("勿扰时长"))
