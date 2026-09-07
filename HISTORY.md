@@ -53,6 +53,13 @@
   1. 所有全屏 Activity（`AppSelectionActivity`、`GlobalParamsActivity` 等）及主页面，必须通过 `ViewCompat.setOnApplyWindowInsetsListener` 监听 `statusBars() or displayCutout()` 并动态设置顶部 padding，确保防前置摄像头留白。
   2. 弹窗移除内嵌硬编码背景，完全融入四季主题 `?attr/zzSurface`；彻底剔除硬编码 hex 颜色与非主题 emoji（如轮椅图标 `♿`），遵循主题 Token。
 
+### [DECISION-11] 闹钟响铃界面四季主题深度联动与生活化文案净化
+- **背景**：此前闹钟响铃悬浮窗与扫码界面硬编码暗黑纯黑底色（`#0B1114`），未跟随知止系统的四季主题（春·苔樱、夏·潮汐、秋·茶陶、冬·雪岚）动态联动，导致夜间/清晨界面割裂突兀；且双阶段冷却文案中存在“请勿沉迷手机”等对用户的说教与贬低用语。
+- **决策**：
+  1. **四季主题联动**：`window_alarm_overlay.xml` 与 `activity_alarm_scan.xml` 根容器背景统一绑定为 `?attr/zzPageBg`，卡片与输入容器采用 `?attr/zzSurface`，文字统一采用 `?attr/zzText`；`AlarmActivity` 在 `onCreate()` 首行统一调用 `ThemeManager.apply(this)`；`LockAlarmOverlay` 在 inflate 时使用 `ContextThemeWrapper(ctx, ThemeManager.themeRes(ctx))` 包裹，各动态组件通过 `ThemeManager.getColorAttr` 注入当前主题色值。
+  2. **生活化文案净化**：彻底移除“勿沉迷手机”等说教用语，改为正向、温和的生活化提示：“可以先去刷牙、洗脸，挑战界面不会关闭”。
+  3. **契约测试守护**：增加 `AlarmOverlayThemeContractTest`，对布局背景、Activity 主题注入、悬浮窗主题包裹及温和文案做静态断言守护，防止后续意外回归。
+
 ---
 
 ## 2. 核心防回归红线与惨痛教训

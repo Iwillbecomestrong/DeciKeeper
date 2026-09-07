@@ -59,6 +59,13 @@
 - [x] 起床系统：自定义挑战题库（Markdown 智能语法解析、带行号警告、AI 提示词、多题库管理与错题常驻回顾）。
 - [x] 起床系统：提示隔离、多分类展开选择、四季主题响铃界面与两阶段衰减防卡死闭环（提示与答案物理隔离，题库多分类动态展开，响铃全屏四季季相美化与安全区适配，两阶段衰减与空关门禁防卡死）。
 
+### 2.5 闹钟响铃界面四季主题与温和文案净化
+
+- [x] 闹钟响铃界面（`window_alarm_overlay.xml` 与 `activity_alarm_scan.xml`）根背景全面采用 `?attr/zzPageBg`，卡片与容器采用 `?attr/zzSurface`，彻底告别暗黑硬编码背景（`#0B1114` 等）。
+- [x] `AlarmActivity` 注入 `ThemeManager.apply(this)`，悬浮窗使用 `ContextThemeWrapper` 包裹四季主题资源。
+- [x] 净化文案：彻底移除“勿沉迷手机”等贬低说教词汇，改造为生活化温和文案（“可以先去刷牙、洗脸，挑战界面不会关闭”）。
+- [x] 建立契约测试 `AlarmOverlayThemeContractTest` 固化四季主题着色与温和文案规范。
+
 ---
 
 ## 3. 并行工作边界
