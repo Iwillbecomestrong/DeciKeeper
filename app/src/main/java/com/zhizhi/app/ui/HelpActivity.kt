@@ -7,14 +7,14 @@
  * * @responsibilities:
  * 1. 读取并渲染构建生成的使用手册资源。
  * 2. 提供目录导航（可点击跳转）。
- * 3. 提供实时搜索过滤与结果高亮。
+ * 3. 提供实时搜索过滤。
  * * @context:
  * - 上游: HomeFragment / 设置入口
- * - 下游: docs/使用手册.md 构建生成的 asset
+ * - 下游: 无
  * * @constraints (必读):
  * 1. 文案必须与实际功能保持一致。
  * 2. 目录标题从文案中自动解析。
- * 3. docs/使用手册.md 是唯一完整用户手册来源；App 内不得维护第二份硬编码正文。
+ * 3. `docs/使用手册.md` 是唯一完整用户手册来源；App 内不得维护第二份正文。
  * =================================================================================
  */
 package com.zhizhi.app.ui
@@ -30,11 +30,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewParent
 import android.view.inputmethod.EditorInfo
-import android.widget.EditText
-import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
 import io.noties.markwon.Markwon
@@ -45,10 +41,12 @@ class HelpActivity : AppCompatActivity() {
     private data class HelpSection(
         val title: String,
         val content: String,
-        val level: Int
+        val level: Int           // 1=一级标题（一、二、三）, 2=二级标题（2.1, 2.2）
     )
 
     private lateinit var contentContainer: LinearLayout
+    private lateinit var tocContainer: LinearLayout
+    private lateinit var tocToggle: TextView
     private lateinit var markwon: Markwon
     private var allSections: List<HelpSection> = emptyList()
     private var searchQuery: String = ""
@@ -63,16 +61,18 @@ class HelpActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                )
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            )
         }
 
         markwon = Markwon.builder(this)
             .usePlugin(TablePlugin.create(this))
             .build()
 
-        // 解析帮助内容为结构化章节；正文仍保留 Markdown，由 Markwon 负责渲染。
+        // 解析帮助内容为结构化章节；正文保留 Markdown 交给 Markwon 渲染。
         allSections = parseSections(loadHelpText())
+
+        // 构建页面
         buildUI()
     }
 
@@ -102,15 +102,9 @@ class HelpActivity : AppCompatActivity() {
             }
         }
 
-        fun startSection(title: String, level: Int) {
-            flush()
-            currentTitle = title
-            currentContent = StringBuilder()
-            currentLevel = level
-        }
-
         for (line in lines) {
             val trimmed = line.trim()
+
             val markdownLevel = trimmed.takeWhile { it == '#' }.length
             val markdownTitle = if (
                 markdownLevel in 1..3 &&
@@ -127,31 +121,43 @@ class HelpActivity : AppCompatActivity() {
 
             when {
                 markdownTitle != null -> {
-                    val level = if (Regex("^\\d+\\.\\d+\\s.+$").matches(markdownTitle)) 2 else 1
-                    startSection(markdownTitle, level)
+                    flush()
+                    currentTitle = markdownTitle
+                    currentContent = StringBuilder()
+                    currentLevel = if (Regex("^\\d+\\.\\d+\\s.+$").matches(markdownTitle)) 2 else 1
                 }
-                legacyH1 != null -> startSection(trimmed, 1)
-                legacyH2 != null -> startSection(trimmed, 2)
+                legacyH1 != null -> {
+                    flush()
+                    currentTitle = trimmed
+                    currentContent = StringBuilder()
+                    currentLevel = 1
+                }
+                legacyH2 != null -> {
+                    flush()
+                    currentTitle = trimmed
+                    currentContent = StringBuilder()
+                    currentLevel = 2
+                }
                 trimmed == "---" -> {
                     // App 已经在章节之间绘制分隔线，不重复显示 Markdown 水平线。
                 }
                 currentTitle.isNotEmpty() -> {
-                    // 保留原始换行、列表缩进和表格语法，不能在这里把 Markdown 拍平成纯文本。
+                    // 保留空行、列表缩进、引用和表格语法，避免在渲染前把 Markdown 拍平成纯文本。
                     if (currentContent.isNotEmpty()) currentContent.append("\n")
                     currentContent.append(line.trimEnd())
                 }
             }
         }
-
         flush()
         return sections
     }
 
-    // ========== UI 构建 ==========
+// ========== UI \u6784\u5efa ==========
 
     private fun buildUI() {
         val sbh = statusBarHeight()
 
+        // === DrawerLayout（侧边栏容器） ===
         val drawerLayout = DrawerLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -159,6 +165,7 @@ class HelpActivity : AppCompatActivity() {
             )
         }
 
+        // ===================== 主内容 =====================
         val mainContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(
@@ -168,12 +175,14 @@ class HelpActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor("#F5F5F5"))
         }
 
+        // ---- 顶部栏（导航按钮 + 标题） ----
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            // sbh = 实际状态栏高度(含刘海)，+ dp(16) 额外呼吸空间
             setPadding(dp(24), sbh + dp(16), dp(24), dp(16))
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -194,14 +203,13 @@ class HelpActivity : AppCompatActivity() {
             setTextColor(Color.parseColor("#00838F"))
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
             ).apply { setMargins(0, 0, 48, 0) }
         }
         topBar.addView(tvTitle)
         mainContent.addView(topBar)
 
+        // ---- 搜索栏 ----
         val searchFrame = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -222,24 +230,21 @@ class HelpActivity : AppCompatActivity() {
                     searchQuery = text.toString().trim()
                     filterAndRender()
                     true
-                } else {
-                    false
-                }
+                } else false
             }
             addTextChangedListener(object : android.text.TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     searchQuery = s?.toString()?.trim() ?: ""
                     filterAndRender()
                 }
-
-                override fun afterTextChanged(s: android.text.Editable?) = Unit
+                override fun afterTextChanged(s: android.text.Editable?) {}
             })
         }
         searchFrame.addView(editText)
         mainContent.addView(searchFrame)
 
+        // ---- 可滚动内容区域 ----
         val scrollView = ScrollView(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -258,8 +263,10 @@ class HelpActivity : AppCompatActivity() {
         }
         scrollView.addView(contentContainer)
         mainContent.addView(scrollView)
+
         drawerLayout.addView(mainContent)
 
+        // ===================== 侧边栏（目录） =====================
         val drawerContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = DrawerLayout.LayoutParams(
@@ -280,18 +287,13 @@ class HelpActivity : AppCompatActivity() {
         }
         drawerContent.addView(drawerTitle)
 
+        // 可滚动的目录列表
         val tocScroll = ScrollView(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                0
+                ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
-        tocScroll.layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            0,
-            1f
-        )
-
         val tocList = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(
@@ -300,12 +302,14 @@ class HelpActivity : AppCompatActivity() {
             )
         }
 
-        for (section in allSections) {
-            val isMajor = section.level == 1
+        // 生成目录项
+        var sectionIndex = 0
+        for (sec in allSections) {
+            val isMajor = sec.level == 1
             val indent = if (isMajor) 0 else 32
 
             val tvItem = TextView(this).apply {
-                text = section.title
+                text = sec.title
                 textSize = if (isMajor) 15f else 13f
                 setTypeface(null, if (isMajor) Typeface.BOLD else Typeface.NORMAL)
                 setTextColor(Color.parseColor(if (isMajor) "#006064" else "#00838F"))
@@ -314,8 +318,9 @@ class HelpActivity : AppCompatActivity() {
                     drawerLayout.closeDrawer(Gravity.START)
                     searchQuery = ""
                     filterAndRender()
+                    // 滚动到该章节（延迟等渲染完成）
                     scrollView.post {
-                        scrollToSectionInContainer(section.title)
+                        scrollToSectionInContainer(sec.title)
                     }
                 }
             }
@@ -324,6 +329,7 @@ class HelpActivity : AppCompatActivity() {
         tocScroll.addView(tocList)
         drawerContent.addView(tocScroll)
 
+        // 底部提示
         val tvFooter = TextView(this).apply {
             text = "共 ${allSections.size} 个章节"
             textSize = 11f
@@ -334,33 +340,43 @@ class HelpActivity : AppCompatActivity() {
         drawerContent.addView(tvFooter)
 
         drawerLayout.addView(drawerContent)
+
+        // 设置根视图
         setContentView(drawerLayout)
+
+        // 初始渲染
         filterAndRender()
     }
 
-    /** 在 contentContainer 中滚动到匹配标题的第一个 View。 */
+    /**
+     * 在 contentContainer 中滚动到匹配标题的第一个 View
+     */
     private fun scrollToSectionInContainer(title: String) {
         for (i in 0 until contentContainer.childCount) {
             val child = contentContainer.getChildAt(i)
-            if (child !is TextView) continue
-
-            val text = child.text.toString()
-            if (text != title && !text.startsWith(title)) continue
-
-            val parent = child.parent
-            if (parent is ScrollView) {
-                parent.smoothScrollTo(0, child.top - dp(80))
-            } else if (parent is ViewGroup) {
-                var p: ViewParent? = parent.parent
-                while (p != null) {
-                    if (p is ScrollView) {
-                        p.smoothScrollTo(0, child.top - dp(80))
-                        break
+            if (child is TextView) {
+                val text = child.text.toString()
+                if (text == title || text.startsWith(title)) {
+                    // 找到该 View 在 ScrollView 中的位置
+                    val location = IntArray(2)
+                    child.getLocationInWindow(location)
+                    val parent = child.parent
+                    if (parent is ScrollView) {
+                        parent.smoothScrollTo(0, child.top - dp(80))
+                    } else if (parent is ViewGroup) {
+                        // 向上找 ScrollView
+                        var p: ViewParent? = parent.parent
+                        while (p != null) {
+                            if (p is ScrollView) {
+                                p.smoothScrollTo(0, child.top - 80)
+                                break
+                            }
+                            p = p.parent
+                        }
                     }
-                    p = p.parent
+                    return
                 }
             }
-            return
         }
     }
 
@@ -374,15 +390,17 @@ class HelpActivity : AppCompatActivity() {
         val matched = if (query.isEmpty()) {
             allSections
         } else {
-            allSections.filter { section ->
-                section.title.lowercase().contains(query) ||
-                    section.content.lowercase().contains(query)
+            allSections.filter { sec ->
+                sec.title.lowercase().contains(query) ||
+                sec.content.lowercase().contains(query)
             }
         }
 
         if (query.isNotEmpty()) {
+            // 搜索模式下：显示匹配数量
             addSearchResultHeader(contentContainer, "找到 ${matched.size} 个相关章节")
         }
+        // 普通模式：直接渲染所有章节，目录在侧边栏中
 
         if (matched.isEmpty() && query.isNotEmpty()) {
             val tvEmpty = TextView(this).apply {
@@ -396,27 +414,39 @@ class HelpActivity : AppCompatActivity() {
             return
         }
 
-        for ((index, section) in matched.withIndex()) {
+        // 渲染章节
+        for ((i, section) in matched.withIndex()) {
+            // 搜索高亮色
             val highlightColor = Color.parseColor("#FFFFEB3B")
-            val tvSectionTitle = if (section.level == 1) {
+
+            // ---- 标题 ----
+            val tvTitle = if (section.level == 1) {
                 buildSectionTitle(section.title, 18f, "#006064", Typeface.BOLD)
             } else {
                 buildSectionTitle(section.title, 15f, "#00838F", Typeface.NORMAL)
             }
 
+            // 搜索高亮
             if (query.isNotEmpty() && section.title.lowercase().contains(query)) {
-                tvSectionTitle.text = highlightedText(tvSectionTitle.text, query, highlightColor, maxMatches = 1)
+                val spannable = SpannableString(section.title)
+                val idx = section.title.lowercase().indexOf(query)
+                if (idx >= 0) {
+                    spannable.setSpan(BackgroundColorSpan(highlightColor), idx, idx + query.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                tvTitle.text = spannable
             }
-            contentContainer.addView(tvSectionTitle)
 
+            contentContainer.addView(tvTitle)
+
+            // ---- 内容 ----
             val tvBody = buildContentText(section.content, query, highlightColor)
             contentContainer.addView(tvBody)
 
-            if (index < matched.size - 1) {
+            // 章节间间距
+            if (i < matched.size - 1) {
                 val divider = View(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        1
+                        ViewGroup.LayoutParams.MATCH_PARENT, 1
                     ).apply { setMargins(0, dp(12), 0, dp(12)) }
                     setBackgroundColor(Color.parseColor("#1A000000"))
                 }
@@ -449,44 +479,36 @@ class HelpActivity : AppCompatActivity() {
 
     private fun buildContentText(text: String, query: String, highlightColor: Int): TextView {
         val tv = TextView(this).apply {
-            textSize = 15f
+            setTextSize(15f)
             setTextColor(Color.parseColor("#424242"))
             setLineSpacing(8f, 1f)
             setPadding(0, dp(4), 0, dp(4))
         }
 
+        // 真正渲染 Markdown（加粗、列表、引用、代码块、表格等），不再显示 ** / |---| 原始符号。
         markwon.setMarkdown(tv, text)
 
         if (query.isNotEmpty()) {
-            tv.text = highlightedText(tv.text, query, highlightColor, maxMatches = 5)
+            // Markwon 已经产生样式 Span；SpannableString 会保留这些 Span，再叠加搜索高亮。
+            val rendered = SpannableString(tv.text)
+            val lower = rendered.toString().lowercase()
+            var searchFrom = 0
+            var count = 0
+            while (count < 5) {
+                val idx = lower.indexOf(query, searchFrom)
+                if (idx < 0) break
+                rendered.setSpan(
+                    BackgroundColorSpan(highlightColor),
+                    idx,
+                    idx + query.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                searchFrom = idx + query.length
+                count++
+            }
+            tv.text = rendered
         }
+
         return tv
-    }
-
-    private fun highlightedText(
-        source: CharSequence,
-        query: String,
-        highlightColor: Int,
-        maxMatches: Int
-    ): CharSequence {
-        if (query.isEmpty()) return source
-
-        val lower = source.toString().lowercase()
-        val spannable = SpannableString(source)
-        var searchFrom = 0
-        var count = 0
-        while (count < maxMatches) {
-            val index = lower.indexOf(query, searchFrom)
-            if (index < 0) break
-            spannable.setSpan(
-                BackgroundColorSpan(highlightColor),
-                index,
-                index + query.length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            searchFrom = index + query.length
-            count++
-        }
-        return spannable
     }
 }
