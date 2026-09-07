@@ -38,8 +38,8 @@ $monitorPath = 'app/src/main/java/com/zhizhi/app/service/MonitorService.kt'
 $corePath = 'app/src/main/java/com/zhizhi/app/service/CoreService.kt'
 
 # -----------------------------------------------------------------------------
-# LockWindowManager: make final dismissal compile-time explicit and keep
-# screen-off / natural rule transitions from becoming hidden fifth exits.
+# LockWindowManager: final lock dismissal requires an explicit user exit.
+# Internal stale-view rebuilds still use resetLockState; they are repairs, not exits.
 # -----------------------------------------------------------------------------
 $lock = Get-Content -Raw -Encoding UTF8 $lockPath
 if (-not $lock.Contains('fun dismissLockScreen(authority: LockDismissAuthority)')) {
@@ -48,9 +48,14 @@ if (-not $lock.Contains('fun dismissLockScreen(authority: LockDismissAuthority)'
         'fun dismissLockScreen(authority: LockDismissAuthority) {' `
         'dismiss signature'
 
+    $lockExitLog = @'
+
+        Log.i(TAG, "[LOCK_EXIT] authority=$authority pkg=$lastBlockedPackageName")
+
+'@
     $lock = Replace-RegexOnce $lock `
         '\s*if \(isBlacklistLock && !force\) \{\s*Log\.d\(TAG, "Dismiss rejected: Blacklist Lock Active \(use force=true or button click\)"\)\s*return\s*\}\s*' `
-        "`n        Log.i(TAG, \"[LOCK_EXIT] authority=`$authority pkg=`${lastBlockedPackageName ?: \\\"unknown\\\"}\")`n`n" `
+        $lockExitLog `
         'remove force bypass guard'
 
     $lock = Replace-LiteralOnce $lock `
@@ -73,19 +78,36 @@ if (-not $lock.Contains('fun dismissLockScreen(authority: LockDismissAuthority)'
         '$1dismissLockScreen(LockDismissAuthority.REST)' `
         'rest authority'
 
+    $autoReleaseReplacement = @'
+LogExporter.i("LockScreen", "[AUTO_RELEASE_BLOCKED] restrictions cleared for pkg=$targetPackage but visible lock requires explicit exit")
+        return false
+'@
     $lock = Replace-RegexOnce $lock `
         'LogExporter\.i\("LockScreen", "\[AUTO_RELEASE\] restrictions cleared for pkg=\$targetPackage"\)\s*dismissLockScreen\(force = true\)\s*return true' `
-        'LogExporter.i("LockScreen", "[AUTO_RELEASE_BLOCKED] restrictions cleared for pkg=$targetPackage but visible lock requires explicit exit")`n        return false' `
+        $autoReleaseReplacement `
         'block automatic overlay release'
 
+    $naturalFreedomReplacement = @'
+$1LogExporter.i("TemporaryAccess", "[NATURAL_FREEDOM] visible lock preserved; explicit exit required")
+'@
     $lock = Replace-RegexOnce $lock `
         '(endTemporaryAccessLifecycle\(nowMs, reason = "FREE_TIME_STARTED", nextState = "FREE_TIME"\)\s*clearTemporaryAccessState\(\)\s*)dismissLockScreen\(force = true\)' `
-        '$1LogExporter.i("TemporaryAccess", "[NATURAL_FREEDOM] visible lock preserved; explicit exit required")' `
+        $naturalFreedomReplacement `
         'natural-freedom overlay preserve'
 
+    $screenOffPolicy = @'
+internal fun shouldDismissForScreenOff(
+        isAlarmOverlayActive: Boolean,
+        isLocked: Boolean,
+        isBlacklistLock: Boolean
+    ): Boolean {
+        // Screen-off is not one of the four explicit exits. Preserve every visible lock.
+        return false
+    }
+'@
     $lock = Replace-RegexOnce $lock `
         'internal fun shouldDismissForScreenOff\(\s*isAlarmOverlayActive: Boolean,\s*isLocked: Boolean,\s*isBlacklistLock: Boolean\s*\): Boolean \{.*?\n    \}' `
-        "internal fun shouldDismissForScreenOff(`n        isAlarmOverlayActive: Boolean,`n        isLocked: Boolean,`n        isBlacklistLock: Boolean`n    ): Boolean {`n        // Screen-off is not one of the four explicit exits. Preserve every visible lock.`n        return false`n    }" `
+        $screenOffPolicy `
         'screen-off policy'
 
     $lock = Replace-LiteralOnce $lock `
@@ -102,19 +124,36 @@ if (-not $lock.Contains('fun dismissLockScreen(authority: LockDismissAuthority)'
 }
 
 # -----------------------------------------------------------------------------
-# MonitorService: detection is allowed to clear Presence state, never the lock.
-# Automatic restriction release may settle sessions, but cannot dismiss overlay.
+# MonitorService: Presence and automatic detection may update state, never unlock.
 # -----------------------------------------------------------------------------
 $monitor = Get-Content -Raw -Encoding UTF8 $monitorPath
 if ($monitor.Contains('LockWindowManager.dismissLockScreen')) {
+    $presenceReplacement = @'
+/** Presence 只负责清理小窗检测状态，不拥有解锁权。 */
+    private fun handlePresenceUnlock(pkg: String, reason: String) {
+        val lockedFor = (System.currentTimeMillis() - mPresentLockedAtMs).coerceAtLeast(0L)
+        Log.i(TAG, "[Presence] CLEAR_ONLY: pkg=$pkg reason=$reason lockedFor=${lockedFor}ms")
+        LogExporter.logEvent("MonitorService", "[Presence_CLEAR_ONLY] pkg=$pkg reason=$reason lockedFor=${lockedFor}ms")
+        mPresentLockedPkg = null
+        mPresentLockedAtMs = 0L
+        mPresenceStatUnlocked++
+    }
+
+    /** 重置检测状态 */
+'@
     $monitor = Replace-RegexOnce $monitor `
         '/\*\* 小窗关闭后解除锁机（冷却期内不解锁，冷却结束前仍保持锁屏） \*/\s*private fun handlePresenceUnlock\(pkg: String, reason: String\) \{.*?\n    \}\s*\n\s*/\*\* 重置检测状态 \*/' `
-        "/** Presence 只负责清理小窗检测状态，不拥有解锁权。 */`n    private fun handlePresenceUnlock(pkg: String, reason: String) {`n        val lockedFor = (System.currentTimeMillis() - mPresentLockedAtMs).coerceAtLeast(0L)`n        Log.i(TAG, \"[Presence] CLEAR_ONLY: pkg=`$pkg reason=`$reason lockedFor=`${lockedFor}ms\")`n        LogExporter.logEvent(\"MonitorService\", \"[Presence_CLEAR_ONLY] pkg=`$pkg reason=`$reason lockedFor=`${lockedFor}ms\")`n        mPresentLockedPkg = null`n        mPresentLockedAtMs = 0L`n        mPresenceStatUnlocked++`n    }`n`n    /** 重置检测状态 */" `
+        $presenceReplacement `
         'presence clear-only'
 
+    $monitorAutoReleaseReplacement = @'
+if (decision.dismissBlacklistOverlay) {
+            Log.w(TAG, "[AUTO_RELEASE_BLOCKED] visible lock requires explicit exit")
+        }
+'@
     $monitor = Replace-RegexOnce $monitor `
         'if \(decision\.dismissBlacklistOverlay\) \{\s*LockWindowManager\.dismissLockScreen\(force = true\)\s*currentLockedPkg = null\s*\}' `
-        'if (decision.dismissBlacklistOverlay) {`n            Log.w(TAG, "[AUTO_RELEASE_BLOCKED] visible lock requires explicit exit")`n        }' `
+        $monitorAutoReleaseReplacement `
         'monitor automatic release'
 
     if ($monitor.Contains('LockWindowManager.dismissLockScreen')) {
@@ -126,25 +165,22 @@ if ($monitor.Contains('LockWindowManager.dismissLockScreen')) {
 }
 
 # -----------------------------------------------------------------------------
-# CoreService: Accessibility reconnect is a rebuild trigger, not an unlock.
-# Re-submit the existing lock after the generation bump so LockWindowManager's
-# generation classifier destroys only the stale physical overlay and recreates it.
+# CoreService: reconnect is an internal stale-overlay rebuild trigger, never unlock.
 # -----------------------------------------------------------------------------
 $core = Get-Content -Raw -Encoding UTF8 $corePath
 if (-not $core.Contains('[A11Y_RECONNECT_REBUILD]')) {
     $needle = @'
             LockWindowManager.setCoreService(this)
             LockWindowManager.init(this)
-
-            // 馃殌 [Fix] Explicitly start MonitorService to ensure background logic runs
 '@
     $replacement = @'
             LockWindowManager.setCoreService(this)
             LockWindowManager.init(this)
 
-            // A11y reconnect invalidates TYPE_ACCESSIBILITY_OVERLAY ownership.  If a
-            // blacklist lock was already visible, immediately resubmit the same lock
-            // under the new generation.  This is an internal rebuild, never an unlock.
+            // A11y reconnect invalidates TYPE_ACCESSIBILITY_OVERLAY ownership. If a
+            // blacklist lock was already visible, resubmit the same lock under the new
+            // generation. LockWindowManager will classify the old generation as stale,
+            // remove only the stale physical view, then rebuild it immediately.
             val reconnectLockedPkg = LockWindowManager.getCurrentBlockedPackageName()
             if (LockWindowManager.isLocked &&
                 LockWindowManager.isBlacklistLock &&
@@ -164,8 +200,6 @@ if (-not $core.Contains('[A11Y_RECONNECT_REBUILD]')) {
                     detectionSource = "A11Y_RECONNECT"
                 )
             }
-
-            // 馃殌 [Fix] Explicitly start MonitorService to ensure background logic runs
 '@
     $core = Replace-LiteralOnce $core $needle $replacement 'a11y reconnect rebuild insertion'
     Set-Content -Encoding UTF8 -NoNewline $corePath $core
