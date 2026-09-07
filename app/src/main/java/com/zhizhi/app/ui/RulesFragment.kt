@@ -195,7 +195,7 @@ class RulesFragment : Fragment() {
             isEnforcing: Boolean,
             isPending: Boolean
         ): String {
-            return "  • 🔒 隐私空间拦截 → 次日生效"
+            return "  • 隐私空间拦截 → 次日生效"
         }
     }
 
@@ -356,7 +356,7 @@ class RulesFragment : Fragment() {
         }
 
         btnQuickSendLogs?.setOnClickListener {
-            LogExporter.showQuickSendLogOptions(requireContext(), "发送最近日志", "请选择要发送的时间范围")
+            LogExporter.showQuickSendLogOptions(requireContext(), "导出日志", "请选择要导出的时间范围")
         }
         btnExportSettings?.setOnClickListener {
             showExportCategoryDialog()
@@ -560,18 +560,18 @@ class RulesFragment : Fragment() {
                     return@setOnCheckedChangeListener
                 }
                 AntiUninstallManager.setProtectionEnabled(context, true)
-                Toast.makeText(context, "✅ 防卸载保护已开启", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "防卸载保护已开启", Toast.LENGTH_SHORT).show()
                 updateAntiUninstallUI()
                 maybeAskBgBatteryPermissionAfterAntiUninstallEnabled()
             } else {
                 if (TimeRuleManager.isInAdaptationPeriod(context)) {
                     AntiUninstallManager.setProtectionEnabled(context, false)
-                    Toast.makeText(context, "✅ 适应期内，保护已立即关闭", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "适应期内，保护已立即关闭", Toast.LENGTH_SHORT).show()
                     updateAntiUninstallUI()
                 } else if (AccessibilityControlManager.getState(context) != AccessibilityControlManager.State.ACTIVE) {
                     // 防关权限保护未开启，次日生效无意义 → 立即关闭
                     AntiUninstallManager.setProtectionEnabled(context, false)
-                    Toast.makeText(context, "✅ 防卸载保护已关闭", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "防卸载保护已关闭", Toast.LENGTH_SHORT).show()
                     updateAntiUninstallUI()
                 } else {
                     switchUninstallUiUpdating = true
@@ -600,7 +600,7 @@ class RulesFragment : Fragment() {
                     btnConfirm.setOnClickListener {
                         AntiUninstallManager.setProtectionEnabled(context, false)
                         updateAntiUninstallUI()
-                        Toast.makeText(context, "⏳ 已申请关闭防卸载（明日生效），可立即继续申请关闭无障碍", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "已申请关闭防卸载（明日生效），可立即继续申请关闭无障碍", Toast.LENGTH_LONG).show()
                         switchUninstallUiUpdating = true
                         switchView.isChecked = false
                         switchUninstallUiUpdating = false
@@ -637,14 +637,13 @@ class RulesFragment : Fragment() {
                     Toast.makeText(context, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
                     return@setOnCheckedChangeListener
                 }
-                // 防关权限保护：弹窗检查基础权限+锁屏显示+无障碍
-                switchPermProtectionUiUpdating = true
-                switchView.isChecked = false
-                switchPermProtectionUiUpdating = false
-                showPermProtectionGuideDialog()
+                // 防关权限保护：直接开启，不弹引导弹窗（无障碍未开 Toast 提示）
+                AccessibilityControlManager.setEnabled(context, true)
+                Toast.makeText(context, "防关权限保护已开启", Toast.LENGTH_SHORT).show()
+                updatePermProtectionUI()
             } else {
                 AccessibilityControlManager.setEnabled(context, false)
-                Toast.makeText(context, "⏳ 已申请关闭防关权限保护（明日生效，可与防卸载同次提交）", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "已申请关闭防关权限保护（明日生效，可与防卸载同次提交）", Toast.LENGTH_LONG).show()
                 switchPermProtectionUiUpdating = true
                 switchView.isChecked = false
                 switchPermProtectionUiUpdating = false
@@ -722,46 +721,30 @@ class RulesFragment : Fragment() {
 
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(42, 30, 42, 36)
-            setBackgroundResource(R.drawable.bg_sea_depths)
-        }
-
-        val topRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
         }
 
         val tvTitle = TextView(ctx).apply {
-            text = "♿ 关闭无障碍服务"
-            textSize = 20f
+            text = "关闭无障碍服务"
+            textSize = 18f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
-
-        val btnClose = TextView(ctx).apply {
-            text = "❌"
-            textSize = 16f
-            setPadding(20, 6, 0, 6)
-        }
-
-        topRow.addView(tvTitle)
-        topRow.addView(btnClose)
-        container.addView(topRow)
+        container.addView(tvTitle)
 
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
-            setPadding(0, 20, 0, 0)
-            setTextColor(android.graphics.Color.WHITE)
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
             text = "关闭无障碍服务后，以下保护功能将一并停用：\n\n" +
-                "  • 🔐 防卸载保护 → 提交次日关闭申请\n" +
-                "  • 🛡️ 防关权限保护 → 提交次日关闭申请\n" +
-                "  • ⏰ 闹钟防关机保护 → 立即关闭\n" +
+                "  • 防卸载保护 → 提交次日关闭申请\n" +
+                "  • 防关权限保护 → 提交次日关闭申请\n" +
+                "  • 闹钟防关机保护 → 立即关闭\n" +
                 a11yCollaborativeDisableDialogItem(
                     isEnforcing = PrivacyProtectionManager.isEnforcing(ctx),
                     isPending = PrivacyProtectionManager.getProtectionState(ctx) == PrivacyProtectionManager.State.PENDING
-                ) + "\n" +
-                "\n" +
+                ) + "\n\n" +
                 "关闭流程：\n" +
                 "1. 点击「确认关闭」提交以上所有关闭申请\n" +
                 "2. 除闹钟防关机保护立即生效外，其余次日生效\n" +
@@ -772,29 +755,29 @@ class RulesFragment : Fragment() {
 
         val buttonRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 28, 0, 0)
+            setPadding(0, (20 * density).toInt(), 0, 0)
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        val btnCancel = Button(ctx).apply {
+        val btnCancel = com.google.android.material.button.MaterialButton(ctx).apply {
             text = "取消"
             setAllCaps(false)
-            setTextColor(android.graphics.Color.WHITE)
-            setBackgroundResource(R.drawable.bg_dialog_button_outline)
-            minHeight = (48 * density).toInt()
-            setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 setMargins(0, 0, (8 * density).toInt(), 0)
             }
         }
 
-        val btnConfirm = Button(ctx).apply {
+        val btnConfirm = com.google.android.material.button.MaterialButton(ctx).apply {
             text = "确认关闭"
             setAllCaps(false)
             setTextColor(android.graphics.Color.WHITE)
-            setBackgroundResource(R.drawable.bg_dialog_button_outline)
-            minHeight = (48 * density).toInt()
-            setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzDanger))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
@@ -806,7 +789,6 @@ class RulesFragment : Fragment() {
             .setView(container)
             .create()
 
-        btnClose.setOnClickListener { dialog.dismiss() }
         btnCancel.setOnClickListener { dialog.dismiss() }
 
         btnConfirm.setOnClickListener {
@@ -838,7 +820,7 @@ class RulesFragment : Fragment() {
             updatePermProtectionUI()
             updateAlarmPowerOffProtectionUI()
             updatePrivacySpaceGuardUI()
-            Toast.makeText(ctx, "⏳ 已同时提交关闭申请（闹钟防关机已立即关闭，其余次日生效）", Toast.LENGTH_LONG).show()
+            Toast.makeText(ctx, "已同时提交关闭申请（闹钟防关机已立即关闭，其余次日生效）", Toast.LENGTH_LONG).show()
             dialog.dismiss()
         }
 
@@ -851,76 +833,61 @@ class RulesFragment : Fragment() {
 
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(42, 30, 42, 36)
-            setBackgroundResource(R.drawable.bg_sea_depths)
-        }
-
-        val topRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
         }
 
         val tvTitle = TextView(ctx).apply {
-            text = "♿ 关闭无障碍服务"
-            textSize = 20f
+            text = "关闭无障碍服务"
+            textSize = 18f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
-
-        val btnClose = TextView(ctx).apply {
-            text = "❌"
-            textSize = 16f
-            setPadding(20, 6, 0, 6)
-        }
-
-        topRow.addView(tvTitle)
-        topRow.addView(btnClose)
-        container.addView(topRow)
+        container.addView(tvTitle)
 
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
-            setPadding(0, 20, 0, 0)
-            setTextColor(android.graphics.Color.WHITE)
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
             text = "「防关权限保护」正在保护中，它会阻止对无障碍服务的关闭操作。\n\n" +
                 "将同时提交以下功能的关闭申请：\n" +
-                "  • 🔐 防卸载保护 → 次日生效（如果已开启）\n" +
-                "  • 🛡️ 防关权限保护 → 次日生效\n" +
-                "  • ⏰ 闹钟防关机保护 → 立即关闭\n" +
+                "  • 防卸载保护 → 次日生效（如果已开启）\n" +
+                "  • 防关权限保护 → 次日生效\n" +
+                "  • 闹钟防关机保护 → 立即关闭\n" +
                 a11yCollaborativeDisableDialogItem(
                     isEnforcing = PrivacyProtectionManager.isEnforcing(ctx),
                     isPending = PrivacyProtectionManager.getProtectionState(ctx) == PrivacyProtectionManager.State.PENDING
                 ) + "\n" +
-                "  • ♿ 无障碍服务 → 次日生效\n\n" +
+                "  • 无障碍服务 → 次日生效\n\n" +
                 "是否确认同时提交？"
         }
         container.addView(tvMessage)
 
         val buttonRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 28, 0, 0)
+            setPadding(0, (20 * density).toInt(), 0, 0)
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        val btnCancel = Button(ctx).apply {
+        val btnCancel = com.google.android.material.button.MaterialButton(ctx).apply {
             text = "取消"
             setAllCaps(false)
-            setTextColor(android.graphics.Color.WHITE)
-            setBackgroundResource(R.drawable.bg_dialog_button_outline)
-            minHeight = (48 * density).toInt()
-            setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 setMargins(0, 0, (8 * density).toInt(), 0)
             }
         }
 
-        val btnConfirm = Button(ctx).apply {
+        val btnConfirm = com.google.android.material.button.MaterialButton(ctx).apply {
             text = "同时提交关闭"
             setAllCaps(false)
             setTextColor(android.graphics.Color.WHITE)
-            setBackgroundResource(R.drawable.bg_dialog_button_outline)
-            minHeight = (48 * density).toInt()
-            setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzDanger))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
@@ -932,7 +899,6 @@ class RulesFragment : Fragment() {
             .setView(container)
             .create()
 
-        btnClose.setOnClickListener { dialog.dismiss() }
         btnCancel.setOnClickListener { dialog.dismiss() }
 
         btnConfirm.setOnClickListener {
@@ -962,7 +928,7 @@ class RulesFragment : Fragment() {
             updatePermProtectionUI()
             updateAlarmPowerOffProtectionUI()
             updatePrivacySpaceGuardUI()
-            Toast.makeText(ctx, "⏳ 已同时提交关闭申请（闹钟防关机已立即关闭，其余次日生效）", Toast.LENGTH_LONG).show()
+            Toast.makeText(ctx, "已同时提交关闭申请（闹钟防关机已立即关闭，其余次日生效）", Toast.LENGTH_LONG).show()
             dialog.dismiss()
         }
 
@@ -974,54 +940,39 @@ class RulesFragment : Fragment() {
      */
     private fun showAccessibilityServiceGuideDialog() {
         val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
 
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(42, 30, 42, 36)
-            setBackgroundResource(R.drawable.bg_sea_depths)
-        }
-
-        val topRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
         }
 
         val tvTitle = TextView(ctx).apply {
-            text = "♿ 开启无障碍服务"
-            textSize = 20f
+            text = "开启无障碍服务"
+            textSize = 18f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
-
-        val btnClose = TextView(ctx).apply {
-            text = "❌"
-            textSize = 16f
-            setPadding(20, 6, 0, 6)
-        }
-
-        topRow.addView(tvTitle)
-        topRow.addView(btnClose)
-        container.addView(topRow)
+        container.addView(tvTitle)
 
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
-            setPadding(0, 20, 0, 0)
-            setTextColor(android.graphics.Color.WHITE)
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
         }
         container.addView(tvMessage)
 
-        val density = ctx.resources.displayMetrics.density
-        val btnMargin = (4 * density).toInt()
+        val btnMargin = (8 * density).toInt()
 
-        fun buildButton(label: String): Button {
-            return Button(ctx).apply {
+        fun buildButton(label: String): com.google.android.material.button.MaterialButton {
+            return com.google.android.material.button.MaterialButton(ctx).apply {
                 text = label
                 setAllCaps(false)
-                setTextColor(android.graphics.Color.WHITE)
-                setBackgroundResource(R.drawable.bg_dialog_button_outline)
-                minHeight = (48 * density).toInt()
-                setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+                backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+                cornerRadius = (12 * density).toInt()
+                minHeight = (44 * density).toInt()
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1036,13 +987,13 @@ class RulesFragment : Fragment() {
         val btnAssocStart = buildButton("关联启动")
 
         // 当所有前置权限齐全时，显示"开启无障碍"按钮
-        val btnEnable = Button(ctx).apply {
+        val btnEnable = com.google.android.material.button.MaterialButton(ctx).apply {
             text = "开启无障碍"
             setAllCaps(false)
             setTextColor(android.graphics.Color.WHITE)
-            setBackgroundResource(R.drawable.bg_dialog_button_outline)
-            minHeight = (48 * density).toInt()
-            setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1052,7 +1003,7 @@ class RulesFragment : Fragment() {
 
         val buttonContainer = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 28, 0, (10 * density).toInt())
+            setPadding(0, (20 * density).toInt(), 0, (10 * density).toInt())
         }
 
         var dialog: AlertDialog? = null
@@ -1073,21 +1024,21 @@ class RulesFragment : Fragment() {
 
             tvMessage.text = buildString {
                 append("开启无障碍服务后，可启用以下保护功能：\n")
-                append("  • 🔐 防卸载保护\n")
-                append("  • 🛡️ 防关权限保护\n")
-                append("  • ⏰ 闹钟防关机保护\n\n")
+                append("  • 防卸载保护\n")
+                append("  • 防关权限保护\n")
+                append("  • 闹钟防关机保护\n\n")
                 append("请先补齐以下前置权限：\n\n")
                 if (!baseOk) {
-                    append("⚠️ 基础权限未齐全：${permState.missingLabels.joinToString("、")}\n")
+                    append("基础权限未齐全：${permState.missingLabels.joinToString("、")}\n")
                 }
                 if (!bgBatteryReady && !bgBatteryConfirmed) {
-                    append("⚠️ 允许后台耗电未开启（非国产ROM可忽略）\n")
+                    append("允许后台耗电未开启（非国产ROM可忽略）\n")
                 }
                 if (!assocStartReady && !assocStartConfirmed) {
-                    append("⚠️ 关联启动未开启（非国产ROM可忽略）\n")
+                    append("关联启动未开启（非国产ROM可忽略）\n")
                 }
                 if (baseOk && (bgBatteryReady || bgBatteryConfirmed) && (assocStartReady || assocStartConfirmed)) {
-                    append("\n✅ 所有前置权限已齐全，可开启无障碍。")
+                    append("\n所有前置权限已齐全，可开启无障碍。")
                 }
             }
 
@@ -1199,7 +1150,7 @@ class RulesFragment : Fragment() {
         }
         cbBgBattery = android.widget.CheckBox(ctx).apply {
             text = "已开启"
-            setTextColor(android.graphics.Color.WHITE)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
         cbBgBattery!!.setOnCheckedChangeListener { _, checked ->
             if (checked) {
@@ -1225,7 +1176,7 @@ class RulesFragment : Fragment() {
         }
         cbAssocStart = android.widget.CheckBox(ctx).apply {
             text = "已开启"
-            setTextColor(android.graphics.Color.WHITE)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
         cbAssocStart!!.setOnCheckedChangeListener { _, checked ->
             val now = System.currentTimeMillis()
@@ -1250,8 +1201,6 @@ class RulesFragment : Fragment() {
         dialog = AlertDialog.Builder(ctx)
             .setView(container)
             .create()
-
-        btnClose.setOnClickListener { dialog?.dismiss() }
 
         buttonContainer.addView(btnBase)
         buttonContainer.addView(rowBgBattery)
@@ -1292,11 +1241,11 @@ class RulesFragment : Fragment() {
                 }
 
                 AlarmPowerOffProtectionManager.setEnabled(context, true)
-                Toast.makeText(context, "✅ 闹钟防关机保护已开启", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "闹钟防关机保护已开启", Toast.LENGTH_SHORT).show()
                 updateAlarmPowerOffProtectionUI()
             } else {
                 AlarmPowerOffProtectionManager.setEnabled(context, false)
-                Toast.makeText(context, "✅ 闹钟防关机保护已关闭", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "闹钟防关机保护已关闭", Toast.LENGTH_SHORT).show()
                 updateAlarmPowerOffProtectionUI()
             }
         }
@@ -1304,60 +1253,45 @@ class RulesFragment : Fragment() {
 
     private fun showAlarmPowerOffProtectionGuideDialog() {
         val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
 
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(42, 30, 42, 36)
-            setBackgroundResource(R.drawable.bg_sea_depths)
-        }
-
-        val topRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
         }
 
         val tvTitle = TextView(ctx).apply {
-            text = "⏰ 开启闹钟防关机保护"
-            textSize = 20f
+            text = "开启闹钟防关机保护"
+            textSize = 18f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
-
-        val btnClose = TextView(ctx).apply {
-            text = "❌"
-            textSize = 16f
-            setPadding(20, 6, 0, 6)
-        }
-
-        topRow.addView(tvTitle)
-        topRow.addView(btnClose)
-        container.addView(topRow)
+        container.addView(tvTitle)
 
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
-            setPadding(0, 20, 0, 0)
-            setTextColor(android.graphics.Color.WHITE)
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
         }
         container.addView(tvMessage)
 
-        val density = ctx.resources.displayMetrics.density
         val gap = (8 * density).toInt()
         val firstRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 28, 0, (10 * density).toInt())
+            setPadding(0, (20 * density).toInt(), 0, (10 * density).toInt())
             gravity = Gravity.CENTER_VERTICAL
             isBaselineAligned = false
         }
 
-        fun buildButton(label: String): Button {
-            return Button(ctx).apply {
+        fun buildButton(label: String): com.google.android.material.button.MaterialButton {
+            return com.google.android.material.button.MaterialButton(ctx).apply {
                 text = label
                 setAllCaps(false)
-                setTextColor(android.graphics.Color.WHITE)
-                setBackgroundResource(R.drawable.bg_dialog_button_outline)
-                minHeight = (48 * density).toInt()
-                setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+                backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+                cornerRadius = (12 * density).toInt()
+                minHeight = (44 * density).toInt()
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                     setMargins(0, 0, gap, 0)
                 }
@@ -1379,13 +1313,13 @@ class RulesFragment : Fragment() {
                 append("闹钟防关机保护会在闹钟挑战期间拦截关机菜单等系统入口。\n")
                 append("请先补齐以下权限，然后再次尝试开启：\n\n")
                 if (!lockScreenOk) {
-                    append("⚠️ 锁屏显示未开启\n")
+                    append("锁屏显示未开启\n")
                 }
                 if (!a11yOk) {
-                    append("⚠️ 无障碍服务未开启或处于待关闭状态\n")
+                    append("无障碍服务未开启或处于待关闭状态\n")
                 }
                 if (lockScreenOk && a11yOk) {
-                    append("✅ 所有权限已齐全，可开启功能。")
+                    append("所有权限已齐全，可开启功能。")
                 }
             }
 
@@ -1420,8 +1354,6 @@ class RulesFragment : Fragment() {
             .setView(container)
             .create()
 
-        btnClose.setOnClickListener { dialog?.dismiss() }
-
         firstRow.addView(btnLockScreen)
         firstRow.addView(btnA11y)
 
@@ -1438,7 +1370,7 @@ class RulesFragment : Fragment() {
     private fun showLockScreenSuggestionDialog() {
         val ctx = requireContext()
         AlertDialog.Builder(ctx)
-            .setTitle("🔒 锁屏显示未开启")
+            .setTitle("锁屏显示未开启")
             .setMessage("「闹钟防关机保护」需要「锁屏显示/全屏通知」权限才能拦截关机菜单。\n\n" +
                 "建议现在顺便去开启，避免以后想开闹钟防关机保护时还要先关闭权限保护（需次日生效）。\n\n" +
                 "是否现在去开启锁屏显示？")
@@ -1655,13 +1587,13 @@ class RulesFragment : Fragment() {
     private fun showEnableAlarmPowerOffSuggestionDialog() {
         val ctx = requireContext()
         AlertDialog.Builder(ctx)
-            .setTitle("⏰ 是否同时开启闹钟防关机保护？")
+            .setTitle("是否同时开启闹钟防关机保护？")
             .setMessage("防关权限保护已开启！是否同时开启「闹钟防关机保护」？\n\n" +
                 "开启后，闹钟挑战期间会自动拦截系统关机菜单，防止你通过关机逃避闹钟。")
             .setPositiveButton("开启") { _, _ ->
                 if (AlarmPowerOffProtectionManager.canEnable(ctx)) {
                     AlarmPowerOffProtectionManager.setEnabled(ctx, true)
-                    Toast.makeText(ctx, "✅ 闹钟防关机保护已开启", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, "闹钟防关机保护已开启", Toast.LENGTH_SHORT).show()
                     updateAlarmPowerOffProtectionUI()
                 } else {
                     Toast.makeText(ctx, "尚有权限未补齐，请在「加强约束功能」中手动开启", Toast.LENGTH_LONG).show()
@@ -2155,26 +2087,26 @@ class RulesFragment : Fragment() {
             switchUninstallUiUpdating = true
             when (state) {
                 AntiUninstallManager.State.ACTIVE -> {
-                    tvUninstallStatus?.text = "状态: 🛡️ 防卸载已生效"
-                    tvUninstallStatus?.setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+                    tvUninstallStatus?.text = "状态: 防卸载已生效"
+                    tvUninstallStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzSuccess))
                     switchUninstall?.isChecked = true
                 }
                 AntiUninstallManager.State.PENDING -> {
-                    tvUninstallStatus?.text = "状态: ⏳ 待关闭 (明日生效)"
-                    tvUninstallStatus?.setTextColor(android.graphics.Color.parseColor("#FF9800"))
+                    tvUninstallStatus?.text = "状态: 待关闭 (明日生效)"
+                    tvUninstallStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
                     switchUninstall?.isChecked = false
                 }
                 AntiUninstallManager.State.DISABLED -> {
-                    tvUninstallStatus?.text = "状态: ⚪ 已关闭"
-                    tvUninstallStatus?.setTextColor(android.graphics.Color.GRAY)
+                    tvUninstallStatus?.text = "状态: 已关闭"
+                    tvUninstallStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
                     switchUninstall?.isChecked = false
                 }
             }
             switchUninstallUiUpdating = false
         } else {
             switchUninstallUiUpdating = true
-            tvUninstallStatus?.text = "状态: ⚠️ 需开启无障碍服务"
-            tvUninstallStatus?.setTextColor(android.graphics.Color.parseColor("#F57C00"))
+            tvUninstallStatus?.text = "状态: 需开启无障碍服务"
+            tvUninstallStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
             switchUninstall?.isChecked = false
             switchUninstallUiUpdating = false
         }
@@ -2203,23 +2135,23 @@ class RulesFragment : Fragment() {
         tvPermProtectionStatus?.let {
             when (state) {
                 AccessibilityControlManager.State.PENDING -> {
-                    it.text = "状态: ⏳ 待关闭（明日生效）"
-                    it.setTextColor(android.graphics.Color.parseColor("#FF9800"))
+                    it.text = "状态: 待关闭（明日生效）"
+                    it.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
                     it.visibility = android.view.View.VISIBLE
                 }
                 AccessibilityControlManager.State.ACTIVE -> {
                     if (systemEnabled) {
-                        it.text = "状态: ✅ 已生效"
-                        it.setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+                        it.text = "状态: 已生效"
+                        it.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzSuccess))
                     } else {
-                        it.text = "状态: ⚠️ 需开启无障碍服务"
-                        it.setTextColor(android.graphics.Color.parseColor("#F57C00"))
+                        it.text = "状态: 需开启无障碍服务"
+                        it.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
                     }
                     it.visibility = android.view.View.VISIBLE
                 }
                 AccessibilityControlManager.State.DISABLED -> {
-                    it.text = "状态: ⚪ 已关闭"
-                    it.setTextColor(android.graphics.Color.GRAY)
+                    it.text = "状态: 已关闭"
+                    it.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
                     it.visibility = android.view.View.VISIBLE
                 }
             }
@@ -2243,14 +2175,14 @@ class RulesFragment : Fragment() {
 
         tvAccessibilityStatus?.let {
             if (finalPending) {
-                it.text = "状态: ⏳ 待关闭（明日生效）"
-                it.setTextColor(android.graphics.Color.parseColor("#FF9800"))
+                it.text = "状态: 待关闭（明日生效）"
+                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
             } else if (a11yOk) {
-                it.text = "状态: ✅ 无障碍服务已开启，可启用各项保护"
-                it.setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+                it.text = "状态: 无障碍服务已开启，可启用各项保护"
+                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzSuccess))
             } else {
-                it.text = "状态: ⚪ 无障碍未开启"
-                it.setTextColor(android.graphics.Color.GRAY)
+                it.text = "状态: 服务未开启"
+                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             }
         }
     }
@@ -2266,14 +2198,14 @@ class RulesFragment : Fragment() {
         switchAlarmPowerOffUiUpdating = false
 
         if (!systemEnabled) {
-            tvAlarmPowerOffProtectionStatus?.text = "状态: ⚠️ 需开启无障碍服务"
-            tvAlarmPowerOffProtectionStatus?.setTextColor(android.graphics.Color.parseColor("#F57C00"))
+            tvAlarmPowerOffProtectionStatus?.text = "状态: 需开启无障碍服务"
+            tvAlarmPowerOffProtectionStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
         } else if (enabled) {
-            tvAlarmPowerOffProtectionStatus?.text = "状态: ✅ 保护已开启"
-            tvAlarmPowerOffProtectionStatus?.setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+            tvAlarmPowerOffProtectionStatus?.text = "状态: 已开启"
+            tvAlarmPowerOffProtectionStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzSuccess))
         } else {
-            tvAlarmPowerOffProtectionStatus?.text = "状态: ⚪ 已关闭"
-            tvAlarmPowerOffProtectionStatus?.setTextColor(android.graphics.Color.GRAY)
+            tvAlarmPowerOffProtectionStatus?.text = "状态: 已关闭"
+            tvAlarmPowerOffProtectionStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
         }
     }
 
@@ -2379,9 +2311,9 @@ class RulesFragment : Fragment() {
             it.text = "状态: $statusText"
             // 颜色随状态变化, 保持对比度
             val color = when {
-                state == PrivacyProtectionManager.State.PENDING -> android.graphics.Color.parseColor("#FF9800")
-                enforcing -> android.graphics.Color.parseColor("#2E7D32")
-                else -> android.graphics.Color.GRAY
+                state == PrivacyProtectionManager.State.PENDING -> ThemeManager.getColorAttr(context, R.attr.zzWarning)
+                enforcing -> ThemeManager.getColorAttr(context, R.attr.zzSuccess)
+                else -> ThemeManager.getColorAttr(context, R.attr.zzMuted)
             }
             it.setTextColor(color)
         }
@@ -2389,7 +2321,6 @@ class RulesFragment : Fragment() {
 
     /**
      * 隐私空间拦截开启引导弹窗 — 提示先开启无障碍服务。
-     * 复用现有无障碍引导对话框模式 (bg_sea_depths + 标题/正文/取消/确认).
      */
     private fun showPrivacySpaceGuardEnableGuideDialog() {
         val ctx = requireContext()
@@ -2397,66 +2328,51 @@ class RulesFragment : Fragment() {
 
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(42, 30, 42, 36)
-            setBackgroundResource(R.drawable.bg_sea_depths)
-        }
-
-        val topRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
         }
 
         val tvTitle = TextView(ctx).apply {
             text = getString(R.string.privacy_space_guard_enable_guide_title)
-            textSize = 20f
+            textSize = 18f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
-
-        val btnClose = TextView(ctx).apply {
-            text = "❌"
-            textSize = 16f
-            setPadding(20, 6, 0, 6)
-        }
-
-        topRow.addView(tvTitle)
-        topRow.addView(btnClose)
-        container.addView(topRow)
+        container.addView(tvTitle)
 
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
-            setPadding(0, 20, 0, 0)
-            setTextColor(android.graphics.Color.WHITE)
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
             text = getString(R.string.privacy_space_guard_enable_guide_body)
         }
         container.addView(tvMessage)
 
         val buttonRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 28, 0, 0)
+            setPadding(0, (20 * density).toInt(), 0, 0)
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        val btnCancel = Button(ctx).apply {
+        val btnCancel = com.google.android.material.button.MaterialButton(ctx).apply {
             text = "取消"
             setAllCaps(false)
-            setTextColor(android.graphics.Color.WHITE)
-            setBackgroundResource(R.drawable.bg_dialog_button_outline)
-            minHeight = (48 * density).toInt()
-            setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 setMargins(0, 0, (8 * density).toInt(), 0)
             }
         }
 
-        val btnOpenA11y = Button(ctx).apply {
+        val btnOpenA11y = com.google.android.material.button.MaterialButton(ctx).apply {
             text = getString(R.string.privacy_space_guard_enable_guide_open_a11y)
             setAllCaps(false)
             setTextColor(android.graphics.Color.WHITE)
-            setBackgroundResource(R.drawable.bg_dialog_button_outline)
-            minHeight = (48 * density).toInt()
-            setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
@@ -2468,7 +2384,6 @@ class RulesFragment : Fragment() {
             .setView(container)
             .create()
 
-        btnClose.setOnClickListener { dialog.dismiss() }
         btnCancel.setOnClickListener { dialog.dismiss() }
         btnOpenA11y.setOnClickListener {
             dialog.dismiss()
@@ -2506,23 +2421,23 @@ class RulesFragment : Fragment() {
         val message = buildString {
             append("「生效策略」控制的是勿扰时段和应用时间窗修改何时生效。\n\n")
             append("━━━ 选项说明 ━━━\n\n")
-            append("🔹 「宽严有别」（推荐）\n")
+            append("「宽严有别」（推荐）\n")
             append("   • 添加/删除/减少限制 → 立即生效\n")
             append("   • 增加限制 → 次日 00:00 生效\n")
             append("   • 代表：周末想临时追剧，改完马上可用\n\n")
-            append("🔹 「全部次日」\n")
+            append("「全部次日」\n")
             append("   • 所有修改都等到次日 00:00 生效\n")
             append("   • 适合需要彻底「防冲动修改」的用户\n\n")
             append("━━━ 适用范围 ━━━\n\n")
-            append("• ✅ 勿扰时段（时段、时长、次数等）\n")
-            append("• ✅ 应用时间窗（时间段、所选应用等）\n")
-            append("• ❌ 黑名单（立即生效）\n")
-            append("• ❌ 全局参数（立即生效）\n\n")
+            append("• 勿扰时段（时段、时长、次数等）\n")
+            append("• 应用时间窗（时间段、所选应用等）\n")
+            append("• 黑名单（立即生效）\n")
+            append("• 全局参数（立即生效）\n\n")
             append("当前状态：$title\n$desc")
         }
 
         AlertDialog.Builder(ctx)
-            .setTitle("⏱️ 生效策略详解")
+            .setTitle("生效策略详解")
             .setMessage(message)
             .setPositiveButton("知道了", null)
             .show()

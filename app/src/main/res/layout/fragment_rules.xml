@@ -204,7 +204,28 @@
                     <Switch android:id="@+id/switch_hide_in_recent_tasks" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
-                <Button android:id="@+id/btn_quick_send_logs" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:gravity="start|center_vertical" android:backgroundTint="?attr/zzSurface" android:text="快速发送日志    ›" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="14sp" />
+                <Button
+                    android:id="@+id/btn_quick_send_logs"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:gravity="start|center_vertical"
+                    android:textAlignment="viewStart"
+                    android:paddingStart="0dp"
+                    android:paddingLeft="0dp"
+                    android:paddingEnd="0dp"
+                    android:paddingRight="0dp"
+                    android:insetLeft="0dp"
+                    android:insetRight="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:text="导出日志"
+                    android:textAllCaps="false"
+                    android:textColor="?attr/zzText"
+                    android:textSize="14sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

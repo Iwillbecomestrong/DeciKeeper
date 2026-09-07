@@ -46,8 +46,12 @@
 - **决策**：
   1. 确立「三级反馈渠道体系」：首选 GitHub/Gitee Issues 公开追踪，私密/离线反馈使用邮箱 `cyz200303@163.com`，应用内「设置 → 🧾 日志诊断 → 发送日志」定性为日志提取取证与分享工具。
   2. 确立「4 要素问题反馈范式」：运行环境（机型+ROM+Android版本）、应用版本（Version/Commit SHA）、操作与复现步骤（时间+期望+实际异常）、取证日志附件（`app_log.txt`）。
-  3. 全面更新合规文档与应用内用户手册，代码中修正 `LogExporter.DEFAULT_RECIPIENT` 为真实邮箱，并由 `FeedbackContactContractTest` 强契约守护。
 
+### [DECISION-10] 全屏沉浸式防前置摄像头安全区与弹窗主题无缝化规范
+- **背景**：Android 现代设备多采用顶部打孔前置摄像头与刘海屏。若全屏 Activity 或主页面未严格计算 WindowInsets，顶部标题栏、操作按钮将被摄像头遮挡；同时弹窗内部硬编码背景色产生割裂的独立小框。
+- **决策**：
+  1. 所有全屏 Activity（`AppSelectionActivity`、`GlobalParamsActivity` 等）及主页面，必须通过 `ViewCompat.setOnApplyWindowInsetsListener` 监听 `statusBars() or displayCutout()` 并动态设置顶部 padding，确保防前置摄像头留白。
+  2. 弹窗移除内嵌硬编码背景，完全融入四季主题 `?attr/zzSurface`；彻底剔除硬编码 hex 颜色与非主题 emoji（如轮椅图标 `♿`），遵循主题 Token。
 
 ---
 

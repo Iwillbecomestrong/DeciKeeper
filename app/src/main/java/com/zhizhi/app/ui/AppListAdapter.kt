@@ -98,15 +98,20 @@ class AppListAdapter(
         // 🚀 [Fix] Use passed original set, ensuring this works for App Window too!
         val isCurrent = originalSelection.contains(appInfo.packageName)
         val isSelected = appInfo.isSelected  // 当前勾选状态
-        
+        val accentColor = ThemeManager.getColorAttr(context, R.attr.zzAccent)
+        val accentSoft = ThemeManager.getColorAttr(context, R.attr.zzAccentSoft)
+        val dangerColor = ThemeManager.getColorAttr(context, R.attr.zzDanger)
+        val textColor = ThemeManager.getColorAttr(context, R.attr.zzText)
+        val mutedColor = ThemeManager.getColorAttr(context, R.attr.zzMuted)
+
         if (isAdaptation) {
             // 适应期：简单显示勾选或不勾选，不区分明日生效
             view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
             holder.appName.text = appInfo.name
             if (isSelected) {
-                holder.appName.setTextColor(android.graphics.Color.parseColor("#006064")) // 适应期深青色
+                holder.appName.setTextColor(accentColor)
             } else {
-                holder.appName.setTextColor(android.graphics.Color.parseColor("#757575"))
+                holder.appName.setTextColor(mutedColor)
             }
         } else {
             // 正常期：判断状态
@@ -116,25 +121,25 @@ class AppListAdapter(
             
             when {
                 isNewPending -> {
-                    view.setBackgroundColor(android.graphics.Color.parseColor("#E1F5FE"))
+                    view.setBackgroundColor(accentSoft)
                     holder.appName.text = appInfo.name
-                    holder.appName.setTextColor(android.graphics.Color.parseColor("#0288D1"))
+                    holder.appName.setTextColor(accentColor)
                 }
                 isPendingRemoval -> {
                     view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     // 🚀 [Fix] User Request: Remove "❌ " prefix. Keep Red color for feedback.
                     holder.appName.text = appInfo.name 
-                    holder.appName.setTextColor(android.graphics.Color.parseColor("#D32F2F"))
+                    holder.appName.setTextColor(dangerColor)
                 }
                 isOriginal -> {
                     view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     holder.appName.text = appInfo.name
-                    holder.appName.setTextColor(android.graphics.Color.parseColor("#1565C0"))
+                    holder.appName.setTextColor(textColor)
                 }
                 else -> {
                     view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     holder.appName.text = appInfo.name
-                    holder.appName.setTextColor(android.graphics.Color.parseColor("#757575"))
+                    holder.appName.setTextColor(mutedColor)
                 }
             }
         }

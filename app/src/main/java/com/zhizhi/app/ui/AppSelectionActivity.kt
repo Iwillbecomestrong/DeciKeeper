@@ -83,6 +83,22 @@ class AppSelectionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_app_selection)
 
+        val rootView = findViewById<View>(R.id.root_app_selection)
+        if (rootView != null) {
+            val initialPaddingLeft = rootView.paddingLeft
+            val initialPaddingTop = rootView.paddingTop
+            val initialPaddingRight = rootView.paddingRight
+            val initialPaddingBottom = rootView.paddingBottom
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
+                val bars = insets.getInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.statusBars() or
+                    androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+                )
+                v.setPadding(initialPaddingLeft, initialPaddingTop + bars.top, initialPaddingRight, initialPaddingBottom)
+                insets
+            }
+        }
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { doFinish() }
         })
@@ -98,6 +114,7 @@ class AppSelectionActivity : AppCompatActivity() {
         }
 
         tvModeHint = findViewById(R.id.tv_mode_hint)
+        tvModeHint.visibility = View.GONE
         listAllApps = findViewById(R.id.list_all_apps)
         listSelectedApps = findViewById(R.id.list_selected_apps)
         btnSave = findViewById(R.id.btn_save_apps)
@@ -115,7 +132,7 @@ class AppSelectionActivity : AppCompatActivity() {
             selectedApps.addAll(display)
             originalSelection.addAll(display)
             btnSave.text = "保存配置"
-            findViewById<TextView>(R.id.tv_title_main)?.text = "屏蔽应用"
+            findViewById<TextView>(R.id.tv_title_main)?.text = "黑白名单"
             updatePendingHint()
             if (isReadOnly) applySettingsLockoutState()
         } else if (currentMode == "segment_blacklist") {
@@ -126,10 +143,7 @@ class AppSelectionActivity : AppCompatActivity() {
             selectedApps.addAll(display)
             originalSelection.addAll(display)
             btnSave.text = "保存名单"
-            findViewById<TextView>(R.id.tv_title_main)?.text = "本时段黑/白名单"
-            tvModeHint.text = if (followGlobal) "当前跟随全局黑/白名单，修改保存后即独立管理"
-            else "勾选本时段要锁的应用；可先勾想用的再点反选；桌面/输入法/电话/短信等已自动剔除"
-            tvModeHint.setTextColor(resources.getColor(android.R.color.darker_gray))
+            findViewById<TextView>(R.id.tv_title_main)?.text = "时段黑白名单"
             findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)?.visibility = View.GONE
             findViewById<TextView>(R.id.tv_lockout_hint)?.visibility = View.GONE
             findViewById<TextView>(R.id.tv_pending_hint_legacy)?.visibility = View.GONE
@@ -291,33 +305,39 @@ class AppSelectionActivity : AppCompatActivity() {
     }
 
     private fun updatePendingHint() {
-        tvModeHint.text = "勿扰时段拦截（仅在勿扰时段内需申请解锁）"
-        tvModeHint.setTextColor(android.graphics.Color.parseColor("#C62828"))
+        tvModeHint.visibility = View.GONE
         val isAdaptation = CreditManager.isInAdaptationPeriod(this)
         val cardPending = findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)
         val tvPendingDetails = findViewById<TextView>(R.id.tv_pending_details)
         val tvLockout = findViewById<TextView>(R.id.tv_lockout_hint)
+        val warningSoft = ThemeManager.getColorAttr(this, R.attr.zzWarningSoft)
+        val warningColor = ThemeManager.getColorAttr(this, R.attr.zzWarning)
+        val textColor = ThemeManager.getColorAttr(this, R.attr.zzText)
+        val successSoft = ThemeManager.getColorAttr(this, R.attr.zzSuccessSoft)
+        val successColor = ThemeManager.getColorAttr(this, R.attr.zzSuccess)
+
         if (isReadOnly && TimeRuleManager.isInSettingsLockoutPeriod(this)) {
             val refreshTime = TimeRuleManager.getRefreshTime(this)
             cardPending.visibility = View.VISIBLE
-            cardPending.setCardBackgroundColor(android.graphics.Color.parseColor("#FFF3E0"))
+            cardPending.setCardBackgroundColor(warningSoft)
             tvLockout.visibility = View.VISIBLE
+            tvLockout.setTextColor(warningColor)
             tvLockout.text = "设置已锁定（深夜保护期 00:00 ~ $refreshTime）\n当前仅供查看，无法修改配置。"
         } else tvLockout.visibility = View.GONE
 
         if (isAdaptation) {
             cardPending.visibility = View.VISIBLE
-            cardPending.setCardBackgroundColor(android.graphics.Color.parseColor("#E0F7FA"))
+            cardPending.setCardBackgroundColor(successSoft)
             tvPendingDetails.text = "当前处于【适应期】，所有设置将立即生效。\n（适应期结束后，移除黑名单等放松操作将延迟到次日生效）"
-            tvPendingDetails.setTextColor(android.graphics.Color.parseColor("#006064"))
+            tvPendingDetails.setTextColor(successColor)
             findViewById<TextView>(R.id.tv_pending_hint_legacy).visibility = View.GONE
         } else {
             val changeLog = ChangeLogManager.getFormattedLogForCategory(this, "blacklist")
             if (changeLog.isNotEmpty()) {
                 cardPending.visibility = View.VISIBLE
-                cardPending.setCardBackgroundColor(android.graphics.Color.parseColor("#FFF8E1"))
+                cardPending.setCardBackgroundColor(warningSoft)
                 tvPendingDetails.text = changeLog
-                tvPendingDetails.setTextColor(android.graphics.Color.parseColor("#5D4037"))
+                tvPendingDetails.setTextColor(textColor)
                 findViewById<TextView>(R.id.tv_pending_hint_legacy).visibility = View.VISIBLE
             } else if (!(isReadOnly && TimeRuleManager.isInSettingsLockoutPeriod(this))) cardPending.visibility = View.GONE
             else tvPendingDetails.text = ""

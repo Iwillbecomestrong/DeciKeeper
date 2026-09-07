@@ -110,27 +110,36 @@ class TimeSegmentAdapter(
         holder.itemView.alpha = alpha
 
         // Badge & Card Background
+        val context = holder.itemView.context
+        val surfaceColor = ThemeManager.getColorAttr(context, R.attr.zzSurface)
+        val warningColor = ThemeManager.getColorAttr(context, R.attr.zzWarning)
+        val warningSoft = ThemeManager.getColorAttr(context, R.attr.zzWarningSoft)
+        val dangerColor = ThemeManager.getColorAttr(context, R.attr.zzDanger)
+        val dangerSoft = ThemeManager.getColorAttr(context, R.attr.zzDangerSoft)
+        val successColor = ThemeManager.getColorAttr(context, R.attr.zzSuccess)
+        val successSoft = ThemeManager.getColorAttr(context, R.attr.zzSuccessSoft)
+
         val isPendingDel = isPendingDeletion(segment)
         if (isReadOnly) {
-            holder.cardSegment.setCardBackgroundColor(Color.parseColor("#E0F7FA"))
+            holder.cardSegment.setCardBackgroundColor(ThemeManager.getColorAttr(context, R.attr.zzSurface2))
             holder.tvNewBadge.visibility = View.GONE
         } else if (isPendingDel) {
-            holder.cardSegment.setCardBackgroundColor(Color.parseColor("#FFEBEE"))
+            holder.cardSegment.setCardBackgroundColor(dangerSoft)
             holder.tvNewBadge.text = "待生效: 删除"
-            holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#EF5350"))
+            holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(dangerColor)
             holder.tvNewBadge.visibility = View.VISIBLE
         } else if (isNewSegment(segment)) {
-            holder.cardSegment.setCardBackgroundColor(Color.parseColor("#E8F5E9"))
+            holder.cardSegment.setCardBackgroundColor(successSoft)
             holder.tvNewBadge.text = "待生效: 新增"
-            holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#66BB6A"))
+            holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(successColor)
             holder.tvNewBadge.visibility = View.VISIBLE
         } else if (isModifiedSegment(segment)) {
-            holder.cardSegment.setCardBackgroundColor(Color.parseColor("#FFF3E0"))
+            holder.cardSegment.setCardBackgroundColor(warningSoft)
             holder.tvNewBadge.text = "待生效: 修改"
-            holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FFA726"))
+            holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(warningColor)
             holder.tvNewBadge.visibility = View.VISIBLE
         } else {
-            holder.cardSegment.setCardBackgroundColor(Color.WHITE)
+            holder.cardSegment.setCardBackgroundColor(surfaceColor)
             holder.tvNewBadge.visibility = View.GONE
         }
 

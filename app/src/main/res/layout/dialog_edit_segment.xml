@@ -3,8 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="20dp"
-    android:background="@drawable/bg_sea_surface">
+    android:padding="20dp">
 
     <!-- 时段名称 -->
     <TextView
@@ -12,18 +11,19 @@
         android:layout_height="wrap_content"
         android:text="时段名称"
         android:textSize="14sp"
-        android:textColor="#00838F"
+        android:textColor="?attr/zzText"
+        android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 
     <EditText
         android:id="@+id/et_edit_name"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:background="@drawable/bg_sea_bubble"
-        android:paddingHorizontal="16dp"
-        android:textSize="12sp"
-        android:textColor="#004D40"
-        android:textColorHint="#80DEEA"
+        android:layout_height="44dp"
+        android:background="@drawable/bg_input_field"
+        android:paddingHorizontal="14dp"
+        android:textSize="14sp"
+        android:textColor="?attr/zzText"
+        android:textColorHint="?attr/zzSubtle"
         android:layout_marginBottom="16dp"/>
 
     <!-- 时间范围 -->
@@ -32,7 +32,8 @@
         android:layout_height="wrap_content"
         android:text="时间范围"
         android:textSize="14sp"
-        android:textColor="#00838F"
+        android:textColor="?attr/zzText"
+        android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 
     <LinearLayout
@@ -47,8 +48,8 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="48dp"
-            android:backgroundTint="#E0F7FA"
-            android:textColor="#006064"
+            android:backgroundTint="?attr/zzSurface2"
+            android:textColor="?attr/zzText"
             android:text="08:00"
             android:gravity="center"
             android:textAllCaps="false"
@@ -59,15 +60,15 @@
             android:layout_height="wrap_content"
             android:text="  -  "
             android:textSize="18sp"
-            android:textColor="#006064"/>
+            android:textColor="?attr/zzMuted"/>
 
         <Button
             android:id="@+id/btn_edit_end"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="48dp"
-            android:backgroundTint="#E0F7FA"
-            android:textColor="#006064"
+            android:backgroundTint="?attr/zzSurface2"
+            android:textColor="?attr/zzText"
             android:text="12:00"
             android:gravity="center"
             android:textAllCaps="false"
@@ -92,23 +93,24 @@
                 android:layout_height="wrap_content"
                 android:text="休息时长 (分钟)"
                 android:textSize="14sp"
-                android:textColor="#00838F"
+                android:textColor="?attr/zzText"
+                android:textStyle="bold"
                 android:layout_marginBottom="8dp"/>
 
             <EditText
                 android:id="@+id/et_edit_limit"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:background="@drawable/bg_sea_bubble"
-                android:paddingHorizontal="16dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_input_field"
+                android:paddingHorizontal="14dp"
                 android:inputType="number"
                 android:textSize="14sp"
-                android:textColor="#004D40"
-                android:textColorHint="#80DEEA"/>
+                android:textColor="?attr/zzText"
+                android:textColorHint="?attr/zzSubtle"/>
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 🆕 可用次数 -->
+    <!-- 可用次数 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -118,21 +120,22 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🔢 可用次数"
+            android:text="可用次数"
             android:textSize="14sp"
-            android:textColor="#00838F"
+            android:textColor="?attr/zzText"
+            android:textStyle="bold"
             android:layout_marginBottom="8dp"/>
 
         <EditText
             android:id="@+id/et_edit_usable_count"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_sea_bubble"
-            android:paddingHorizontal="16dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_input_field"
+            android:paddingHorizontal="14dp"
             android:inputType="number"
             android:textSize="14sp"
-            android:textColor="#004D40"
-            android:textColorHint="#80DEEA"
+            android:textColor="?attr/zzText"
+            android:textColorHint="?attr/zzSubtle"
             android:hint="留空=自动计算"/>
 
         <TextView
@@ -140,7 +143,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="默认 = 时长 ÷ 30min = X 次"
-            android:textColor="#9E9E9E"
+            android:textColor="?attr/zzMuted"
             android:textSize="11sp"
             android:layout_marginTop="2dp"/>
     </LinearLayout>
@@ -151,20 +154,21 @@
         android:layout_height="wrap_content"
         android:text="生效周期"
         android:textSize="14sp"
-        android:textColor="#00838F"
+        android:textColor="?attr/zzText"
+        android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 
     <Button
         android:id="@+id/btn_edit_days"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:backgroundTint="#E0F7FA"
-        android:textColor="#006064"
+        android:backgroundTint="?attr/zzSurface2"
+        android:textColor="?attr/zzText"
         android:text="每天"
         android:gravity="center"
         android:textAllCaps="false"/>
 
-    <!-- 🛡 本时段黑名单 (TASK-05)：入口按钮 + 状态摘要；新增弹窗中隐藏此节 -->
+    <!-- 本时段黑/白名单 -->
     <LinearLayout
         android:id="@+id/ll_segment_list_section"
         android:layout_width="match_parent"
@@ -176,9 +180,9 @@
             android:id="@+id/btn_edit_segment_list"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:backgroundTint="#1565C0"
-            android:textColor="#FFFFFF"
-            android:text="🛡 本时段黑/白名单"
+            android:backgroundTint="?attr/zzAccent"
+            android:textColor="@android:color/white"
+            android:text="本时段黑/白名单"
             android:gravity="center"
             android:textAllCaps="false"
             android:textSize="15sp"/>
@@ -189,7 +193,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="跟随全局黑/白名单"
-            android:textColor="#00838F"
+            android:textColor="?attr/zzMuted"
             android:textSize="12sp"/>
     </LinearLayout>
 

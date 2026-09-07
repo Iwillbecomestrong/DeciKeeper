@@ -46,6 +46,8 @@
 6. **底层技术依赖事实约束**：
    - 应用前台检测、时间拦截、防卸载三大核心功能**全部单点依赖 Android AccessibilityService（无障碍服务）**。
    - 防卸载是通过无障碍事件捕获和窗口特征拦截实现的，**严禁再使用已被废弃的 Device Admin（设备管理器）来实现防卸载**。
+7. **UI 沉浸式与防前置摄像头打孔安全区红线**：
+   - 所有全屏 Activity（如 `AppSelectionActivity`、`GlobalParamsActivity`）及主页面根容器，必须接入 WindowInsets 监听（`statusBars() or displayCutout()`），严禁让顶部标题栏、返回键或列表顶到物理屏幕边缘遮挡前置摄像头。
 
 ---
 
