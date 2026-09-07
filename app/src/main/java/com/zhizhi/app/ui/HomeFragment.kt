@@ -746,11 +746,31 @@ class HomeFragment : Fragment() {
             val nextStart = nextSeg?.let { String.format("%02d:%02d", it.startHour, it.startMinute) } ?: "24:00"
             tvCurrentSegmentRange?.text = "自由空档期 ($prevEnd - $nextStart)"
 
-            tvStatTimeBig?.visibility = View.INVISIBLE
-            tvStatTimeDetail?.visibility = View.INVISIBLE
-            tvUsableCountBig?.visibility = View.INVISIBLE
+            tvStatTimeBig?.visibility = View.VISIBLE
+            tvStatTimeDetail?.visibility = View.VISIBLE
+            tvUsableCountBig?.visibility = View.VISIBLE
             tvSurplusBorrowLine?.visibility = View.GONE
-            tvRestCountdownInCard?.visibility = View.GONE
+
+            val remaining = CreditManager.getRemainingMinutes(ctx)
+            val usableRemaining = CreditManager.getRemainingUsableCountHalfUnits(ctx)
+
+            tvStatTimeBig?.text = "${formatMinutesForHome(remaining)}min"
+            tvUsableCountBig?.text = "${formatUsableCountHalfUnits(usableRemaining)}次"
+
+            val timeDetail = if (remaining > 0.0) "时间 ${formatMinutesForHome(remaining)}min(前期结余)" else "时间 0min"
+            val countDetail = if (usableRemaining > 0) "次数 ${formatUsableCountHalfUnits(usableRemaining)}次(前期结余)" else "次数 0次"
+            tvStatTimeDetail?.text = "$timeDetail  |  $countDetail"
+
+            tvRestCountdownInCard?.apply {
+                if (CreditManager.isFreeTime(ctx)) {
+                    visibility = View.VISIBLE
+                    val restEnd = CreditManager.getFreeTimeEnd(ctx)
+                    val remainSec = ((restEnd - now + 999) / 1000).toInt()
+                    text = "🟢 休息中 剩余 ${remainSec}s"
+                } else {
+                    visibility = View.GONE
+                }
+            }
 
             if (nextSeg != null) {
                 val range = "${String.format("%02d:%02d", nextSeg.startHour, nextSeg.startMinute)} - ${String.format("%02d:%02d", nextSeg.endHour, nextSeg.endMinute)}"

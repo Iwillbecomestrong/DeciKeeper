@@ -2684,12 +2684,32 @@ object LockWindowManager {
 
                     tvCurrentRange?.text = "$gapTitle ($prevEnd - $nextStart)"
 
-                    // 隐藏当前段卡片内容
-                    tvTimeBig?.visibility = View.INVISIBLE
-                    tvTimeDetail?.visibility = View.INVISIBLE
-                    tvUsableCountBig?.visibility = View.INVISIBLE
+                    // 空档期：正常显示前序结余的时长和次数
+                    tvTimeBig?.visibility = View.VISIBLE
+                    tvTimeDetail?.visibility = View.VISIBLE
+                    tvUsableCountBig?.visibility = View.VISIBLE
                     tvSurplusBorrowLine?.visibility = View.GONE
-                    tvRestCountdownInCard?.visibility = View.GONE
+
+                    val remaining = CreditManager.getRemainingMinutes(context)
+                    val usableRemaining = CreditManager.getRemainingUsableCountHalfUnits(context)
+
+                    tvTimeBig?.text = "${formatMinutesForLock(remaining)}min"
+                    tvUsableCountBig?.text = "${formatUsableCountHalfUnits(usableRemaining)}次"
+
+                    val timeDetail = if (remaining > 0.0) "时间 ${formatMinutesForLock(remaining)}min(前期结余)" else "时间 0min"
+                    val countDetail = if (usableRemaining > 0) "次数 ${formatUsableCountHalfUnits(usableRemaining)}次(前期结余)" else "次数 0次"
+                    tvTimeDetail?.text = "$timeDetail  |  $countDetail"
+
+                    tvRestCountdownInCard?.apply {
+                        if (CreditManager.isFreeTime(context)) {
+                            visibility = View.VISIBLE
+                            val restEnd = CreditManager.getFreeTimeEnd(context)
+                            val remainSec = ((restEnd - now + 999) / 1000).toInt()
+                            text = "🟢 休息中 剩余 ${remainSec}s"
+                        } else {
+                            visibility = View.GONE
+                        }
+                    }
 
                     // 显示下一段预览
                     if (nextSeg != null) {
@@ -3146,6 +3166,11 @@ object LockWindowManager {
                 view.findViewById<TextView>(R.id.tv_stat_time_detail)?.text = "$timeDetail  |  $countDetail"
             } else {
                 view.findViewById<TextView>(R.id.tv_stat_time_big)?.text = "${formatMinutesForLock(remaining)}min"
+                val usableRemaining = CreditManager.getRemainingUsableCountHalfUnits(ctx)
+                view.findViewById<TextView>(R.id.tv_usable_count_big)?.text = "${formatUsableCountHalfUnits(usableRemaining)}次"
+                val timeDetail = if (remaining > 0.0) "时间 ${formatMinutesForLock(remaining)}min(前期结余)" else "时间 0min"
+                val countDetail = if (usableRemaining > 0) "次数 ${formatUsableCountHalfUnits(usableRemaining)}次(前期结余)" else "次数 0次"
+                view.findViewById<TextView>(R.id.tv_stat_time_detail)?.text = "$timeDetail  |  $countDetail"
             }
 
             // 🆕 卡片内休息倒计时 tick

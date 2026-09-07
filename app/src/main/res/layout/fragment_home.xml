@@ -163,23 +163,24 @@
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_zz_card_soft"
                     android:backgroundTint="?attr/zzAccentSofter"
+                    android:gravity="center"
                     android:orientation="vertical"
                     android:padding="16dp">
-                    <TextView android:id="@+id/tv_current_segment_range" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="本阶段" android:textColor="?attr/zzMuted" android:textSize="12sp" android:textStyle="bold" />
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
-                        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:id="@+id/tv_current_segment_range" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:textAlignment="center" android:text="本阶段" android:textColor="?attr/zzMuted" android:textSize="12sp" android:textStyle="bold" />
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:gravity="center" android:orientation="horizontal">
+                        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="可用时长" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                             <TextView android:id="@+id/tv_stat_time_big" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="--" android:textColor="?attr/zzText" android:textSize="30sp" android:textStyle="bold" />
                         </LinearLayout>
                         <View android:layout_width="1dp" android:layout_height="48dp" android:background="?attr/zzLine" />
-                        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="18dp" android:orientation="vertical">
+                        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="可用次数" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                             <TextView android:id="@+id/tv_usable_count_big" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="--" android:textColor="?attr/zzText" android:textSize="30sp" android:textStyle="bold" />
                         </LinearLayout>
                     </LinearLayout>
-                    <TextView android:id="@+id/tv_stat_time_detail" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
-                    <TextView android:id="@+id/tv_surplus_borrow_line" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textColor="?attr/zzSuccess" android:textSize="11sp" android:visibility="gone" />
-                    <TextView android:id="@+id/tv_rest_countdown_in_card" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textColor="?attr/zzAccentStrong" android:textSize="11sp" android:visibility="gone" />
+                    <TextView android:id="@+id/tv_stat_time_detail" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center" android:textAlignment="center" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    <TextView android:id="@+id/tv_surplus_borrow_line" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:gravity="center" android:textAlignment="center" android:textColor="?attr/zzSuccess" android:textSize="11sp" android:visibility="gone" />
+                    <TextView android:id="@+id/tv_rest_countdown_in_card" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:gravity="center" android:textAlignment="center" android:textColor="?attr/zzAccentStrong" android:textSize="11sp" android:visibility="gone" />
                 </LinearLayout>
                 <LinearLayout
                     android:id="@+id/layout_next_segment_card"
@@ -188,9 +189,10 @@
                     android:layout_marginTop="10dp"
                     android:background="@drawable/bg_zz_card_soft"
                     android:backgroundTint="?attr/zzSurface2"
+                    android:gravity="center"
                     android:orientation="vertical"
                     android:padding="13dp">
-                    <TextView android:id="@+id/tv_next_segment_info" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="下一阶段：计算中…" android:textColor="?attr/zzMuted" android:textSize="12sp" />
+                    <TextView android:id="@+id/tv_next_segment_info" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:textAlignment="center" android:text="下一阶段：计算中…" android:textColor="?attr/zzMuted" android:textSize="12sp" />
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>

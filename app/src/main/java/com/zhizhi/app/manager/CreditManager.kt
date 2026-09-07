@@ -1640,7 +1640,9 @@ object CreditManager {
             LogExporter.i("CreditManager", "MIDNIGHT_DIAG | currentIndex=$currentIndex($segName) | bizDate=$bizDate | recordDate=$recordDate | time=${SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(diagCal.time)}")
         }
 
-        if (currentIndex == -1) return 0.0
+        if (currentIndex == -1) {
+            return getAllPreviousSegmentsRemainingMinutes(context)
+        }
         val segments = TimeRuleManager.getTimeSegments(context)
         val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
         var totalRemainingSeconds = 0
@@ -2457,24 +2459,29 @@ object CreditManager {
     }
 
     // 🆕 获取所有前序段结余的解锁次数（镜像 getRemainingMinutes 的滚存逻辑）
+    // 🆕 获取所有前序段结余的解锁次数（镜像 getRemainingMinutes 的滚存逻辑）
     fun getAllPreviousSegmentsRemainingUsableCountHalfUnits(context: Context): Int {
         // [TASK-04 / F-01] 关键读取路径前先调 seam
         observeDndNaturalDay(context, System.currentTimeMillis())
         val segments = TimeRuleManager.getTimeSegments(context)
         val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
-        if (currentIndex == -1) return 0
-
-        // [WP-02-T01 / F-02 removed] v3 撤掉自然日刚刷新 → 旧日解锁次数结余不跨日可见的短路
+        val targetIndex = if (currentIndex == -1) {
+            TimeRuleManager.getNextSegmentIndex(context)
+        } else {
+            currentIndex
+        }
         val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
-        // 🔴 [BugFix] 跨天过滤：只累计与当前段同一业务天的前序段
-        val currentBizDate = getSegmentBusinessDateString(context, segments[currentIndex])
+        if (targetIndex == -1 || targetIndex == firstLogicalIndex) return 0
+
+        // 🔴 [BugFix] 跨天过滤：只累计与目标段同一业务天的前序段
+        val targetBizDate = getSegmentBusinessDateString(context, segments[targetIndex])
         var totalRemaining = 0
         var i = firstLogicalIndex
-        while (i != currentIndex) {
+        while (i != targetIndex) {
             val seg = segments[i]
             if (seg.isActiveToday()) {
                 // 🔴 [BugFix] 跨天过滤：跳过不属于同一业务天的段
-                if (getSegmentBusinessDateString(context, seg) == currentBizDate) {
+                if (getSegmentBusinessDateString(context, seg) == targetBizDate) {
                     val limit = seg.getEffectiveUsableCountLimitHalfUnits()
                     if (limit > 0) {
                         if (getCountUsageKeyForSegment(context, seg) == null) return 0
@@ -2483,7 +2490,7 @@ object CreditManager {
                         totalRemaining += (limit - used).coerceAtLeast(0)
                     }
                 } else {
-                    LogExporter.i("CreditManager", "getAllPreviousSegmentsRemainingUsableCountHalfUnits: skip seg=${seg.name} (bizDate=${getSegmentBusinessDateString(context, seg)} != currentBizDate=$currentBizDate)")
+                    LogExporter.i("CreditManager", "getAllPreviousSegmentsRemainingUsableCountHalfUnits: skip seg=${seg.name} (bizDate=${getSegmentBusinessDateString(context, seg)} != targetBizDate=$targetBizDate)")
                 }
             }
             i = (i + 1) % segments.size
@@ -2537,15 +2544,20 @@ object CreditManager {
     fun getAllPreviousSegmentsTotalUsableCount(context: Context): Int {
         val segments = TimeRuleManager.getTimeSegments(context)
         val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
-        if (currentIndex == -1) return 0
+        val targetIndex = if (currentIndex == -1) {
+            TimeRuleManager.getNextSegmentIndex(context)
+        } else {
+            currentIndex
+        }
         val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
-        val currentBizDate = getSegmentBusinessDateString(context, segments[currentIndex])
+        if (targetIndex == -1 || targetIndex == firstLogicalIndex) return 0
+        val targetBizDate = getSegmentBusinessDateString(context, segments[targetIndex])
         var totalLimit = 0
         var i = firstLogicalIndex
-        while (i != currentIndex) {
+        while (i != targetIndex) {
             val seg = segments[i]
             if (seg.isActiveToday()) {
-                if (getSegmentBusinessDateString(context, seg) == currentBizDate) {
+                if (getSegmentBusinessDateString(context, seg) == targetBizDate) {
                     totalLimit += seg.getEffectiveUsableCountLimitHalfUnits()
                 }
             }
@@ -2555,9 +2567,12 @@ object CreditManager {
         return totalLimit
     }
 
-    // 🆕 获取当前段剩余解锁次数（含前序结余 + 借用）
+    // 🆕 获取当前段剩余解锁次数（含前序结余 + 借用；空档期返回前序结余）
     fun getRemainingUsableCountHalfUnits(context: Context): Int {
-        val seg = TimeRuleManager.getCurrentSegment(context) ?: return 0
+        val seg = TimeRuleManager.getCurrentSegment(context)
+        if (seg == null) {
+            return getAllPreviousSegmentsRemainingUsableCountHalfUnits(context)
+        }
         if (getCountUsageKeyForSegment(context, seg) == null) return 0
         val limit = seg.getEffectiveUsableCountLimitHalfUnits()
         if (limit == 0) return 0 // 禁止临时解锁
