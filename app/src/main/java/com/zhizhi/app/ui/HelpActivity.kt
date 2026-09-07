@@ -3,7 +3,7 @@
  * [Context Header]
  * * @file: HelpActivity.kt
  * * @role: UI
- * * @description: 用户手册页面，支持搜索和目录跳转。
+ * * @description: 用户手册页面，支持 Markdown 渲染、搜索和目录跳转。
  * * @responsibilities:
  * 1. 读取并渲染构建生成的使用手册资源。
  * 2. 提供目录导航（可点击跳转）。
@@ -14,6 +14,7 @@
  * * @constraints (必读):
  * 1. 文案必须与实际功能保持一致。
  * 2. 目录标题从文案中自动解析。
+ * 3. `docs/使用手册.md` 是唯一完整用户手册来源；App 内不得维护第二份正文。
  * =================================================================================
  */
 package com.zhizhi.app.ui
@@ -32,6 +33,8 @@ import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
+import io.noties.markwon.Markwon
+import io.noties.markwon.ext.tables.TablePlugin
 
 class HelpActivity : AppCompatActivity() {
 
@@ -44,6 +47,7 @@ class HelpActivity : AppCompatActivity() {
     private lateinit var contentContainer: LinearLayout
     private lateinit var tocContainer: LinearLayout
     private lateinit var tocToggle: TextView
+    private lateinit var markwon: Markwon
     private var allSections: List<HelpSection> = emptyList()
     private var searchQuery: String = ""
 
@@ -61,7 +65,11 @@ class HelpActivity : AppCompatActivity() {
             )
         }
 
-        // 解析帮助内容为结构化章节
+        markwon = Markwon.builder(this)
+            .usePlugin(TablePlugin.create(this))
+            .build()
+
+        // 解析帮助内容为结构化章节；正文保留 Markdown 交给 Markwon 渲染。
         allSections = parseSections(loadHelpText())
 
         // 构建页面
@@ -81,65 +89,68 @@ class HelpActivity : AppCompatActivity() {
     }
 
     private fun parseSections(fullText: String): List<HelpSection> {
-    val sections = mutableListOf<HelpSection>()
-    val lines = fullText.split("\n")
-    var currentTitle = ""
-    var currentContent = StringBuilder()
-    var currentLevel = 1
+        val sections = mutableListOf<HelpSection>()
+        val lines = fullText.split("\n")
+        var currentTitle = ""
+        var currentContent = StringBuilder()
+        var currentLevel = 1
 
-    fun flush() {
-        val content = currentContent.toString().trim('\n', ' ')
-        if (currentTitle.isNotEmpty()) {
-            sections.add(HelpSection(currentTitle, content, currentLevel))
+        fun flush() {
+            val content = currentContent.toString().trim('\n', ' ')
+            if (currentTitle.isNotEmpty()) {
+                sections.add(HelpSection(currentTitle, content, currentLevel))
+            }
         }
+
+        for (line in lines) {
+            val trimmed = line.trim()
+
+            val markdownLevel = trimmed.takeWhile { it == '#' }.length
+            val markdownTitle = if (
+                markdownLevel in 1..3 &&
+                trimmed.length > markdownLevel &&
+                trimmed[markdownLevel] == ' '
+            ) {
+                trimmed.substring(markdownLevel + 1).trim()
+            } else {
+                null
+            }
+
+            val legacyH1 = Regex("^[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]+\u3001.+$").find(trimmed)
+            val legacyH2 = Regex("^\\d+\\.\\d+\\s.+$").find(trimmed)
+
+            when {
+                markdownTitle != null -> {
+                    flush()
+                    currentTitle = markdownTitle
+                    currentContent = StringBuilder()
+                    currentLevel = if (Regex("^\\d+\\.\\d+\\s.+$").matches(markdownTitle)) 2 else 1
+                }
+                legacyH1 != null -> {
+                    flush()
+                    currentTitle = trimmed
+                    currentContent = StringBuilder()
+                    currentLevel = 1
+                }
+                legacyH2 != null -> {
+                    flush()
+                    currentTitle = trimmed
+                    currentContent = StringBuilder()
+                    currentLevel = 2
+                }
+                trimmed == "---" -> {
+                    // App 已经在章节之间绘制分隔线，不重复显示 Markdown 水平线。
+                }
+                currentTitle.isNotEmpty() -> {
+                    // 保留空行、列表缩进、引用和表格语法，避免在渲染前把 Markdown 拍平成纯文本。
+                    if (currentContent.isNotEmpty()) currentContent.append("\n")
+                    currentContent.append(line.trimEnd())
+                }
+            }
+        }
+        flush()
+        return sections
     }
-
-    for (line in lines) {
-        val trimmed = line.trim()
-        if (trimmed.isEmpty() || trimmed == "---") continue
-
-        val markdownLevel = trimmed.takeWhile { it == '#' }.length
-        val markdownTitle = if (
-            markdownLevel in 1..3 &&
-            trimmed.length > markdownLevel &&
-            trimmed[markdownLevel] == ' '
-        ) {
-            trimmed.substring(markdownLevel + 1).trim()
-        } else {
-            null
-        }
-
-        val legacyH1 = Regex("^[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]+\u3001.+$").find(trimmed)
-        val legacyH2 = Regex("^\\d+\\.\\d+\\s.+$").find(trimmed)
-
-        when {
-            markdownTitle != null -> {
-                flush()
-                currentTitle = markdownTitle
-                currentContent = StringBuilder()
-                currentLevel = if (Regex("^\\d+\\.\\d+\\s.+$").matches(markdownTitle)) 2 else 1
-            }
-            legacyH1 != null -> {
-                flush()
-                currentTitle = trimmed
-                currentContent = StringBuilder()
-                currentLevel = 1
-            }
-            legacyH2 != null -> {
-                flush()
-                currentTitle = trimmed
-                currentContent = StringBuilder()
-                currentLevel = 2
-            }
-            else -> {
-                if (currentContent.isNotEmpty()) currentContent.append("\n")
-                currentContent.append(trimmed)
-            }
-        }
-    }
-    flush()
-    return sections
-}
 
 // ========== UI \u6784\u5efa ==========
 
@@ -474,23 +485,28 @@ class HelpActivity : AppCompatActivity() {
             setPadding(0, dp(4), 0, dp(4))
         }
 
-        if (query.isNotEmpty() && text.lowercase().contains(query)) {
-            // 只高亮第一次出现的匹配
-            val lower = text.lowercase()
+        // 真正渲染 Markdown（加粗、列表、引用、代码块、表格等），不再显示 ** / |---| 原始符号。
+        markwon.setMarkdown(tv, text)
+
+        if (query.isNotEmpty()) {
+            // Markwon 已经产生样式 Span；SpannableString 会保留这些 Span，再叠加搜索高亮。
+            val rendered = SpannableString(tv.text)
+            val lower = rendered.toString().lowercase()
             var searchFrom = 0
-            val sb = SpannableString(text)
-            // 最多高亮前 5 处匹配，避免过度高亮
             var count = 0
             while (count < 5) {
                 val idx = lower.indexOf(query, searchFrom)
                 if (idx < 0) break
-                sb.setSpan(BackgroundColorSpan(highlightColor), idx, idx + query.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                rendered.setSpan(
+                    BackgroundColorSpan(highlightColor),
+                    idx,
+                    idx + query.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
                 searchFrom = idx + query.length
                 count++
             }
-            tv.text = sb
-        } else {
-            tv.text = text
+            tv.text = rendered
         }
 
         return tv
