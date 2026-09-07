@@ -8,6 +8,7 @@ class CustomQuestionBankPromptTest {
 
     @Test
     fun formatRepairPromptPreservesQuestionMeaningAndEnforcesStableMarkers() {
+        // Stable contract: repair formatting without silently rewriting question semantics.
         val source = """
             20. 测试题
             · A. 甲
