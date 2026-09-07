@@ -70,6 +70,18 @@ class CustomQuestionBankImportActivity : AppCompatActivity() {
             Toast.makeText(this, "🤖 已复制 AI 原创出题提示词，可直接发给 ChatGPT/DeepSeek/Claude", Toast.LENGTH_SHORT).show()
         }
 
+        // Copy repair prompt and include the currently pasted content when available.
+        findViewById<Button>(R.id.btn_copy_repair_prompt).setOnClickListener {
+            val source = etContent.text?.toString().orEmpty()
+            copyToClipboard("题库格式修复提示词", CustomQuestionBankManager.getFormatRepairPrompt(source))
+            val message = if (source.isBlank()) {
+                "🛠 已复制格式修复 Prompt，可把解析失败的题库附在后面发给 AI"
+            } else {
+                "🛠 已把当前题库附在格式修复 Prompt 后，可直接发给 AI"
+            }
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
+
         // Copy Template
         findViewById<Button>(R.id.btn_copy_template).setOnClickListener {
             copyToClipboard("题库模板", CustomQuestionBankManager.getStandardTemplate())
@@ -191,8 +203,9 @@ class CustomQuestionBankImportActivity : AppCompatActivity() {
                 issueText.append("• ").append(lineInfo).append(issue.message).append("\n")
             }
             if (result.issues.size > 5) {
-                issueText.append("... 以及另外 ${result.issues.size - 5} 个警告")
+                issueText.append("... 以及另外 ${result.issues.size - 5} 个警告\n")
             }
+            issueText.append("\n若内容来自 AI，可点击上方「格式修复 Prompt」一键复制当前内容并让 AI 只整理格式。")
             tvParseIssues.text = issueText.toString().trimEnd()
             tvParseIssues.visibility = View.VISIBLE
         } else {
