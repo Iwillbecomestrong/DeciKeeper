@@ -28,6 +28,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         if (!PrivacyConsentManager.isConsented(this)) {
             Log.w("MainActivity", "onCreate: not consented, redirecting to PrivacyConsentActivity and clearing stack")
+            // TODO(round-4 MAJOR-4): Pending extras fallback still needs emulator/real-device verification.
+            Log.w("MainActivity", "BLOCKED_NEEDS_REAL_DEVICE: verify pending extras survive privacy-consent redirect")
             val incoming = intent
             if (incoming != null) {
                 val incomingExtras = incoming.extras
@@ -105,12 +107,18 @@ class MainActivity : AppCompatActivity() {
         try { val i = Intent(this, A11yGuardService::class.java); if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i) }
         catch (e: Exception) { Log.e("MainActivity", "Failed to start A11yGuardService", e) }
     }
+
     private fun startMonitorService() {
         try { val i = Intent(this, MonitorService::class.java); if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i) }
         catch (e: Exception) { Log.e("MainActivity", "Failed to start MonitorService", e) }
     }
 
-    override fun onNewIntent(intent: Intent?) { super.onNewIntent(intent); setIntent(intent); handleNavigateIntent(intent); handlePermissionDialogIntent(intent) }
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNavigateIntent(intent)
+        handlePermissionDialogIntent(intent)
+    }
 
     private fun handlePermissionDialogIntent(intent: Intent?) {
         if (intent?.getBooleanExtra("show_permission_dialog", false) == true) {
