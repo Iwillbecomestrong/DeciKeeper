@@ -1,5 +1,6 @@
 package com.zhizhi.app.service
 
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -14,10 +15,22 @@ class VisibleBlacklistPresenceTrackerTest {
     private val ACTIVITY_RESUMED = 15
     private val ACTIVITY_PAUSED = 16
     private val ACTIVITY_STOPPED = 23
+    private var originalServiceActive = false
+    private var originalVisiblePackages: Set<String> = emptySet()
 
     @Before
     fun setUp() {
+        originalServiceActive = CoreService.isServiceActive
+        originalVisiblePackages = CoreService.lastVisiblePackagesFromWindows
+        CoreService.isServiceActive = true
+        CoreService.lastVisiblePackagesFromWindows = setOf(testPkg)
         tracker = VisibleBlacklistPresenceTracker(desktopGraceDurationMs = 3000L)
+    }
+
+    @After
+    fun tearDown() {
+        CoreService.isServiceActive = originalServiceActive
+        CoreService.lastVisiblePackagesFromWindows = originalVisiblePackages
     }
 
     @Test
@@ -237,7 +250,7 @@ class VisibleBlacklistPresenceTrackerTest {
         tracker.onUsageEvent(testPkg, MOVE_TO_FG, tReopen)
         assertFalse("Package must not be CLOSED after MOVE_TO_FOREGROUND", tracker.isPackageClosed(testPkg))
 
-        // Now lastTimeVisible is valid
+        // Now lastTimeVisible is valid because Accessibility also sees the target window.
         assertTrue(tracker.isLastTimeVisibleValid(testPkg, 20500L))
     }
 
@@ -311,7 +324,7 @@ class VisibleBlacklistPresenceTrackerTest {
         assertFalse(tracker.isLastTimeVisibleValid(testPkg, 10200L))
         assertFalse(tracker.isLastTimeVisibleValid(testPkg, 11000L))
 
-        // Finally reopened
+        // Finally reopened; Accessibility is already confirming the target window in this fixture.
         val MOVE_TO_FG = 1
         tracker.onUsageEvent(testPkg, MOVE_TO_FG, 12000L)
         assertTrue(tracker.isLastTimeVisibleValid(testPkg, 12100L))
@@ -382,37 +395,18 @@ class VisibleBlacklistPresenceTrackerTest {
     }
 
     @Test
-    fun `test 21 - non-accessibility complete lifecycle works purely via UsageEvents`() {
-        // Step 1: Open event
+    fun `test 21 - without accessibility UsageEvents cannot establish small-window presence`() {
+        CoreService.isServiceActive = false
+        CoreService.lastVisiblePackagesFromWindows = emptySet()
         val MOVE_TO_FG = 1
+
         tracker.onUsageEvent(testPkg, MOVE_TO_FG, 5000L)
-        assertTrue(tracker.isLastTimeVisibleValid(testPkg, 5100L))
+        assertFalse(tracker.isLastTimeVisibleValid(testPkg, 5100L))
 
-        // Step 2: Presence confirmed & locked
-        val lockAction = tracker.onPresenceConfirmed(testPkg, 6000L)
-        assertEquals(PresenceTrackerAction.LOCK, lockAction)
-
-        // Step 3: Return desktop
+        // Even if a stale Presence session exists from before Accessibility disappeared,
+        // return-to-desktop grace expiry must not relock from UsageStats alone.
+        tracker.onPresenceConfirmed(testPkg, 6000L)
         tracker.onDesktopReturn(7000L)
-        assertEquals(PresenceTrackerState.DESKTOP_GRACE, tracker.state)
-
-        // Step 4: Closed via STOPPED
-        val clearAction = tracker.onUsageEvent(testPkg, ACTIVITY_STOPPED, 8000L)
-        assertEquals(PresenceTrackerAction.CLEAR, clearAction)
-        assertEquals(PresenceTrackerState.NONE, tracker.state)
-        assertTrue(tracker.isPackageClosed(testPkg))
-
-        // Step 5: Grace expires at 10500L -> NO LOCK
         assertEquals(PresenceTrackerAction.NONE, tracker.evaluate(10500L))
-
-        // Step 6: UsageStats lag cannot revive it
-        assertFalse(tracker.isLastTimeVisibleValid(testPkg, 10600L))
-
-        // Step 7: Real reopen later allows locking again
-        tracker.onUsageEvent(testPkg, MOVE_TO_FG, 15000L)
-        assertFalse(tracker.isPackageClosed(testPkg))
-        assertTrue(tracker.isLastTimeVisibleValid(testPkg, 15100L))
-        val newLockAction = tracker.onPresenceConfirmed(testPkg, 16000L)
-        assertEquals(PresenceTrackerAction.LOCK, newLockAction)
     }
 }
