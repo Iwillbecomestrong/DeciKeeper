@@ -1393,7 +1393,7 @@ object AppWindowManager {
             val favorable = addedApps.filter { !hasOtherTimeWindow(context, it, newRule.id, newRule.daysOfWeek) }
             val adverse = addedApps.filter { hasOtherTimeWindow(context, it, newRule.id, newRule.daysOfWeek) }
             if (adverse.isNotEmpty()) {
-                details.add(ChangeDetail("新增应用（已有兞他窗口）: ${formatAppNames(context, adverse)}", ChangeType.ADVERSE))
+                details.add(ChangeDetail("新增应用（已有其他窗口）: ${formatAppNames(context, adverse)}", ChangeType.ADVERSE))
                 isOverallAdverse = true
             }
             if (favorable.isNotEmpty()) {
@@ -1410,7 +1410,7 @@ object AppWindowManager {
                 isOverallAdverse = true
             }
             if (favorable.isNotEmpty()) {
-                details.add(ChangeDetail("移除应用（仍有兞他窗口）: ${formatAppNames(context, favorable)}", ChangeType.FAVORABLE))
+                details.add(ChangeDetail("移除应用（仍有其他窗口）: ${formatAppNames(context, favorable)}", ChangeType.FAVORABLE))
             }
         }
 
@@ -1439,12 +1439,12 @@ object AppWindowManager {
                   }
                   val appsWithFallback = oldRule.packageNames - appsWithNoFallback.toSet()
                   if (appsWithNoFallback.isEmpty()) {
-                      details.add(ChangeDetail("减少日期（仍有兞他规则兜底）: ${formatDaysShort(removedDays)}", ChangeType.FAVORABLE))
+                      details.add(ChangeDetail("减少日期（仍有其他规则兜底）: ${formatDaysShort(removedDays)}", ChangeType.FAVORABLE))
                   } else {
                       if (appsWithFallback.isNotEmpty()) {
-                          details.add(ChangeDetail("减少日期（有兞他规则兜底）: ${formatDaysShort(removedDays)} / ${formatAppNames(context, appsWithFallback)}", ChangeType.FAVORABLE))
+                          details.add(ChangeDetail("减少日期（有其他规则兜底）: ${formatDaysShort(removedDays)} / ${formatAppNames(context, appsWithFallback)}", ChangeType.FAVORABLE))
                       }
-                      details.add(ChangeDetail("减少日期（无兞他规则兜底）: ${formatDaysShort(removedDays)} / ${formatAppNames(context, appsWithNoFallback)}", ChangeType.ADVERSE))
+                      details.add(ChangeDetail("减少日期（无其他规则兜底）: ${formatDaysShort(removedDays)} / ${formatAppNames(context, appsWithNoFallback)}", ChangeType.ADVERSE))
                       isOverallAdverse = true
                   }
              }
