@@ -984,7 +984,7 @@ object AppWindowManager {
                          .orEmpty()
                      if (delayedByApp.isNotEmpty()) {
                          val delayedText = formatAppDayMatrix(context, delayedByApp)
-                         val refreshedLog = "[待生效-部分延迟] ${newRule.name}\n  - 下一刷新时刻生效: $delayedText"
+                         val refreshedLog = "[部分待生效] ${newRule.name}\n  - 下一刷新时刻生效: $delayedText"
                          ChangeLogManager.addEntry(context, CATEGORY_LOG, refreshedLog, true, tag = targetId)
                      }
                  }
@@ -1056,7 +1056,7 @@ object AppWindowManager {
                  }
 
                  val delayedText = formatAppDayMatrix(context, mixedSplit.delayedByApp)
-                 logDescription = "[新增-部切待生效] ${newRule.name}\n  - 下一刷新时刻生效: $delayedText"
+                 logDescription = "[新增-部分待生效] ${newRule.name}\n  - 下一刷新时刻生效: $delayedText"
              } else {
                  clearPartialDelayedDaysForRule(context, targetId)
              }
