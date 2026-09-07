@@ -19,12 +19,12 @@ class EffectiveActivationPolicyUiCopyContractTest {
     }
 
     @Test
-    fun rulesHelpMatchesFavorableImmediateDirection() {
-        val rules = source("src/main/java/com/zhizhi/app/ui/RulesFragment.kt")
+    fun timeRulesHelpUsesCanonicalPolicyDescriptions() {
+        val timeRules = source("src/main/java/com/zhizhi/app/ui/FocusRulesFragment.kt")
 
-        assertTrue(rules.contains("加严限制 → 立即生效"))
-        assertTrue(rules.contains("放宽限制 → 下一刷新时刻生效"))
-        assertFalse(rules.contains("添加/删除/减少限制 → 立即生效"))
-        assertFalse(rules.contains("增加限制 → 次日 00:00 生效"))
+        assertTrue(timeRules.contains("EffectiveActivationPolicyManager.getPolicyDescription(favorable)"))
+        assertTrue(timeRules.contains("EffectiveActivationPolicyManager.getPolicyDescription(allNextDay)"))
+        assertFalse(timeRules.contains("添加/删除/减少限制 → 立即生效"))
+        assertFalse(timeRules.contains("增加限制 → 次日 00:00 生效"))
     }
 }
