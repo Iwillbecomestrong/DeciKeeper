@@ -1,0 +1,71 @@
+name: One-shot final documentation convergence
+
+on:
+  push:
+    branches:
+      - ai/time-rules-spec-sync
+    paths:
+      - .github/workflows/one-shot-final-doc-convergence.yml
+
+permissions:
+  contents: write
+
+jobs:
+  converge-docs:
+    runs-on: self-hosted
+    steps:
+      - name: Check out task branch
+        uses: actions/checkout@v4
+        with:
+          ref: ai/time-rules-spec-sync
+          fetch-depth: 0
+
+      - name: Remove retired requirements entry and sync document map
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Replace-Required([string]$path, [string]$old, [string]$new, [string]$label) {
+            $text = [System.IO.File]::ReadAllText($path)
+            if (-not $text.Contains($old)) {
+              throw "Expected pattern not found ($label): $path"
+            }
+            $text = $text.Replace($old, $new)
+            [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
+          }
+
+          Replace-Required `
+            'SPEC.md' `
+            '> 详细模块规格由 [`docs/specs/`](docs/specs/) 承担。旧 [`docs/specs/requirements.md`](docs/specs/requirements.md) 在迁移完成前仅作为历史需求输入，不再与本文件并列作为另一份当前真相。' `
+            '> 详细模块规格由 [`docs/specs/`](docs/specs/) 承担；历史版本与已退役需求由 Git 历史保留，不再维护第二套并列规格。' `
+            'SPEC retired requirements transition'
+
+          Replace-Required `
+            'docs/README.md' `
+            "App Help`r`n  ↓ 后续与使用手册同源" `
+            "App Help`r`n  ↓ 构建时读取同一份使用手册资源" `
+            'Help single-source status'
+
+          Replace-Required `
+            'PLAN.md' `
+            '- [ ] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。' `
+            '- [x] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。' `
+            'PLAN settings dead-code task'
+
+          if (-not (Test-Path 'docs/specs/requirements.md')) {
+            throw 'Retired requirements.md not found before deletion'
+          }
+          git rm 'docs/specs/requirements.md'
+
+          if (git grep -n 'docs/specs/requirements.md' -- ':!HISTORY.md' ':!docs/history/**') {
+            throw 'Live documentation still references docs/specs/requirements.md'
+          }
+
+          Remove-Item '.github/workflows/one-shot-final-doc-convergence.yml'
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add SPEC.md PLAN.md docs/README.md .github/workflows/one-shot-final-doc-convergence.yml
+          git diff --cached --check
+          git commit -m 'docs: finish specification document convergence'
+          git push origin HEAD:ai/time-rules-spec-sync
