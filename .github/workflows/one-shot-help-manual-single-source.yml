@@ -1,0 +1,190 @@
+name: One-shot Help manual single source
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-help:
+    if: github.head_ref == 'ai/time-rules-spec-sync'
+    runs-on: [self-hosted, Windows, X64]
+    steps:
+      - name: Check out task branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Move Help to generated canonical manual asset
+        shell: powershell
+        run: |
+          $script = @'
+          from pathlib import Path
+          import re
+
+          root = Path.cwd()
+          help_path = root / 'app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt'
+          gradle_path = root / 'app/build.gradle.kts'
+          workflow_path = root / '.github/workflows/one-shot-help-manual-single-source.yml'
+
+          help_text = help_path.read_text(encoding='utf-8')
+
+          companion_pattern = re.compile(
+              r'\n    companion object \{\n        fun buildHelpText\(\): String = """.*?        """\.trimIndent\(\)\n    \}\n\n    override fun onCreate',
+              re.DOTALL,
+          )
+          help_text, count = companion_pattern.subn('\n    override fun onCreate', help_text, count=1)
+          if count != 1:
+              raise RuntimeError(f'Expected one embedded help companion block, replaced {count}')
+
+          old_call = 'allSections = parseSections(buildHelpText())'
+          new_call = 'allSections = parseSections(loadHelpText())'
+          if help_text.count(old_call) != 1:
+              raise RuntimeError('Expected exactly one buildHelpText() call')
+          help_text = help_text.replace(old_call, new_call, 1)
+
+          dp_anchor = '    private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()'
+          loader = (
+              '    private fun loadHelpText(): String =\n'
+              '        assets.open("\u4f7f\u7528\u624b\u518c.md").bufferedReader(Charsets.UTF_8).use { it.readText() }\n\n'
+          )
+          if dp_anchor not in help_text:
+              raise RuntimeError('Could not locate dp() anchor for manual loader')
+          help_text = help_text.replace(dp_anchor, loader + dp_anchor, 1)
+
+          parser_pattern = re.compile(
+              r'    private fun parseSections\(fullText: String\): List<HelpSection> \{.*?\n    \}\n\n    // ========== UI \u6784\u5efa ==========',
+              re.DOTALL,
+          )
+          parser = '''    private fun parseSections(fullText: String): List<HelpSection> {
+              val sections = mutableListOf<HelpSection>()
+              val lines = fullText.split("\\n")
+              var currentTitle = ""
+              var currentContent = StringBuilder()
+              var currentLevel = 1
+
+              fun flush() {
+                  val content = currentContent.toString().trim('\\n', ' ')
+                  if (currentTitle.isNotEmpty()) {
+                      sections.add(HelpSection(currentTitle, content, currentLevel))
+                  }
+              }
+
+              for (line in lines) {
+                  val trimmed = line.trim()
+                  if (trimmed.isEmpty() || trimmed == "---") continue
+
+                  val markdownLevel = trimmed.takeWhile { it == '#' }.length
+                  val markdownTitle = if (
+                      markdownLevel in 1..3 &&
+                      trimmed.length > markdownLevel &&
+                      trimmed[markdownLevel] == ' '
+                  ) {
+                      trimmed.substring(markdownLevel + 1).trim()
+                  } else {
+                      null
+                  }
+
+                  val legacyH1 = Regex("^[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]+\u3001.+$").find(trimmed)
+                  val legacyH2 = Regex("^\\\\d+\\\\.\\\\d+\\\\s.+$").find(trimmed)
+
+                  when {
+                      markdownTitle != null -> {
+                          flush()
+                          currentTitle = markdownTitle
+                          currentContent = StringBuilder()
+                          currentLevel = if (markdownLevel <= 2) 1 else 2
+                      }
+                      legacyH1 != null -> {
+                          flush()
+                          currentTitle = trimmed
+                          currentContent = StringBuilder()
+                          currentLevel = 1
+                      }
+                      legacyH2 != null -> {
+                          flush()
+                          currentTitle = trimmed
+                          currentContent = StringBuilder()
+                          currentLevel = 2
+                      }
+                      else -> {
+                          if (currentContent.isNotEmpty()) currentContent.append("\\n")
+                          currentContent.append(trimmed)
+                      }
+                  }
+              }
+              flush()
+              return sections
+          }
+
+          // ========== UI \u6784\u5efa =========='''
+          help_text, count = parser_pattern.subn(parser, help_text, count=1)
+          if count != 1:
+              raise RuntimeError(f'Expected one parseSections block, replaced {count}')
+
+          help_path.write_text(help_text, encoding='utf-8', newline='\n')
+
+          gradle = gradle_path.read_text(encoding='utf-8')
+          marker = 'val generatedUserGuideAssetsDir = layout.buildDirectory.dir("generated/userGuideAssets").get().asFile'
+          if marker in gradle:
+              raise RuntimeError('Generated user guide asset configuration already exists')
+
+          plugins_end = '''plugins {
+              alias(libs.plugins.android.application)
+              alias(libs.plugins.kotlin.android)
+          }
+          '''
+          if plugins_end not in gradle:
+              raise RuntimeError('Could not locate plugins block')
+
+          generated_config = '''
+          val generatedUserGuideAssetsDir = layout.buildDirectory.dir("generated/userGuideAssets").get().asFile
+          val syncUserGuideAsset by tasks.registering(Copy::class) {
+              from(rootProject.file("docs/\u4f7f\u7528\u624b\u518c.md"))
+              into(generatedUserGuideAssetsDir)
+          }
+
+          '''
+          gradle = gradle.replace(plugins_end, plugins_end + generated_config, 1)
+
+          android_anchor = '''    buildFeatures {
+                  buildConfig = true
+              }
+          '''
+          source_sets = '''    sourceSets {
+                  getByName("main").assets.srcDir(generatedUserGuideAssetsDir)
+              }
+
+          '''
+          if android_anchor not in gradle:
+              raise RuntimeError('Could not locate android buildFeatures anchor')
+          gradle = gradle.replace(android_anchor, android_anchor + '\n' + source_sets, 1)
+
+          task_anchor = '''tasks.register("testClasses") {
+          '''
+          prebuild = '''tasks.named("preBuild") {
+              dependsOn(syncUserGuideAsset)
+          }
+
+          '''
+          if task_anchor not in gradle:
+              raise RuntimeError('Could not locate testClasses task anchor')
+          gradle = gradle.replace(task_anchor, prebuild + task_anchor, 1)
+
+          gradle_path.write_text(gradle, encoding='utf-8', newline='\n')
+          workflow_path.unlink()
+          '@
+
+          $scriptPath = Join-Path $env:RUNNER_TEMP 'apply_help_manual_single_source.py'
+          [System.IO.File]::WriteAllText($scriptPath, $script, (New-Object System.Text.UTF8Encoding($false)))
+          python $scriptPath
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/build.gradle.kts app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt .github/workflows/one-shot-help-manual-single-source.yml
+          git diff --cached --check
+          git commit -m 'refactor(help): use canonical manual asset'
+          git push origin HEAD:${{ github.head_ref }}
