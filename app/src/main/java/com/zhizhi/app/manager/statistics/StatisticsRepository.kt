@@ -429,21 +429,49 @@ object StatisticsRepository {
         val bucketOpensMap = mutableMapOf<StatsBucket, MutableMap<String, Int>>()
         val totalOpensMap = mutableMapOf<String, Int>()
 
+        fun isNoisePackage(packageName: String): Boolean {
+            if (packageName.isBlank()) return true
+            val lower = packageName.lowercase()
+            if (lower.contains("launcher") || lower.contains("recents")) return false
+            if (lower.contains("systemui") || lower == "com.vivo.upslide") return true
+            if (lower.contains(".inputmethod") || lower.contains(".ime") || lower.contains("inputmethod")) return true
+            return false
+        }
+
         if (rangeEnd > rangeStart) {
             try {
                 val events = usm.queryEvents(rangeStart, rangeEnd)
                 val event = UsageEvents.Event()
+                var lastActivePkg: String? = null
+
                 while (events.hasNextEvent()) {
                     events.getNextEvent(event)
-                    if (event.eventType == 1 /* ACTIVITY_RESUMED / MOVE_TO_FOREGROUND */) {
-                        val pkg = event.packageName ?: continue
-                        val t = event.timeStamp
-                        val bucket = buckets.find { t >= it.startMillis && t < it.endMillisExclusive }
-                        if (bucket != null) {
-                            val map = bucketOpensMap.getOrPut(bucket) { mutableMapOf() }
-                            map[pkg] = (map[pkg] ?: 0) + 1
+                    val eventType = event.eventType
+                    val pkg = event.packageName ?: continue
+                    val t = event.timeStamp
+
+                    when (eventType) {
+                        1 /* MOVE_TO_FOREGROUND */, 15 /* ACTIVITY_RESUMED */ -> {
+                            if (isNoisePackage(pkg)) continue
+
+                            // 只有当前台应用发生真实切换时，才算作一次全新的应用打开
+                            // 同一应用内部各个页面之间的跳转 (lastActivePkg == pkg)，严禁重复计入打开次数
+                            if (pkg != lastActivePkg) {
+                                if (isUserFacingApp(pkg, appInfoMap[pkg])) {
+                                    val bucket = buckets.find { t >= it.startMillis && t < it.endMillisExclusive }
+                                    if (bucket != null) {
+                                        val map = bucketOpensMap.getOrPut(bucket) { mutableMapOf() }
+                                        map[pkg] = (map[pkg] ?: 0) + 1
+                                    }
+                                    totalOpensMap[pkg] = (totalOpensMap[pkg] ?: 0) + 1
+                                }
+                                lastActivePkg = pkg
+                            }
                         }
-                        totalOpensMap[pkg] = (totalOpensMap[pkg] ?: 0) + 1
+                        16 /* SCREEN_NON_INTERACTIVE */, 17 /* KEYGUARD_SHOWN */ -> {
+                            // 息屏或锁屏，前台会话中断；重新亮屏后再进入应用算作新一次使用
+                            lastActivePkg = null
+                        }
                     }
                 }
             } catch (e: Exception) {

@@ -4,7 +4,7 @@
     android:id="@+id/root_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0B1114"
+    android:background="?attr/zzPageBg"
     android:keepScreenOn="true">
 
     <LinearLayout
@@ -21,7 +21,7 @@
             android:text="闹铃响了"
             android:textSize="28sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF" />
+            android:textColor="?attr/zzText" />
 
         <TextView
             android:id="@+id/tv_alarm_hint"
@@ -29,7 +29,7 @@
             android:layout_height="wrap_content"
             android:text="请完成以下任一挑战，或扫码关闭闹钟"
             android:textSize="14sp"
-            android:textColor="#90A4AE"
+            android:textColor="?attr/zzMuted"
             android:layout_marginTop="6dp" />
 
         <TextView
@@ -37,7 +37,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="13sp"
-            android:textColor="#FF9800"
+            android:textColor="?attr/zzWarning"
             android:layout_marginTop="4dp"
             android:text="" />
 
@@ -46,7 +46,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="13sp"
-            android:textColor="#4CAF50"
+            android:textColor="?attr/zzSuccess"
             android:layout_marginBottom="8dp"
             android:text="" />
 
@@ -70,7 +70,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textSize="16sp"
-                    android:textColor="#FF9800"
+                    android:textColor="?attr/zzWarning"
                     android:gravity="center"
                     android:padding="12dp"
                     android:layout_marginBottom="12dp"
@@ -84,7 +84,7 @@
                     android:layout_marginBottom="12dp"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="4dp"
-                    app:cardBackgroundColor="#102A2F">
+                    app:cardBackgroundColor="?attr/zzSurface">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -98,7 +98,8 @@
                             android:layout_height="wrap_content"
                             android:text="数学挑战 (0/2)"
                             android:textSize="14sp"
-                            android:textColor="#80DEEA"
+                            android:textStyle="bold"
+                            android:textColor="?attr/zzAccent"
                             android:layout_marginBottom="6dp" />
 
                         <TextView
@@ -108,7 +109,7 @@
                             android:text="000 × 00 = ?"
                             android:textSize="22sp"
                             android:textStyle="bold"
-                            android:textColor="#FFFFFF"
+                            android:textColor="?attr/zzText"
                             android:layout_marginBottom="8dp" />
 
                         <EditText
@@ -116,10 +117,10 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="number"
-                            android:textColor="#FFFFFF"
-                            android:textColorHint="#78909C"
+                            android:textColor="?attr/zzText"
+                            android:textColorHint="?attr/zzSubtle"
                             android:hint="输入答案"
-                            android:backgroundTint="#4DD0E1" />
+                            android:backgroundTint="?attr/zzAccent" />
 
                         <Button
                             android:id="@+id/btn_math_submit"
@@ -130,7 +131,7 @@
                             android:textStyle="bold"
                             android:textColor="#FFFFFF"
                             android:layout_marginTop="8dp"
-                            android:backgroundTint="#00838F" />
+                            android:backgroundTint="?attr/zzAccent" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -142,7 +143,7 @@
                     android:layout_marginBottom="12dp"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="4dp"
-                    app:cardBackgroundColor="#2A1B10">
+                    app:cardBackgroundColor="?attr/zzSurface">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -156,7 +157,8 @@
                             android:layout_height="wrap_content"
                             android:text="诗词挑战 (0/3)"
                             android:textSize="14sp"
-                            android:textColor="#FFCC80"
+                            android:textStyle="bold"
+                            android:textColor="?attr/zzAccent"
                             android:layout_marginBottom="6dp" />
 
                         <TextView
@@ -166,7 +168,7 @@
                             android:text="白日依山尽..."
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="#FFFFFF"
+                            android:textColor="?attr/zzText"
                             android:layout_marginBottom="8dp"
                             android:maxLines="10"
                             android:ellipsize="end" />
@@ -176,10 +178,10 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="textNoSuggestions"
-                            android:textColor="#FFFFFF"
-                            android:textColorHint="#78909C"
+                            android:textColor="?attr/zzText"
+                            android:textColorHint="?attr/zzSubtle"
                             android:hint="接下句（或上句），不带标点"
-                            android:backgroundTint="#FFB74D" />
+                            android:backgroundTint="?attr/zzAccent" />
 
                         <!-- 诗词提示显示区域 -->
                         <TextView
@@ -187,8 +189,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textSize="14sp"
-                            android:textColor="#FFAB91"
-                            android:background="#1E3A2F"
+                            android:textColor="?attr/zzMuted"
+                            android:background="?attr/zzSurface2"
                             android:padding="10dp"
                             android:gravity="center"
                             android:layout_marginTop="6dp"
@@ -207,9 +209,9 @@
                                 android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:text="💡 提示"
-                                android:textColor="#FFFFFF"
+                                android:textColor="?attr/zzText"
                                 android:textSize="13sp"
-                                android:backgroundTint="#6D4C41"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:layout_marginEnd="6dp" />
 
                             <Button
@@ -218,9 +220,9 @@
                                 android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:text="跳过"
-                                android:textColor="#FFFFFF"
+                                android:textColor="?attr/zzText"
                                 android:textSize="13sp"
-                                android:backgroundTint="#5D4037" />
+                                android:backgroundTint="?attr/zzSurface2" />
                         </LinearLayout>
 
                         <!-- 第二行：收藏并跳过 + 提交 -->
@@ -236,9 +238,9 @@
                                 android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:text="📚 收藏并跳过"
-                                android:textColor="#FFFFFF"
+                                android:textColor="?attr/zzText"
                                 android:textSize="13sp"
-                                android:backgroundTint="#4E342E"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:layout_marginEnd="6dp" />
 
                             <Button
@@ -249,7 +251,7 @@
                                 android:text="提交"
                                 android:textStyle="bold"
                                 android:textColor="#FFFFFF"
-                                android:backgroundTint="#E65100" />
+                                android:backgroundTint="?attr/zzAccent" />
                         </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -262,7 +264,7 @@
                     android:layout_marginBottom="12dp"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="4dp"
-                    app:cardBackgroundColor="#102030">
+                    app:cardBackgroundColor="?attr/zzSurface">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -276,7 +278,8 @@
                             android:layout_height="wrap_content"
                             android:text="单词挑战 (0/10)"
                             android:textSize="14sp"
-                            android:textColor="#90CAF9"
+                            android:textStyle="bold"
+                            android:textColor="?attr/zzAccent"
                             android:layout_marginBottom="6dp" />
 
                         <TextView
@@ -286,7 +289,7 @@
                             android:text="n. 苹果 [æpl]"
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="#FFFFFF"
+                            android:textColor="?attr/zzText"
                             android:layout_marginBottom="8dp" />
 
                         <EditText
@@ -294,10 +297,10 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="textNoSuggestions|textVisiblePassword"
-                            android:textColor="#FFFFFF"
-                            android:textColorHint="#78909C"
+                            android:textColor="?attr/zzText"
+                            android:textColorHint="?attr/zzSubtle"
                             android:hint="拼写英文单词"
-                            android:backgroundTint="#64B5F6" />
+                            android:backgroundTint="?attr/zzAccent" />
 
                         <!-- 单词提示显示区域 -->
                         <TextView
@@ -305,8 +308,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textSize="14sp"
-                            android:textColor="#81D4FA"
-                            android:background="#1A2A3A"
+                            android:textColor="?attr/zzMuted"
+                            android:background="?attr/zzSurface2"
                             android:padding="10dp"
                             android:gravity="center"
                             android:layout_marginTop="6dp"
@@ -325,9 +328,9 @@
                                 android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:text="💡 提示音标"
-                                android:textColor="#FFFFFF"
+                                android:textColor="?attr/zzText"
                                 android:textSize="13sp"
-                                android:backgroundTint="#455A64"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:layout_marginEnd="6dp" />
 
                             <Button
@@ -336,9 +339,9 @@
                                 android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:text="跳过"
-                                android:textColor="#FFFFFF"
+                                android:textColor="?attr/zzText"
                                 android:textSize="13sp"
-                                android:backgroundTint="#263238" />
+                                android:backgroundTint="?attr/zzSurface2" />
                         </LinearLayout>
 
                         <!-- 第二行：收藏并跳过 + 提交 -->
@@ -354,9 +357,9 @@
                                 android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:text="📚 收藏并跳过"
-                                android:textColor="#FFFFFF"
+                                android:textColor="?attr/zzText"
                                 android:textSize="13sp"
-                                android:backgroundTint="#37474F"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:layout_marginEnd="6dp" />
 
                             <Button
@@ -367,7 +370,7 @@
                                 android:text="提交"
                                 android:textStyle="bold"
                                 android:textColor="#FFFFFF"
-                                android:backgroundTint="#1565C0" />
+                                android:backgroundTint="?attr/zzAccent" />
                         </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -380,7 +383,7 @@
                     android:layout_marginBottom="12dp"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="4dp"
-                    app:cardBackgroundColor="#102030">
+                    app:cardBackgroundColor="?attr/zzSurface">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -394,7 +397,8 @@
                             android:layout_height="wrap_content"
                             android:text="选词填空 (0/5)"
                             android:textSize="14sp"
-                            android:textColor="#90CAF9"
+                            android:textStyle="bold"
+                            android:textColor="?attr/zzAccent"
                             android:layout_marginBottom="6dp" />
 
                         <!-- Req-1: 长按题目中任意英文单词可查词+收藏 → 自定义 TextView -->
@@ -405,7 +409,7 @@
                             android:text="她每天早起背单词，正是这份[    ]让她顺利通过了考研。"
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="#FFFFFF"
+                            android:textColor="?attr/zzText"
                             android:layout_marginBottom="4dp" />
 
                         <!-- 长按单词查词提示 (R6/R7), 默认隐藏 -->
@@ -414,8 +418,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textSize="13sp"
-                            android:textColor="#FFE082"
-                            android:background="#1A2A3A"
+                            android:textColor="?attr/zzWarning"
+                            android:background="?attr/zzSurface2"
                             android:padding="8dp"
                             android:visibility="gone"
                             android:layout_marginBottom="8dp" />
@@ -434,8 +438,8 @@
                                 android:layout_height="36dp"
                                 android:text="💡 提示"
                                 android:textSize="12sp"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#00695C"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:minWidth="0dp"
                                 android:paddingStart="12dp"
                                 android:paddingEnd="12dp"
@@ -447,8 +451,8 @@
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:textSize="13sp"
-                                android:textColor="#81D4FA"
-                                android:background="#1A2A3A"
+                                android:textColor="?attr/zzMuted"
+                                android:background="?attr/zzSurface2"
                                 android:padding="8dp"
                                 android:visibility="gone" />
                         </LinearLayout>
@@ -468,8 +472,8 @@
                                 android:text="A"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#1565C0"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false"
                                 android:layout_marginEnd="6dp" />
 
@@ -481,8 +485,8 @@
                                 android:text="B"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#1565C0"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false" />
                         </LinearLayout>
 
@@ -500,8 +504,8 @@
                                 android:text="C"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#1565C0"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false"
                                 android:layout_marginEnd="6dp" />
 
@@ -513,8 +517,8 @@
                                 android:text="D"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#1565C0"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false" />
                         </LinearLayout>
 
@@ -532,8 +536,8 @@
                                 android:layout_weight="1"
                                 android:text="📚 收藏并跳过"
                                 android:textSize="13sp"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#E65100"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false"
                                 android:layout_marginEnd="4dp" />
 
@@ -544,8 +548,8 @@
                                 android:layout_weight="1"
                                 android:text="⏭ 跳过"
                                 android:textSize="13sp"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#37474F"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false"
                                 android:layout_marginStart="4dp" />
                         </LinearLayout>
@@ -560,7 +564,7 @@
                     android:layout_marginBottom="12dp"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="4dp"
-                    app:cardBackgroundColor="#1A2421">
+                    app:cardBackgroundColor="?attr/zzSurface">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -574,7 +578,8 @@
                             android:layout_height="wrap_content"
                             android:text="自定义题库 (0/3)"
                             android:textSize="14sp"
-                            android:textColor="#A5D6A7"
+                            android:textStyle="bold"
+                            android:textColor="?attr/zzAccent"
                             android:layout_marginBottom="6dp" />
 
                         <TextView
@@ -584,7 +589,7 @@
                             android:text="题目加载中..."
                             android:textSize="17sp"
                             android:textStyle="bold"
-                            android:textColor="#FFFFFF"
+                            android:textColor="?attr/zzText"
                             android:lineSpacingMultiplier="1.2"
                             android:layout_marginBottom="10dp" />
 
@@ -602,8 +607,8 @@
                                 android:layout_height="36dp"
                                 android:text="💡 提示"
                                 android:textSize="12sp"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#2E7D32"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:minWidth="0dp"
                                 android:paddingStart="12dp"
                                 android:paddingEnd="12dp"
@@ -615,8 +620,8 @@
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:textSize="13sp"
-                                android:textColor="#C8E6C9"
-                                android:background="#24332C"
+                                android:textColor="?attr/zzMuted"
+                                android:background="?attr/zzSurface2"
                                 android:padding="8dp"
                                 android:visibility="gone" />
                         </LinearLayout>
@@ -637,8 +642,8 @@
                                 android:text="A"
                                 android:textSize="14sp"
                                 android:textStyle="bold"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#1B5E20"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false"
                                 android:layout_marginEnd="6dp" />
 
@@ -651,8 +656,8 @@
                                 android:text="B"
                                 android:textSize="14sp"
                                 android:textStyle="bold"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#1B5E20"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false" />
                         </LinearLayout>
 
@@ -671,8 +676,8 @@
                                 android:text="C"
                                 android:textSize="14sp"
                                 android:textStyle="bold"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#1B5E20"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false"
                                 android:layout_marginEnd="6dp" />
 
@@ -685,8 +690,8 @@
                                 android:text="D"
                                 android:textSize="14sp"
                                 android:textStyle="bold"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#1B5E20"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false" />
                         </LinearLayout>
 
@@ -703,8 +708,8 @@
                                 android:layout_height="match_parent"
                                 android:text="⏭ 跳过此题"
                                 android:textSize="13sp"
-                                android:textColor="#FFFFFF"
-                                android:backgroundTint="#37474F"
+                                android:textColor="?attr/zzText"
+                                android:backgroundTint="?attr/zzSurface2"
                                 android:textAllCaps="false" />
                         </LinearLayout>
                     </LinearLayout>
@@ -718,7 +723,7 @@
                     android:layout_marginBottom="12dp"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="4dp"
-                    app:cardBackgroundColor="#122226">
+                    app:cardBackgroundColor="?attr/zzSurface">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -732,7 +737,7 @@
                             android:text="扫码关闭"
                             android:textSize="16sp"
                             android:textStyle="bold"
-                            android:textColor="#E0F7FA"
+                            android:textColor="?attr/zzText"
                             android:layout_marginBottom="8dp" />
 
                         <Button
@@ -743,7 +748,7 @@
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="#FFFFFF"
-                            android:backgroundTint="#00796B" />
+                            android:backgroundTint="?attr/zzAccent" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -774,7 +779,7 @@
                 android:text="📋 复习回顾"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/zzText"
                 android:layout_marginBottom="0dp" />
 
             <!-- Tab 切换按钮（仅诗词和单词都有数据时显示） -->
@@ -795,7 +800,7 @@
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="#FFFFFF"
-                    android:backgroundTint="#E65100"
+                    android:backgroundTint="?attr/zzAccent"
                     android:layout_marginEnd="4dp" />
 
                 <Button
@@ -806,8 +811,8 @@
                     android:text="📖 单词"
                     android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#90CAF9"
-                    android:backgroundTint="#102030"
+                    android:textColor="?attr/zzText"
+                    android:backgroundTint="?attr/zzSurface2"
                     android:layout_marginStart="4dp" />
 
                 <Button
@@ -818,8 +823,8 @@
                     android:text="✏️ 选词"
                     android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#90CAF9"
-                    android:backgroundTint="#102030"
+                    android:textColor="?attr/zzText"
+                    android:backgroundTint="?attr/zzSurface2"
                     android:layout_marginStart="4dp" />
 
                 <Button
@@ -830,8 +835,8 @@
                     android:text="📚 题库"
                     android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#A5D6A7"
-                    android:backgroundTint="#1A2421"
+                    android:textColor="?attr/zzText"
+                    android:backgroundTint="?attr/zzSurface2"
                     android:layout_marginStart="4dp" />
             </LinearLayout>
 
@@ -844,7 +849,7 @@
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#1565C0"
+                android:backgroundTint="?attr/zzAccent"
                 android:visibility="gone"
                 android:layout_marginBottom="8dp" />
 
@@ -919,8 +924,8 @@
                         android:layout_height="36dp"
                         android:text="◀"
                         android:textSize="18sp"
-                        android:textColor="#FFFFFF"
-                        android:backgroundTint="#37474F"
+                        android:textColor="?attr/zzText"
+                        android:backgroundTint="?attr/zzSurface2"
                         android:enabled="false" />
 
                     <TextView
@@ -930,7 +935,7 @@
                         android:layout_weight="1"
                         android:gravity="center"
                         android:text="1 / 1"
-                        android:textColor="#FFFFFF"
+                        android:textColor="?attr/zzText"
                         android:textSize="13sp"
                         android:textStyle="bold" />
 
@@ -940,8 +945,8 @@
                         android:layout_height="36dp"
                         android:text="▶"
                         android:textSize="18sp"
-                        android:textColor="#FFFFFF"
-                        android:backgroundTint="#37474F"
+                        android:textColor="?attr/zzText"
+                        android:backgroundTint="?attr/zzSurface2"
                         android:enabled="false" />
                 </LinearLayout>
             </LinearLayout>
@@ -964,7 +969,7 @@
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#D32F2F" />
+                android:backgroundTint="?attr/zzDanger" />
 
             <Button
                 android:id="@+id/btn_alarm_snooze"
@@ -975,8 +980,8 @@
                 android:text="稍后再响"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#455A64" />
+                android:textColor="?attr/zzText"
+                android:backgroundTint="?attr/zzSurfaceStrong" />
         </LinearLayout>
     </LinearLayout>
 

@@ -83,6 +83,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.apply(this)
         super.onCreate(savedInstanceState)
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
         snoozeMinutes = AlarmScheduler.getSnoozeMinutes(this)
