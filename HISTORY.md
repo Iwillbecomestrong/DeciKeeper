@@ -46,8 +46,12 @@
 - **决策**：
   1. 确立「三级反馈渠道体系」：首选 GitHub/Gitee Issues 公开追踪，私密/离线反馈使用邮箱 `cyz200303@163.com`，应用内「设置 → 🧾 日志诊断 → 发送日志」定性为日志提取取证与分享工具。
   2. 确立「4 要素问题反馈范式」：运行环境（机型+ROM+Android版本）、应用版本（Version/Commit SHA）、操作与复现步骤（时间+期望+实际异常）、取证日志附件（`app_log.txt`）。
-  3. 全面更新合规文档与应用内用户手册，代码中修正 `LogExporter.DEFAULT_RECIPIENT` 为真实邮箱，并由 `FeedbackContactContractTest` 强契约守护。
 
+### [DECISION-10] 全屏沉浸式防前置摄像头安全区与弹窗主题无缝化规范
+- **背景**：Android 现代设备多采用顶部打孔前置摄像头与刘海屏。若全屏 Activity 或主页面未严格计算 WindowInsets，顶部标题栏、操作按钮将被摄像头遮挡；同时弹窗内部硬编码背景色产生割裂的独立小框。
+- **决策**：
+  1. 所有全屏 Activity（`AppSelectionActivity`、`GlobalParamsActivity` 等）及主页面，必须通过 `ViewCompat.setOnApplyWindowInsetsListener` 监听 `statusBars() or displayCutout()` 并动态设置顶部 padding，确保防前置摄像头留白。
+  2. 弹窗移除内嵌硬编码背景，完全融入四季主题 `?attr/zzSurface`；彻底剔除硬编码 hex 颜色与非主题 emoji（如轮椅图标 `♿`），遵循主题 Token。
 
 ---
 
@@ -114,3 +118,172 @@
   8. **跨 Session 显式生命周期治理与系统 UI 噪声过滤**：在用户回到桌面、PWA 绕过、进入自研主界面、锁屏及息屏等切出场景，显式调用 `foregroundGuardFallbackGate.reset()`，断绝 60s 降级保底计时跨 Session 泄漏；将系统 UI 噪声过滤精准扩展至 Vivo 状态栏插件（`com.vivo.systemuiplugin`）与手势导航（`com.vivo.upslide`），同时白名单保护桌面 Launcher 绝不被误判为噪声。
   9. **业务边沿判定与前台守卫完全解耦**：建立独立的 `mLastBusinessBlockedByPackage` 状态映射，直接基于业务模型计算 `isBusinessAllowToBlock` 边沿，杜绝因旧前台事件超过 8s 提前返回导致时间窗关闭边沿丢失的问题；单次强制标记 `mForceRuleBoundaryCheck` 确保在当前轮次第一次判定时无条件消费清零。
   10. **Activity 级多页面生命周期跟踪与 UsageEvents 签名精准去重**：`ForegroundSessionTracker` 升级跟踪活跃 Activity 集合，防止应用内部页面切换（A.paused -> B.resumed -> A.stopped）中迟到的 A.stopped 误关正在前台的 B 页面；`MonitorService` 维护 `(timestamp, type:className)` 事件签名集合，彻底杜绝 30s 历史窗口重扫描时的同毫秒事件反复重放；完成 Vivo 真机取证（详见 [docs/verification/2026-09-06-vivo-ui-session-verification.md](docs/verification/2026-09-06-vivo-ui-session-verification.md)）。
+
+### [DECISION-13] 全量 UI 四季主题动态联动与伪动态死色根治
+- **背景**：用户在切换春·苔樱、夏·潮汐、秋·茶陶、冬·雪岚四季主题时，发现三处核心 UI 元素完全没有随主题变化：
+  1. 关闭无障碍服务弹窗的确认按钮；
+  2. 勿扰时段页面的「延迟生效表」背景颜色；
+  3. 待生效修改项对应的列表卡片高亮框。
+  排查发现：`themes.xml` 中四季主题的 `zzWarning`、`zzWarningSoft`、`zzDanger`、`zzDangerSoft` 色值微调差值 < 5%（全是一模一样的暗米黄与灰紫红），造成“代码引用了 Token 但视觉完全是死色”的伪动态现象；同时无障碍关闭确认主按钮误用了非当季主色，且列表卡片未接入 MaterialCardView 高亮 Stroke。
+- **决策**：
+  1. **四季色彩季相基因重构**：将 Warning/Danger 系列彻底重构为肉眼清晰可辨的季相色盘：
+     - 春：嫩芽草木金绿与生机浅底，春樱暮红；
+     - 夏：潮汐青金与清凉浅碧海青底，浅海珊瑚红；
+     - 秋：陶土焦糖金橙与温润暖杏底，晚秋枫叶砖赭红；
+# 知止 (ZhiZhi) 架构决策与经验档案 (HISTORY)
+
+> **定位**：本文件是「知止」项目的**历史决策真相（Historical Decision Truth）**，沉淀核心架构演进决策、高价值教训与防回归红线。
+> 开源前完整的问题追踪与历史排查记录详见 [docs/history/issue_tracker.md](docs/history/issue_tracker.md)。
+
+---
+
+## 1. 关键架构决策记录 [DECISION]
+
+### [DECISION-01] 闹钟状态与 Direct Boot 设备保护存储双写
+- **背景**：Android 设备强制关机重启后，在首次输入锁屏密码前处于 Direct Boot 模式，凭据加密存储（Credential Protected Storage）不可读，导致闹钟标志位丢失无法恢复震动。
+- **决策**：所有闹钟激活状态必须使用 `createDeviceProtectedStorageContext()` 双写到设备保护存储，且必须使用 `commit()` 同步写入，服务声明 `android:directBootAware="true"`。
+- **防坑警告**：Direct Boot 下 `startForeground` 若通知系统未就绪可能崩溃，必须用 `try-catch` 防护，绝不阻断唤醒。
+
+### [DECISION-02] 锁屏覆盖层代际机制 (Accessibility Generation Isolation)
+- **背景**：在 Vivo 等机型上，无障碍服务被系统回收再重连时，因静态 `_isLocked=true` 与视图残留，导致新前台黑名单请求误触发 `LOCK_ALREADY_ATTACHED` 短路，产生严重漏拦。
+- **决策**：`CoreService` 维护原子代际序号 `accessibilityGeneration: AtomicLong`，每次 `onServiceConnected` 递增；`LockWindowManager` 记录视图附着时的代际。仅当代际匹配时复用视图，代际过期立即强制重建。
+- **防坑警告**：防卸载锁（`_isAntiUninstallLock=true`）具备最高优先级，跨代际保留，不得被黑名单普通锁请求降级。
+
+### [DECISION-03] 防卸载拦截 5 秒热窗口对称化
+- **背景**：用户在系统设置中点击“强行停止”或“卸载”时，不同厂商弹窗出现时机与文本抓取存在时间差；深度遍历 AccessibilityNode 耗时长达数百毫秒，给用户留下操作时间缝隙。
+- **决策**：统一引入 5 秒热窗口（Hot Window）机制。一旦识别到进入设置关键页或点击敏感操作，立即激活热窗口，后续弹窗命中直接执行 BACK+HOME 退栈，跳过深层文本抓取。
+- **防坑警告**：加严拦截规则（如隐私空间添加应用）优先采用页面特征单闸立即拦截，严禁依赖耗时的节点深度文本比对。
+
+### [DECISION-04] 生效策略与法定基准 (Baseline) 比对
+- **背景**：若放宽规则与加严规则即时混合生效，用户易在自控崩溃时反复修改规则避锁。
+- **决策**：确立“加严立即生效，放松次日生效”铁律。比对基准以每日固化生成的快照文件 `iron_will_rules_baseline` 为准（默认每日 08:00，可在全局参数中自定义刷新时刻），杜绝以当天工作态作为比对源产生的漂移。
+
+### [DECISION-05] 临时放行分段阶梯惩罚
+- **背景**：早期固定 2 倍冷静期容易被恶意利用，用户会频繁短时间申请放行。
+- **决策**：冷却公式实施分段阶梯（0~60s: 1x, 61~120s: 2x, 121~180s: 3x）。申请时间越长，不仅扣除额度倍增，冷却锁定惩罚更呈指数上升。
+
+### [DECISION-06] 全面更名「知止 (ZhiZhi)」与包名重构 (com.zhizhi.app)
+- **背景**：原名称与现有外部商业应用产生冲突；开源首发需要更深刻独特的东方哲学意蕴（“知足不辱，知止不殆；知止而后有定”）。
+- **决策**：彻底更名为「知止」(ZhiZhi)，Android 包名全面平移至 `com.zhizhi.app`。同时在 `SettingsBackupManager` 中实现双协议解析，原生向后兼容 `ironwill_settings_backup` 导入，保障旧版数据无缝迁移。
+- **防坑警告**：包名变更后为全新独立应用，不可覆盖安装旧版，需通过导出/导入备份完成规则迁移。
+
+### [DECISION-07] 无障碍服务强依赖门禁与状态即时同步
+- **背景**：无障碍服务是防卸载、防关权限、闹钟防关机与隐私空间保护的底层执行基石。此前无障碍服务申请关闭后，UI 刷新缺失且未严格阻断子保护的开启，造成“无障碍待关闭但子保护仍可独立开启”的逻辑违背。
+- **决策**：
+  1. 确立无障碍服务绝对前置门禁：当无障碍服务处于「系统未开启」或「待关闭（明日生效）」时，一律禁止单独开启防卸载、防关权限、闹钟防关机与隐私空间保护，点击开启时开关回弹并弹出轻量 Toast 提示。
+  2. 修复弹窗确认关闭与取消申请时的即时 UI 状态刷新，统一文案为「`状态: ⏳ 待关闭（明日生效）`」（橙色 `#FF9800`）。
+
+### [DECISION-08] 规范问题反馈 4 要素范式与双官网 Issues 分级渠道
+- **背景**：此前应用内日志导出收件人为占位假邮箱（`support@example.com`），且用户反馈由于缺乏机型、ROM、知止版本和时间戳上下文，开发者无法有效排错。合规文本与外部文档中亦遗留占位符。
+- **决策**：
+  1. 确立「三级反馈渠道体系」：首选 GitHub/Gitee Issues 公开追踪，私密/离线反馈使用邮箱 `cyz200303@163.com`，应用内「设置 → 🧾 日志诊断 → 发送日志」定性为日志提取取证与分享工具。
+  2. 确立「4 要素问题反馈范式」：运行环境（机型+ROM+Android版本）、应用版本（Version/Commit SHA）、操作与复现步骤（时间+期望+实际异常）、取证日志附件（`app_log.txt`）。
+
+### [DECISION-10] 全屏沉浸式防前置摄像头安全区与弹窗主题无缝化规范
+- **背景**：Android 现代设备多采用顶部打孔前置摄像头与刘海屏。若全屏 Activity 或主页面未严格计算 WindowInsets，顶部标题栏、操作按钮将被摄像头遮挡；同时弹窗内部硬编码背景色产生割裂的独立小框。
+- **决策**：
+  1. 所有全屏 Activity（`AppSelectionActivity`、`GlobalParamsActivity` 等）及主页面，必须通过 `ViewCompat.setOnApplyWindowInsetsListener` 监听 `statusBars() or displayCutout()` 并动态设置顶部 padding，确保防前置摄像头留白。
+  2. 弹窗移除内嵌硬编码背景，完全融入四季主题 `?attr/zzSurface`；彻底剔除硬编码 hex 颜色与非主题 emoji（如轮椅图标 `♿`），遵循主题 Token。
+
+---
+
+## 2. 核心防回归红线与惨痛教训
+
+| 陷阱场景 | 根本原因 | 防御与防回归规则 |
+|:---|:---|:---|
+| **Vivo 视频/空闲误报桌面** | Vivo 系统在用户无操作看视频时，UsageStats 长期报系统桌面 | 引入 35s 桌面计时器兜底；到期时若检测到桌面且存在桌面累计，坚决执行重锁。 |
+| **息屏睡死到期不重锁** | 息屏期间前台包名常为空，重试超时后直接退出 | 重试超时后调用 `forceRelockAfterExpiry()` 强制弹锁屏。 |
+| **取证与业务决策串扰** | 曾尝试利用诊断投票修改黑名单放行判定 | **绝对红线**：诊断与取证系统只负责记录与分析，严禁直接参与任何业务决策。 |
+| **跨规则边界前台持续使用漏锁** | 用户在规则生效前进入黑名单应用并持续使用，因旧前台事件超过 8s 导致常规 ForegroundGuard 拒绝，且无无障碍服务时 60s 降级门禁因 USAGE_STATS/CACHE 切换反复 reset | 建立未关闭前台 Session 状态机 `ForegroundSessionTracker`；当发生 ALLOW->BLOCK 规则边沿跃迁时执行单次 Session 边界锁定；FallbackGate 联动 Session 阻止状态抖动重置。 |
+
+### [DECISION-09] 移除弹性调度
+
+- 用户确认该功能价值不足，移除首页按钮、时段标题点击入口和专用时间平移方法。
+- 不再通过快捷调度改变开始时间并奖惩额度；常规时段编辑保持原流程。
+- 不对已经保存的时段及额度进行迁移或还原，避免猜测历史调整量而覆盖用户配置。
+
+### [DECISION-07] 统一休息与临时解锁的冷却机制
+- **决策**：废除原设计的独立冷却计时，引入全局统一的“冷静期间隙”。临时解锁与休息共享该计时器，冷静期内强行申请临时解锁也将触发双倍扣减惩罚。
+- **原因**：降低认知负担，防止用户利用无惩罚（或惩罚较轻）的临时解锁来规避休息冷静期的双倍扣费，堵住逃避自律的漏洞。
+
+### [DECISION-08] 休息时长与额度扣减动态折算 & 废除主页独立临时解锁
+- **决策**：休息申请按时长动态扣次（≤3分钟扣0.5次，>3分钟扣1次）。全局“临时解锁”概念废除，转为应用时间窗专属的“应用短暂解锁”。主页移除特权按钮与临时解锁按钮，极致精简。
+- **原因**：避免主页按钮冗杂（申请休息和临时解锁同时出现导致认知混乱）。细化短休息概念以贴合用户“只需看一眼微信”的微小需求，又不至于消耗完整次数。保证“总次数”约束力的前提下提升灵活度。
+
+### [DECISION-09] 确立三大解锁机制的正交权能矩阵 (临时放行 / 特权 / 休息)
+- **背景**：此前临时放行、应用时间窗解锁与休息的边界存在重叠与连带勾选的繁琐交互（如勾选“连带解开勿扰锁”），概念边界不够锋利。
+- **决策**：
+  1. **临时放行**：定性为「短期内解开任意锁」。无需额外勾选，直接解开眼前遇到的任何锁（含勿扰锁与时间窗锁）。
+  2. **特权**：定性为「长时间解开任意锁」。每周有限额度（1~2次），用于长时间需要全面解除限制的场景。
+  3. **休息**：定性为「只能解开勿扰锁」。不可解开应用时间窗锁，防沉迷底线不因小憩而动摇；继续维持 ≤3min 扣 0.5 次、>3min 扣 1 次的轻量化阶梯折算。
+- **价值**：彻底消除多余勾选框与认知困扰，三把钥匙各司其职，权力边界极其清晰。
+
+### [DECISION-10] 双阶段闹钟流程重构：离床验证 + 延迟关闭缓冲（可选晨间任务）
+- **背景**：此前起床闹钟被定性为“两道关卡强制闯关”，第一关被窄化为扫码，第二关被窄化为做题，中间强制等待冷却。用户真实痛点不是“早上做两套题”，而是“人虽然离床扫码了，但下床后第一件事立刻坐下来拿手机刷”；且并非所有人都想在清晨做题。
+- **决策**：
+  1. **重新定义双阶段流程**：第一阶段为「离床验证」，核心是逼人离开床铺产生真实物理动作（二维码是手段而非唯一概念）；第二阶段为「防回床延迟关闭缓冲（可选晨间任务）」，核心是“不要让闹钟动作立刻结束”，进入锁屏缓冲期（如 5 分钟），锁定手机防止沉迷。
+  2. **严格双重门禁**：若第二阶段未勾选任何任务，延迟倒计时结束后**自动关闭闹钟并解锁手机**（纯延迟洗漱模式）；若勾选了第二阶段任务（计算/单词/填空），倒计时结束后才开放任务卡片，必须完成题目方可关闭闹钟。
+  3. **延迟倒计时持久化续接**：倒计时依赖 `firstStagePassedAt` 持久化时间戳。进程杀死、Direct Boot 重启或屏幕重亮时自动续接；若已过期且无任务，直接执行关闭解除，杜绝死锁。
+  4. **合规与题库生态**：知止提供晨间任务框架而非预置全量题库；公版内容入库，考研、考公等合法资料由用户自行导入。
+
+### [DECISION-11] 闹钟默认设置持久化容错与测试闹钟全对齐闭环
+- **背景**：
+  1. 用户在「默认设置」修改后保存，再次点进发现修改未生效。根因是 `AlarmScheduler.getDefaultStage2Types` 在读取空集合（即用户选择第二阶段无任务、纯延迟关闭模式）时，因 `stored.isNotEmpty()` 检查失败而强制回退到默认的 `math, poem, word`，覆盖了用户的空选项；且 `cbAutoEscalate` 在默认设置弹窗初始化及保存路径遗漏了读写绑定。
+  2. 测试闹钟弹窗与新增/编辑闹钟的配置项未完全对齐（缺少「5分钟后自动升级到最大」、自定义铃声选择等），且测试弹窗中的表单项固定未预填全局默认配置，用户无法直观在测试中感知与调整真实生效的默认参数。
+- **决策**：
+  1. **SharedPreferences 语义容错**：`getDefaultStage2Types` 先检查 `prefs.contains(KEY_DEFAULT_STAGE2_TYPES)`。只要键已存在，即使值为空集合也完整尊重（代表用户选定的纯延迟关闭），不再回退；保存时统一采用新构造的 `HashSet(types)`，避免 SharedPreferences 对 `Set` 复用引用的脏读。
+  2. **测试闹钟与新增闹钟 100% 对齐**：测试弹窗打开时完整预填全局默认配置（解锁模式、第一/二阶段题型、题目数、渐进/固定震动及上限、铃声模式、自定义铃声、5分钟自动升级、延迟关闭秒数等）；所有字段在 `LockWindowManager.TestAlarmConfig` 与运行时全链路传递。
+  3. **双向测试与保存闭环**：
+     - 测试弹窗提供【开始测试】、【保存为默认设置】与【取消】。点击【保存为默认设置】后将当前表单内容即时持久化为全局默认设置，并**保持弹窗开启**，方便用户继续点击【开始测试】或微调。
+     - 「默认设置」弹窗新增【测试当前配置】按钮，无需在不同入口之间往返跳转。
+
+### [DECISION-12] 前台未关闭会话 (ForegroundSessionTracker) 与规则边界即时锁定
+- **背景**：用户在规则生效前进入黑名单应用（如微信），之后持续停留在该应用内。当 23:00 勿扰规则生效时，因旧前台事件超过 `MAX_FOREGROUND_EVENT_AGE_MS = 8s`，导致常规 `ForegroundGuard` 拒绝锁定。特别在无无障碍服务场景下，`ForegroundGuardFallbackGate`（60 秒保底门禁）因证据源在 `CACHE` 与 `USAGE_STATS` 间抖动被反复 `reset()`，导致用户停留数小时都不会触发锁屏，直到切出再切回才触发。
+- **决策**：
+  1. **建立纯逻辑会话状态机 `ForegroundSessionTracker`**：通过 UsageEvents（MOVE_TO_FG / ACTIVITY_RESUMED）开启 Session，收到反证（MOVE_TO_BG / ACTIVITY_PAUSED / ACTIVITY_STOPPED / 其它正常应用或桌面进入前台 / 屏幕关闭 / 锁屏）时关闭或替换当前 Session。过滤系统 UI 与输入法等瞬时干扰。
+  2. **内存纯粹性与进程隔离**：Session 纯内存维护，**禁止跨进程持久化**，服务重启必须重新获取有效前台事件方可建立会话，杜绝旧持久化缓存误锁。
+  3. **规则边沿跃迁单次锁定 (ALLOW → BLOCK)**：通过全局模式跃迁（Gap->DND、Rest->Work）及单应用拦截状态边沿检测，在规则刚刚收紧时激活一次性边界锁定权限。若常规守卫未过但存在未关闭的前台 Session 且屏幕未锁屏，即时触发锁机并消耗该权限，防止普通轮询无限制依赖旧会话。
+  4. **FallbackGate 联动会话**：修改 `isSustainedForegroundFallbackEligible`，当具有活跃 Session 时允许 `USAGE_STATS` 维持资格，解决证据源切换抖动导致 60s 计数清零的痛点，同时天然阻断纯后台音频应用。
+  5. **边界门禁解耦与测试守护 (RuleBoundaryLockGate)**：将边界跃迁逻辑从 Android `MonitorService` 庞大流程中解耦为纯对象 `RuleBoundaryLockGate`，支持离线 100% 纯 JVM 单元测试，全面守护跨规则边界跃迁、稳态防无限重锁、息屏与锁屏阻断场景。
+  6. **完整双锁判定提前与 Keyguard 生命周期接线**：提前使用 `LockDecisionPolicy.shouldBlock` 计算最终业务拦截状态，统一覆盖 DND 勿扰与应用时间窗（App Window）双锁边界；Keyguard 锁定立即执行 `onKeyguardLocked` 永久关闭旧会话，防止解锁后旧 Session 残留。
+  7. **状态机电平与边沿严格解耦**：`RuleBoundaryLockGate` 坚决杜绝把 `wasGap` / `wasRest` 等持续状态（Level）作为放行依据，改为显式边沿跃迁标志 `leftGap`（`wasGap && !currentIsGap`）与 `endedRest`（`wasRest && !currentIsRest`），仅在脱离自由时段的瞬间激活一次；单次边界标记 `mForceRuleBoundaryCheck` 触发后立即消费清零，彻底防范稳态期间无限重锁或守卫穿透。
+  8. **跨 Session 显式生命周期治理与系统 UI 噪声过滤**：在用户回到桌面、PWA 绕过、进入自研主界面、锁屏及息屏等切出场景，显式调用 `foregroundGuardFallbackGate.reset()`，断绝 60s 降级保底计时跨 Session 泄漏；将系统 UI 噪声过滤精准扩展至 Vivo 状态栏插件（`com.vivo.systemuiplugin`）与手势导航（`com.vivo.upslide`），同时白名单保护桌面 Launcher 绝不被误判为噪声。
+  9. **业务边沿判定与前台守卫完全解耦**：建立独立的 `mLastBusinessBlockedByPackage` 状态映射，直接基于业务模型计算 `isBusinessAllowToBlock` 边沿，杜绝因旧前台事件超过 8s 提前返回导致时间窗关闭边沿丢失的问题；单次强制标记 `mForceRuleBoundaryCheck` 确保在当前轮次第一次判定时无条件消费清零。
+  10. **Activity 级多页面生命周期跟踪与 UsageEvents 签名精准去重**：`ForegroundSessionTracker` 升级跟踪活跃 Activity 集合，防止应用内部页面切换（A.paused -> B.resumed -> A.stopped）中迟到的 A.stopped 误关正在前台的 B 页面；`MonitorService` 维护 `(timestamp, type:className)` 事件签名集合，彻底杜绝 30s 历史窗口重扫描时的同毫秒事件反复重放；完成 Vivo 真机取证（详见 [docs/verification/2026-09-06-vivo-ui-session-verification.md](docs/verification/2026-09-06-vivo-ui-session-verification.md)）。
+
+### [DECISION-13] 全量 UI 四季主题动态联动与伪动态死色根治
+- **背景**：用户在切换春·苔樱、夏·潮汐、秋·茶陶、冬·雪岚四季主题时，发现三处核心 UI 元素完全没有随主题变化：
+  1. 关闭无障碍服务弹窗的确认按钮；
+  2. 勿扰时段页面的「延迟生效表」背景颜色；
+  3. 待生效修改项对应的列表卡片高亮框。
+  排查发现：`themes.xml` 中四季主题的 `zzWarning`、`zzWarningSoft`、`zzDanger`、`zzDangerSoft` 色值微调差值 < 5%（全是一模一样的暗米黄与灰紫红），造成“代码引用了 Token 但视觉完全是死色”的伪动态现象；同时无障碍关闭确认主按钮误用了非当季主色，且列表卡片未接入 MaterialCardView 高亮 Stroke。
+- **决策**：
+  1. **四季色彩季相基因重构**：将 Warning/Danger 系列彻底重构为肉眼清晰可辨的季相色盘：
+     - 春：嫩芽草木金绿与生机浅底，春樱暮红；
+     - 夏：潮汐青金与清凉浅碧海青底，浅海珊瑚红；
+     - 秋：陶土焦糖金橙与温润暖杏底，晚秋枫叶砖赭红；
+     - 冬：雪岚冷金灰与寒江冰霜浅蓝底，雪夜暮紫红。
+  2. **统一主操作按钮的主题色彩流转**：关闭无障碍服务确认主按钮与全 App 弹窗主按钮保持 100% 一致，统一绑定 `?attr/zzAccent`，切主题即随当季主色动态流转。
+  3. **待生效修改项 MaterialCardView 高亮边框体系**：
+     - 列表项升级为 `MaterialCardView`，为“待生效: 修改”项赋予当季 `warningColor` 的 1.5dp 高亮边框（Stroke）与 `warningSoft` 季节浅底；
+     - 新增/删除项分别动态绑定 1.5dp 的 `successColor` / `dangerColor` 高亮框，普通项维持 1dp `zzLine`；
+     - 彻底消除删除/撤回按钮的硬编码色值。
+  4. **全量 UI 随主题变化红线**：写入 `AGENT_CORE.md` 业务红线 8，严禁伪动态死色与脱离主题的独立组件。
+  5. **锁屏全屏界面与遮罩四季主题彻底打通**：
+     - 根治 `LockWindowManager` 中将 ContextThemeWrapper 硬编码为 `R.style.Theme_IronWill`（春季）导致夏/秋/冬锁屏一动不动的历史遗留问题，统一使用 `ThemeManager.themeRes(context)`；
+     - `showLockScreen` 检测主题变更并重构 View，杜绝静态 View 脏缓存；
+     - 重构快速锁屏/防卸载初始化遮罩 `window_fast_lock.xml` 为素雅主题 Token 样式，清除旧版生硬蓝绿硬编码与 Emoji。
+
+### [DECISION-14] 临时解锁/休息计费简化（整单翻倍与借用翻倍）及额度耗尽置灰体系
+- **背景**：
+  1. 用户反馈历史扣费模型过于复杂：特别是增加了 $\le 3$ 分钟短休息/解锁按 0.5 次扣除后，冷却期内又按照冷却剩余秒数与 DND 秒数碎切加权，导致出现加权小数比率并四舍五入，用户难以理解为什么冷却期申请 3 分钟次数没有翻倍；
+  2. 锁屏界面上，当临时解锁的当前额度与借用额度全部用尽后，按钮没有变灰禁用（时长或次数任一耗尽均应禁用）。
+- **决策**：
+  1. **彻底取消碎秒加权，升级为整单直接翻倍体系**：
+     - **基础次数阶梯**：申请时长 $\le 3$ 分钟（180秒）基础扣 0.5 次（1 halfUnit）；$> 3$ 分钟基础扣 1.0 次（2 halfUnits）；
+     - **冷却期内申请（整单直接翻倍 ×2）**：只要申请时处于冷却期内，时长直接翻倍扣 $2T$；次数直接翻倍（$\le 3$ 分钟扣 1 次，$> 3$ 分钟扣 2 次）；
+     - **跨段借用惩罚（借一还二，下阶段偿还翻倍 ×2）**：不足部分从下一阶段借入，下阶段扣除偿还翻倍（借用本金 × 2）。例如冷却期申请 3 分钟全靠借用，本次扣 6 分钟/1次，下阶段偿还扣 12 分钟/2次；
+  2. **锁屏临时解锁按钮耗尽置灰与文案更新**：
+     - **纯函数耗尽判定**：`totalAvailableMins < 0.1 || totalAvailableCountHalfUnits < 1` 即判定为额度耗尽；
+     - **视觉与交互呈现**：按钮变灰禁用（`isEnabled = false`, `alpha = 0.5f`），文案变更为「临时解锁已用完」；
+     - **全链路覆盖**：时间窗锁屏主操作按钮（`btnEmergency`）与勿扰锁屏独立按钮（`btnTemporaryAccess`）同步生效，点击安全拦截并 Toast 提示。

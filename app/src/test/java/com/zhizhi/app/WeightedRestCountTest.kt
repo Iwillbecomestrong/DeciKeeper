@@ -46,10 +46,14 @@ class WeightedRestCountTest {
     }
 
     @Test
-    fun displayedWeightedCostDrivesZeroOneAndTwoCountResults() {
-        assertEquals(0, calculateQuotaCountFromWeightedSeconds(weightedCostSec = 150, requestedSec = 480))
-        assertEquals(1, calculateQuotaCountFromWeightedSeconds(weightedCostSec = 480, requestedSec = 480))
-        assertEquals(2, calculateQuotaCountFromWeightedSeconds(weightedCostSec = 840, requestedSec = 480))
+    fun countCalculationFollowsTieredHalvesAndOrderDoubling() {
+        // 1. ≤3分钟 (180s) 基础扣 1 个 halfUnit (0.5次)，整单翻倍扣 2 个 halfUnits (1.0次)
+        assertEquals(1, calculateQuotaCountFromWeightedSeconds(weightedCostSec = 180, requestedSec = 180))
+        assertEquals(2, calculateQuotaCountFromWeightedSeconds(weightedCostSec = 360, requestedSec = 180))
+
+        // 2. >3分钟 (如 480s) 基础扣 2 个 halfUnits (1.0次)，整单翻倍扣 4 个 halfUnits (2.0次)
+        assertEquals(2, calculateQuotaCountFromWeightedSeconds(weightedCostSec = 480, requestedSec = 480))
+        assertEquals(4, calculateQuotaCountFromWeightedSeconds(weightedCostSec = 960, requestedSec = 480))
     }
 
     @Test

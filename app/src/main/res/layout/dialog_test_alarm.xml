@@ -3,8 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@drawable/bg_sea_surface">
+    android:padding="16dp">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -20,7 +19,8 @@
                 android:layout_height="wrap_content"
                 android:text="解锁流程"
                 android:textSize="14sp"
-                android:textColor="#000000"
+                android:textStyle="bold"
+                android:textColor="?attr/zzText"
                 android:layout_marginBottom="4dp" />
 
             <RadioGroup
@@ -37,7 +37,7 @@
                     android:checked="true"
                     android:text="单次"
                     android:textSize="13sp"
-                    android:textColor="#000000" />
+                    android:textColor="?attr/zzText" />
 
                 <RadioButton
                     android:id="@+id/rb_unlock_two_stage"
@@ -45,7 +45,7 @@
                     android:layout_height="wrap_content"
                     android:text="双阶段"
                     android:textSize="13sp"
-                    android:textColor="#000000" />
+                    android:textColor="?attr/zzText" />
             </RadioGroup>
 
             <!-- 第一关 -->
@@ -62,27 +62,30 @@
                     android:layout_height="wrap_content"
                     android:text="解锁方式配置（可并联多选）"
                     android:textSize="13sp"
-                    android:textColor="#000000"
+                    android:textStyle="bold"
+                    android:textColor="?attr/zzText"
                     android:layout_marginBottom="4dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:layout_marginBottom="6dp">
-                    <CheckBox android:id="@+id/cb_s1_qr" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="扫码" android:checked="true" android:textSize="12sp" android:textColor="#000000" />
-                    <CheckBox android:id="@+id/cb_s1_math" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="数学" android:checked="true" android:textSize="12sp" android:textColor="#000000" />
-                    <CheckBox android:id="@+id/cb_s1_poem" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="诗词" android:textSize="12sp" android:textColor="#000000" />
-                    <CheckBox android:id="@+id/cb_s1_word" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="单词" android:textSize="12sp" android:textColor="#000000" />
+                    <CheckBox android:id="@+id/cb_s1_qr" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="扫码" android:checked="true" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
+                    <CheckBox android:id="@+id/cb_s1_math" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="数学" android:checked="true" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
+                    <CheckBox android:id="@+id/cb_s1_poem" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="诗词" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
+                    <CheckBox android:id="@+id/cb_s1_word" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="单词" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                 </LinearLayout>
 
                 <!-- 第二行：选词填空 + 留白 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:layout_marginBottom="6dp">
-                    <CheckBox android:id="@+id/cb_s1_cloze" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="选词填空" android:textSize="12sp" android:textColor="#000000" />
+                    <CheckBox android:id="@+id/cb_s1_cloze" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="选词填空" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                     <Space android:layout_width="0dp" android:layout_weight="3" android:layout_height="wrap_content" />
                 </LinearLayout>
             </LinearLayout>
@@ -101,27 +104,30 @@
                     android:layout_height="wrap_content"
                     android:text="第二关解锁方式（通过其一即可）"
                     android:textSize="13sp"
-                    android:textColor="#000000"
+                    android:textStyle="bold"
+                    android:textColor="?attr/zzText"
                     android:layout_marginBottom="4dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:layout_marginBottom="6dp">
-                    <CheckBox android:id="@+id/cb_s2_qr" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="扫码" android:textSize="12sp" android:textColor="#000000" />
-                    <CheckBox android:id="@+id/cb_s2_math" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="数学" android:checked="true" android:textSize="12sp" android:textColor="#000000" />
-                    <CheckBox android:id="@+id/cb_s2_poem" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="诗词" android:checked="true" android:textSize="12sp" android:textColor="#000000" />
-                    <CheckBox android:id="@+id/cb_s2_word" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="单词" android:checked="true" android:textSize="12sp" android:textColor="#000000" />
+                    <CheckBox android:id="@+id/cb_s2_qr" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="扫码" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
+                    <CheckBox android:id="@+id/cb_s2_math" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="数学" android:checked="true" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
+                    <CheckBox android:id="@+id/cb_s2_poem" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="诗词" android:checked="true" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
+                    <CheckBox android:id="@+id/cb_s2_word" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="单词" android:checked="true" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                 </LinearLayout>
 
                 <!-- 第二行：选词填空 + 留白 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:layout_marginBottom="6dp">
-                    <CheckBox android:id="@+id/cb_s2_cloze" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="选词填空" android:textSize="12sp" android:textColor="#000000" />
+                    <CheckBox android:id="@+id/cb_s2_cloze" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="选词填空" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                     <Space android:layout_width="0dp" android:layout_weight="3" android:layout_height="wrap_content" />
                 </LinearLayout>
             </LinearLayout>
@@ -132,7 +138,8 @@
                 android:layout_height="wrap_content"
                 android:text="默认挑战数量"
                 android:textSize="14sp"
-                android:textColor="#000000"
+                android:textStyle="bold"
+                android:textColor="?attr/zzText"
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="4dp" />
 
@@ -147,9 +154,9 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="数学 " android:textSize="13sp" android:textColor="#000000" />
-                    <EditText android:id="@+id/et_math_count" android:layout_width="52dp" android:layout_height="wrap_content" android:inputType="number" android:text="1" android:gravity="center" android:textSize="13sp" android:background="@drawable/bg_sea_bubble" android:padding="3dp" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 道" android:textSize="12sp" android:textColor="#000000" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="数学 " android:textSize="13sp" android:textColor="?attr/zzText" />
+                    <EditText android:id="@+id/et_math_count" android:layout_width="52dp" android:layout_height="38dp" android:inputType="number" android:text="1" android:gravity="center" android:textSize="13sp" android:textColor="?attr/zzText" android:background="@drawable/bg_input_field" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 道" android:textSize="12sp" android:textColor="?attr/zzMuted" />
                 </LinearLayout>
                 <LinearLayout
                     android:layout_width="0dp"
@@ -158,9 +165,9 @@
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:layout_marginStart="8dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="诗词 " android:textSize="13sp" android:textColor="#000000" />
-                    <EditText android:id="@+id/et_poem_count" android:layout_width="52dp" android:layout_height="wrap_content" android:inputType="number" android:text="1" android:gravity="center" android:textSize="13sp" android:background="@drawable/bg_sea_bubble" android:padding="3dp" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 句" android:textSize="12sp" android:textColor="#000000" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="诗词 " android:textSize="13sp" android:textColor="?attr/zzText" />
+                    <EditText android:id="@+id/et_poem_count" android:layout_width="52dp" android:layout_height="38dp" android:inputType="number" android:text="1" android:gravity="center" android:textSize="13sp" android:textColor="?attr/zzText" android:background="@drawable/bg_input_field" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 句" android:textSize="12sp" android:textColor="?attr/zzMuted" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -174,9 +181,9 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="单词 " android:textSize="13sp" android:textColor="#000000" />
-                    <EditText android:id="@+id/et_word_count" android:layout_width="52dp" android:layout_height="wrap_content" android:inputType="number" android:text="1" android:gravity="center" android:textSize="13sp" android:background="@drawable/bg_sea_bubble" android:padding="3dp" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 个" android:textSize="12sp" android:textColor="#000000" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="单词 " android:textSize="13sp" android:textColor="?attr/zzText" />
+                    <EditText android:id="@+id/et_word_count" android:layout_width="52dp" android:layout_height="38dp" android:inputType="number" android:text="1" android:gravity="center" android:textSize="13sp" android:textColor="?attr/zzText" android:background="@drawable/bg_input_field" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 个" android:textSize="12sp" android:textColor="?attr/zzMuted" />
                 </LinearLayout>
                 <LinearLayout
                     android:layout_width="0dp"
@@ -185,13 +192,11 @@
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:layout_marginStart="8dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="选词 " android:textSize="13sp" android:textColor="#000000" />
-                    <EditText android:id="@+id/et_cloze_count" android:layout_width="52dp" android:layout_height="wrap_content" android:inputType="number" android:text="3" android:gravity="center" android:textSize="13sp" android:background="@drawable/bg_sea_bubble" android:padding="3dp" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 道" android:textSize="12sp" android:textColor="#000000" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="选词 " android:textSize="13sp" android:textColor="?attr/zzText" />
+                    <EditText android:id="@+id/et_cloze_count" android:layout_width="52dp" android:layout_height="38dp" android:inputType="number" android:text="3" android:gravity="center" android:textSize="13sp" android:textColor="?attr/zzText" android:background="@drawable/bg_input_field" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 道" android:textSize="12sp" android:textColor="?attr/zzMuted" />
                 </LinearLayout>
             </LinearLayout>
-
-            <!-- 模式（渐进/固定）与震动强度已移至程序化「铃声与震动」section，与默认设置弹窗一致 -->
 
         </LinearLayout>
     </ScrollView>

@@ -21,4 +21,7 @@
     <attr name="zzDangerSoft" format="color" />
     <attr name="zzInfo" format="color" />
     <attr name="zzInfoSoft" format="color" />
+    <attr name="zzSurfaceStrong" format="color" />
+    <attr name="zzLineStrong" format="color" />
+    <attr name="zzNavBg" format="color" />
 </resources>

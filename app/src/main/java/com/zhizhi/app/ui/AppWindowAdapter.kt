@@ -82,14 +82,14 @@ class AppWindowAdapter(
                 else -> ""
             }
             
-            // 🚀 [UI] Reverted "Effective Time" display per user request.
-            // User found it confusing/unnecessary.
-            
-            // 🚀 [Rule] 
-            // 1. Pending Deletion -> Show UNDO (Revert).
-            // 2. Pending Modification -> Show DELETE (Schedule Deletion).
-            // 3. Pending Addition -> Show DELETE (Cancel Addition, effectively Undo).
-            
+            val context = holder.itemView.context
+            val dangerColor = ThemeManager.getColorAttr(context, R.attr.zzDanger)
+            val dangerSoft = ThemeManager.getColorAttr(context, R.attr.zzDangerSoft)
+            val successColor = ThemeManager.getColorAttr(context, R.attr.zzSuccess)
+            val warningColor = ThemeManager.getColorAttr(context, R.attr.zzWarning)
+            val accentColor = ThemeManager.getColorAttr(context, R.attr.zzAccent)
+            val accentSoft = ThemeManager.getColorAttr(context, R.attr.zzAccentSoft)
+
             holder.btnDelete.visibility = View.VISIBLE
             holder.switchEnable.isEnabled = true
             holder.itemView.alpha = 1.0f
@@ -98,33 +98,33 @@ class AppWindowAdapter(
                 AppWindowManager.RuleStatus.PENDING_DELETION -> {
                     // Revert mode
                     holder.btnDelete.setImageResource(android.R.drawable.ic_menu_revert)
-                    holder.btnDelete.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#E0F7FA"))
-                    holder.btnDelete.imageTintList = ColorStateList.valueOf(Color.parseColor("#006064"))
+                    holder.btnDelete.backgroundTintList = ColorStateList.valueOf(accentSoft)
+                    holder.btnDelete.imageTintList = ColorStateList.valueOf(accentColor)
                     holder.btnDelete.setOnClickListener { onUndo(holder.adapterPosition) }
                     
                     holder.itemView.alpha = 0.6f
                     holder.switchEnable.isEnabled = false
-                    holder.tvStatusBadge.setBackgroundColor(Color.parseColor("#EF5350")) // Red
+                    holder.tvStatusBadge.backgroundTintList = ColorStateList.valueOf(dangerColor)
                 }
                 AppWindowManager.RuleStatus.PENDING_ADDITION -> {
                     // Delete mode (Cancel Addition)
                     holder.btnDelete.setImageResource(android.R.drawable.ic_menu_delete)
-                    holder.btnDelete.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FFE0E0"))
-                    holder.btnDelete.imageTintList = ColorStateList.valueOf(Color.parseColor("#D32F2F"))
+                    holder.btnDelete.backgroundTintList = ColorStateList.valueOf(dangerSoft)
+                    holder.btnDelete.imageTintList = ColorStateList.valueOf(dangerColor)
                     // For Addition, Deleting = Undoing the Add
                     holder.btnDelete.setOnClickListener { onUndo(holder.adapterPosition) }
                     
-                    holder.tvStatusBadge.setBackgroundColor(Color.parseColor("#66BB6A")) // Green
+                    holder.tvStatusBadge.backgroundTintList = ColorStateList.valueOf(successColor)
                 }
                 AppWindowManager.RuleStatus.PENDING_MODIFICATION -> {
                     // Delete mode (Schedule Deletion of the Rule)
                     holder.btnDelete.setImageResource(android.R.drawable.ic_menu_delete)
-                    holder.btnDelete.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FFE0E0"))
-                    holder.btnDelete.imageTintList = ColorStateList.valueOf(Color.parseColor("#D32F2F"))
+                    holder.btnDelete.backgroundTintList = ColorStateList.valueOf(dangerSoft)
+                    holder.btnDelete.imageTintList = ColorStateList.valueOf(dangerColor)
                     
                     holder.btnDelete.setOnClickListener { onDelete(holder.adapterPosition) }
                     
-                    holder.tvStatusBadge.setBackgroundColor(Color.parseColor("#FFA726")) // Orange
+                    holder.tvStatusBadge.backgroundTintList = ColorStateList.valueOf(warningColor)
                 }
                 else -> {
                     // Should not happen handling in else
@@ -135,11 +135,15 @@ class AppWindowAdapter(
             holder.itemView.alpha = 1.0f
             holder.switchEnable.isEnabled = true
             
+            val context = holder.itemView.context
+            val dangerColor = ThemeManager.getColorAttr(context, R.attr.zzDanger)
+            val dangerSoft = ThemeManager.getColorAttr(context, R.attr.zzDangerSoft)
+
             // Normal Delete UI
             holder.btnDelete.visibility = View.VISIBLE
             holder.btnDelete.setImageResource(android.R.drawable.ic_menu_delete)
-            holder.btnDelete.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FFE0E0"))
-            holder.btnDelete.imageTintList = ColorStateList.valueOf(Color.parseColor("#D32F2F"))
+            holder.btnDelete.backgroundTintList = ColorStateList.valueOf(dangerSoft)
+            holder.btnDelete.imageTintList = ColorStateList.valueOf(dangerColor)
             
             holder.btnDelete.setOnClickListener { onDelete(holder.adapterPosition) }
         }

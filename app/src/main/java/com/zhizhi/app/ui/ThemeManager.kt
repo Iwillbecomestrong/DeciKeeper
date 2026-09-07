@@ -36,4 +36,10 @@ object ThemeManager {
             }
             .show()
     }
+
+    fun getColorAttr(context: Context, attrRes: Int): Int {
+        val typedValue = android.util.TypedValue()
+        context.theme.resolveAttribute(attrRes, typedValue, true)
+        return typedValue.data
+    }
 }

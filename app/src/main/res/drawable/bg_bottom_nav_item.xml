@@ -1,9 +1,9 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_checked="true">
-        <inset android:insetLeft="8dp" android:insetTop="6dp" android:insetRight="8dp" android:insetBottom="6dp">
+        <inset android:insetLeft="6dp" android:insetTop="4dp" android:insetRight="6dp" android:insetBottom="4dp">
             <shape android:shape="rectangle">
-                <solid android:color="?attr/zzAccentSoft" />
-                <corners android:radius="22dp" />
+                <solid android:color="?attr/zzAccentSofter" />
+                <corners android:radius="14dp" />
             </shape>
         </inset>
     </item>

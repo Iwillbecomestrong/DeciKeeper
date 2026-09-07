@@ -4,7 +4,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@android:color/white"
     android:padding="24dp">
 
     <!-- Warm Header -->
@@ -14,7 +13,7 @@
         android:layout_height="64dp"
         android:layout_gravity="center_horizontal"
         android:src="@android:drawable/ic_lock_idle_lock" 
-        app:tint="@color/gentle_sunset_orange"
+        app:tint="?attr/zzWarning"
         android:layout_marginBottom="16dp"/>
 
     <TextView
@@ -23,7 +22,7 @@
         android:text="放下那一刻"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:textColor="@color/gentle_sunset_orange"
+        android:textColor="?attr/zzWarning"
         android:gravity="center"
         android:layout_marginBottom="24dp"/>
 
@@ -33,7 +32,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="16sp"
-        android:textColor="@color/gentle_text_warm"
+        android:textColor="?attr/zzText"
         android:lineSpacingExtra="6dp"
         android:gravity="center_horizontal"
         android:text="" 
@@ -53,14 +52,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="再试一次"
-            android:textColor="#2E7D32"/>
+            android:textColor="?attr/zzAccent"/>
 
         <Button
             android:id="@+id/btn_confirm"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="申请关闭"
-            android:backgroundTint="#C62828"
+            android:backgroundTint="?attr/zzDanger"
             android:textColor="@android:color/white"
             android:layout_marginLeft="12dp"/>
     </LinearLayout>

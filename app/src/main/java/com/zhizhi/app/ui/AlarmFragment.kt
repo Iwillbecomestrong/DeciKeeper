@@ -127,7 +127,7 @@ class AlarmFragment : Fragment() {
     private fun showAlarmKeepAliveGuideDialog() {
         val ctx = context ?: return
         val isVivo = isVivoOrIqoo()
-        val title = "🛡️ 闹钟保活指引"
+        val title = "闹钟保活指引"
         val message = if (isVivo) {
             "为防止 Vivo / OriginOS 在夜间锁屏待机时冻结闹钟进程导致漏响或延迟，请务必完成以下两项配置：\n\n" +
             "1. 关闭「睡眠待机优化」\n" +
@@ -317,7 +317,7 @@ class AlarmFragment : Fragment() {
         tvUnlockSummary = view.findViewById(R.id.tv_unlock_summary)
 
         // 第一个卡片改标题为"闹钟默认设置"，点击进入统一弹窗
-        (view.findViewById<LinearLayout>(R.id.layout_snooze_settings)?.getChildAt(0) as? TextView)?.text = "⚙️ 闹钟默认设置"
+        (view.findViewById<LinearLayout>(R.id.layout_snooze_settings)?.getChildAt(0) as? TextView)?.text = "闹钟默认设置"
         view.findViewById<View>(R.id.layout_snooze_settings)?.setOnClickListener {
             showDefaultSettingsDialog()
         }
@@ -452,7 +452,6 @@ class AlarmFragment : Fragment() {
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(24, 20, 24, 20)
-            setBackgroundResource(R.drawable.bg_sea_surface)
         }
 
         val scrollView = ScrollView(ctx).apply {
@@ -488,7 +487,6 @@ class AlarmFragment : Fragment() {
                 inputType = InputType.TYPE_CLASS_NUMBER
                 textSize = 14f
                 setTextColor(Color.parseColor("#000000"))
-                setBackgroundResource(R.drawable.bg_sea_bubble)
                 setPadding(dp(16), dp(10), dp(16), dp(10))
                 layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
             }
@@ -584,7 +582,6 @@ class AlarmFragment : Fragment() {
             setText(AlarmScheduler.getDefaultStageCooldownSeconds(ctx).toString())
             inputType = InputType.TYPE_CLASS_NUMBER; textSize = 13f
             setTextColor(Color.parseColor("#000000"))
-            setBackgroundResource(R.drawable.bg_sea_bubble)
             setPadding(dp(12), dp(8), dp(12), dp(8))
             layoutParams = LinearLayout.LayoutParams(dp(72), WC)
         }
@@ -618,7 +615,6 @@ class AlarmFragment : Fragment() {
                 val et = EditText(ctx).apply {
                     setText(value); inputType = InputType.TYPE_CLASS_NUMBER; textSize = 13f
                     setTextColor(Color.parseColor("#000000"))
-                    setBackgroundResource(R.drawable.bg_sea_bubble)
                     setPadding(dp(8), dp(6), dp(8), dp(6))
                     layoutParams = LinearLayout.LayoutParams(dp(56), WC).apply { marginStart = dp(4) }
                 }
@@ -679,7 +675,6 @@ class AlarmFragment : Fragment() {
             text = if (pickedRingtoneUri != null) "已选自定义铃声" else "选择铃声（默认系统闹钟）"
             setAllCaps(false); textSize = 12f; setPadding(dp(12), dp(8), dp(12), dp(8))
             setTextColor(Color.parseColor("#000000"))
-            setBackgroundResource(R.drawable.bg_sea_bubble)
             layoutParams = LinearLayout.LayoutParams(WC, WC).apply { bottomMargin = dp(16) }
         }
         btnPickRingtone.setOnClickListener {
@@ -839,7 +834,7 @@ class AlarmFragment : Fragment() {
 
         // --- 弹窗 ---
         AlertDialog.Builder(ctx)
-            .setTitle("⚙️ 默认设置")
+            .setTitle("闹钟默认设置")
             .setView(scrollView)
             .setPositiveButton("保存") { _, _ ->
                 // 保存再响
