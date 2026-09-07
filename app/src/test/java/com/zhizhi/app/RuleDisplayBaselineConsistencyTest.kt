@@ -52,6 +52,31 @@ class RuleDisplayBaselineConsistencyTest {
     }
 
     @Test
+    fun changingBackToExistingBaselineIsPresentedAsRestoreInsteadOfNoChange() {
+        val context = RuntimeEnvironment.getApplication()
+        val baseline = AppWindowManager.AppWindowRule(
+            id = "baseline-rule",
+            name = "娱乐",
+            startTime = 1200,
+            endTime = 1260,
+            packageNames = mutableSetOf("com.ss.android.ugc.aweme")
+        )
+        val current = baseline.copy(endTime = 1320)
+        val restored = baseline.copy()
+
+        val analysis = AppWindowManager.analyzeChangeForDisplay(
+            context = context,
+            baselineRule = baseline,
+            oldRule = current,
+            newRule = restored
+        )
+
+        assertFalse(analysis.isOverallAdverse)
+        assertTrue(analysis.details.any { it.type == AppWindowManager.ChangeType.RESTORED })
+        assertFalse(analysis.details.any { it.type == AppWindowManager.ChangeType.INFO })
+    }
+
+    @Test
     fun editToggleAndDeleteUseTheSameBaselineDisplayAnalyzer() {
         val ui = source("src/main/java/com/zhizhi/app/ui/AppWindowFragment.kt")
 
