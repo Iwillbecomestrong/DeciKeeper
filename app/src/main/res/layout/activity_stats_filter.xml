@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/zzSurface"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
+
+    <!-- 顶部导航栏 -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:background="?attr/zzSurface"
+        android:paddingHorizontal="16dp">
+
+        <TextView
+            android:id="@+id/btn_back_filter"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:text="←"
+            android:textColor="?attr/zzText"
+            android:textSize="20sp" />
+
+        <TextView
+            android:id="@+id/tv_title_filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_toEndOf="@id/btn_back_filter"
+            android:layout_marginStart="8dp"
+            android:text="日期构成与应用筛选"
+            android:textColor="?attr/zzText"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_save_filter"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_zz_primary_btn"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="14dp"
+            android:text="完成"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/zzLine" />
+
+    <!-- 滚动区域 (上半部分：星期筛选) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="星期构成"
+            android:textColor="?attr/zzText"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="自由组合任意星期。点击单项切换，上方为快捷预设。"
+            android:textColor="?attr/zzMuted"
+            android:textSize="11sp" />
+
+        <!-- 星期预设行 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/preset_week_all"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_zz_option_btn"
+                app:backgroundTint="@null"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingVertical="0dp"
+                android:includeFontPadding="false"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="全部"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/preset_week_workday"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_zz_option_btn"
+                app:backgroundTint="@null"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingVertical="0dp"
+                android:includeFontPadding="false"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="工作日"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/preset_week_weekend"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_zz_option_btn"
+                app:backgroundTint="@null"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingVertical="0dp"
+                android:includeFontPadding="false"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="周末"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/preset_week_clear"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_zz_option_btn"
+                app:backgroundTint="@null"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingVertical="0dp"
+                android:includeFontPadding="false"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="清空"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- 星期 7 宫格 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/dow_1" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_margin="2dp" android:background="@drawable/bg_zz_primary_btn" app:backgroundTint="@null" android:insetTop="0dp" android:insetBottom="0dp" android:paddingVertical="0dp" android:gravity="center" android:includeFontPadding="false" android:text="一" android:textColor="@android:color/white" android:textSize="12sp" android:textStyle="bold" />
+            <Button android:id="@+id/dow_2" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_margin="2dp" android:background="@drawable/bg_zz_primary_btn" app:backgroundTint="@null" android:insetTop="0dp" android:insetBottom="0dp" android:paddingVertical="0dp" android:gravity="center" android:includeFontPadding="false" android:text="二" android:textColor="@android:color/white" android:textSize="12sp" android:textStyle="bold" />
+            <Button android:id="@+id/dow_3" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_margin="2dp" android:background="@drawable/bg_zz_primary_btn" app:backgroundTint="@null" android:insetTop="0dp" android:insetBottom="0dp" android:paddingVertical="0dp" android:gravity="center" android:includeFontPadding="false" android:text="三" android:textColor="@android:color/white" android:textSize="12sp" android:textStyle="bold" />
+            <Button android:id="@+id/dow_4" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_margin="2dp" android:background="@drawable/bg_zz_primary_btn" app:backgroundTint="@null" android:insetTop="0dp" android:insetBottom="0dp" android:paddingVertical="0dp" android:gravity="center" android:includeFontPadding="false" android:text="四" android:textColor="@android:color/white" android:textSize="12sp" android:textStyle="bold" />
+            <Button android:id="@+id/dow_5" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_margin="2dp" android:background="@drawable/bg_zz_primary_btn" app:backgroundTint="@null" android:insetTop="0dp" android:insetBottom="0dp" android:paddingVertical="0dp" android:gravity="center" android:includeFontPadding="false" android:text="五" android:textColor="@android:color/white" android:textSize="12sp" android:textStyle="bold" />
+            <Button android:id="@+id/dow_6" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_margin="2dp" android:background="@drawable/bg_zz_primary_btn" app:backgroundTint="@null" android:insetTop="0dp" android:insetBottom="0dp" android:paddingVertical="0dp" android:gravity="center" android:includeFontPadding="false" android:text="六" android:textColor="@android:color/white" android:textSize="12sp" android:textStyle="bold" />
+            <Button android:id="@+id/dow_7" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_margin="2dp" android:background="@drawable/bg_zz_primary_btn" app:backgroundTint="@null" android:insetTop="0dp" android:insetBottom="0dp" android:paddingVertical="0dp" android:gravity="center" android:includeFontPadding="false" android:text="日" android:textColor="@android:color/white" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="10dp"
+        android:background="?attr/zzLine" />
+
+    <!-- 下半部分：双栏全屏应用筛选 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="应用范围"
+                android:textColor="?attr/zzText"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_zz_badge"
+                android:includeFontPadding="false"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:text="仅影响“应用”统计"
+                android:textColor="?attr/zzText"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- 快捷分类筛选芯片 -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button android:id="@+id/chip_exclude_comm" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginEnd="6dp" android:background="@drawable/bg_zz_option_btn" android:includeFontPadding="false" android:minWidth="0dp" android:minHeight="0dp" android:paddingHorizontal="10dp" android:text="排除通讯" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="11sp" />
+                <Button android:id="@+id/chip_exclude_ai" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginEnd="6dp" android:background="@drawable/bg_zz_option_btn" android:includeFontPadding="false" android:minWidth="0dp" android:minHeight="0dp" android:paddingHorizontal="10dp" android:text="排除 AI" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="11sp" />
+                <Button android:id="@+id/chip_exclude_video" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginEnd="6dp" android:background="@drawable/bg_zz_option_btn" android:includeFontPadding="false" android:minWidth="0dp" android:minHeight="0dp" android:paddingHorizontal="10dp" android:text="排除视频" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="11sp" />
+                <Button android:id="@+id/chip_exclude_music" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginEnd="6dp" android:background="@drawable/bg_zz_option_btn" android:includeFontPadding="false" android:minWidth="0dp" android:minHeight="0dp" android:paddingHorizontal="10dp" android:text="排除音乐" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="11sp" />
+                <Button android:id="@+id/chip_reset_apps" android:layout_width="wrap_content" android:layout_height="34dp" android:background="@drawable/bg_zz_option_btn" android:includeFontPadding="false" android:minWidth="0dp" android:minHeight="0dp" android:paddingHorizontal="10dp" android:text="重置全部" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="11sp" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- 搜索框 -->
+        <EditText
+            android:id="@+id/et_app_filter_search"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_zz_option_btn"
+            android:hint="搜索应用或分类，如 微信 / 游戏"
+            android:includeFontPadding="false"
+            android:paddingHorizontal="12dp"
+            android:textColor="?attr/zzText"
+            android:textColorHint="?attr/zzMuted"
+            android:textSize="12sp" />
+
+        <!-- 左右全屏双栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <!-- 纳入统计栏 -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_zz_option_btn"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/zzSurface2"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="6dp">
+
+                    <TextView
+                        android:id="@+id/tv_included_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="纳入统计 (0)"
+                        android:textColor="?attr/zzText"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="点击应用 → 移动到排除"
+                        android:textColor="?attr/zzMuted"
+                        android:textSize="9sp" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_included_apps"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scrollbars="vertical" />
+            </LinearLayout>
+
+            <!-- 排除统计栏 -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_zz_option_btn"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/zzSurface2"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="6dp">
+
+                    <TextView
+                        android:id="@+id/tv_excluded_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="排除统计 (0)"
+                        android:textColor="?attr/zzText"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="点击应用 → 恢复纳入"
+                        android:textColor="?attr/zzMuted"
+                        android:textSize="9sp" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_excluded_apps"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scrollbars="vertical" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 底部批量按钮：高度 38dp，消除文字切边 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="10dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_include_all"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_zz_option_btn"
+                android:includeFontPadding="false"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="全部纳入"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_exclude_all"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_zz_option_btn"
+                android:includeFontPadding="false"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="全部排除"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

@@ -88,6 +88,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
         snoozeMinutes = AlarmScheduler.getSnoozeMinutes(this)
         setupWindow()
+        window.decorView.setBackgroundColor(ThemeManager.getColorAttr(this, R.attr.zzPageBg))
 
         android.util.Log.i("AlarmActivity", "onCreate: alarmId=$alarmId, is_locked_screen=${intent.getBooleanExtra("is_locked_screen", false)}, start_scan=${intent.getBooleanExtra("start_scan", false)}, request_camera=${intent.getBooleanExtra("request_camera_permission", false)}")
         LogExporter.logEvent("AlarmOverlay", "ACTIVITY_ON_CREATE id=$alarmId locked=${intent.getBooleanExtra("is_locked_screen", false)} startScan=${intent.getBooleanExtra("start_scan", false)} requestCamera=${intent.getBooleanExtra("request_camera_permission", false)}")

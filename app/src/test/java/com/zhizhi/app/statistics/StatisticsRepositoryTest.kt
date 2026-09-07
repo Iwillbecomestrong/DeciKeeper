@@ -13,6 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -82,6 +83,81 @@ class StatisticsRepositoryTest {
         assertEquals(10L, summary.totalTempUnlockMinutes)
         assertEquals(1, summary.totalTempUnlockCount)
         assertEquals(20L, summary.totalPrivilegeMinutes)
+    }
+
+    @Test
+    fun testExitStats_MultipleRestSessionsRecordedAccurately() {
+        val today = fixedNow.toLocalDate()
+        val dateStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+
+        val prefs = context.getSharedPreferences("iron_will_ledger", Context.MODE_PRIVATE)
+        val segsJson = """[{"id":"seg_test","startTime":"09:00","endTime":"18:00","restLimitMinutes":60,"borrowLimitMinutes":15,"privilegeLimitMinutes":30}]"""
+        prefs.edit()
+            .putString("time_segments_json", segsJson)
+            .putInt("usage_${dateStr}_09:00-18:00", 3600) // 60 分钟休息
+            .putInt("exit_rest_count_$dateStr", 4) // 真实调用了 4 次休息
+            .putInt("exit_rest_count_${dateStr}_10", 2) // 10 点 2 次
+            .putInt("exit_rest_count_${dateStr}_14", 2) // 14 点 2 次
+            .apply()
+
+        val range = StatsDateRange.Today
+        val resolved = StatsDateRangeResolver.resolveRange(range, fixedNow, zoneId)
+        val summary = StatisticsRepository.getExitStats(context, range, resolved, WeekdayFilter.ALL)
+
+        assertEquals(60L, summary.totalRestMinutes)
+        assertEquals(4, summary.totalRestCount) // 严格输出 4 次，杜绝此前只输出 1 的 Bug
+
+        // 验证小时桶
+        val bucket10 = summary.buckets.find {
+            LocalDateTime.ofInstant(Instant.ofEpochMilli(it.bucket.startMillis), zoneId).hour == 10
+        }
+        val bucket14 = summary.buckets.find {
+            LocalDateTime.ofInstant(Instant.ofEpochMilli(it.bucket.startMillis), zoneId).hour == 14
+        }
+        assertEquals(2, bucket10?.restCount)
+        assertEquals(2, bucket14?.restCount)
+    }
+
+    @Test
+    fun testExitStats_HistoricalLedgerCountFallback() {
+        val today = fixedNow.toLocalDate()
+        val dateStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+
+        val prefs = context.getSharedPreferences("iron_will_ledger", Context.MODE_PRIVATE)
+        val segsJson = """[{"id":"seg_test","startTime":"09:00","endTime":"18:00","restLimitMinutes":60,"borrowLimitMinutes":15,"privilegeLimitMinutes":30}]"""
+        prefs.edit()
+            .putString("time_segments_json", segsJson)
+            .putInt("usage_${dateStr}_09:00-18:00", 1800)
+            .putInt("count_usage_half_units_v2_${dateStr}_09:00-18:00", 3) // 历史休息次数消耗账本
+            .apply()
+
+        val range = StatsDateRange.Today
+        val resolved = StatsDateRangeResolver.resolveRange(range, fixedNow, zoneId)
+        val summary = StatisticsRepository.getExitStats(context, range, resolved, WeekdayFilter.ALL)
+
+        assertEquals(30L, summary.totalRestMinutes)
+        assertEquals(3, summary.totalRestCount) // 从可用次数账本向前回溯真实 3 次，而不是 1
+    }
+
+    @Test
+    fun testExitStats_HistoricalBorrowCountFallback() {
+        val today = fixedNow.toLocalDate()
+        val dateStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+
+        val prefs = context.getSharedPreferences("iron_will_ledger", Context.MODE_PRIVATE)
+        val segsJson = """[{"id":"seg_test","startTime":"09:00","endTime":"18:00","restLimitMinutes":60,"borrowLimitMinutes":15,"privilegeLimitMinutes":30}]"""
+        prefs.edit()
+            .putString("time_segments_json", segsJson)
+            .putInt("borrow_time_${dateStr}_09:00-18:00", 600)
+            .putInt("count_borrow_half_units_v2_${dateStr}_09:00-18:00", 4) // 历史借用/临时解锁次数消耗账本
+            .apply()
+
+        val range = StatsDateRange.Today
+        val resolved = StatsDateRangeResolver.resolveRange(range, fixedNow, zoneId)
+        val summary = StatisticsRepository.getExitStats(context, range, resolved, WeekdayFilter.ALL)
+
+        assertEquals(10L, summary.totalTempUnlockMinutes)
+        assertEquals(4, summary.totalTempUnlockCount) // 从借用次数账本向前回溯真实 4 次
     }
 
     @Test

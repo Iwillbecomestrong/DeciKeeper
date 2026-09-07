@@ -136,4 +136,58 @@ class CustomQuestionBankManagerTest {
         assertTrue(prompt.contains("四选一"))
         assertTrue(prompt.contains("Markdown"))
     }
+
+    @Test
+    fun testFavoriteQuestionWorkflow() {
+        val q1 = CustomQuestion(id = "q1", bankId = "b1", stem = "题1", options = listOf("A", "B"), answer = "A")
+        val q2 = CustomQuestion(id = "q2", bankId = "b1", stem = "题2", options = listOf("A", "B"), answer = "B")
+        val bank = CustomQuestionBank(id = "b1", title = "数学题库", questions = listOf(q1, q2))
+        CustomQuestionBankManager.saveBank(context, bank)
+
+        // 初始无收藏
+        assertEquals(0, CustomQuestionBankManager.getAllFavorites(context).size)
+        assertEquals(0, CustomQuestionBankManager.getBank(context, "b1")?.favoriteCount)
+
+        // 收藏 q1
+        val res1 = CustomQuestionBankManager.toggleFavorite(context, "b1", "q1")
+        assertTrue(res1)
+        var favorites = CustomQuestionBankManager.getAllFavorites(context)
+        assertEquals(1, favorites.size)
+        assertEquals("q1", favorites[0].second.id)
+        assertTrue(favorites[0].second.isFavorite)
+        assertEquals(1, CustomQuestionBankManager.getBank(context, "b1")?.favoriteCount)
+
+        // 取消收藏 q1
+        val res2 = CustomQuestionBankManager.toggleFavorite(context, "b1", "q1")
+        assertFalse(res2)
+        assertEquals(0, CustomQuestionBankManager.getAllFavorites(context).size)
+        assertEquals(0, CustomQuestionBankManager.getBank(context, "b1")?.favoriteCount)
+
+        // setFavorite 显式设置
+        CustomQuestionBankManager.setFavorite(context, "b1", "q2", true)
+        favorites = CustomQuestionBankManager.getAllFavorites(context)
+        assertEquals(1, favorites.size)
+        assertEquals("q2", favorites[0].second.id)
+
+        // 磁盘重新加载持久化验证
+        val reloadedBank = CustomQuestionBankManager.getBanks(context, forceReload = true).first { it.id == "b1" }
+        assertEquals(1, reloadedBank.favoriteCount)
+        assertTrue(reloadedBank.questions.first { it.id == "q2" }.isFavorite)
+    }
+
+    @Test
+    fun testDefaultCustomBanksPersistence() {
+        val map1 = mapOf("bank_a" to 5, "bank_b" to 3)
+        val map2 = mapOf("bank_c" to 2)
+
+        com.zhizhi.app.manager.AlarmScheduler.setDefaultStage1CustomBanks(context, map1)
+        com.zhizhi.app.manager.AlarmScheduler.setDefaultStage2CustomBanks(context, map2)
+
+        val retrieved1 = com.zhizhi.app.manager.AlarmScheduler.getDefaultStage1CustomBanks(context)
+        val retrieved2 = com.zhizhi.app.manager.AlarmScheduler.getDefaultStage2CustomBanks(context)
+
+        assertEquals(map1, retrieved1)
+        assertEquals(map2, retrieved2)
+    }
 }
+

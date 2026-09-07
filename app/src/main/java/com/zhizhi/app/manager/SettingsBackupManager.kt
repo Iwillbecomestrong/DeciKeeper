@@ -25,6 +25,7 @@ import android.net.Uri
 import android.os.Build
 import com.zhizhi.app.data.BlacklistStore
 import com.zhizhi.app.data.LogExporter
+import com.zhizhi.app.manager.questionbank.CustomQuestionBankManager
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,7 +72,11 @@ object SettingsBackupManager {
         BackupCategory.GLOBAL_PARAMS to listOf(
             "pending_config_prefs"
         ),
-        BackupCategory.LEDGER to emptyList() // 统计数据只含 iron_will_ledger 的部分 key
+        BackupCategory.LEDGER to listOf(
+            "rule_protection_ledger",
+            "alarm_stats_ledger",
+            "statistics_prefs"
+        )
     )
 
     // ── 共享文件中的按分类 key 过滤 ──────────────────────────
@@ -93,7 +98,7 @@ object SettingsBackupManager {
                 "default_stage1_types", "default_stage2_types"
             ),
             "alarm_bookmarks" to listOf(
-                "bookmarked_poems", "bookmarked_words"
+                "bookmarked_poems", "bookmarked_words", "bookmarked_clozes"
             )
         ),
         BackupCategory.GLOBAL_PARAMS to mapOf(
@@ -121,7 +126,8 @@ object SettingsBackupManager {
                 "is_privilege_mode",
                 "privilege_session_start", "privilege_session_duration",
                 "privilege_session_prededucted", "privilege_session_charged_minutes",
-                "usage_*", "borrow_time_*", "privilege_usage_*",
+                "usage_*", "borrow_time_*", "privilege_usage_*", "exit_*",
+                "count_*",
                 "privilege_*_segment_*",
                 "weekly_privilege_count_*", "weekly_privilege_duration_used_*"
             )
@@ -165,7 +171,10 @@ object SettingsBackupManager {
         "effective_activation_policy",
         "anti_uninstall_prefs",
         "alarm_prefs",
-        "alarm_bookmarks"
+        "alarm_bookmarks",
+        "rule_protection_ledger",
+        "alarm_stats_ledger",
+        "statistics_prefs"
     )
 
     private val deviceProtectedMirrorNames = setOf(
@@ -278,6 +287,12 @@ object SettingsBackupManager {
             put("preferenceFiles", files)
             // 记录导出了哪些分类（用于导入时默认选中）
             put("exportCategories", JSONArray(categories.map { it.id }))
+            if (categories.contains(BackupCategory.ALARM)) {
+                val banksJson = CustomQuestionBankManager.exportToJson(context)
+                if (!banksJson.isNullOrBlank()) {
+                    put("customQuestionBanks", banksJson)
+                }
+            }
         }.toString(2)
     }
 
@@ -305,19 +320,21 @@ object SettingsBackupManager {
                 }
             } else {
                 // 旧版备份无分类信息 → 按文件名推断
-                inferCategoriesFromFiles(root.optJSONArray("preferenceFiles"))
+                inferCategoriesFromFiles(root, root.optJSONArray("preferenceFiles"))
             }
         } catch (e: Exception) {
             BackupCategory.ALL
         }
     }
 
-    private fun inferCategoriesFromFiles(files: JSONArray?): List<BackupCategory> {
+    private fun inferCategoriesFromFiles(root: JSONObject, files: JSONArray?): List<BackupCategory> {
         if (files == null) return BackupCategory.ALL
         val names = (0 until files.length()).mapNotNull { i ->
             files.optJSONObject(i)?.optString("name", null)
         }.toSet()
+        val hasCustomBanks = root.has("customQuestionBanks")
         return BackupCategory.entries.filter { cat ->
+            if (cat == BackupCategory.ALARM && hasCustomBanks) return@filter true
             val exclusive = CATEGORY_EXCLUSIVE_FILES[cat].orEmpty()
             val shared = CATEGORY_SHARED_FILE_KEYS[cat].orEmpty().keys
             (exclusive + shared).any { it in names }
@@ -527,6 +544,13 @@ object SettingsBackupManager {
             }
         }
 
+        if (categories.contains(BackupCategory.ALARM)) {
+            val banksJson = root.optString("customQuestionBanks", null)
+            if (!banksJson.isNullOrBlank()) {
+                CustomQuestionBankManager.importFromJson(context, banksJson)
+            }
+        }
+
         invalidateRuntimeCaches()
         if (isAdaptation) {
             CreditManager.refreshAfterImport(context, exportedAt)
@@ -562,6 +586,7 @@ object SettingsBackupManager {
             "iron_will_changelog" -> null
             "iron_will_probation" -> null
             "app_window_promotion" -> null
+            "rule_protection_ledger", "alarm_stats_ledger", "statistics_prefs",
             "effective_activation_policy", "anti_uninstall_prefs",
             "alarm_prefs", "alarm_bookmarks" -> originalName
             else -> originalName

@@ -119,4 +119,26 @@ class AlarmOverlayThemeContractTest {
             overlay.contains("刷牙") && overlay.contains("洗脸")
         )
     }
+
+    @Test
+    fun alarmActivityMustSetOpaqueWindowBackground() {
+        val activity = source("app/src/main/java/com/zhizhi/app/ui/AlarmActivity.kt")
+        assertTrue(
+            "AlarmActivity decorView must be set to zzPageBg to avoid transparent window",
+            activity.contains("window.decorView.setBackgroundColor(ThemeManager.getColorAttr(this, R.attr.zzPageBg))")
+        )
+    }
+
+    @Test
+    fun themeManagerMustProvideSeasonalFallbacksToPreventTransparentColors() {
+        val tm = source("app/src/main/java/com/zhizhi/app/ui/ThemeManager.kt")
+        assertTrue(
+            "ThemeManager must have getSeasonColorFallback",
+            tm.contains("getSeasonColorFallback")
+        )
+        assertTrue(
+            "ThemeManager getColorAttr must never return 0",
+            tm.contains("typedValue.data != 0")
+        )
+    }
 }

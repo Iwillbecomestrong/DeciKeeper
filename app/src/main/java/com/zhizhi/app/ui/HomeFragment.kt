@@ -229,6 +229,10 @@ class HomeFragment : Fragment() {
     private var btnStopFreeTime: Button? = null
     private var freeTimeTimer: CountDownTimer? = null
 
+    // 休息冷却紧凑胶囊条
+    private var layoutCooldownPill: View? = null
+    private var tvCooldownPillText: TextView? = null
+
     // 适应期卡片
     private var cardAdaptation: CardView? = null
     private var btnEndAdaptation: Button? = null
@@ -366,7 +370,9 @@ class HomeFragment : Fragment() {
         btnPermission = view.findViewById(R.id.btn_open_permission)
         btnHelp = view.findViewById(R.id.btn_help)
         
-        // 休息时间卡片
+        // 休息时间卡片与冷却胶囊条
+        layoutCooldownPill = view.findViewById(R.id.layout_cooldown_pill)
+        tvCooldownPillText = view.findViewById(R.id.tv_cooldown_pill_text)
         cardFreeTime = view.findViewById(R.id.card_free_time)
         tvFreeTimeCountdown = view.findViewById(R.id.tv_free_time_countdown)
         btnStopFreeTime = view.findViewById(R.id.btn_stop_free_time)
@@ -1016,6 +1022,7 @@ class HomeFragment : Fragment() {
             val seconds = timeLeft / 1000
             val min = seconds / 60
             val sec = seconds % 60
+            layoutCooldownPill?.visibility = View.GONE
             cardFreeTime?.visibility = View.VISIBLE
             btnStopFreeTime?.visibility = View.VISIBLE
             val label = if (isPrivilege) "🌟 特权中" else "🟢 休息中"
@@ -1023,18 +1030,18 @@ class HomeFragment : Fragment() {
             tvCountdown?.text = label
             tvCountdown?.setTextColor(android.graphics.Color.parseColor("#00AA00"))
         } else {
+            cardFreeTime?.visibility = View.GONE
             // 检查冷却期（休息结束后的冷静期）
             val coolDownEnd = CreditManager.getCoolDownEnd(ctx)
             val coolLeft = coolDownEnd - System.currentTimeMillis()
             if (coolLeft > 0) {
-                val coolSec = coolLeft / 1000
-                cardFreeTime?.visibility = View.VISIBLE
-                btnStopFreeTime?.visibility = View.GONE
-                tvFreeTimeCountdown?.text = "⏳ 休息冷却中 还剩 ${coolSec}s"
+                val coolSec = (coolLeft + 999) / 1000
+                layoutCooldownPill?.visibility = View.VISIBLE
+                tvCooldownPillText?.text = "⏳ 休息冷却中 还剩 ${coolSec}s"
                 tvCountdown?.text = "⏳ 冷静期"
                 tvCountdown?.setTextColor(android.graphics.Color.parseColor("#FF6600"))
             } else {
-                cardFreeTime?.visibility = View.GONE
+                layoutCooldownPill?.visibility = View.GONE
                 val isSegment = TimeRuleManager.getCurrentSegment(ctx) != null
                 if (!isSegment) {
                     tvCountdown?.text = "🟢 当前状态：自由状态"

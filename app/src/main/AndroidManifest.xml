@@ -22,6 +22,9 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 
     <!-- 查询所有可启动的应用 -->
     <queries>
@@ -36,6 +39,7 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
+        android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.ZhiZhi"
@@ -185,6 +189,16 @@
             android:name=".ui.questionbank.CustomQuestionReviewActivity"
             android:exported="false"
             android:label="题库回顾" />
+
+        <activity
+            android:name=".ui.statistics.StatsFilterActivity"
+            android:exported="false"
+            android:label="统计筛选" />
+
+        <activity
+            android:name=".ui.statistics.AppCategoryDetailActivity"
+            android:exported="false"
+            android:label="分类详情" />
 
         <activity
             android:name=".ui.HelpActivity"

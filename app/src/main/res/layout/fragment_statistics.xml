@@ -200,7 +200,7 @@
                     android:minHeight="0dp"
                     android:paddingHorizontal="14dp"
                     android:paddingVertical="0dp"
-                    android:text="规则保护"
+                    android:text="规则变动"
                     android:textAllCaps="false"
                     android:textColor="?attr/zzText"
                     android:textSize="13sp" />
@@ -274,7 +274,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="申请过放宽的规则项"
+                    android:text="规则变动净成效"
                     android:textColor="?attr/zzMuted"
                     android:textSize="10sp" />
 
@@ -292,7 +292,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
-                    android:text="同一规则连续修改不重复计成多项，重点看原来的边界最终是恢复、部分恢复，还是正式放宽生效。"
+                    android:text="0轴上方为主动加严（有利）与冷静期撤回，下方为放宽（不利），净值衡量自律走向。"
                     android:textColor="?attr/zzMuted"
                     android:textSize="10sp" />
             </LinearLayout>
@@ -542,6 +542,11 @@
                     android:layout_weight="1"
                     android:background="@drawable/bg_zz_option_btn_selected"
                     app:backgroundTint="@null"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingVertical="0dp"
+                    android:includeFontPadding="false"
+                    android:gravity="center"
                     android:minWidth="0dp"
                     android:minHeight="0dp"
                     android:text="时长"
@@ -557,6 +562,11 @@
                     android:layout_weight="1"
                     android:background="@drawable/bg_zz_option_btn"
                     app:backgroundTint="@null"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingVertical="0dp"
+                    android:includeFontPadding="false"
+                    android:gravity="center"
                     android:minWidth="0dp"
                     android:minHeight="0dp"
                     android:text="次数"
@@ -725,31 +735,41 @@
                     <Button
                         android:id="@+id/btn_app_view_categorized"
                         android:layout_width="0dp"
-                        android:layout_height="32dp"
+                        android:layout_height="38dp"
                         android:layout_weight="1"
                         android:layout_marginEnd="4dp"
                         android:background="@drawable/bg_zz_option_btn_selected"
                         app:backgroundTint="@null"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:paddingVertical="0dp"
+                        android:includeFontPadding="false"
+                        android:gravity="center"
                         android:minWidth="0dp"
                         android:minHeight="0dp"
-                        android:text="大类汇总（游戏合并）"
+                        android:text="行为大类汇总"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <Button
                         android:id="@+id/btn_app_view_individual"
                         android:layout_width="0dp"
-                        android:layout_height="32dp"
+                        android:layout_height="38dp"
                         android:layout_weight="1"
                         android:layout_marginStart="4dp"
                         android:background="@drawable/bg_zz_option_btn"
                         app:backgroundTint="@null"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:paddingVertical="0dp"
+                        android:includeFontPadding="false"
+                        android:gravity="center"
                         android:minWidth="0dp"
                         android:minHeight="0dp"
                         android:text="单应用真实排行"
                         android:textColor="?attr/zzText"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 

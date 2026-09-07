@@ -678,6 +678,76 @@ object CreditManager {
             .apply()
     }
 
+    // ── 统计出口事件计数打点 (Exit Stats Ledger) ───────────────────────────
+    fun recordRestEvent(context: Context) {
+        val cal = java.util.Calendar.getInstance()
+        val dateStr = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(cal.time)
+        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val dailyKey = "exit_rest_count_$dateStr"
+        val hourlyKey = "exit_rest_count_${dateStr}_$hour"
+        prefs.edit()
+            .putInt(dailyKey, prefs.getInt(dailyKey, 0) + 1)
+            .putInt(hourlyKey, prefs.getInt(hourlyKey, 0) + 1)
+            .apply()
+        getDeviceProtectedPrefs(context)?.edit()
+            ?.putInt(dailyKey, prefs.getInt(dailyKey, 0))
+            ?.putInt(hourlyKey, prefs.getInt(hourlyKey, 0))
+            ?.apply()
+        AutoBackupManager.triggerDebouncedBackup(context)
+    }
+
+    fun recordTempUnlockEvent(context: Context) {
+        val cal = java.util.Calendar.getInstance()
+        val dateStr = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(cal.time)
+        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val dailyKey = "exit_temp_unlock_count_$dateStr"
+        val hourlyKey = "exit_temp_unlock_count_${dateStr}_$hour"
+        prefs.edit()
+            .putInt(dailyKey, prefs.getInt(dailyKey, 0) + 1)
+            .putInt(hourlyKey, prefs.getInt(hourlyKey, 0) + 1)
+            .apply()
+        getDeviceProtectedPrefs(context)?.edit()
+            ?.putInt(dailyKey, prefs.getInt(dailyKey, 0))
+            ?.putInt(hourlyKey, prefs.getInt(hourlyKey, 0))
+            ?.apply()
+        AutoBackupManager.triggerDebouncedBackup(context)
+    }
+
+    fun recordPrivilegeEvent(context: Context) {
+        val cal = java.util.Calendar.getInstance()
+        val dateStr = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(cal.time)
+        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val dailyKey = "exit_privilege_count_$dateStr"
+        val hourlyKey = "exit_privilege_count_${dateStr}_$hour"
+        prefs.edit()
+            .putInt(dailyKey, prefs.getInt(dailyKey, 0) + 1)
+            .putInt(hourlyKey, prefs.getInt(hourlyKey, 0) + 1)
+            .apply()
+        getDeviceProtectedPrefs(context)?.edit()
+            ?.putInt(dailyKey, prefs.getInt(dailyKey, 0))
+            ?.putInt(hourlyKey, prefs.getInt(hourlyKey, 0))
+            ?.apply()
+        AutoBackupManager.triggerDebouncedBackup(context)
+    }
+
+    fun recordCooldownAttemptEvent(context: Context) {
+        val cal = java.util.Calendar.getInstance()
+        val dateStr = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(cal.time)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val dailyKey = "exit_cooldown_attempt_count_$dateStr"
+        prefs.edit()
+            .putInt(dailyKey, prefs.getInt(dailyKey, 0) + 1)
+            .apply()
+        getDeviceProtectedPrefs(context)?.edit()
+            ?.putInt(dailyKey, prefs.getInt(dailyKey, 0))
+            ?.apply()
+        AutoBackupManager.triggerDebouncedBackup(context)
+    }
+
+
     /**
      * 清除休息会话参数（正常结束或进程恢复后）
      */

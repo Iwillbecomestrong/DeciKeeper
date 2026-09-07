@@ -9,7 +9,8 @@ enum class StatsSection {
     REST,            // 休息
     ALARM,           // 起床
     APPS,            // 应用
-    RULE_PROTECTION  // 规则保护
+    RULE_CHANGE,     // 规则变动
+    RULE_PROTECTION  // 规则保护 (兼容别名)
 }
 
 /**
@@ -102,6 +103,7 @@ data class WeekdayFilter(
     val enabledDays: Set<DayOfWeek> = DayOfWeek.values().toSet()
 ) {
     fun isEnabled(dayOfWeek: DayOfWeek): Boolean = enabledDays.contains(dayOfWeek)
+    fun matches(dayOfWeek: DayOfWeek): Boolean = isEnabled(dayOfWeek)
 
     fun summaryText(): String {
         if (enabledDays.size == 7) return "全部星期"
@@ -134,6 +136,7 @@ data class WeekdayFilter(
                 DayOfWeek.THURSDAY, DayOfWeek.FRIDAY
             )
         )
+        val WORKDAY = WORKDAYS
         val WEEKEND = WeekdayFilter(setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
         val EMPTY = WeekdayFilter(emptySet())
     }
@@ -201,13 +204,46 @@ data class AppUsageBucketData(
     val usageMinutes: Float
 )
 
+/**
+ * 科学行为 6 分法分类体系 (参考 iOS Screen Time 与防沉迷行为心理学)
+ */
+enum class AppCategory(val id: String, val displayName: String, val icon: String) {
+    COMMUNICATION("communication", "社交通讯", "💬"),
+    GAME("game", "游戏", "🎮"),
+    VIDEO("video", "视频娱乐", "🎬"),
+    AUDIO("audio", "音乐音频", "🎵"),
+    AI_PRODUCTIVITY("ai_productivity", "AI与效率", "🤖"),
+    TOOLS_SYSTEM("tools_system", "系统与工具", "🛠️");
+
+    companion object {
+        fun fromId(id: String): AppCategory? = entries.firstOrNull { it.id == id }
+    }
+}
+
+data class CategoryUsageSummary(
+    val category: AppCategory,
+    val totalUsageMinutes: Long,
+    val totalOpenCount: Int,
+    val appCount: Int,
+    val subApps: List<AppUsageItem>
+)
+
+data class CategoryDetailData(
+    val category: AppCategory,
+    val totalUsageMinutes: Long,
+    val totalOpenCount: Int,
+    val buckets: List<AppUsageBucketData>,
+    val subApps: List<AppUsageItem>
+)
+
 data class AppUsageSummary(
     val totalOpens: Int,
     val totalUsageMinutes: Long,
     val appList: List<AppUsageItem>,
     val buckets: List<AppUsageBucketData>,
     val selectedAppTrendBuckets: List<AppUsageBucketData>? = null,
-    val hasUsageAccessPermission: Boolean = true
+    val hasUsageAccessPermission: Boolean = true,
+    val categorySummaries: List<CategoryUsageSummary> = emptyList()
 )
 
 /**
@@ -254,22 +290,30 @@ data class RuleProtectionItem(
 
 data class RuleProtectionBucketData(
     val bucket: StatsBucket,
-    val fullyRestoredCount: Int,
-    val partiallyRestoredCount: Int,
-    val effectiveCount: Int,
-    val pendingCount: Int
+    val fullyRestoredCount: Int = 0,
+    val partiallyRestoredCount: Int = 0,
+    val effectiveCount: Int = 0,
+    val pendingCount: Int = 0,
+    val favorableCount: Int = 0,
+    val unfavorableCount: Int = 0,
+    val reversedCount: Int = 0
 ) {
     val totalCount: Int get() = fullyRestoredCount + partiallyRestoredCount + effectiveCount + pendingCount
+    val netChange: Int get() = favorableCount - unfavorableCount
 }
 
 data class RuleProtectionSummary(
-    val totalLoosenItems: Int,
-    val fullyRestoredCount: Int,
-    val partiallyRestoredCount: Int,
-    val effectiveCount: Int,
-    val pendingCount: Int,
-    val buckets: List<RuleProtectionBucketData>,
-    val recentChanges: List<RuleProtectionItem>
+    val totalLoosenItems: Int = 0,
+    val fullyRestoredCount: Int = 0,
+    val partiallyRestoredCount: Int = 0,
+    val effectiveCount: Int = 0,
+    val pendingCount: Int = 0,
+    val buckets: List<RuleProtectionBucketData> = emptyList(),
+    val recentChanges: List<RuleProtectionItem> = emptyList(),
+    val totalFavorable: Int = 0,
+    val totalUnfavorable: Int = 0,
+    val totalReversed: Int = 0,
+    val netChange: Int = 0
 )
 
 /**

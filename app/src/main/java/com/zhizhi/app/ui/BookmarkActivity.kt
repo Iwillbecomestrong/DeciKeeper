@@ -13,10 +13,14 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
+import android.graphics.Typeface
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import com.zhizhi.app.R
 import com.zhizhi.app.manager.AlarmChallengeManager
+import com.zhizhi.app.manager.questionbank.CustomQuestionBankManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -28,6 +32,7 @@ class BookmarkActivity : AppCompatActivity() {
         const val TYPE_POEMS = "poems"
         const val TYPE_WORDS = "words"
         const val TYPE_CLOZES = "clozes"
+        const val TYPE_CUSTOM = "custom"
     }
 
     private data class BookmarkItem(
@@ -63,6 +68,7 @@ class BookmarkActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_tab_poems).setOnClickListener { switchTab(TYPE_POEMS) }
         findViewById<Button>(R.id.btn_tab_words).setOnClickListener { switchTab(TYPE_WORDS) }
         findViewById<Button>(R.id.btn_tab_clozes).setOnClickListener { switchTab(TYPE_CLOZES) }
+        findViewById<Button>(R.id.btn_tab_custom).setOnClickListener { switchTab(TYPE_CUSTOM) }
         findViewById<Button>(R.id.btn_sort_skip).setOnClickListener { setSortBy("skip") }
         findViewById<Button>(R.id.btn_sort_time).setOnClickListener { setSortBy("time") }
         findViewById<Button>(R.id.btn_range_all).setOnClickListener { setTimeRange("") }
@@ -95,6 +101,10 @@ class BookmarkActivity : AppCompatActivity() {
     private fun renderList(query: String) {
         if (currentType == TYPE_CLOZES) {
             renderClozeList()
+            return
+        }
+        if (currentType == TYPE_CUSTOM) {
+            renderCustomList(query)
             return
         }
         val items = if (currentType == TYPE_POEMS) {
@@ -158,6 +168,7 @@ class BookmarkActivity : AppCompatActivity() {
         TYPE_POEMS -> "收藏的诗词"
         TYPE_WORDS -> "收藏的单词"
         TYPE_CLOZES -> "收藏的选词填空"
+        TYPE_CUSTOM -> "收藏的自定义题目"
         else -> "收藏本"
     }
 
@@ -175,7 +186,8 @@ class BookmarkActivity : AppCompatActivity() {
         listOf(
             TYPE_POEMS to R.id.btn_tab_poems,
             TYPE_WORDS to R.id.btn_tab_words,
-            TYPE_CLOZES to R.id.btn_tab_clozes
+            TYPE_CLOZES to R.id.btn_tab_clozes,
+            TYPE_CUSTOM to R.id.btn_tab_custom
         ).forEach { (type, id) ->
             val btn = findViewById<Button>(id)
             val active = type == currentType
@@ -487,6 +499,101 @@ class BookmarkActivity : AppCompatActivity() {
                 setTextColor(attrColor(R.attr.zzMuted))
                 setPadding(0, (5 * d).toInt(), 0, 0)
             })
+        }
+    }
+
+    private fun renderCustomList(query: String) {
+        val pairs = CustomQuestionBankManager.getAllFavorites(this)
+        val filtered = if (query.isBlank()) pairs else {
+            pairs.filter { (bank, q) ->
+                bank.title.contains(query, ignoreCase = true) ||
+                    q.stem.contains(query, ignoreCase = true) ||
+                    q.explanation.contains(query, ignoreCase = true) ||
+                    q.options.any { it.contains(query, ignoreCase = true) }
+            }
+        }
+        containerList.removeAllViews()
+        if (filtered.isEmpty()) {
+            val msg = if (query.isNotEmpty()) "未找到匹配的自定义题" else "暂无收藏的自定义题目\n可在闹钟挑战复习或题库回顾中点击「☆ 收藏」"
+            containerList.addView(TextView(this).apply {
+                text = msg
+                textSize = 14f
+                setTextColor(attrColor(R.attr.zzSubtle))
+                gravity = Gravity.CENTER
+                setPadding(0, (24 * density).toInt(), 0, 0)
+            })
+            return
+        }
+
+        val dp = { n: Int -> (n * density).toInt() }
+        val grouped = filtered.groupBy { it.first }
+        for ((bank, qList) in grouped) {
+            containerList.addView(TextView(this).apply {
+                text = "📁 ${bank.title} (${qList.size}题)"
+                textSize = 13f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(attrColor(R.attr.zzText))
+                setPadding(dp(4), dp(10), dp(4), dp(4))
+            })
+
+            for ((_, q) in qList) {
+                val card = CardView(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { bottomMargin = dp(10) }
+                    radius = dp(12).toFloat()
+                    cardElevation = 0f
+                    setCardBackgroundColor(attrColor(R.attr.zzSurface))
+                }
+                val layout = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(12), dp(10), dp(12), dp(10))
+                }
+                val topRow = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                topRow.addView(TextView(this).apply {
+                    text = q.stem
+                    textSize = 13f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(attrColor(R.attr.zzText))
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                val btnUnfav = TextView(this).apply {
+                    text = "取消收藏"
+                    textSize = 11f
+                    setTextColor(attrColor(R.attr.zzDanger))
+                    background = roundedBg(attrColor(R.attr.zzDangerSoft), 6f)
+                    setPadding(dp(6), dp(2), dp(6), dp(2))
+                    isClickable = true
+                    setOnClickListener {
+                        CustomQuestionBankManager.setFavorite(this@BookmarkActivity, q.bankId, q.id, false)
+                        Toast.makeText(this@BookmarkActivity, "已取消收藏", Toast.LENGTH_SHORT).show()
+                        renderCustomList(etSearch.text?.toString() ?: "")
+                    }
+                }
+                topRow.addView(btnUnfav)
+                layout.addView(topRow)
+
+                layout.addView(TextView(this).apply {
+                    text = "答案: ${q.answer}. ${q.getAnswerContent()}"
+                    textSize = 12f
+                    setTextColor(attrColor(R.attr.zzAccent))
+                    setPadding(0, dp(4), 0, 0)
+                })
+                if (q.explanation.isNotBlank()) {
+                    layout.addView(TextView(this).apply {
+                        text = "解析: ${q.explanation}"
+                        textSize = 11f
+                        setTextColor(attrColor(R.attr.zzMuted))
+                        setPadding(0, dp(2), 0, 0)
+                    })
+                }
+                card.addView(layout)
+                containerList.addView(card)
+            }
         }
     }
 }

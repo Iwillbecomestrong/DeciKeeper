@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/ll_app_row"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -85,16 +86,20 @@
         <Button
             android:id="@+id/btn_exclude_app"
             android:layout_width="wrap_content"
-            android:layout_height="28dp"
+            android:layout_height="30dp"
             android:layout_marginTop="3dp"
             android:backgroundTint="?attr/zzSurface2"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:includeFontPadding="false"
+            android:gravity="center"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:paddingHorizontal="8dp"
+            android:paddingHorizontal="10dp"
             android:paddingVertical="0dp"
             android:text="排除"
             android:textAllCaps="false"
             android:textColor="?attr/zzMuted"
-            android:textSize="9sp" />
+            android:textSize="10sp" />
     </LinearLayout>
 </LinearLayout>

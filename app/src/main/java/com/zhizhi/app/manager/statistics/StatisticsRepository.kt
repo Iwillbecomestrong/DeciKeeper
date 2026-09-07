@@ -13,12 +13,16 @@ import com.zhizhi.app.data.statistics.AppUsageBucketData
 import com.zhizhi.app.data.statistics.AppUsageItem
 import com.zhizhi.app.data.statistics.AppUsageSummary
 import com.zhizhi.app.data.statistics.AppUsageViewMode
+import com.zhizhi.app.data.statistics.AppCategory
+import com.zhizhi.app.data.statistics.CategoryDetailData
+import com.zhizhi.app.data.statistics.CategoryUsageSummary
 import com.zhizhi.app.data.statistics.ExitBucketData
 import com.zhizhi.app.data.statistics.ExitStatsSummary
 import com.zhizhi.app.data.statistics.ResolvedDateRange
 import com.zhizhi.app.data.statistics.RuleProtectionBucketData
 import com.zhizhi.app.data.statistics.RuleProtectionItem
 import com.zhizhi.app.data.statistics.RuleProtectionSummary
+import com.zhizhi.app.data.statistics.RuleRelaxationState
 import com.zhizhi.app.data.statistics.StatsBucket
 import com.zhizhi.app.data.statistics.StatsDateRange
 import com.zhizhi.app.data.statistics.StatsGranularity
@@ -47,6 +51,7 @@ object StatisticsRepository {
     const val PREFS_NAME = "statistics_prefs"
     const val KEY_CUSTOM_GAMES = "custom_game_packages"
     const val KEY_CUSTOM_NON_GAMES = "custom_non_game_packages"
+    const val KEY_CUSTOM_APP_CATEGORIES = "custom_app_categories_map"
 
     data class AppMeta(val name: String, val category: String, val baseOpens: Int, val baseMinutes: Int)
 
@@ -70,6 +75,167 @@ object StatisticsRepository {
 
     fun hasUsagePermission(context: Context): Boolean {
         return permissionChecker?.invoke(context) ?: PermissionManager.hasUsageStatsPermission(context)
+    }
+
+    fun getCustomCategories(context: Context): Map<String, AppCategory> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(KEY_CUSTOM_APP_CATEGORIES, emptySet()) ?: emptySet()
+        val map = mutableMapOf<String, AppCategory>()
+        for (entry in set) {
+            val colonIdx = entry.indexOf(':')
+            if (colonIdx > 0) {
+                val pkg = entry.substring(0, colonIdx)
+                val catId = entry.substring(colonIdx + 1)
+                AppCategory.fromId(catId)?.let { map[pkg] = it }
+            }
+        }
+        return map
+    }
+
+    fun setCustomCategory(context: Context, packageName: String, category: AppCategory?) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val set = (prefs.getStringSet(KEY_CUSTOM_APP_CATEGORIES, emptySet()) ?: emptySet()).toMutableSet()
+        set.removeAll { it.startsWith("$packageName:") }
+        if (category != null) {
+            set.add("$packageName:${category.id}")
+            if (category == AppCategory.GAME) {
+                toggleCustomGame(context, packageName, true)
+            } else {
+                toggleCustomGame(context, packageName, false)
+            }
+        }
+        prefs.edit().putStringSet(KEY_CUSTOM_APP_CATEGORIES, set).apply()
+    }
+
+    fun isGame(context: Context, pkg: String, info: ApplicationInfo?): Boolean {
+        val statsPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val customCategories = getCustomCategories(context)
+        val customCat = customCategories[pkg]
+        if (customCat != null) {
+            return customCat == AppCategory.GAME
+        }
+
+        val customGames = statsPrefs.getStringSet(KEY_CUSTOM_GAMES, emptySet()) ?: emptySet()
+        val customNonGames = statsPrefs.getStringSet(KEY_CUSTOM_NON_GAMES, emptySet()) ?: emptySet()
+
+        if (customNonGames.contains(pkg)) return false
+        if (customGames.contains(pkg)) return true
+
+        val lower = pkg.lowercase()
+
+        // 明确非游戏的网易/腾讯等大厂产品与远程工具白名单（优先排除，防止误判）
+        val nonGameExclusions = listOf(
+            "com.netease.cloudmusic", "com.netease.gameremote", "com.netease.uu",
+            "com.netease.newsreader", "com.netease.mail", "com.netease.mobimail",
+            "com.youdao.", "com.tencent.mm", "com.tencent.mobileqq", "com.tencent.tim",
+            "com.tencent.wework", "com.tencent.qqlive", "com.tencent.qqmusic",
+            "com.oray.sunlogin", "com.todesk", "com.teamviewer", "com.anydesk"
+        )
+        if (nonGameExclusions.any { lower.contains(it) }) return false
+
+        if (info != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info.category == ApplicationInfo.CATEGORY_GAME) {
+                return true
+            }
+            @Suppress("DEPRECATION")
+            if ((info.flags and ApplicationInfo.FLAG_IS_GAME) != 0) {
+                return true
+            }
+        }
+
+        val gameSignatures = listOf(
+            "com.tencent.tmgp.", "com.tencent.game.", "com.mihoyo.", "com.hypergryph.",
+            "com.supercell.", "com.riotgames.", "com.epicgames.",
+            "com.ea.gp.", "com.mojang.", "com.bilibili.star.", "com.kurogame.",
+            "com.yostar.", "com.habby.",
+            // 精确网易主流游戏包名前缀
+            "com.netease.moba.", "com.netease.party.", "com.netease.sky.",
+            "com.netease.onmyoji", "com.netease.hyxd", "com.netease.mc.",
+            "com.netease.dwrg", "com.netease.yys", "com.netease.shelter",
+            "com.netease.ace", "com.netease.ldxy", "com.netease.wepie",
+            "com.netease.h10.", "com.netease.g", "com.netease.x19",
+            // 包名必须带有两端点的 .game. 或 .games.，避免 gameremote 等工具误伤
+            ".game.", ".games."
+        )
+        return gameSignatures.any { lower.contains(it) }
+    }
+
+    /**
+     * 科学行为 6 分类单真理源解析器
+     */
+    fun resolveCategory(context: Context, pkg: String, info: ApplicationInfo?): AppCategory {
+        // 1. 用户自定义显式分类优先级最高
+        val customCat = getCustomCategories(context)[pkg]
+        if (customCat != null) return customCat
+
+        val lower = pkg.lowercase()
+
+        // 2. 远程桌面与实用工具优先收拢（防止带有 game 关键字或网易前缀的工具被误归入游戏）
+        val remoteAndToolsSignatures = listOf(
+            "com.netease.gameremote", "com.netease.uu", "com.oray.sunlogin",
+            "com.todesk", "com.teamviewer", "com.anydesk"
+        )
+        if (remoteAndToolsSignatures.any { lower.contains(it) }) {
+            return AppCategory.TOOLS_SYSTEM
+        }
+
+        // 3. 音乐音频 (在线音乐与有声播客) - 优先于游戏，防止网易云等被误伤
+        val audioSignatures = listOf(
+            "com.netease.cloudmusic", "com.tencent.qqmusic", "com.kugou.android",
+            "cn.kuwo.player", "com.spotify.music", "com.luna.music", "com.ximalaya.ting.android",
+            "fm.qingting", "app.podcast.cosmos", "com.apple.android.music", "podcast", "music", "audio"
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info?.category == ApplicationInfo.CATEGORY_AUDIO) {
+            return AppCategory.AUDIO
+        }
+        if (audioSignatures.any { lower.contains(it) }) return AppCategory.AUDIO
+
+        // 4. 游戏
+        if (isGame(context, pkg, info)) return AppCategory.GAME
+
+        // 5. 视频娱乐 (含短视频与流媒体)
+        val videoSignatures = listOf(
+            "com.ss.android.ugc.aweme", "com.ss.android.ugc.live", "com.smile.gifmaker",
+            "com.kuaishou.nebula", "tv.danmaku.bili", "com.bilibili.app.in", "tv.danmaku.bilibilihd",
+            "com.xingin.xhs", "com.qiyi.video", "com.iqiyi.i18n", "com.tencent.qqlive",
+            "com.youku.phone", "com.mgtv", "com.ss.android.article.video",
+            "com.google.android.youtube", "video", "douyin", "kuaishou", "bilibili"
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info?.category == ApplicationInfo.CATEGORY_VIDEO) {
+            return AppCategory.VIDEO
+        }
+        if (videoSignatures.any { lower.contains(it) }) return AppCategory.VIDEO
+
+        // 6. AI 与效率 (AI 助手与办公生产力)
+        val aiSignatures = listOf(
+            "com.openai.chatgpt", "com.anthropic.claude", "com.deepseek.chat",
+            "com.moonshot.kimi", "com.doubao", "com.larus.nova", "com.baidu.wenxin",
+            "com.alibaba.aliyun.tongyi", "com.zhipu.ai", "com.metaso.app",
+            "notion.id", "cn.wps.moffice", "com.microsoft.office", "md.obsidian",
+            "com.flomo.app", "com.youdao.note", "com.evernote", "ai.chat", "chatgpt", "deepseek"
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info?.category == ApplicationInfo.CATEGORY_PRODUCTIVITY) {
+            return AppCategory.AI_PRODUCTIVITY
+        }
+        if (aiSignatures.any { lower.contains(it) }) return AppCategory.AI_PRODUCTIVITY
+
+        // 7. 社交通讯 (即时聊天与社交平台)
+        val commSignatures = listOf(
+            "com.tencent.mm", "com.tencent.mobileqq", "com.tencent.tim", "com.tencent.wework",
+            "com.alibaba.android.rimet", "com.ss.android.lark", "org.telegram.messenger",
+            "org.thunderdog.challegram", "com.whatsapp", "com.sina.weibo", "com.weico.international",
+            "com.zhihu.android", "com.baidu.tieba", "cn.soulapp.android", "com.immomo.momo",
+            "com.android.mms", "com.android.dialer", "com.android.contacts",
+            "com.google.android.dialer", "com.google.android.apps.messaging",
+            "im", "message", "chat"
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info?.category == ApplicationInfo.CATEGORY_SOCIAL) {
+            return AppCategory.COMMUNICATION
+        }
+        if (commSignatures.any { lower.contains(it) }) return AppCategory.COMMUNICATION
+
+        // 8. 系统与工具 (默认兜底)
+        return AppCategory.TOOLS_SYSTEM
     }
 
     // ==========================================
@@ -170,12 +336,44 @@ object StatisticsRepository {
                 val tempM = dayBorrowSec / 60
                 val privM = dayPrivMin
 
+                // 读取显式记录的出口事件计数，兼容历史账本
+                val recRestCount = prefs?.getInt("exit_rest_count_$dateStr", 0) ?: 0
+                var fallbackRestCount = 0
+                if (prefs != null) {
+                    val prefixCount = "count_usage_half_units_v2_${dateStr}_"
+                    for ((k, v) in prefs.all) {
+                        if (k.startsWith(prefixCount)) {
+                            fallbackRestCount += ((v as? Int) ?: 0)
+                        }
+                    }
+                }
+                val dayRestCount = maxOf(recRestCount, fallbackRestCount, if (restM > 0) 1 else 0)
+
+                val recTempCount = prefs?.getInt("exit_temp_unlock_count_$dateStr", 0) ?: 0
+                var fallbackTempCount = 0
+                if (prefs != null) {
+                    val prefixBorrowV2 = "count_borrow_half_units_v2_${dateStr}_"
+                    val prefixBorrowLegacy = "count_borrow_${dateStr}_"
+                    for ((k, v) in prefs.all) {
+                        if (k.startsWith(prefixBorrowV2) || k.startsWith(prefixBorrowLegacy)) {
+                            fallbackTempCount += ((v as? Int) ?: 0)
+                        }
+                    }
+                }
+                val dayTempCount = maxOf(recTempCount, fallbackTempCount, if (tempM > 0) 1 else 0)
+
+                val recPrivCount = prefs?.getInt("exit_privilege_count_$dateStr", 0) ?: 0
+                val dayPrivCount = maxOf(recPrivCount, if (privM > 0) 1 else 0)
+
+                val dayCooldownAttempts = prefs?.getInt("exit_cooldown_attempt_count_$dateStr", 0) ?: 0
+
                 sumRestMinutes += restM
-                if (restM > 0) sumRestCount += 1
+                sumRestCount += dayRestCount
                 sumTempMinutes += tempM
-                if (tempM > 0) sumTempCount += 1
+                sumTempCount += dayTempCount
                 sumPrivMinutes += privM
-                if (privM > 0) sumPrivCount += 1
+                sumPrivCount += dayPrivCount
+                sumCooldownAttempts += dayCooldownAttempts
             }
             curDate = curDate.plusDays(1)
         }
@@ -185,6 +383,9 @@ object StatisticsRepository {
             val hourlyRestSec = IntArray(24)
             val hourlyBorrowSec = IntArray(24)
             val hourlyPrivMin = IntArray(24)
+            val hourlyRestCount = IntArray(24)
+            val hourlyTempCount = IntArray(24)
+            val hourlyPrivCount = IntArray(24)
 
             val dateStr = sLocalDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
             if (prefs != null && !sLocalDate.isAfter(today)) {
@@ -209,6 +410,12 @@ object StatisticsRepository {
                         hourlyPrivMin[hour] += value
                     }
                 }
+
+                for (h in 0..23) {
+                    hourlyRestCount[h] = prefs.getInt("exit_rest_count_${dateStr}_$h", 0)
+                    hourlyTempCount[h] = prefs.getInt("exit_temp_unlock_count_${dateStr}_$h", 0)
+                    hourlyPrivCount[h] = prefs.getInt("exit_privilege_count_${dateStr}_$h", 0)
+                }
             }
 
             for (b in buckets) {
@@ -219,15 +426,19 @@ object StatisticsRepository {
                 val tempM = if (!isFuture) hourlyBorrowSec[h] / 60 else 0
                 val privM = if (!isFuture) hourlyPrivMin[h] else 0
 
+                val rCount = if (!isFuture) maxOf(hourlyRestCount[h], if (restM > 0) 1 else 0) else 0
+                val tCount = if (!isFuture) maxOf(hourlyTempCount[h], if (tempM > 0) 1 else 0) else 0
+                val pCount = if (!isFuture) maxOf(hourlyPrivCount[h], if (privM > 0) 1 else 0) else 0
+
                 bucketDataList.add(
                     ExitBucketData(
                         bucket = b,
                         restMinutes = restM.toFloat(),
-                        restCount = if (restM > 0) 1 else 0,
+                        restCount = rCount,
                         tempUnlockMinutes = tempM.toFloat(),
-                        tempUnlockCount = if (tempM > 0) 1 else 0,
+                        tempUnlockCount = tCount,
                         privilegeMinutes = privM.toFloat(),
-                        privilegeCount = if (privM > 0) 1 else 0
+                        privilegeCount = pCount
                     )
                 )
             }
@@ -255,12 +466,19 @@ object StatisticsRepository {
                 var bRestSec = 0
                 var bBorrowSec = 0
                 var bPrivMin = 0
+                var bRestCount = 0
+                var bTempCount = 0
+                var bPrivCount = 0
                 var cursor = bStartDateTime.toLocalDate()
                 val endCursor = bEndDateTime.toLocalDate()
 
                 while (cursor.isBefore(endCursor)) {
                     if (weekdayFilter.isEnabled(cursor.dayOfWeek) && !cursor.isAfter(today)) {
                         val dStr = cursor.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+                        var dRestSec = 0
+                        var dBorrowSec = 0
+                        var dPrivMin = 0
+
                         if (prefs != null) {
                             val prefixUsage = "usage_${dStr}_"
                             val prefixBorrow = "borrow_time_${dStr}_"
@@ -268,13 +486,41 @@ object StatisticsRepository {
 
                             for ((k, v) in prefs.all) {
                                 if (k.startsWith(prefixUsage)) {
-                                    bRestSec += (v as? Int) ?: 0
+                                    dRestSec += (v as? Int) ?: 0
                                 } else if (k.startsWith(prefixBorrow)) {
-                                    bBorrowSec += (v as? Int) ?: 0
+                                    dBorrowSec += (v as? Int) ?: 0
                                 } else if (k.startsWith(prefixPriv)) {
-                                    bPrivMin += (v as? Int) ?: 0
+                                    dPrivMin += (v as? Int) ?: 0
                                 }
                             }
+                            bRestSec += dRestSec
+                            bBorrowSec += dBorrowSec
+                            bPrivMin += dPrivMin
+
+                            val recRest = prefs.getInt("exit_rest_count_$dStr", 0)
+                            var fallbackRest = 0
+                            val prefixCount = "count_usage_half_units_v2_${dStr}_"
+                            val prefixCountLegacy = "count_usage_${dStr}_"
+                            for ((k, v) in prefs.all) {
+                                if (k.startsWith(prefixCount) || k.startsWith(prefixCountLegacy)) {
+                                    fallbackRest += ((v as? Int) ?: 0)
+                                }
+                            }
+                            bRestCount += maxOf(recRest, fallbackRest, if (dRestSec > 0) 1 else 0)
+
+                            val recTemp = prefs.getInt("exit_temp_unlock_count_$dStr", 0)
+                            var fallbackTemp = 0
+                            val prefixBorrowV2 = "count_borrow_half_units_v2_${dStr}_"
+                            val prefixBorrowLegacy = "count_borrow_${dStr}_"
+                            for ((k, v) in prefs.all) {
+                                if (k.startsWith(prefixBorrowV2) || k.startsWith(prefixBorrowLegacy)) {
+                                    fallbackTemp += ((v as? Int) ?: 0)
+                                }
+                            }
+                            bTempCount += maxOf(recTemp, fallbackTemp, if (dBorrowSec > 0) 1 else 0)
+
+                            val recPriv = prefs.getInt("exit_privilege_count_$dStr", 0)
+                            bPrivCount += maxOf(recPriv, if (dPrivMin > 0) 1 else 0)
                         }
                     }
                     cursor = cursor.plusDays(1)
@@ -288,11 +534,11 @@ object StatisticsRepository {
                     ExitBucketData(
                         bucket = b,
                         restMinutes = restM.toFloat(),
-                        restCount = if (restM > 0) 1 else 0,
+                        restCount = bRestCount,
                         tempUnlockMinutes = tempM.toFloat(),
-                        tempUnlockCount = if (tempM > 0) 1 else 0,
+                        tempUnlockCount = bTempCount,
                         privilegeMinutes = privM.toFloat(),
-                        privilegeCount = if (privM > 0) 1 else 0
+                        privilegeCount = bPrivCount
                     )
                 )
             }
@@ -367,27 +613,7 @@ object StatisticsRepository {
         val savedCustomNonGames = statsPrefs.getStringSet(KEY_CUSTOM_NON_GAMES, emptySet()) ?: emptySet()
         val effectiveCustomGames = (customGamePackages ?: savedCustomGames) - savedCustomNonGames
 
-        fun isGame(pkg: String, info: ApplicationInfo?): Boolean {
-            if (savedCustomNonGames.contains(pkg)) return false
-            if (effectiveCustomGames.contains(pkg)) return true
-            if (info != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info.category == ApplicationInfo.CATEGORY_GAME) {
-                    return true
-                }
-                @Suppress("DEPRECATION")
-                if ((info.flags and ApplicationInfo.FLAG_IS_GAME) != 0) {
-                    return true
-                }
-            }
-            val lower = pkg.lowercase()
-            val gameSignatures = listOf(
-                "com.tencent.tmgp.", "com.tencent.game.", "com.mihoyo.", "com.hypergryph.",
-                "com.netease.", "com.supercell.", "com.riotgames.", "com.epicgames.",
-                "com.ea.gp.", "com.mojang.", "com.bilibili.star.", "com.kurogame.",
-                "com.yostar.", "com.habby.", ".game.", ".games."
-            )
-            return gameSignatures.any { lower.contains(it) }
-        }
+        fun isGameLocal(pkg: String, info: ApplicationInfo?): Boolean = isGame(context, pkg, info)
 
         fun getAppLabel(pkg: String): String {
             val info = appInfoMap[pkg]
@@ -398,26 +624,18 @@ object StatisticsRepository {
             }
         }
 
+        fun resolveCategoryLocal(pkg: String, info: ApplicationInfo?): AppCategory {
+            return resolveCategory(context, pkg, info)
+        }
+
         fun getCategoryName(pkg: String, isGame: Boolean, info: ApplicationInfo?): String {
-            if (isGame) return "游戏"
-            if (info == null) return "其他"
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                when (info.category) {
-                    ApplicationInfo.CATEGORY_AUDIO, ApplicationInfo.CATEGORY_VIDEO -> return "影音"
-                    ApplicationInfo.CATEGORY_SOCIAL -> return "社交"
-                    ApplicationInfo.CATEGORY_NEWS -> return "资讯"
-                    ApplicationInfo.CATEGORY_MAPS -> return "导航"
-                    ApplicationInfo.CATEGORY_PRODUCTIVITY -> return "效率"
-                    ApplicationInfo.CATEGORY_IMAGE -> return "拍摄"
-                }
-            }
-            return "常用"
+            return resolveCategoryLocal(pkg, info).displayName
         }
 
         fun isUserFacingApp(pkg: String, info: ApplicationInfo?): Boolean {
             if (pkg == context.packageName) return false
             if (pkg == "android" || pkg == "com.android.systemui") return false
-            if (isGame(pkg, info)) return true
+            if (isGameLocal(pkg, info)) return true
             if (info == null) return false
             return pm.getLaunchIntentForPackage(pkg) != null
         }
@@ -427,102 +645,120 @@ object StatisticsRepository {
         val rangeEnd = resolvedRange.endMillisExclusive.coerceAtMost(nowMillis)
 
         val bucketOpensMap = mutableMapOf<StatsBucket, MutableMap<String, Int>>()
+        val bucketUsageMap = mutableMapOf<StatsBucket, MutableMap<String, Long>>()
         val totalOpensMap = mutableMapOf<String, Int>()
+        val totalUsageMap = mutableMapOf<String, Long>()
 
-        fun isNoisePackage(packageName: String): Boolean {
-            if (packageName.isBlank()) return true
-            val lower = packageName.lowercase()
-            if (lower.contains("launcher") || lower.contains("recents")) return false
-            if (lower.contains("systemui") || lower == "com.vivo.upslide") return true
-            if (lower.contains(".inputmethod") || lower.contains(".ime") || lower.contains("inputmethod")) return true
-            return false
-        }
+        var hasUsageEvents = false
 
         if (rangeEnd > rangeStart) {
             try {
                 val events = usm.queryEvents(rangeStart, rangeEnd)
                 val event = UsageEvents.Event()
-                var lastActivePkg: String? = null
+                var currentForegroundPkg: String? = null
+                var lastResumedTimestamp = 0L
 
                 while (events.hasNextEvent()) {
                     events.getNextEvent(event)
-                    val eventType = event.eventType
-                    val pkg = event.packageName ?: continue
+                    hasUsageEvents = true
                     val t = event.timeStamp
+                    val pkg = event.packageName ?: continue
+                    val eventType = event.eventType
 
-                    when (eventType) {
-                        1 /* MOVE_TO_FOREGROUND */, 15 /* ACTIVITY_RESUMED */ -> {
-                            if (isNoisePackage(pkg)) continue
+                    // 检查事件发生日是否符合星期过滤
+                    val eventDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(t), zoneId).toLocalDate()
+                    val matchesWeekday = weekdayFilter.matches(eventDate.dayOfWeek)
+                    val targetBucket = buckets.find { t >= it.startMillis && t < it.endMillisExclusive }
 
-                            // 只有当前台应用发生真实切换时，才算作一次全新的应用打开
-                            // 同一应用内部各个页面之间的跳转 (lastActivePkg == pkg)，严禁重复计入打开次数
-                            if (pkg != lastActivePkg) {
-                                if (isUserFacingApp(pkg, appInfoMap[pkg])) {
-                                    val bucket = buckets.find { t >= it.startMillis && t < it.endMillisExclusive }
-                                    if (bucket != null) {
-                                        val map = bucketOpensMap.getOrPut(bucket) { mutableMapOf() }
-                                        map[pkg] = (map[pkg] ?: 0) + 1
-                                    }
-                                    totalOpensMap[pkg] = (totalOpensMap[pkg] ?: 0) + 1
-                                }
-                                lastActivePkg = pkg
+                    // 处理前一个主前台 session 的排他结算 (对齐系统原生数字健康亮屏前台口径)
+                    if (currentForegroundPkg != null && lastResumedTimestamp > 0L && t > lastResumedTimestamp) {
+                        // 单次 session 上限 3 小时，防止遗漏 pause 事件导致异常延长
+                        val sessionDuration = (t - lastResumedTimestamp).coerceAtMost(3 * 3600 * 1000L)
+                        val prevDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(lastResumedTimestamp), zoneId).toLocalDate()
+                        val prevMatchesWeekday = weekdayFilter.matches(prevDate.dayOfWeek)
+
+                        if (prevMatchesWeekday) {
+                            val fgPkg = currentForegroundPkg!!
+                            totalUsageMap[fgPkg] = (totalUsageMap[fgPkg] ?: 0L) + sessionDuration
+                            val prevBucket = buckets.find { lastResumedTimestamp >= it.startMillis && lastResumedTimestamp < it.endMillisExclusive }
+                            if (prevBucket != null) {
+                                val map = bucketUsageMap.getOrPut(prevBucket) { mutableMapOf() }
+                                map[fgPkg] = (map[fgPkg] ?: 0L) + sessionDuration
                             }
                         }
-                        16 /* SCREEN_NON_INTERACTIVE */, 17 /* KEYGUARD_SHOWN */ -> {
-                            // 息屏或锁屏，前台会话中断；重新亮屏后再进入应用算作新一次使用
-                            lastActivePkg = null
+                    }
+
+                    when (eventType) {
+                        UsageEvents.Event.ACTIVITY_RESUMED, 1 -> {
+                            if (matchesWeekday) {
+                                if (targetBucket != null) {
+                                    val bMap = bucketOpensMap.getOrPut(targetBucket) { mutableMapOf() }
+                                    bMap[pkg] = (bMap[pkg] ?: 0) + 1
+                                }
+                                totalOpensMap[pkg] = (totalOpensMap[pkg] ?: 0) + 1
+                            }
+                            currentForegroundPkg = pkg
+                            lastResumedTimestamp = t
+                        }
+                        UsageEvents.Event.ACTIVITY_PAUSED, 2,
+                        UsageEvents.Event.ACTIVITY_STOPPED, 23,
+                        UsageEvents.Event.SCREEN_NON_INTERACTIVE, 16 -> {
+                            currentForegroundPkg = null
+                            lastResumedTimestamp = 0L
+                        }
+                        else -> {
+                            // 保持当前状态
+                        }
+                    }
+                }
+
+                // 最后一个活跃 session 结算
+                if (currentForegroundPkg != null && lastResumedTimestamp > 0L && rangeEnd > lastResumedTimestamp) {
+                    val sessionDuration = (rangeEnd - lastResumedTimestamp).coerceAtMost(30 * 60 * 1000L)
+                    val lastDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(lastResumedTimestamp), zoneId).toLocalDate()
+                    if (weekdayFilter.matches(lastDate.dayOfWeek)) {
+                        val fgPkg = currentForegroundPkg!!
+                        totalUsageMap[fgPkg] = (totalUsageMap[fgPkg] ?: 0L) + sessionDuration
+                        val b = buckets.find { lastResumedTimestamp >= it.startMillis && lastResumedTimestamp < it.endMillisExclusive }
+                        if (b != null) {
+                            val map = bucketUsageMap.getOrPut(b) { mutableMapOf() }
+                            map[fgPkg] = (map[fgPkg] ?: 0L) + sessionDuration
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "queryEvents failed: ${e.message}")
+                Log.w(TAG, "queryEvents timeline processing failed: ${e.message}")
             }
         }
 
-        // 逐桶查询真实前台使用时长 & 查询全区间前台时长（杜绝逐桶累加导致的重复倍增）
-        val bucketUsageMap = mutableMapOf<StatsBucket, MutableMap<String, Long>>()
-        val totalUsageMap = mutableMapOf<String, Long>()
+        // 仅在完全没有事件流的异常/老旧设备时，才回退至 queryUsageStats 兜底
+        if (!hasUsageEvents && rangeEnd > rangeStart) {
+            for (b in buckets) {
+                val sDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(b.startMillis), zoneId).toLocalDate()
+                val isFuture = sDate.isAfter(today) || b.startMillis > nowMillis
+                if (isFuture) continue
+                if (!weekdayFilter.matches(sDate.dayOfWeek)) continue
 
-        if (rangeEnd > rangeStart) {
-            try {
-                val overallStats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, rangeStart, rangeEnd)
-                if (overallStats != null) {
-                    for (st in overallStats) {
-                        val pkg = st.packageName
-                        val fgTime = st.totalTimeInForeground
-                        if (fgTime > 0) {
-                            totalUsageMap[pkg] = (totalUsageMap[pkg] ?: 0L) + fgTime
+                val bStart = b.startMillis
+                val bEnd = b.endMillisExclusive.coerceAtMost(nowMillis)
+                if (bEnd <= bStart) continue
+
+                try {
+                    val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, bStart, bEnd)
+                    if (stats != null) {
+                        val map = bucketUsageMap.getOrPut(b) { mutableMapOf() }
+                        for (st in stats) {
+                            val pkg = st.packageName
+                            val fgTime = st.totalTimeInForeground
+                            if (fgTime > 0) {
+                                map[pkg] = (map[pkg] ?: 0L) + fgTime
+                                totalUsageMap[pkg] = (totalUsageMap[pkg] ?: 0L) + fgTime
+                            }
                         }
                     }
+                } catch (e: Exception) {
+                    Log.w(TAG, "queryUsageStats fallback failed for bucket ${b.label}: ${e.message}")
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "queryUsageStats overall failed: ${e.message}")
-            }
-        }
-
-        for (b in buckets) {
-            val sDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(b.startMillis), zoneId).toLocalDate()
-            val isFuture = sDate.isAfter(today) || b.startMillis > nowMillis
-            if (isFuture) continue
-
-            val bStart = b.startMillis
-            val bEnd = b.endMillisExclusive.coerceAtMost(nowMillis)
-            if (bEnd <= bStart) continue
-
-            try {
-                val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, bStart, bEnd)
-                if (stats != null) {
-                    val map = bucketUsageMap.getOrPut(b) { mutableMapOf() }
-                    for (st in stats) {
-                        val pkg = st.packageName
-                        val fgTime = st.totalTimeInForeground
-                        if (fgTime > 0) {
-                            map[pkg] = (map[pkg] ?: 0L) + fgTime
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "queryUsageStats failed for bucket ${b.label}: ${e.message}")
             }
         }
 
@@ -531,7 +767,7 @@ object StatisticsRepository {
             isUserFacingApp(pkg, appInfoMap[pkg])
         }.toSet()
 
-        val allGamePackages = allActivePackages.filter { pkg -> isGame(pkg, appInfoMap[pkg]) }.toSet()
+        val allGamePackages = allActivePackages.filter { pkg -> isGameLocal(pkg, appInfoMap[pkg]) }.toSet()
         val allNonGamePackages = allActivePackages - allGamePackages
 
         // 生成应用列表
@@ -592,7 +828,7 @@ object StatisticsRepository {
                     val opens = totalOpensMap[pkg] ?: 0
                     val millis = totalUsageMap[pkg] ?: 0L
                     if (opens > 0 || millis > 0) {
-                        val isG = isGame(pkg, appInfoMap[pkg])
+                        val isG = isGameLocal(pkg, appInfoMap[pkg])
                         val minutes = (millis / 60_000L).coerceAtLeast(if (millis > 15_000L) 1L else 0L)
                         finalAppList.add(
                             AppUsageItem(
@@ -629,11 +865,15 @@ object StatisticsRepository {
             for (pkg in allActivePackages) {
                 val label = getAppLabel(pkg)
                 if (excludedApps.contains(label) || excludedApps.contains(pkg)) continue
-                if (appViewMode == AppUsageViewMode.CATEGORIZED_GAMES && isGame(pkg, appInfoMap[pkg]) && excludedApps.contains("游戏")) continue
+                if (appViewMode == AppUsageViewMode.CATEGORIZED_GAMES && isGameLocal(pkg, appInfoMap[pkg]) && excludedApps.contains("游戏")) continue
 
                 bucketTotalOpens += bOpens[pkg] ?: 0
                 bucketTotalMillis += bUsage[pkg] ?: 0L
             }
+
+            // 单桶物理时长上限限制（杜绝单日超 24 小时）
+            val bucketMaxMillis = (b.endMillisExclusive - b.startMillis).coerceAtLeast(0L)
+            bucketTotalMillis = bucketTotalMillis.coerceAtMost(bucketMaxMillis)
 
             val minutes = bucketTotalMillis / 60_000f
             AppUsageBucketData(b, bucketTotalOpens, minutes)
@@ -658,13 +898,17 @@ object StatisticsRepository {
                         gOpens += bOpens[gPkg] ?: 0
                         gMillis += bUsage[gPkg] ?: 0L
                     }
+                    val bucketMaxMillis = (b.endMillisExclusive - b.startMillis).coerceAtLeast(0L)
+                    gMillis = gMillis.coerceAtMost(bucketMaxMillis)
                     AppUsageBucketData(b, gOpens, gMillis / 60_000f)
                 } else {
                     val matchingPkg = allActivePackages.firstOrNull { getAppLabel(it) == selectedApp || it == selectedApp }
                     if (matchingPkg != null) {
                         val opens = bOpens[matchingPkg] ?: 0
                         val millis = bUsage[matchingPkg] ?: 0L
-                        AppUsageBucketData(b, opens, millis / 60_000f)
+                        val bucketMaxMillis = (b.endMillisExclusive - b.startMillis).coerceAtLeast(0L)
+                        val clampedMillis = millis.coerceAtMost(bucketMaxMillis)
+                        AppUsageBucketData(b, opens, clampedMillis / 60_000f)
                     } else {
                         AppUsageBucketData(b, 0, 0f)
                     }
@@ -672,13 +916,37 @@ object StatisticsRepository {
             }
         } else null
 
+        // 科学 6 分法分类聚合汇总 (零数据大类自动隐藏)
+        val categorySummaries = AppCategory.values().mapNotNull { cat ->
+            val subApps = finalAppList.filter { app ->
+                if (app.isGameCategory) {
+                    cat == AppCategory.GAME
+                } else {
+                    val info = appInfoMap[app.packageName]
+                    resolveCategoryLocal(app.packageName, info) == cat
+                }
+            }
+            if (subApps.isEmpty()) return@mapNotNull null
+            val catOpens = subApps.sumOf { it.openCount }
+            val catMinutes = subApps.sumOf { it.usageDurationMinutes }
+            if (catOpens == 0 && catMinutes == 0L) return@mapNotNull null
+            CategoryUsageSummary(
+                category = cat,
+                totalUsageMinutes = catMinutes,
+                totalOpenCount = catOpens,
+                appCount = subApps.size,
+                subApps = subApps.sortedByDescending { it.usageDurationMinutes }
+            )
+        }.sortedByDescending { it.totalUsageMinutes }
+
         return AppUsageSummary(
             totalOpens = totalOpens,
             totalUsageMinutes = totalUsageMinutes,
             appList = finalAppList,
             buckets = bucketDataList,
             selectedAppTrendBuckets = selectedTrend,
-            hasUsageAccessPermission = true
+            hasUsageAccessPermission = true,
+            categorySummaries = categorySummaries
         )
     }
 
@@ -779,52 +1047,108 @@ object StatisticsRepository {
         val rulePrefs = try { context.getSharedPreferences("rule_protection_ledger", Context.MODE_PRIVATE) } catch (_: Exception) { null }
         val recentChanges = mutableListOf<RuleProtectionItem>()
 
-        var totalFull = 0
-        var totalPartial = 0
-        var totalEffective = 0
+        var totalFavorable = 0
+        var totalUnfavorable = 0
+        var totalReversed = 0
 
         val bucketDataList = buckets.map { b ->
             val sDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(b.startMillis), zoneId).toLocalDate()
             val isFuture = sDate.isAfter(today) || b.startMillis > nowMillis
 
-            if (isFuture || rulePrefs == null) {
-                return@map RuleProtectionBucketData(
-                    bucket = b,
-                    fullyRestoredCount = 0,
-                    partiallyRestoredCount = 0,
-                    effectiveCount = 0,
-                    pendingCount = if (sDate == today) pendingCount else 0
-                )
+            if (isFuture) {
+                return@map RuleProtectionBucketData(bucket = b)
             }
 
-            val dateKey = sDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-            val bFull = rulePrefs.getInt("rule_${dateKey}_full", 0)
-            val bPartial = rulePrefs.getInt("rule_${dateKey}_partial", 0)
-            val bEffective = rulePrefs.getInt("rule_${dateKey}_effective", 0)
-
-            totalFull += bFull
-            totalPartial += bPartial
-            totalEffective += bEffective
+            val (fav, unfav, rev) = RuleChangeLedger.getCountsForDate(context, sDate)
+            totalFavorable += fav
+            totalUnfavorable += unfav
+            totalReversed += rev
 
             RuleProtectionBucketData(
                 bucket = b,
-                fullyRestoredCount = bFull,
-                partiallyRestoredCount = bPartial,
-                effectiveCount = bEffective,
-                pendingCount = if (sDate == today) pendingCount else 0
+                favorableCount = fav,
+                unfavorableCount = unfav,
+                reversedCount = rev
             )
         }
 
-        val totalLoosen = totalFull + totalPartial + totalEffective
+        val netChange = totalFavorable - totalUnfavorable
+        val recentRecords = RuleChangeLedger.getRecentRecords(context).map { record ->
+            val timeLabel = LocalDateTime.ofInstant(Instant.ofEpochMilli(record.timestamp), zoneId)
+                .format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
+            RuleProtectionItem(
+                id = record.id,
+                timeLabel = timeLabel,
+                ruleName = record.ruleName,
+                editCount = 1,
+                state = when (record.type) {
+                    RuleChangeLedger.ChangeType.FAVORABLE -> RuleRelaxationState.FULLY_RESTORED
+                    RuleChangeLedger.ChangeType.UNFAVORABLE -> RuleRelaxationState.PENDING_RELAXED
+                    RuleChangeLedger.ChangeType.UNFAVORABLE_REVERSED -> RuleRelaxationState.PARTIALLY_RESTORED
+                },
+                stateTitle = when (record.type) {
+                    RuleChangeLedger.ChangeType.FAVORABLE -> "有利改动 (加严)"
+                    RuleChangeLedger.ChangeType.UNFAVORABLE -> "不利改动 (放宽)"
+                    RuleChangeLedger.ChangeType.UNFAVORABLE_REVERSED -> "不利改动撤销"
+                },
+                stateSubTitle = record.detail.ifEmpty { "记录已归档至规则变动账本" }
+            )
+        }
 
         return RuleProtectionSummary(
-            totalLoosenItems = totalLoosen,
-            fullyRestoredCount = totalFull,
-            partiallyRestoredCount = totalPartial,
-            effectiveCount = totalEffective,
-            pendingCount = pendingCount,
+            totalLoosenItems = totalUnfavorable,
+            fullyRestoredCount = totalFavorable,
+            partiallyRestoredCount = totalReversed,
+            effectiveCount = totalUnfavorable,
+            pendingCount = 0,
             buckets = bucketDataList,
-            recentChanges = recentChanges
+            recentChanges = recentRecords,
+            totalFavorable = totalFavorable,
+            totalUnfavorable = totalUnfavorable,
+            totalReversed = totalReversed,
+            netChange = netChange
+        )
+    }
+
+    /**
+     * 获取指定分类的二级下钻明细数据
+     */
+    fun getCategoryDetail(
+        context: Context,
+        category: AppCategory,
+        range: StatsDateRange,
+        resolvedRange: ResolvedDateRange,
+        weekdayFilter: WeekdayFilter,
+        excludedApps: Set<String>
+    ): CategoryDetailData {
+        val appSummary = getAppUsageStats(context, range, resolvedRange, weekdayFilter, AppUsageViewMode.INDIVIDUAL_APPS, excludedApps)
+        val pm = context.packageManager
+        val installed = try { pm.getInstalledApplications(0) } catch (_: Exception) { emptyList() }
+        val appInfoMap = installed.associateBy { it.packageName }
+
+        val subApps = appSummary.appList.filter { app ->
+            resolveCategory(context, app.packageName, appInfoMap[app.packageName]) == category
+        }.sortedByDescending { it.usageDurationMinutes }
+
+        val totalMinutes = subApps.sumOf { it.usageDurationMinutes }
+        val totalOpens = subApps.sumOf { it.openCount }
+
+        val buckets = appSummary.buckets.map { b ->
+            val ratio = if (appSummary.totalUsageMinutes > 0) totalMinutes.toFloat() / appSummary.totalUsageMinutes else 0f
+            val opensRatio = if (appSummary.totalOpens > 0) totalOpens.toFloat() / appSummary.totalOpens else 0f
+            AppUsageBucketData(
+                bucket = b.bucket,
+                openCount = (b.openCount * opensRatio).toInt(),
+                usageMinutes = b.usageMinutes * ratio
+            )
+        }
+
+        return CategoryDetailData(
+            category = category,
+            totalUsageMinutes = totalMinutes,
+            totalOpenCount = totalOpens,
+            buckets = buckets,
+            subApps = subApps
         )
     }
 
@@ -841,9 +1165,6 @@ object StatisticsRepository {
     fun getInstalledApps(context: Context): List<InstalledAppMeta> {
         val pm = context.packageManager
         val installed = try { pm.getInstalledApplications(0) } catch (_: Exception) { emptyList() }
-        val statsPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val customGames = statsPrefs.getStringSet(KEY_CUSTOM_GAMES, emptySet()) ?: emptySet()
-        val customNonGames = statsPrefs.getStringSet(KEY_CUSTOM_NON_GAMES, emptySet()) ?: emptySet()
 
         return installed.filter {
             if (it.packageName == context.packageName) return@filter false
@@ -852,21 +1173,12 @@ object StatisticsRepository {
         }.map { info ->
             val pkg = info.packageName
             val label = try { info.loadLabel(pm).toString() } catch (_: Exception) { pkg }
-            val isG = when {
-                customNonGames.contains(pkg) -> false
-                customGames.contains(pkg) -> true
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info.category == ApplicationInfo.CATEGORY_GAME -> true
-                @Suppress("DEPRECATION") (info.flags and ApplicationInfo.FLAG_IS_GAME) != 0 -> true
-                else -> {
-                    val lower = pkg.lowercase()
-                    listOf("com.tencent.tmgp.", "com.mihoyo.", "com.hypergryph.", "com.netease.", ".game.", ".games.").any { lower.contains(it) }
-                }
-            }
+            val cat = resolveCategory(context, pkg, info)
             InstalledAppMeta(
                 packageName = pkg,
                 appName = label,
-                category = if (isG) "游戏" else "应用",
-                isGame = isG
+                category = cat.displayName,
+                isGame = cat == AppCategory.GAME
             )
         }.sortedBy { it.appName }
     }

@@ -41,9 +41,13 @@ object StatisticsChartRenderer {
     val COLOR_ALARM_TIME: Int = 0xFF2E7D32.toInt() // 计划闹钟时间：亮绿
     val COLOR_ALARM_FINISH: Int = 0xFFEA580C.toInt() // 完成时间/耗时：亮橙
 
-    val COLOR_RULE_FULL: Int = 0xFF2E7D32.toInt() // 完全恢复：亮绿
-    val COLOR_RULE_PARTIAL: Int = 0xFF1976D2.toInt() // 部分恢复：亮蓝
-    val COLOR_RULE_EFFECTIVE: Int = 0xFFEA580C.toInt() // 最终生效：亮橙
+    val COLOR_RULE_FAVORABLE: Int = 0xFF2E7D32.toInt() // 有利改动（加严）：亮绿
+    val COLOR_RULE_UNFAVORABLE: Int = 0xFFEA580C.toInt() // 不利改动（放宽）：亮橙
+    val COLOR_RULE_REVERSED: Int = 0xFF1976D2.toInt() // 撤销不利改动：亮蓝
+
+    val COLOR_RULE_FULL: Int = COLOR_RULE_FAVORABLE // 兼容旧别名
+    val COLOR_RULE_PARTIAL: Int = COLOR_RULE_REVERSED // 兼容旧别名
+    val COLOR_RULE_EFFECTIVE: Int = COLOR_RULE_UNFAVORABLE // 兼容旧别名
 
     private fun withAlpha(color: Int, alpha: Int): Int =
         Color.argb(alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color))
@@ -472,15 +476,14 @@ object StatisticsChartRenderer {
             applyXAxisDecimation(barChart.xAxis, labels)
 
             val entries = buckets.mapIndexed { index, b ->
-                BarEntry(index.toFloat(), floatArrayOf(
-                    b.fullyRestoredCount.toFloat(),
-                    b.partiallyRestoredCount.toFloat(),
-                    b.effectiveCount.toFloat()
-                ))
+                val fav = b.favorableCount.toFloat()
+                val rev = b.reversedCount.toFloat()
+                val unfav = -b.unfavorableCount.toFloat()
+                BarEntry(index.toFloat(), floatArrayOf(fav, rev, unfav))
             }
 
             val dataSet = BarDataSet(entries, "").apply {
-                colors = listOf(COLOR_RULE_FULL, COLOR_RULE_PARTIAL, COLOR_RULE_EFFECTIVE)
+                colors = listOf(COLOR_RULE_FAVORABLE, COLOR_RULE_REVERSED, COLOR_RULE_UNFAVORABLE)
                 setDrawValues(false)
             }
 
@@ -488,12 +491,25 @@ object StatisticsChartRenderer {
                 barWidth = if (buckets.size > 7) 0.55f else 0.45f
             }
 
+            val maxPos = buckets.maxOfOrNull { it.favorableCount + it.reversedCount }?.coerceAtLeast(1) ?: 1
+            val maxNeg = buckets.maxOfOrNull { it.unfavorableCount }?.coerceAtLeast(1) ?: 1
+            val maxLimit = maxOf(maxPos, maxNeg) + 1
+
             barChart.axisLeft.apply {
-                axisMinimum = 0f
+                resetAxisMinimum()
+                resetAxisMaximum()
+                axisMinimum = -maxLimit.toFloat()
+                axisMaximum = maxLimit.toFloat()
+                setDrawZeroLine(true)
+                zeroLineWidth = 1.5f
+                zeroLineColor = ThemeManager.getColorAttr(context, R.attr.zzText)
                 granularity = 1f
                 isGranularityEnabled = true
                 valueFormatter = object : ValueFormatter() {
-                    override fun getFormattedValue(value: Float): String = "${value.toInt()}项"
+                    override fun getFormattedValue(value: Float): String {
+                        val v = value.toInt()
+                        return if (v > 0) "+$v" else "$v"
+                    }
                 }
             }
             barChart.invalidate()
@@ -503,9 +519,9 @@ object StatisticsChartRenderer {
             setupCommonChart(lineChart, context)
             applyXAxisDecimation(lineChart.xAxis, labels)
 
-            val fullEntries = buckets.mapIndexed { index, b -> Entry(index.toFloat(), b.fullyRestoredCount.toFloat()) }
-            val partialEntries = buckets.mapIndexed { index, b -> Entry(index.toFloat(), b.partiallyRestoredCount.toFloat()) }
-            val effectiveEntries = buckets.mapIndexed { index, b -> Entry(index.toFloat(), b.effectiveCount.toFloat()) }
+            val favEntries = buckets.mapIndexed { index, b -> Entry(index.toFloat(), b.favorableCount.toFloat()) }
+            val unfavEntries = buckets.mapIndexed { index, b -> Entry(index.toFloat(), b.unfavorableCount.toFloat()) }
+            val revEntries = buckets.mapIndexed { index, b -> Entry(index.toFloat(), b.reversedCount.toFloat()) }
 
             fun createLine(entries: List<Entry>, color: Int): LineDataSet {
                 return LineDataSet(entries, "").apply {
@@ -518,9 +534,9 @@ object StatisticsChartRenderer {
             }
 
             lineChart.data = LineData(
-                createLine(fullEntries, COLOR_RULE_FULL),
-                createLine(partialEntries, COLOR_RULE_PARTIAL),
-                createLine(effectiveEntries, COLOR_RULE_EFFECTIVE)
+                createLine(favEntries, COLOR_RULE_FAVORABLE),
+                createLine(unfavEntries, COLOR_RULE_UNFAVORABLE),
+                createLine(revEntries, COLOR_RULE_REVERSED)
             )
 
             lineChart.axisLeft.apply {
@@ -534,4 +550,14 @@ object StatisticsChartRenderer {
             lineChart.invalidate()
         }
     }
+
+    /**
+     * 规则变动图表别名
+     */
+    fun renderRuleChangeChart(
+        barChart: BarChart,
+        lineChart: LineChart,
+        summary: RuleProtectionSummary,
+        context: Context
+    ) = renderRuleProtectionChart(barChart, lineChart, summary, context)
 }

@@ -28,6 +28,7 @@ import android.util.Log
 import com.zhizhi.app.data.CrashRecorder
 import com.zhizhi.app.data.LogExporter
 import com.zhizhi.app.manager.AlarmScheduler
+import com.zhizhi.app.manager.AutoBackupManager
 import com.zhizhi.app.manager.CreditManager
 import com.zhizhi.app.manager.PrivacyConsentManager
 import com.zhizhi.app.manager.RecentTasksHideManager
@@ -221,6 +222,13 @@ class MyApplication : Application() {
 
         // 🚀 [Log] Initialize LogExporter with app context for disk-persistent logging
         LogExporter.init(this)
+
+        // 🚀 [Auto Backup] 新装/重装首次启动静默恢复外部备份快照
+        try {
+            AutoBackupManager.checkAndRestoreIfNeeded(this)
+        } catch (e: Exception) {
+            Log.w("IronWill", "MyApplication: checkAndRestoreIfNeeded failed: ${e.message}")
+        }
 
         // 🚀 启动时清理无障碍保护模块历史脏 key
         // 历史版本曾在 ConfigPendingManager 中写入 "a11y_service_self_pending"

@@ -16,7 +16,8 @@ data class CustomQuestion(
     val hint: String = "",                  // 提示文本（可选，仅当用户显式输入「提示:」时存在，绝不能把答案当成提示）
     val wrongCount: Int = 0,                // 累计答错次数
     val lastAttemptStatus: String? = null,  // 最近一次作答状态: "correct", "wrong", "skipped"
-    val lastAttemptAt: Long = 0L            // 最近一次作答时间戳
+    val lastAttemptAt: Long = 0L,           // 最近一次作答时间戳
+    val isFavorite: Boolean = false         // 是否已加入收藏
 ) {
     /** 获取正确答案对应的选项内容文本 */
     fun getAnswerContent(): String {
@@ -45,6 +46,9 @@ data class CustomQuestionBank(
 ) {
     /** 统计错题数量（做错至少1次的题目） */
     val mistakeCount: Int get() = questions.count { it.wrongCount > 0 }
+
+    /** 统计收藏题目数量 */
+    val favoriteCount: Int get() = questions.count { it.isFavorite }
 }
 
 /**

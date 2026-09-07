@@ -131,6 +131,7 @@ class ConsumePenaltySecondsEpisodeTest {
                 usableCountLimitHalfUnits = 4
             )
         )
+        TimeRuleManager.saveRefreshTime(context, String.format(java.util.Locale.US, "%02d:%02d", curH, curM))
         TimeRuleManager.saveTimeSegments(context, segs)
         // Reset the segments cache so the new save is picked up.
         TimeRuleManager.invalidateSegmentsCache()

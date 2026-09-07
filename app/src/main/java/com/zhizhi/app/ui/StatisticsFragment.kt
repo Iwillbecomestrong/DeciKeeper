@@ -26,8 +26,11 @@ import com.zhizhi.app.data.statistics.StatsSection
 import com.zhizhi.app.data.statistics.StatisticsUiState
 import com.zhizhi.app.manager.statistics.StatisticsRepository
 import com.zhizhi.app.manager.statistics.StatsDateRangeResolver
+import com.zhizhi.app.ui.statistics.AppCategoryDetailActivity
+import com.zhizhi.app.ui.statistics.StatsFilterActivity
 import com.zhizhi.app.ui.statistics.StatisticsChartRenderer
 import com.zhizhi.app.ui.statistics.StatisticsFilterBottomSheet
+import java.time.DayOfWeek
 
 /**
  * 知止 (ZhiZhi) 统计页
@@ -251,20 +254,13 @@ class StatisticsFragment : Fragment() {
         }
 
         btnOpenFilter.setOnClickListener {
-            filterBottomSheet.showConditionFilter(uiState.weekdayFilter, uiState.excludedApps) { newFilter, newExcluded ->
-                uiState = uiState.copy(
-                    weekdayFilter = newFilter,
-                    excludedApps = newExcluded,
-                    selectedAppPackage = if (uiState.selectedAppPackage in newExcluded) null else uiState.selectedAppPackage
-                )
-                refreshStats()
-            }
+            StatsFilterActivity.start(this, 1002, uiState.weekdayFilter, uiState.excludedApps)
         }
 
         tabRest.setOnClickListener { switchSection(StatsSection.REST) }
         tabAlarm.setOnClickListener { switchSection(StatsSection.ALARM) }
         tabApps.setOnClickListener { switchSection(StatsSection.APPS) }
-        tabRules.setOnClickListener { switchSection(StatsSection.RULE_PROTECTION) }
+        tabRules.setOnClickListener { switchSection(StatsSection.RULE_CHANGE) }
 
         btnGrantUsagePermission.setOnClickListener {
             try {
@@ -289,6 +285,23 @@ class StatisticsFragment : Fragment() {
         }
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 1002 && resultCode == android.app.Activity.RESULT_OK && data != null) {
+            val dowsList = data.getIntegerArrayListExtra(StatsFilterActivity.EXTRA_ACTIVE_DOWS)
+            val dows = dowsList?.map { DayOfWeek.of(it) }?.toSet() ?: DayOfWeek.values().toSet()
+            val excluded = data.getStringArrayListExtra(StatsFilterActivity.EXTRA_EXCLUDED_APPS)?.toSet() ?: emptySet()
+
+            uiState = uiState.copy(
+                weekdayFilter = com.zhizhi.app.data.statistics.WeekdayFilter(dows),
+                excludedApps = excluded,
+                selectedAppPackage = if (uiState.selectedAppPackage in excluded) null else uiState.selectedAppPackage
+            )
+            refreshStats()
+        }
+    }
+
     private fun switchSection(section: StatsSection) {
         if (uiState.section != section) {
             uiState = uiState.copy(section = section)
@@ -302,11 +315,11 @@ class StatisticsFragment : Fragment() {
             tabRest to StatsSection.REST,
             tabAlarm to StatsSection.ALARM,
             tabApps to StatsSection.APPS,
-            tabRules to StatsSection.RULE_PROTECTION
+            tabRules to StatsSection.RULE_CHANGE
         )
 
         tabs.forEach { (btn, sec) ->
-            val isSelected = uiState.section == sec
+            val isSelected = uiState.section == sec || (sec == StatsSection.RULE_CHANGE && uiState.section == StatsSection.RULE_PROTECTION)
             btn.backgroundTintList = null
             btn.setBackgroundResource(if (isSelected) R.drawable.bg_zz_option_btn_selected else R.drawable.bg_zz_option_btn)
             btn.setTextColor(if (isSelected) Color.WHITE else ThemeManager.getColorAttr(ctx, R.attr.zzText))
@@ -330,7 +343,7 @@ class StatisticsFragment : Fragment() {
             StatsSection.REST -> renderRest(resolvedRange)
             StatsSection.ALARM -> renderAlarm(resolvedRange)
             StatsSection.APPS -> renderApps(resolvedRange)
-            StatsSection.RULE_PROTECTION -> renderRules(resolvedRange)
+            StatsSection.RULE_CHANGE, StatsSection.RULE_PROTECTION -> renderRules(resolvedRange)
         }
     }
 
@@ -524,13 +537,94 @@ class StatisticsFragment : Fragment() {
         btnAppViewIndividual.setTextColor(if (!isCat) Color.WHITE else ThemeManager.getColorAttr(ctx, R.attr.zzText))
         btnAppViewIndividual.paint.isFakeBoldText = true
 
+        btnAppViewCategorized.text = "行为大类汇总"
+        btnAppViewIndividual.text = "单应用真实排行"
+
         if (summary.appList.isEmpty()) {
             tvAppListEmpty.isVisible = true
             tvAppListEmpty.text = if (!summary.hasUsageAccessPermission) "请先授权「使用情况访问权限」以加载应用真实统计" else "当前时间段内暂无应用使用记录"
             layoutRankBars.removeAllViews()
             layoutAppList.removeAllViews()
-            tvAppRankTitle.text = if (isCount) "打开次数排行" else "使用时长排行"
+            tvAppRankTitle.text = if (isCat) "行为大类使用概览" else if (isCount) "打开次数排行" else "使用时长排行"
+        } else if (isCat) {
+            tvAppListEmpty.isVisible = false
+            tvAppRankTitle.text = if (isCount) "行为大类打开次数排行 (点击下钻)" else "行为大类使用时长排行 (点击下钻)"
+
+            // 排行条：按 6 大分类展示
+            val sortedCategories = summary.categorySummaries.sortedByDescending {
+                if (isCount) it.totalOpenCount.toLong() else it.totalUsageMinutes
+            }
+            layoutRankBars.removeAllViews()
+            val maxCatVal = sortedCategories.maxOfOrNull {
+                if (isCount) it.totalOpenCount.toLong() else it.totalUsageMinutes
+            }?.coerceAtLeast(1L) ?: 1L
+
+            sortedCategories.filter { it.totalUsageMinutes > 0 || it.totalOpenCount > 0 }.forEach { catSummary ->
+                val v = layoutInflater.inflate(R.layout.item_stats_app_rank, layoutRankBars, false)
+                val name = v.findViewById<TextView>(R.id.tv_rank_name)
+                val fill = v.findViewById<View>(R.id.v_rank_fill)
+                val valText = v.findViewById<TextView>(R.id.tv_rank_value)
+
+                val curVal = if (isCount) catSummary.totalOpenCount.toLong() else catSummary.totalUsageMinutes
+                name.text = "${catSummary.category.icon} ${catSummary.category.displayName}"
+                valText.text = if (isCount) "$curVal 次" else StatisticsChartRenderer.formatDuration(curVal)
+
+                fill.post {
+                    val parentWidth = (fill.parent as View).width
+                    val targetW = (parentWidth * (curVal.toFloat() / maxCatVal)).toInt()
+                    fill.layoutParams.width = targetW
+                    fill.requestLayout()
+                }
+
+                v.setOnClickListener {
+                    AppCategoryDetailActivity.start(
+                        requireContext(),
+                        catSummary.category,
+                        uiState.range,
+                        uiState.weekdayFilter,
+                        uiState.excludedApps
+                    )
+                }
+                layoutRankBars.addView(v)
+            }
+
+            // 列表：分类明细卡片
+            layoutAppList.removeAllViews()
+            sortedCategories.forEach { catSummary ->
+                val v = layoutInflater.inflate(R.layout.item_stats_app_row, layoutAppList, false)
+                val root = v.findViewById<View>(R.id.ll_app_row)
+                val icon = v.findViewById<TextView>(R.id.tv_app_icon)
+                val name = v.findViewById<TextView>(R.id.tv_app_name)
+                val cat = v.findViewById<TextView>(R.id.tv_app_category)
+                val opens = v.findViewById<TextView>(R.id.tv_app_opens)
+                val duration = v.findViewById<TextView>(R.id.tv_app_duration)
+                val btnExclude = v.findViewById<Button>(R.id.btn_exclude_app)
+
+                icon.text = catSummary.category.icon
+                name.text = catSummary.category.displayName
+                cat.text = "${catSummary.appCount} 款应用"
+                opens.text = "${catSummary.totalOpenCount} 次"
+                duration.text = StatisticsChartRenderer.formatDuration(catSummary.totalUsageMinutes)
+
+                btnExclude.text = "下钻 >"
+                btnExclude.setTextColor(ThemeManager.getColorAttr(ctx, seasonalAccentAttr))
+
+                val openDetail = View.OnClickListener {
+                    AppCategoryDetailActivity.start(
+                        requireContext(),
+                        catSummary.category,
+                        uiState.range,
+                        uiState.weekdayFilter,
+                        uiState.excludedApps
+                    )
+                }
+                root.setOnClickListener(openDetail)
+                btnExclude.setOnClickListener(openDetail)
+
+                layoutAppList.addView(v)
+            }
         } else {
+            // INDIVIDUAL_APPS: 单应用真实排行
             tvAppListEmpty.isVisible = false
             tvAppRankTitle.text = if (isCount) "打开次数排行" else "使用时长排行"
 
@@ -583,6 +677,7 @@ class StatisticsFragment : Fragment() {
                     refreshStats()
                 }
 
+                btnExclude.text = "排除"
                 btnExclude.setOnClickListener {
                     val newEx = uiState.excludedApps.toMutableSet()
                     newEx.add(app.appName)
@@ -598,7 +693,11 @@ class StatisticsFragment : Fragment() {
 
         cardSecondary.isVisible = true
         tvSecondaryTitle.text = "当前应用统计口径"
-        tvSecondaryDesc.text = if (isCat) "当前为「分类汇总模式」：手机上所有的游戏已自动合并为一项「游戏」大类统计；其他常用应用保持独立排行。" else "当前为「单应用排行模式」：手机所有已使用应用（包括各个独立游戏）均按真实时长由高到低完整展开展示。"
+        tvSecondaryDesc.text = if (isCat) {
+            "当前为「行为大类汇总模式」：按照社交通讯、游戏、视频娱乐、音乐音频、AI与效率、系统与工具 6 大行为大类归类展示。点击任意分类可进入下钻二级详情页，查看该分类下每一款具体应用的明细与占比。"
+        } else {
+            "当前为「单应用真实排行模式」：手机所有已使用应用均按真实时长/次数由高到低完整展开展示。"
+        }
     }
 
     // ==========================================
@@ -728,19 +827,21 @@ class StatisticsFragment : Fragment() {
     }
 
     // ==========================================
-    // 4. 规则保护页渲染 (真实 baseline/pending 记录)
+    // 4. 规则变动页渲染 (真实 规则加严/放宽/撤销 记录)
     // ==========================================
     private fun renderRules(resolvedRange: ResolvedDateRange) {
         val ctx = context ?: return
         val summary = StatisticsRepository.getRuleProtectionStats(ctx, uiState.range, resolvedRange, uiState.weekdayFilter)
 
         layoutUsagePermissionWarning.isVisible = false
-        tvCardTitle.text = "防破防"
+        tvCardTitle.text = "规则变动"
         tvCardSubtitle.text = "${resolvedRange.displayName} · ${resolvedRange.dateSubText} · ${uiState.weekdayFilter.summaryText()}"
-        tvCardBadge.text = if (summary.totalLoosenItems == 0) "无放宽记录" else "放宽 ${summary.totalLoosenItems} 次"
+        
+        val netSign = if (summary.netChange > 0) "+${summary.netChange}" else "${summary.netChange}"
+        tvCardBadge.text = "净变动 $netSign"
 
         layoutRuleHero.isVisible = true
-        tvRuleHeroCount.text = "${summary.fullyRestoredCount + summary.partiallyRestoredCount}"
+        tvRuleHeroCount.text = "$netSign 项"
 
         gridKpis.isVisible = true
         kpiCard1.isVisible = true
@@ -748,41 +849,41 @@ class StatisticsFragment : Fragment() {
         kpiCard3.isVisible = true
         kpiCard4.isVisible = true
 
-        tvKpiTitle1.text = "完全恢复"
-        tvKpiVal1.text = "${summary.fullyRestoredCount} 项"
-        tvKpiSub1.text = "已回到原边界"
+        tvKpiTitle1.text = "有利改动"
+        tvKpiVal1.text = "${summary.totalFavorable} 项"
+        tvKpiSub1.text = "主动加严"
 
-        tvKpiTitle2.text = "部分恢复"
-        tvKpiVal2.text = "${summary.partiallyRestoredCount} 项"
-        tvKpiSub2.text = "收回部分放宽"
+        tvKpiTitle2.text = "不利改动"
+        tvKpiVal2.text = "${summary.totalUnfavorable} 项"
+        tvKpiSub2.text = "放宽约束"
 
-        tvKpiTitle3.text = "已正式生效"
-        tvKpiVal3.text = "${summary.effectiveCount} 项"
-        tvKpiSub3.text = "等待后放宽"
+        tvKpiTitle3.text = "不利改动撤销"
+        tvKpiVal3.text = "${summary.totalReversed} 项"
+        tvKpiSub3.text = "冷静期内撤回"
 
-        tvKpiTitle4.text = "等待生效中"
-        tvKpiVal4.text = "${summary.pendingCount} 项"
-        tvKpiSub4.text = "处于缓冲期"
+        tvKpiTitle4.text = "规则净变动"
+        tvKpiVal4.text = "$netSign 项"
+        tvKpiSub4.text = if (summary.netChange >= 0) "自我约束持续收紧" else "近期约束趋向放宽"
 
         layoutMetricToggle.isVisible = false
-        tvChartTitle.text = "放宽尝试与恢复趋势"
+        tvChartTitle.text = "规则变动趋势"
         val chartType = StatsDateRangeResolver.chooseChartType(summary.buckets.size)
-        tvChartTypeHint.text = if (chartType == com.zhizhi.app.data.statistics.ChartType.LINE) "累加折线图" else "堆叠柱状图"
+        tvChartTypeHint.text = if (chartType == com.zhizhi.app.data.statistics.ChartType.LINE) "多维折线图" else "0轴净变动柱状图"
 
         layoutLegend.isVisible = true
         legendItem1.isVisible = true
         legendItem2.isVisible = true
         legendItem3.isVisible = true
-        dotLegend1.setBackgroundColor(StatisticsChartRenderer.COLOR_RULE_FULL)
-        tvLegend1.text = "完全恢复"
-        dotLegend2.setBackgroundColor(StatisticsChartRenderer.COLOR_RULE_PARTIAL)
-        tvLegend2.text = "部分恢复"
-        dotLegend3.setBackgroundColor(StatisticsChartRenderer.COLOR_RULE_EFFECTIVE)
-        tvLegend3.text = "已生效"
+        dotLegend1.setBackgroundColor(StatisticsChartRenderer.COLOR_RULE_FAVORABLE)
+        tvLegend1.text = "有利改动"
+        dotLegend2.setBackgroundColor(StatisticsChartRenderer.COLOR_RULE_UNFAVORABLE)
+        tvLegend2.text = "不利改动"
+        dotLegend3.setBackgroundColor(StatisticsChartRenderer.COLOR_RULE_REVERSED)
+        tvLegend3.text = "撤销不利改动"
 
         StatisticsChartRenderer.renderRuleProtectionChart(chartBar, chartLine, summary, ctx)
 
-        tvChartNote.text = "规则保护重点衡量“冲动放宽被拦住/恢复”的比例。柱状图堆叠展示完全恢复、部分恢复和最终放宽生效项。"
+        tvChartNote.text = "0 轴上方为有利改动（加严）与挽救撤销，下方为不利改动（放宽）。柱体直观反映各时段规则约束的净走向。"
 
         layoutAppsExtra.isVisible = false
         layoutAlarmExtra.isVisible = false
@@ -806,7 +907,7 @@ class StatisticsFragment : Fragment() {
 
                 time.text = item.timeLabel
                 name.text = item.ruleName
-                edits.text = "${item.editCount} 次修改"
+                edits.text = "${item.editCount} 次变动"
                 state.text = item.stateTitle
                 substate.text = item.stateSubTitle
                 layoutRulesRecentList.addView(v)
@@ -814,7 +915,7 @@ class StatisticsFragment : Fragment() {
         }
 
         cardSecondary.isVisible = true
-        tvSecondaryTitle.text = "规则保护口径"
-        tvSecondaryDesc.text = "只要修改后重新收紧即算作挽救成功。冲动期内的多次微调合并为同一次放宽尝试。"
+        tvSecondaryTitle.text = "规则变动统计口径"
+        tvSecondaryDesc.text = "加严约束计为有利改动，放宽约束计为不利改动；冷静期内撤销放宽记为挽救撤销。0 轴净变动柱状图直观呈现防沉迷纪律的坚固程度。"
     }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.zhizhi.app.data.questionbank.CustomQuestion
 import com.zhizhi.app.data.questionbank.CustomQuestionBank
+import com.zhizhi.app.manager.AutoBackupManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -159,6 +160,55 @@ object CustomQuestionBankManager {
     }
 
     /**
+     * 切换题目的收藏状态
+     * @return 切换后的最新收藏状态
+     */
+    @Synchronized
+    fun toggleFavorite(context: Context, bankId: String, questionId: String): Boolean {
+        val bank = getBank(context, bankId) ?: return false
+        var newFavState = false
+        val updatedQuestions = bank.questions.map { q ->
+            if (q.id == questionId) {
+                newFavState = !q.isFavorite
+                q.copy(isFavorite = newFavState)
+            } else {
+                q
+            }
+        }
+        saveBank(context, bank.copy(questions = updatedQuestions))
+        return newFavState
+    }
+
+    /**
+     * 显式设置题目的收藏状态
+     */
+    @Synchronized
+    fun setFavorite(context: Context, bankId: String, questionId: String, isFavorite: Boolean) {
+        val bank = getBank(context, bankId) ?: return
+        val updatedQuestions = bank.questions.map { q ->
+            if (q.id == questionId) q.copy(isFavorite = isFavorite) else q
+        }
+        saveBank(context, bank.copy(questions = updatedQuestions))
+    }
+
+    /**
+     * 获取所有题库中已收藏的全部题目
+     */
+    @Synchronized
+    fun getAllFavorites(context: Context): List<Pair<CustomQuestionBank, CustomQuestion>> {
+        val banks = getBanks(context)
+        val result = mutableListOf<Pair<CustomQuestionBank, CustomQuestion>>()
+        for (b in banks) {
+            for (q in b.questions) {
+                if (q.isFavorite) {
+                    result.add(b to q)
+                }
+            }
+        }
+        return result
+    }
+
+    /**
      * 清空内存与磁盘（测试用）
      */
     @Synchronized
@@ -199,8 +249,50 @@ object CustomQuestionBankManager {
                 array.put(bankToJson(bank))
             }
             getFile(context).writeText(array.toString())
+            AutoBackupManager.triggerDebouncedBackup(context)
         } catch (e: Exception) {
             Log.e(TAG, "保存题库到磁盘失败", e)
+        }
+    }
+
+    @Synchronized
+    fun exportToJson(context: Context): String? {
+        val file = getFile(context)
+        if (file.exists()) {
+            return try {
+                file.readText()
+            } catch (e: Exception) {
+                Log.e(TAG, "导出题库失败", e)
+                null
+            }
+        }
+        if (memoryBanks.isNotEmpty()) {
+            val array = JSONArray()
+            for (bank in memoryBanks) {
+                array.put(bankToJson(bank))
+            }
+            return array.toString()
+        }
+        return null
+    }
+
+    @Synchronized
+    fun importFromJson(context: Context, json: String): Boolean {
+        return try {
+            val array = JSONArray(json)
+            val banks = mutableListOf<CustomQuestionBank>()
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                banks.add(bankFromJson(obj))
+            }
+            memoryBanks.clear()
+            memoryBanks.addAll(banks)
+            isLoaded = true
+            persistToDisk(context)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "导入题库失败", e)
+            false
         }
     }
 
@@ -226,6 +318,7 @@ object CustomQuestionBankManager {
             qObj.put("wrongCount", q.wrongCount)
             qObj.put("lastAttemptStatus", q.lastAttemptStatus ?: "")
             qObj.put("lastAttemptAt", q.lastAttemptAt)
+            qObj.put("isFavorite", q.isFavorite)
             qArr.put(qObj)
         }
         obj.put("questions", qArr)
@@ -257,7 +350,8 @@ object CustomQuestionBankManager {
                         hint = qObj.optString("hint", ""),
                         wrongCount = qObj.optInt("wrongCount", 0),
                         lastAttemptStatus = if (statusStr.isEmpty()) null else statusStr,
-                        lastAttemptAt = qObj.optLong("lastAttemptAt", 0L)
+                        lastAttemptAt = qObj.optLong("lastAttemptAt", 0L),
+                        isFavorite = qObj.optBoolean("isFavorite", false)
                     )
                 )
             }

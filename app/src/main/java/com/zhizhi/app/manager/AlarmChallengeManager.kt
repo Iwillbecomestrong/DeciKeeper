@@ -855,6 +855,22 @@ object AlarmChallengeManager {
         }
     }
 
+    /** 检查某道题（或题目的特定单词）是否已收藏 */
+    fun isClozeBookmarked(context: Context, clozeId: String, word: String? = null): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_BOOKMARKS, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_BOOKMARK_CLOZES, "[]") ?: "[]"
+        val arr = JSONArray(raw)
+        val bwKey = word?.takeIf { it.isNotEmpty() } ?: ""
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+            if (obj.optString("clozeId", "") == clozeId) {
+                if (bwKey.isEmpty()) return true
+                if (obj.optString("bw", "").equals(bwKey, ignoreCase = true)) return true
+            }
+        }
+        return false
+    }
+
     /**
      * 删除某条 cloze 收藏（按 clozeId + bookmarkedWord 唯一定位）。
      * - 允许 bw="" 删除整题收藏
@@ -1280,6 +1296,42 @@ object AlarmChallengeManager {
         val nextLabel = if (quality >= 3) formatNextReview(newIntervalDays) else formatNextReviewRetry()
         Log.d(TAG, "书签 单词: $word | quality=$quality | nextReview=$nextLabel")
     }
+
+    fun isPoemBookmarked(context: Context, display: String, answer: String): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_BOOKMARKS, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_BOOKMARK_POEMS, "[]") ?: "[]"
+        val arr = JSONArray(raw)
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+            if (obj.optString("display", "") == display && obj.optString("answer", "") == answer) return true
+        }
+        return false
+    }
+
+    fun removeBookmarkedPoem(context: Context, display: String, answer: String) {
+        val prefs = context.getSharedPreferences(PREFS_BOOKMARKS, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_BOOKMARK_POEMS, "[]") ?: "[]"
+        val arr = JSONArray(raw)
+        val newArr = JSONArray()
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+            if (obj.optString("display", "") == display && obj.optString("answer", "") == answer) continue
+            newArr.put(obj)
+        }
+        prefs.edit().putString(KEY_BOOKMARK_POEMS, newArr.toString()).apply()
+    }
+
+    fun isWordBookmarked(context: Context, word: String): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_BOOKMARKS, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_BOOKMARK_WORDS, "[]") ?: "[]"
+        val arr = JSONArray(raw)
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+            if (obj.optString("word", "").equals(word, ignoreCase = true)) return true
+        }
+        return false
+    }
+
 
     /**
      * 收藏时间过滤窗口：返回 -1 表示"全部"。

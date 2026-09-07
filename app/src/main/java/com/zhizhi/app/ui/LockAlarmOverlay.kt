@@ -576,8 +576,9 @@ internal object LockAlarmOverlayController {
         val dangerColor = ThemeManager.getColorAttr(ctx, R.attr.zzDanger)
         val successColor = ThemeManager.getColorAttr(ctx, R.attr.zzSuccess)
 
-        // 1. 根容器背景
-        view.findViewById<View>(R.id.root_container)?.setBackgroundColor(pageBg)
+        // 1. 根容器背景 (必须是不透明实体色，绝不允许透明)
+        val safePageBg = if (pageBg != 0 && pageBg != Color.TRANSPARENT) pageBg else ThemeManager.getColorAttr(ctx, R.attr.zzPageBg)
+        view.findViewById<View>(R.id.root_container)?.setBackgroundColor(safePageBg)
 
         // 2. 标题与提示文字
         view.findViewById<TextView>(R.id.tv_alarm_title)?.setTextColor(textColor)
@@ -720,7 +721,7 @@ internal object LockAlarmOverlayController {
 
     private fun initAlarmUI() {
         val view = LockWindowManager.getAlarmView() ?: return
-        val effectiveCtx = LockWindowManager.getAlarmContext() ?: view.context
+        val effectiveCtx = view.context
         applyThemeToAlarmView(view, effectiveCtx)
         val cvQr = view.findViewById<View>(R.id.cv_alarm_qr)
         val cvMath = view.findViewById<View>(R.id.cv_alarm_math)

@@ -25,12 +25,15 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
         const val EXTRA_ONLY_MISTAKES = "extra_only_mistakes"
     }
 
+    enum class FilterMode { ALL, MISTAKES, FAVORITES }
+
     private var targetBankId: String? = null
-    private var onlyMistakes: Boolean = false
+    private var filterMode: FilterMode = FilterMode.ALL
 
     private lateinit var tvTitle: TextView
     private lateinit var btnTabAll: Button
     private lateinit var btnTabMistakes: Button
+    private lateinit var btnTabFavorites: Button
     private lateinit var tvCountSummary: TextView
     private lateinit var layoutEmpty: LinearLayout
     private lateinit var tvEmptyText: TextView
@@ -42,11 +45,15 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
         setContentView(R.layout.activity_custom_question_review)
 
         targetBankId = intent.getStringExtra(EXTRA_BANK_ID)
-        onlyMistakes = intent.getBooleanExtra(EXTRA_ONLY_MISTAKES, false)
+        val onlyMistakes = intent.getBooleanExtra(EXTRA_ONLY_MISTAKES, false)
+        if (onlyMistakes) {
+            filterMode = FilterMode.MISTAKES
+        }
 
         tvTitle = findViewById(R.id.tv_title)
         btnTabAll = findViewById(R.id.btn_tab_all)
         btnTabMistakes = findViewById(R.id.btn_tab_mistakes)
+        btnTabFavorites = findViewById(R.id.btn_tab_favorites)
         tvCountSummary = findViewById(R.id.tv_count_summary)
         layoutEmpty = findViewById(R.id.layout_empty)
         tvEmptyText = findViewById(R.id.tv_empty_text)
@@ -59,17 +66,23 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
             val bank = CustomQuestionBankManager.getBanks(this).find { it.id == targetBankId }
             tvTitle.text = bank?.title ?: "题库回顾"
         } else {
-            tvTitle.text = if (onlyMistakes) "错题回顾" else "全部题库回顾"
+            tvTitle.text = if (filterMode == FilterMode.MISTAKES) "错题回顾" else "题库回顾"
         }
 
         btnTabAll.setOnClickListener {
-            onlyMistakes = false
+            filterMode = FilterMode.ALL
             updateTabStyle()
             renderList()
         }
 
         btnTabMistakes.setOnClickListener {
-            onlyMistakes = true
+            filterMode = FilterMode.MISTAKES
+            updateTabStyle()
+            renderList()
+        }
+
+        btnTabFavorites.setOnClickListener {
+            filterMode = FilterMode.FAVORITES
             updateTabStyle()
             renderList()
         }
@@ -85,23 +98,20 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
     }
 
     private fun updateTabStyle() {
-        if (!onlyMistakes) {
-            btnTabAll.backgroundTintList = ColorStateList.valueOf(attrColor(R.attr.zzAccent))
-            btnTabAll.setTextColor(Color.WHITE)
-            btnTabAll.paint.isFakeBoldText = true
-
-            btnTabMistakes.backgroundTintList = ColorStateList.valueOf(attrColor(R.attr.zzSurface2))
-            btnTabMistakes.setTextColor(attrColor(R.attr.zzText))
-            btnTabMistakes.paint.isFakeBoldText = true
-        } else {
-            btnTabMistakes.backgroundTintList = ColorStateList.valueOf(attrColor(R.attr.zzAccent))
-            btnTabMistakes.setTextColor(Color.WHITE)
-            btnTabMistakes.paint.isFakeBoldText = true
-
-            btnTabAll.backgroundTintList = ColorStateList.valueOf(attrColor(R.attr.zzSurface2))
-            btnTabAll.setTextColor(attrColor(R.attr.zzText))
-            btnTabAll.paint.isFakeBoldText = true
+        fun setTabState(btn: Button, active: Boolean) {
+            if (active) {
+                btn.backgroundTintList = ColorStateList.valueOf(attrColor(R.attr.zzAccent))
+                btn.setTextColor(Color.WHITE)
+            } else {
+                btn.backgroundTintList = ColorStateList.valueOf(attrColor(R.attr.zzSurface2))
+                btn.setTextColor(attrColor(R.attr.zzText))
+            }
+            btn.paint.isFakeBoldText = true
         }
+
+        setTabState(btnTabAll, filterMode == FilterMode.ALL)
+        setTabState(btnTabMistakes, filterMode == FilterMode.MISTAKES)
+        setTabState(btnTabFavorites, filterMode == FilterMode.FAVORITES)
     }
 
     private fun renderList() {
@@ -119,10 +129,10 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
             activeBanks.forEach { questions.addAll(it.questions) }
         }
 
-        val filtered = if (onlyMistakes) {
-            questions.filter { it.wrongCount > 0 }
-        } else {
-            questions
+        val filtered = when (filterMode) {
+            FilterMode.ALL -> questions
+            FilterMode.MISTAKES -> questions.filter { it.wrongCount > 0 }
+            FilterMode.FAVORITES -> questions.filter { it.isFavorite }
         }
 
         containerQuestions.removeAllViews()
@@ -130,7 +140,11 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
 
         if (filtered.isEmpty()) {
             layoutEmpty.visibility = View.VISIBLE
-            tvEmptyText.text = if (onlyMistakes) "🎉 太棒了，当前没有错题！" else "暂无题目数据"
+            tvEmptyText.text = when (filterMode) {
+                FilterMode.FAVORITES -> "暂无收藏题目，可在题目卡片右上角点击「☆ 收藏」"
+                FilterMode.MISTAKES -> "🎉 太棒了，当前没有错题！"
+                FilterMode.ALL -> "暂无题目数据"
+            }
             return
         }
         layoutEmpty.visibility = View.GONE
@@ -192,6 +206,36 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
             }
             headerRow.addView(tvMistakeBadge)
         }
+
+        val btnFavorite = TextView(this).apply {
+            text = if (q.isFavorite) "★ 已收藏" else "☆ 收藏"
+            textSize = 11f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(if (q.isFavorite) attrColor(R.attr.zzWarning) else attrColor(R.attr.zzMuted))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(if (q.isFavorite) attrColor(R.attr.zzWarningSoft) else attrColor(R.attr.zzSurface2))
+                cornerRadius = dp(6).toFloat()
+            }
+            setPadding(dp(8), dp(3), dp(8), dp(3))
+            isClickable = true
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = dp(8) }
+            setOnClickListener {
+                val newStatus = CustomQuestionBankManager.toggleFavorite(this@CustomQuestionReviewActivity, q.bankId, q.id)
+                text = if (newStatus) "★ 已收藏" else "☆ 收藏"
+                setTextColor(if (newStatus) attrColor(R.attr.zzWarning) else attrColor(R.attr.zzMuted))
+                (background as? android.graphics.drawable.GradientDrawable)?.setColor(
+                    if (newStatus) attrColor(R.attr.zzWarningSoft) else attrColor(R.attr.zzSurface2)
+                )
+                Toast.makeText(this@CustomQuestionReviewActivity, if (newStatus) "已加入收藏" else "已取消收藏", Toast.LENGTH_SHORT).show()
+                if (filterMode == FilterMode.FAVORITES) {
+                    renderList()
+                }
+            }
+        }
+        headerRow.addView(btnFavorite)
         layout.addView(headerRow)
 
         // Divider
