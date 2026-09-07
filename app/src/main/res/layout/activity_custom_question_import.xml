@@ -81,7 +81,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="点击下方按钮复制 AI 出题提示词，发给 DeepSeek / ChatGPT / Claude 等大模型，再将生成的 Markdown 文本粘贴回此处即可！"
+                        android:text="复制出题/转换 Prompt 发给 AI；如果生成内容格式跑偏导致导入失败，可直接用「格式修复 Prompt」把当前内容重新整理后再粘贴回来。"
                         android:textSize="12sp"
                         android:textColor="?attr/zzMuted"
                         android:lineSpacingMultiplier="1.2"
@@ -120,6 +120,16 @@
                                 android:textColor="@android:color/white"
                                 android:backgroundTint="?attr/zzAccent" />
                         </LinearLayout>
+
+                        <Button
+                            android:id="@+id/btn_copy_repair_prompt"
+                            android:layout_width="match_parent"
+                            android:layout_height="38dp"
+                            android:layout_marginBottom="8dp"
+                            android:text="🛠 格式修复 Prompt"
+                            android:textSize="12sp"
+                            android:textColor="?attr/zzText"
+                            android:backgroundTint="?attr/zzSurface2" />
 
                         <Button
                             android:id="@+id/btn_copy_template"
