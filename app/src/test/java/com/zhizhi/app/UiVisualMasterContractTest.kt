@@ -63,12 +63,12 @@ class UiVisualMasterContractTest {
         assertTrue(kt.contains("R.attr.zzAccent"))
     }
 
-    @Test fun homeBorrowStatusUsesAThemeAwareStatusView() {
-        val xml = layout("fragment_home.xml")
-        val themed = source("src/main/java/com/zhizhi/app/ui/ThemedStatusTextView.kt")
-        assertTrue(xml.contains("com.zhizhi.app.ui.ThemedStatusTextView"))
-        assertTrue(themed.contains("R.attr.zzWarning"))
-        assertTrue(themed.contains("0xFFFFB74D"))
+    @Test fun homeBorrowStatusIsRethemedAtRuntime() {
+        val helper = source("src/main/java/com/zhizhi/app/ui/SeasonalRuntimeRethemer.kt")
+        assertTrue(helper.contains("R.id.tv_surplus_borrow_line"))
+        assertTrue(helper.contains("R.attr.zzWarning"))
+        assertTrue(helper.contains("0xFFFFB74D"))
+        assertTrue(helper.contains("OnPreDrawListener"))
     }
 
     @Test fun statisticsMatchesApprovedProductDecisions() {
