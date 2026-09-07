@@ -1,0 +1,66 @@
+name: One-shot policy copy sync
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-copy-fix:
+    if: github.head_ref == 'ai/time-rules-spec-sync'
+    runs-on: [self-hosted, Windows, X64]
+    steps:
+      - name: Check out task branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Apply the verified copy fix and remove this one-shot workflow
+        shell: powershell
+        run: |
+          $path = 'app/src/main/java/com/zhizhi/app/ui/RulesFragment.kt'
+          $content = [System.IO.File]::ReadAllText($path)
+
+          $replacements = @(
+            @('append("   • 添加/删除/减少限制 → 立即生效\n")', 'append("   • 加严限制 → 立即生效\n")'),
+            @('append("   • 增加限制 → 次日 00:00 生效\n")', 'append("   • 放宽限制 → 下一刷新时刻生效\n")'),
+            @('append("   • 代表：周末想临时追剧，改完马上可用\n\n")', 'append("   • 例如：缩短允许时间窗属于加严；延长允许时间窗属于放宽\n\n")'),
+            @('append("   • 所有修改都等到次日 00:00 生效\n")', 'append("   • 勿扰时段和应用时间窗的所有修改 → 下一刷新时刻生效\n")'),
+            @('append("   • 适合需要彻底「防冲动修改」的用户\n\n")', 'append("\n")')
+          )
+
+          foreach ($pair in $replacements) {
+            if (-not $content.Contains($pair[0])) {
+              throw "Expected source text not found: $($pair[0])"
+            }
+            $content = $content.Replace($pair[0], $pair[1])
+          }
+
+          $oldScope = @'
+            append("• 勿扰时段（时段、时长、次数等）\n")
+            append("• 应用时间窗（时间段、所选应用等）\n")
+            append("• 黑名单（立即生效）\n")
+            append("• 全局参数（立即生效）\n\n")
+'@
+          $newScope = @'
+            append("• 只影响勿扰时段和应用时间窗\n")
+            append("• 黑白名单、全局参数和保护功能仍按各自规则处理\n\n")
+'@
+          if (-not $content.Contains($oldScope)) {
+            throw 'Expected policy scope block not found'
+          }
+          $content = $content.Replace($oldScope, $newScope)
+
+          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+          Remove-Item '.github/workflows/one-shot-policy-copy-sync.yml'
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add $path .github/workflows/one-shot-policy-copy-sync.yml
+          git diff --cached --check
+          git commit -m 'fix(ui): align activation policy help copy'
+          git push origin HEAD:${{ github.head_ref }}
