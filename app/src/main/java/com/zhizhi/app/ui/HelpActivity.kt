@@ -5,7 +5,7 @@
  * * @role: UI
  * * @description: 用户手册页面，支持搜索和目录跳转。
  * * @responsibilities:
- * 1. 构建并渲染帮助文本内容。
+ * 1. 读取并渲染构建生成的使用手册资源。
  * 2. 提供目录导航（可点击跳转）。
  * 3. 提供实时搜索过滤。
  * * @context:
@@ -82,15 +82,13 @@ class HelpActivity : AppCompatActivity() {
 
     private fun parseSections(fullText: String): List<HelpSection> {
     val sections = mutableListOf<HelpSection>()
-    val lines = fullText.split("
-")
+    val lines = fullText.split("\n")
     var currentTitle = ""
     var currentContent = StringBuilder()
     var currentLevel = 1
 
     fun flush() {
-        val content = currentContent.toString().trim('
-', ' ')
+        val content = currentContent.toString().trim('\n', ' ')
         if (currentTitle.isNotEmpty()) {
             sections.add(HelpSection(currentTitle, content, currentLevel))
         }
@@ -111,15 +109,15 @@ class HelpActivity : AppCompatActivity() {
             null
         }
 
-        val legacyH1 = Regex("^[一二三四五六七八九十]+、.+$").find(trimmed)
-        val legacyH2 = Regex("^\d+\.\d+\s.+$").find(trimmed)
+        val legacyH1 = Regex("^[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]+\u3001.+$").find(trimmed)
+        val legacyH2 = Regex("^\\d+\\.\\d+\\s.+$").find(trimmed)
 
         when {
             markdownTitle != null -> {
                 flush()
                 currentTitle = markdownTitle
                 currentContent = StringBuilder()
-                currentLevel = if (markdownLevel <= 2) 1 else 2
+                currentLevel = if (Regex("^\\d+\\.\\d+\\s.+$").matches(markdownTitle)) 2 else 1
             }
             legacyH1 != null -> {
                 flush()
@@ -134,8 +132,7 @@ class HelpActivity : AppCompatActivity() {
                 currentLevel = 2
             }
             else -> {
-                if (currentContent.isNotEmpty()) currentContent.append("
-")
+                if (currentContent.isNotEmpty()) currentContent.append("\n")
                 currentContent.append(trimmed)
             }
         }
@@ -144,7 +141,7 @@ class HelpActivity : AppCompatActivity() {
     return sections
 }
 
-// ========== UI 构建 ==========
+// ========== UI \u6784\u5efa ==========
 
     private fun buildUI() {
         val sbh = statusBarHeight()
