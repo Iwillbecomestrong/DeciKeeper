@@ -37,7 +37,7 @@ com.zhizhi.app
 │   └── statistics/ # 统计图表渲染与筛选弹窗（StatisticsChartRenderer, StatisticsFilterBottomSheet）
 ├── protection/  # 系统级防护（无障碍拦截、防卸载、防强行停止、权限守护）
 ├── service/     # 核心服务（CoreService 无障碍通道、MonitorService 前台监控）
-├── receiver/    # 广播接收器（BootReceiver 开机自启、DeviceAdmin 设备管理器）
+├── receiver/    # 广播接收器（BootReceiver 开机自启、DeviceAdmin 历史兼容待清理/不作为防卸载依赖）
 ├── data/        # 持久化存储与数据模型
 │   ├── questionbank/ # 自定义题库与题目模型（CustomQuestionModels）
 │   └── statistics/ # 统计数据模型（StatisticsModels）
