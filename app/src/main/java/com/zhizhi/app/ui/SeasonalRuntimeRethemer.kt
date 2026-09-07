@@ -6,18 +6,24 @@ import android.graphics.drawable.ColorDrawable
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.TextView
 import com.zhizhi.app.R
+import java.util.WeakHashMap
 
 /**
- * Applies seasonal tokens to screens that are built mostly in Kotlin rather than XML.
- * XML-backed screens already inherit the selected season through ThemeManager.
+ * Applies seasonal tokens to runtime-built or runtime-recolored UI that cannot be
+ * expressed purely through XML resources.
  */
 object SeasonalRuntimeRethemer {
+    private const val LEGACY_BORROW_WARNING = 0xFFFFB74D.toInt()
+    private val borrowColorListeners = WeakHashMap<View, ViewTreeObserver.OnPreDrawListener>()
+
     fun apply(activity: Activity) {
         if (activity is HelpActivity) {
             applyHelpTheme(activity)
         }
+        installBorrowStatusRetheme(activity)
     }
 
     private fun applyHelpTheme(activity: Activity) {
@@ -55,6 +61,25 @@ object SeasonalRuntimeRethemer {
                 }
             }
         }
+    }
+
+    /**
+     * HomeFragment still changes the borrowed-quota line from Kotlin. Keep the
+     * existing business logic untouched and translate only that old orange literal
+     * into the currently selected seasonal warning token before the frame is drawn.
+     */
+    private fun installBorrowStatusRetheme(activity: Activity) {
+        val status = activity.findViewById<TextView>(R.id.tv_surplus_borrow_line) ?: return
+        if (borrowColorListeners.containsKey(status)) return
+
+        val listener = ViewTreeObserver.OnPreDrawListener {
+            if (status.currentTextColor == LEGACY_BORROW_WARNING) {
+                status.setTextColor(resolve(activity, R.attr.zzWarning, LEGACY_BORROW_WARNING))
+            }
+            true
+        }
+        status.viewTreeObserver.addOnPreDrawListener(listener)
+        borrowColorListeners[status] = listener
     }
 
     private inline fun walk(view: View, block: (View) -> Unit) {
