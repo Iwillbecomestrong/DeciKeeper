@@ -4,31 +4,31 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/bg_sea_surface"
-    android:paddingTop="40dp"
+    android:background="?attr/zzPageBg"
+    android:paddingTop="18dp"
     android:clipToPadding="false">
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tab_focus_rules"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="10dp"
+        android:layout_height="52dp"
+        android:layout_marginStart="18dp"
+        android:layout_marginEnd="18dp"
+        android:layout_marginBottom="8dp"
         android:background="@drawable/bg_focus_rules_tab_container"
+        android:backgroundTint="?attr/zzSurface"
         android:padding="4dp"
         app:tabBackground="@drawable/selector_focus_rules_tab"
         app:tabGravity="fill"
         app:tabIndicatorHeight="0dp"
         app:tabMode="fixed"
         app:tabRippleColor="@android:color/transparent"
-        app:tabSelectedTextColor="#FFFFFF"
-        app:tabTextColor="#006064" />
+        app:tabSelectedTextColor="@android:color/white"
+        app:tabTextColor="?attr/zzMuted" />
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/pager_focus_rules"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
-
 </LinearLayout>

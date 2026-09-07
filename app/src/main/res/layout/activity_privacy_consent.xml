@@ -1,117 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    PrivacyConsentActivity 布局 — 首次启动同意页。
-    设计原则：
-    1. 顶部标题 + 居中主体文案，背景深色（与 IronWill 主风格一致），文字白色，对比度充足。
-    2. 「同意」按钮（守规路径）放左侧绿色/蓝色；「不同意/退出」按钮（逃避路径）放右侧红色/黄色 —— 符合 README §三.7 弹窗配色原则。
-    3. 文案内联提供《用户协议》《隐私政策》跳转入口。
--->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/zzPageBg"
+    android:fitsSystemWindows="true"
     android:orientation="vertical"
-    android:background="@drawable/bg_sea_depths"
-    android:padding="24dp"
-    android:fitsSystemWindows="true">
+    android:padding="24dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🛡️ 知止"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:layout_marginTop="32dp"/>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="36dp" android:text="止" android:textColor="?attr/zzAccentStrong" android:textSize="32sp" android:textStyle="bold" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="欢迎使用知止" android:textColor="?attr/zzText" android:textSize="22sp" android:textStyle="bold" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="欢迎使用知止"
-        android:textSize="20sp"
-        android:textColor="#FFFFFF"
-        android:layout_marginTop="8dp"/>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:textSize="15sp"
-        android:lineSpacingExtra="6dp"
-        android:textColor="#E0E0E0"
-        android:text="在使用知止之前，请阅读并同意以下协议。\n\n点击「同意」即表示你已阅读、知晓并同意《用户协议》与《隐私政策》的全部内容。\n\n你也可以在「设置 → 关于我们」中随时查看与重新审阅。"/>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="16dp">
-
-        <TextView
-            android:id="@+id/tv_open_user_agreement"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:padding="8dp"
-            android:text="📄 用户协议"
-            android:textSize="14sp"
-            android:textColor="#4FC3F7"
-            android:background="?android:attr/selectableItemBackground"/>
-
-        <TextView
-            android:id="@+id/tv_open_privacy_policy"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:padding="8dp"
-            android:layout_marginStart="16dp"
-            android:text="🔒 隐私政策"
-            android:textSize="14sp"
-            android:textColor="#4FC3F7"
-            android:background="?android:attr/selectableItemBackground"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:background="@drawable/bg_zz_card" android:backgroundTint="?attr/zzSurface" android:orientation="vertical" android:padding="18dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="在继续之前，请了解知止为什么需要无障碍、使用情况访问等系统能力。" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:lineSpacingExtra="5dp" android:text="我们重视你的数据边界。知止会使用必要系统权限完成应用限制、规则执行、闹钟挑战和状态核验。具体范围以隐私政策与用户协议为准。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"/>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
-
-        <Button
-            android:id="@+id/btn_consent_accept"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:text="同意"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#2E7D32"
-            android:minHeight="0dp"/>
-
-        <Button
-            android:id="@+id/btn_consent_decline"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="不同意/退出"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#C62828"
-            android:minHeight="0dp"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
+        <TextView android:id="@+id/tv_open_user_agreement" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="?android:attr/selectableItemBackground" android:padding="8dp" android:text="用户协议" android:textColor="?attr/zzAccentStrong" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tv_open_privacy_policy" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="10dp" android:background="?android:attr/selectableItemBackground" android:padding="8dp" android:text="隐私政策" android:textColor="?attr/zzAccentStrong" android:textSize="13sp" android:textStyle="bold" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:textSize="11sp"
-        android:textColor="#9E9E9E"
-        android:text="占位合规文本，待法务 review"/>
+    <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
 
+    <Button android:id="@+id/btn_consent_accept" android:layout_width="match_parent" android:layout_height="56dp" android:backgroundTint="?attr/zzAccent" android:text="同意并进入知止" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="16sp" android:textStyle="bold" />
+    <Button android:id="@+id/btn_consent_decline" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:backgroundTint="?attr/zzSurface2" android:text="暂不同意并退出" android:textAllCaps="false" android:textColor="?attr/zzMuted" android:textSize="13sp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginTop="10dp" android:text="权限说明可在进入知止后逐项查看。" android:textColor="?attr/zzSubtle" android:textSize="10sp" />
 </LinearLayout>

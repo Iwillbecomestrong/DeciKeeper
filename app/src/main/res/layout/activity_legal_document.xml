@@ -1,45 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    LegalDocumentActivity 布局 — 长文本渲染。
-    使用 ScrollView + 等宽风格 TextView，保证法务文本可读性。
--->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_sea_surface"
+    android:background="?attr/zzPageBg"
     android:fitsSystemWindows="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-
-        <TextView
-            android:id="@+id/tv_legal_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="#0D47A1"
-            android:layout_marginBottom="12dp"/>
-
-        <TextView
-            android:id="@+id/tv_legal_version"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="11sp"
-            android:textColor="#78909C"
-            android:layout_marginBottom="12dp"/>
-
-        <TextView
-            android:id="@+id/tv_legal_body"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:lineSpacingExtra="4dp"
-            android:textColor="#263238"
-            android:textIsSelectable="true"/>
-
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+        <TextView android:id="@+id/tv_legal_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="?attr/zzText" android:textSize="22sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tv_legal_version" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:layout_marginBottom="14dp" android:textColor="?attr/zzSubtle" android:textSize="11sp" />
+        <TextView android:id="@+id/tv_legal_body" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/bg_zz_card" android:backgroundTint="?attr/zzSurface" android:lineSpacingExtra="5dp" android:padding="16dp" android:textColor="?attr/zzText" android:textIsSelectable="true" android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>

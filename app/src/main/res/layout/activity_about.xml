@@ -1,51 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    AboutActivity 布局 — 7 个法务/合规入口。
-    顺序在 AboutActivity 写入，UI 只是线性容器。
--->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_sea_surface"
+    android:background="?attr/zzPageBg"
     android:fitsSystemWindows="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ℹ️ 关于我们"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:textColor="#0D47A1"
-            android:layout_marginBottom="4dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="合规与法律文档"
-            android:textSize="13sp"
-            android:textColor="#546E7A"
-            android:layout_marginBottom="16dp"/>
-
-        <LinearLayout
-            android:id="@+id/container_about_entries"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"/>
-
-        <TextView
-            android:id="@+id/tv_about_app_version"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="16dp"
-            android:textSize="12sp"
-            android:textColor="#78909C"/>
-
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="关于知止" android:textColor="?attr/zzText" android:textSize="25sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="16dp" android:text="知道什么时候停止。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
+        <LinearLayout android:id="@+id/container_about_entries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        <TextView android:id="@+id/tv_about_app_version" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginTop="18dp" android:textColor="?attr/zzSubtle" android:textSize="11sp" />
     </LinearLayout>
 </ScrollView>

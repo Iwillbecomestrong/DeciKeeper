@@ -3,307 +3,168 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
-    android:clipToPadding="false"
     android:orientation="vertical"
-    android:background="@drawable/bg_sea_surface">
+    android:background="?attr/zzPageBg"
+    android:paddingStart="18dp"
+    android:paddingTop="20dp"
+    android:paddingEnd="18dp"
+    android:paddingBottom="82dp">
 
-    <!-- 顶部标题栏 -->
-    <LinearLayout
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="12dp"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="📊 使用统计"
-            android:textColor="#004D40"
-            android:textSize="26sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <!-- 第二行：类型切换（周/月/年）单独一行 -->
-    <LinearLayout
+        android:text="使用统计"
+        android:textColor="?attr/zzText"
+        android:textSize="26sp"
+        android:textStyle="bold" />
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="6dp">
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="14dp"
+        android:text="按周、月、年查看休息与勿扰时长。"
+        android:textColor="?attr/zzMuted"
+        android:textSize="13sp" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="@drawable/bg_zz_card_soft"
+        android:backgroundTint="?attr/zzSurface2"
+        android:orientation="horizontal"
+        android:padding="4dp">
         <Button
             android:id="@+id/btn_week_stats"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="周统计"
-            android:textSize="12sp"
-            android:backgroundTint="#00838F"
-            android:layout_marginEnd="4dp" />
-
+            android:backgroundTint="?attr/zzAccent"
+            android:text="周"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="13sp" />
         <Button
             android:id="@+id/btn_month_stats"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="月统计"
-            android:textSize="12sp"
-            android:backgroundTint="#757575"
-            android:layout_marginEnd="4dp" />
-
+            android:backgroundTint="?attr/zzSurface2"
+            android:text="月"
+            android:textAllCaps="false"
+            android:textColor="?attr/zzText"
+            android:textSize="13sp" />
         <Button
             android:id="@+id/btn_year_stats"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="年统计"
-            android:textSize="12sp"
-            android:backgroundTint="#757575" />
+            android:backgroundTint="?attr/zzSurface2"
+            android:text="年"
+            android:textAllCaps="false"
+            android:textColor="?attr/zzText"
+            android:textSize="13sp" />
     </LinearLayout>
 
-    <!-- 第三行：统计数据选择（休息时长/自律时长）单独一行 -->
-    <LinearLayout
+    <RadioGroup
+        android:id="@+id/rg_stats_type"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="8dp"
-        android:gravity="center_vertical">
-
-        <RadioGroup
-            android:id="@+id/rg_stats_type"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="8dp"
+        android:checkedButton="@+id/rb_stats_rest"
+        android:orientation="horizontal">
+        <RadioButton
+            android:id="@+id/rb_stats_rest"
             android:layout_width="0dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:buttonTint="?attr/zzAccent"
+            android:paddingVertical="5dp"
+            android:text="休息时长"
+            android:textColor="?attr/zzText"
+            android:textSize="13sp" />
+        <RadioButton
+            android:id="@+id/rb_stats_data"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:checkedButton="@+id/rb_stats_rest">
+            android:layout_weight="1"
+            android:buttonTint="?attr/zzAccent"
+            android:paddingVertical="5dp"
+            android:text="勿扰时长"
+            android:textColor="?attr/zzText"
+            android:textSize="13sp" />
+    </RadioGroup>
 
-            <RadioButton
-                android:id="@+id/rb_stats_rest"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="休息时长"
-                android:textColor="#616161"
-                android:textSize="13sp"
-                android:buttonTint="#00838F"
-                android:layout_marginEnd="16dp"/>
+    <CheckBox
+        android:id="@+id/cb_weighted_stats"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:visibility="gone" />
+    <TextView
+        android:id="@+id/btn_show_conversion"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:visibility="gone" />
 
-            <RadioButton
-                android:id="@+id/rb_stats_data"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="自律时长"
-                android:textColor="#616161"
-                android:textSize="13sp"
-                android:buttonTint="#00838F"/>
-        </RadioGroup>
-
-        <CheckBox
-            android:id="@+id/cb_weighted_stats"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="加权"
-            android:textColor="#616161"
-            android:textSize="13sp"
-            android:buttonTint="#00838F" />
-
-        <TextView
-            android:id="@+id/btn_show_conversion"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="换算表"
-            android:textColor="#00838F"
-            android:textStyle="bold"
-            android:textSize="13sp"
-            android:paddingStart="6dp"
-            android:paddingEnd="4dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"/>
-    </LinearLayout>
-
-    <!-- 主内容区（图表，高度降低） -->
-    <!-- 周统计视图 -->
-    <LinearLayout
-        android:id="@+id/layout_week_stats"
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.7"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:visibility="visible">
-
-        <!-- 周选择器 -->
-        <LinearLayout
+        android:layout_weight="1"
+        app:cardBackgroundColor="?attr/zzSurface"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="0dp">
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="4dp">
+            android:layout_height="match_parent"
+            android:paddingStart="12dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="10dp">
 
-            <Button
-                android:id="@+id/btn_prev_week"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:text="◀"
-                android:textSize="14sp"
-                android:backgroundTint="#00838F"
-                android:padding="0dp"
-                android:minWidth="0dp" />
+            <LinearLayout
+                android:id="@+id/layout_week_stats"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <Button android:id="@+id/btn_prev_week" android:layout_width="40dp" android:layout_height="40dp" android:backgroundTint="?attr/zzAccentSofter" android:text="‹" android:textAllCaps="false" android:textColor="?attr/zzAccentStrong" android:textSize="20sp" />
+                    <TextView android:id="@+id/tv_week_range" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="本周" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
+                    <Button android:id="@+id/btn_next_week" android:layout_width="40dp" android:layout_height="40dp" android:backgroundTint="?attr/zzAccentSofter" android:text="›" android:textAllCaps="false" android:textColor="?attr/zzAccentStrong" android:textSize="20sp" />
+                </LinearLayout>
+                <com.github.mikephil.charting.charts.BarChart android:id="@+id/chart_week" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="?attr/zzSurface" />
+            </LinearLayout>
 
-            <TextView
-                android:id="@+id/tv_week_range"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="本周"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:textColor="#00838F" />
+            <LinearLayout
+                android:id="@+id/layout_month_stats"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:gravity="center_vertical" android:orientation="horizontal">
+                    <Button android:id="@+id/btn_prev_month" android:layout_width="40dp" android:layout_height="40dp" android:backgroundTint="?attr/zzAccentSofter" android:text="‹" android:textAllCaps="false" android:textColor="?attr/zzAccentStrong" android:textSize="20sp" />
+                    <TextView android:id="@+id/tv_month_range" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="本月" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
+                    <Button android:id="@+id/btn_next_month" android:layout_width="40dp" android:layout_height="40dp" android:backgroundTint="?attr/zzAccentSofter" android:text="›" android:textAllCaps="false" android:textColor="?attr/zzAccentStrong" android:textSize="20sp" />
+                </LinearLayout>
+                <com.github.mikephil.charting.charts.LineChart android:id="@+id/chart_month" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="?attr/zzSurface" />
+            </LinearLayout>
 
-            <Button
-                android:id="@+id/btn_next_week"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:text="▶"
-                android:textSize="14sp"
-                android:backgroundTint="#00838F"
-                android:padding="0dp"
-                android:minWidth="0dp" />
-        </LinearLayout>
-
-        <!-- 柱状图 -->
-        <com.github.mikephil.charting.charts.BarChart
-            android:id="@+id/chart_week"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-    </LinearLayout>
-
-    <!-- 月统计视图 -->
-    <LinearLayout
-        android:id="@+id/layout_month_stats"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="0.7"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:visibility="gone">
-
-        <!-- 月选择器 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="4dp">
-
-            <Button
-                android:id="@+id/btn_prev_month"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:text="◀"
-                android:textSize="14sp"
-                android:backgroundTint="#00838F"
-                android:padding="0dp"
-                android:minWidth="0dp" />
-
-            <TextView
-                android:id="@+id/tv_month_range"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="本月"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:textColor="#00838F" />
-
-            <Button
-                android:id="@+id/btn_next_month"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:text="▶"
-                android:textSize="14sp"
-                android:backgroundTint="#00838F"
-                android:padding="0dp"
-                android:minWidth="0dp" />
-        </LinearLayout>
-
-        <!-- 折线图 -->
-        <com.github.mikephil.charting.charts.LineChart
-            android:id="@+id/chart_month"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-    </LinearLayout>
-
-    <!-- 年统计视图 -->
-    <LinearLayout
-        android:id="@+id/layout_year_stats"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="0.7"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:visibility="gone">
-
-        <!-- 年选择器 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="4dp">
-
-            <Button
-                android:id="@+id/btn_prev_year"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:text="◀"
-                android:textSize="14sp"
-                android:backgroundTint="#00838F"
-                android:padding="0dp"
-                android:minWidth="0dp" />
-
-            <TextView
-                android:id="@+id/tv_year_range"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="本年"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:textColor="#00838F" />
-
-            <Button
-                android:id="@+id/btn_next_year"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:text="▶"
-                android:textSize="14sp"
-                android:backgroundTint="#00838F"
-                android:padding="0dp"
-                android:minWidth="0dp" />
-        </LinearLayout>
-
-        <!-- 条形图 -->
-        <com.github.mikephil.charting.charts.BarChart
-            android:id="@+id/chart_year"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-    </LinearLayout>
-
+            <LinearLayout
+                android:id="@+id/layout_year_stats"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:gravity="center_vertical" android:orientation="horizontal">
+                    <Button android:id="@+id/btn_prev_year" android:layout_width="40dp" android:layout_height="40dp" android:backgroundTint="?attr/zzAccentSofter" android:text="‹" android:textAllCaps="false" android:textColor="?attr/zzAccentStrong" android:textSize="20sp" />
+                    <TextView android:id="@+id/tv_year_range" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="本年" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
+                    <Button android:id="@+id/btn_next_year" android:layout_width="40dp" android:layout_height="40dp" android:backgroundTint="?attr/zzAccentSofter" android:text="›" android:textAllCaps="false" android:textColor="?attr/zzAccentStrong" android:textSize="20sp" />
+                </LinearLayout>
+                <com.github.mikephil.charting.charts.BarChart android:id="@+id/chart_year" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="?attr/zzSurface" />
+            </LinearLayout>
+        </FrameLayout>
+    </androidx.cardview.widget.CardView>
 </LinearLayout>

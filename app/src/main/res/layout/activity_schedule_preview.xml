@@ -1,103 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_preview"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F5F5F5"
-    android:id="@+id/root_preview">
-
-    <!-- Header -->
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:background="@android:color/white"
-        android:elevation="4dp">
-
-        <ImageView
-            android:id="@+id/btn_back"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_back_arrow"
-            android:layout_centerVertical="true"
-            android:tint="#333333"/>
-            
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="生效预览"
-            android:textSize="18sp"
-            android:textColor="#333333"
-            android:textStyle="bold"
-            android:layout_centerInParent="true"/>
-            
+    android:background="?attr/zzPageBg"
+    android:orientation="vertical">
+    <RelativeLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/zzSurface" android:padding="16dp">
+        <ImageView android:id="@+id/btn_back" android:layout_width="28dp" android:layout_height="28dp" android:layout_centerVertical="true" android:padding="4dp" android:src="@drawable/ic_back_arrow" android:tint="?attr/zzText" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerInParent="true" android:text="勿扰时段预览" android:textColor="?attr/zzText" android:textSize="18sp" android:textStyle="bold" />
     </RelativeLayout>
-
-    <!-- Content -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:paddingTop="16dp">
-        
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="查看今日实际生效规则 vs 明日计划规则"
-            android:textSize="14sp"
-            android:textColor="#666666"
-            android:gravity="center"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="12dp"/>
-
-        <!-- View Toggle (Today/Tomorrow) -->
-        <RadioGroup
-            android:id="@+id/rg_view_mode"
-            android:layout_width="match_parent"
-            android:layout_height="36dp"
-            android:orientation="horizontal"
-            android:background="@drawable/bg_sea_bubble"
-            android:gravity="center"
-            android:padding="2dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="16dp">
-            
-            <RadioButton
-                android:id="@+id/rb_view_today"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:button="@null"
-                android:text="🟢 今日生效"
-                android:gravity="center"
-                android:textColor="@color/selector_text_color_toggle"
-                android:background="@drawable/selector_bg_toggle_left"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:checked="true"/>
-                
-            <RadioButton
-                android:id="@+id/rb_view_tomorrow"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:button="@null"
-                android:text="⚪ 明日规划"
-                android:gravity="center"
-                android:textColor="@color/selector_text_color_toggle"
-                android:background="@drawable/selector_bg_toggle_right"
-                android:textSize="13sp"
-                android:textStyle="bold"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:paddingTop="14dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginHorizontal="18dp" android:layout_marginBottom="10dp" android:gravity="center" android:text="按一天时间线查看规则覆盖。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
+        <RadioGroup android:id="@+id/rg_view_mode" android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginHorizontal="18dp" android:layout_marginBottom="12dp" android:background="@drawable/bg_zz_card_soft" android:backgroundTint="?attr/zzSurface2" android:gravity="center" android:orientation="horizontal" android:padding="3dp">
+            <RadioButton android:id="@+id/rb_view_today" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/selector_focus_rules_tab" android:button="@null" android:checked="true" android:gravity="center" android:text="今日生效" android:textColor="@color/selector_text_color_toggle" android:textSize="12sp" android:textStyle="bold" />
+            <RadioButton android:id="@+id/rb_view_tomorrow" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/selector_focus_rules_tab" android:button="@null" android:gravity="center" android:text="明日规划" android:textColor="@color/selector_text_color_toggle" android:textSize="12sp" android:textStyle="bold" />
         </RadioGroup>
-        
-        <!-- List -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_preview"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:overScrollMode="never"/>
-
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/rv_preview" android:layout_width="match_parent" android:layout_height="match_parent" android:clipToPadding="false" android:overScrollMode="never" android:paddingHorizontal="12dp" android:paddingBottom="20dp" />
     </LinearLayout>
 </LinearLayout>

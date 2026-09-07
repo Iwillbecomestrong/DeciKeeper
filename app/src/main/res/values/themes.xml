@@ -1,33 +1,30 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
     <style name="Base.Theme.ZhiZhi" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">?attr/zzPageBg</item>
+        <item name="android:navigationBarColor">?attr/zzSurface</item>
+        <item name="colorPrimary">?attr/zzAccent</item>
+        <item name="colorSecondary">?attr/zzAlt</item>
+        <item name="colorSurface">?attr/zzSurface</item>
+        <item name="colorSurfaceVariant">?attr/zzSurface2</item>
+        <item name="colorOnSurface">?attr/zzText</item>
+        <item name="colorOutline">?attr/zzLine</item>
     </style>
-
-    <style name="Theme.ZhiZhi" parent="Base.Theme.ZhiZhi" />
-
-    <style name="Theme.ZhiZhi.Transparent" parent="Theme.ZhiZhi">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:backgroundDimEnabled">false</item>
+    <style name="Theme.ZhiZhi" parent="Theme.ZhiZhi.Spring" />
+    <style name="Theme.ZhiZhi.Spring" parent="Base.Theme.ZhiZhi">
+        <item name="zzPageBg">#F7F8F2</item><item name="zzSurface">#FFFDF8</item><item name="zzSurface2">#F0F4E9</item><item name="zzSurface3">#F7ECEE</item><item name="zzText">#29352C</item><item name="zzMuted">#6B776D</item><item name="zzSubtle">#8B958D</item><item name="zzLine">#DBE2D6</item><item name="zzAccent">#67816C</item><item name="zzAccentStrong">#4F6655</item><item name="zzAccentSoft">#DDE8D8</item><item name="zzAccentSofter">#EDF3E9</item><item name="zzAlt">#AF6D79</item><item name="zzAltSoft">#F3E2E6</item><item name="zzSuccess">#607B63</item><item name="zzSuccessSoft">#E4EDE1</item><item name="zzWarning">#987341</item><item name="zzWarningSoft">#F3E9D7</item><item name="zzDanger">#A35F66</item><item name="zzDangerSoft">#F4E2E3</item><item name="zzInfo">#697F91</item><item name="zzInfoSoft">#E5EBF0</item>
     </style>
-
-    <style name="Theme.ZhiZhi.Alarm" parent="Theme.ZhiZhi">
-        <item name="android:windowIsTranslucent">false</item>
-        <item name="android:windowBackground">#0B1114</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowActionBar">false</item>
-        <item name="android:backgroundDimEnabled">false</item>
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:statusBarColor">#0B1114</item>
-        <item name="android:navigationBarColor">#0B1114</item>
+    <style name="Theme.ZhiZhi.Summer" parent="Base.Theme.ZhiZhi">
+        <item name="zzPageBg">#F2F8F8</item><item name="zzSurface">#FBFFFF</item><item name="zzSurface2">#E8F3F2</item><item name="zzSurface3">#EAF2F6</item><item name="zzText">#24383A</item><item name="zzMuted">#65787A</item><item name="zzSubtle">#879799</item><item name="zzLine">#D2E1E1</item><item name="zzAccent">#4C7C7D</item><item name="zzAccentStrong">#365F61</item><item name="zzAccentSoft">#D5E9E7</item><item name="zzAccentSofter">#EAF4F3</item><item name="zzAlt">#61839A</item><item name="zzAltSoft">#E0EBF1</item><item name="zzSuccess">#537C70</item><item name="zzSuccessSoft">#DDEDE7</item><item name="zzWarning">#8A7448</item><item name="zzWarningSoft">#F0E8D7</item><item name="zzDanger">#9A6666</item><item name="zzDangerSoft">#F1E2E2</item><item name="zzInfo">#5F8298</item><item name="zzInfoSoft">#E0ECF2</item>
     </style>
-
-    <!-- Compatibility aliases -->
-    <style name="Base.Theme.IronWill" parent="Base.Theme.ZhiZhi" />
-    <style name="Theme.IronWill" parent="Theme.ZhiZhi" />
-    <style name="Theme.IronWill.Transparent" parent="Theme.ZhiZhi.Transparent" />
-    <style name="Theme.IronWill.Alarm" parent="Theme.ZhiZhi.Alarm" />
+    <style name="Theme.ZhiZhi.Autumn" parent="Base.Theme.ZhiZhi">
+        <item name="zzPageBg">#F6F1E8</item><item name="zzSurface">#FFF9EF</item><item name="zzSurface2">#EFE7D9</item><item name="zzSurface3">#F4E4DD</item><item name="zzText">#3A3229</item><item name="zzMuted">#776D61</item><item name="zzSubtle">#958A7D</item><item name="zzLine">#E2D7C6</item><item name="zzAccent">#806D55</item><item name="zzAccentStrong">#65543F</item><item name="zzAccentSoft">#E7DDCC</item><item name="zzAccentSofter">#F3ECE1</item><item name="zzAlt">#A46552</item><item name="zzAltSoft">#F0DED7</item><item name="zzSuccess">#6D7957</item><item name="zzSuccessSoft">#E5EAD9</item><item name="zzWarning">#9A733E</item><item name="zzWarningSoft">#F2E5CF</item><item name="zzDanger">#9F6258</item><item name="zzDangerSoft">#F1DFDB</item><item name="zzInfo">#74808A</item><item name="zzInfoSoft">#E7E9EA</item>
+    </style>
+    <style name="Theme.ZhiZhi.Winter" parent="Base.Theme.ZhiZhi">
+        <item name="zzPageBg">#F6F8F9</item><item name="zzSurface">#FFFFFF</item><item name="zzSurface2">#EEF3F5</item><item name="zzSurface3">#F0F3F7</item><item name="zzText">#293238</item><item name="zzMuted">#69747B</item><item name="zzSubtle">#8C959B</item><item name="zzLine">#DCE3E7</item><item name="zzAccent">#647983</item><item name="zzAccentStrong">#4B5F69</item><item name="zzAccentSoft">#DCE6EA</item><item name="zzAccentSofter">#EEF3F5</item><item name="zzAlt">#7A7689</item><item name="zzAltSoft">#E8E6ED</item><item name="zzSuccess">#667B72</item><item name="zzSuccessSoft">#E3EBE7</item><item name="zzWarning">#8A754B</item><item name="zzWarningSoft">#F0E9D9</item><item name="zzDanger">#93666B</item><item name="zzDangerSoft">#F0E4E5</item><item name="zzInfo">#697E91</item><item name="zzInfoSoft">#E4EBF0</item>
+    </style>
+    <style name="Theme.ZhiZhi.Transparent" parent="Theme.ZhiZhi.Spring"><item name="android:windowIsTranslucent">true</item><item name="android:windowBackground">@android:color/transparent</item><item name="android:windowNoTitle">true</item><item name="android:backgroundDimEnabled">false</item></style>
+    <style name="Theme.ZhiZhi.Alarm" parent="Theme.ZhiZhi.Spring"><item name="android:windowIsTranslucent">false</item><item name="android:windowBackground">#24312A</item><item name="android:windowNoTitle">true</item><item name="android:windowActionBar">false</item><item name="android:backgroundDimEnabled">false</item><item name="android:windowFullscreen">true</item><item name="android:windowDrawsSystemBarBackgrounds">true</item><item name="android:statusBarColor">#24312A</item><item name="android:navigationBarColor">#24312A</item></style>
+    <style name="Base.Theme.IronWill" parent="Base.Theme.ZhiZhi" /><style name="Theme.IronWill" parent="Theme.ZhiZhi" /><style name="Theme.IronWill.Transparent" parent="Theme.ZhiZhi.Transparent" /><style name="Theme.IronWill.Alarm" parent="Theme.ZhiZhi.Alarm" />
 </resources>

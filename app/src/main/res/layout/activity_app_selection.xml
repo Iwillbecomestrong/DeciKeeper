@@ -1,319 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F2F4F7">
-
-    <!--
-      页面名称: 黑名单选择页
-      文件路径: app/src/main/res/layout/activity_app_selection.xml
-      描述:
-      - 顶部: 标题栏 + 图例说明
-      - 中部左右分栏:
-        - 左侧: 所有已安装应用列表 (带搜索框)
-        - 右侧: 已选中的黑名单应用列表 (会被拦截)
-      - 底部: 保存按钮
-    -->
+    android:background="?attr/zzPageBg"
+    android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="20dp"
-        android:background="#FFFFFF"
-        android:elevation="4dp"
-        android:orientation="vertical">
+        android:background="?attr/zzSurface"
+        android:orientation="vertical"
+        android:paddingStart="18dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="12dp">
+        <TextView android:id="@+id/tv_title_main" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="屏蔽应用" android:textColor="?attr/zzText" android:textSize="22sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tv_mode_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="黑名单模式：勾选的应用会被拦截，其他应用默认允许" android:textColor="?attr/zzMuted" android:textSize="12sp" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_list_mode" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="白名单模式" android:textColor="?attr/zzText" android:textSize="13sp" android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/tv_title_main"
-            android:text="🛑 屏蔽应用"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="#333333"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
-
-        <TextView
-            android:id="@+id/tv_mode_hint"
-            android:text="⚫ 黑名单模式 (勾选的应用被拦截，其他默认允许)"
-            android:textSize="13sp"
-            android:textColor="#546E7A"
-            android:layout_marginTop="8dp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/switch_list_mode"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="⚪ 白名单模式"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:textColor="#333333"/>
-
-
-
-        <!-- 🚀 Pending Changes Notebook -->
         <androidx.cardview.widget.CardView
             android:id="@+id/card_pending_changes"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="4dp"
+            android:layout_marginTop="9dp"
             android:visibility="gone"
-            app:cardBackgroundColor="#FFF8E1"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp">
-
-                <TextView
-                    android:id="@+id/tv_lockout_hint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="12sp"
-                    android:textColor="#E65100"
-                    android:lineSpacingExtra="4dp"
-                    android:layout_marginBottom="8dp"
-                    android:visibility="gone"/>
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    
-                    <TextView
-                        android:text="📝"
-                        android:textSize="14sp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"/>
-                        
-                    <TextView
-                        android:text="⏳ 延迟生效表"
-                        android:textStyle="bold"
-                        android:textSize="13sp"
-                        android:textColor="#F57F17"
-                        android:layout_marginStart="6dp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"/>
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tv_pending_details"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:lineSpacingExtra="4dp"
-                    android:text=""
-                    android:textSize="12sp"
-                    android:textColor="#5D4037"/>
-
-                <TextView
-                    android:id="@+id/tv_pending_hint_legacy"
-                    android:text="💡 包含次日生效的黑名单移除操作"
-                    android:textSize="11sp"
-                    android:textColor="#8D6E63"
-                    android:layout_marginTop="6dp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+            app:cardBackgroundColor="?attr/zzWarningSoft"
+            app:cardCornerRadius="13dp"
+            app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
+                <TextView android:id="@+id/tv_lockout_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="5dp" android:textColor="?attr/zzWarning" android:textSize="11sp" android:visibility="gone" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="延迟生效修改" android:textColor="?attr/zzWarning" android:textSize="12sp" android:textStyle="bold" />
+                <TextView android:id="@+id/tv_pending_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                <TextView android:id="@+id/tv_pending_hint_legacy" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="包含次日生效的名单移除操作" android:textColor="?attr/zzSubtle" android:textSize="10sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </LinearLayout>
 
-    <!-- 🛡 本时段黑名单工具条 (TASK-05)：全选/反选/恢复为全局黑名单，仅 segment_blacklist 模式显示 -->
     <LinearLayout
         android:id="@+id/ll_segment_tools"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:background="?attr/zzPageBg"
         android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:background="#FFFFFF"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="7dp"
         android:visibility="gone">
-
-        <Button
-            android:id="@+id/btn_select_all"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="44dp"
-            android:text="✅ 全选"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:backgroundTint="#2196F3"
-            android:textColor="#FFFFFF"
-            android:layout_marginEnd="4dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minHeight="0dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp"/>
-
-        <Button
-            android:id="@+id/btn_invert"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="44dp"
-            android:text="🔄 反选"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:backgroundTint="#00897B"
-            android:textColor="#FFFFFF"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minHeight="0dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp"/>
-
-        <Button
-            android:id="@+id/btn_restore_global"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="44dp"
-            android:text="♻️ 恢复为全局黑/白名单"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:backgroundTint="#546E7A"
-            android:textColor="#FFFFFF"
-            android:layout_marginStart="4dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minHeight="0dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp"/>
+        <Button android:id="@+id/btn_select_all" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:backgroundTint="?attr/zzSurface2" android:text="全选" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="12sp" />
+        <Button android:id="@+id/btn_invert" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginHorizontal="4dp" android:backgroundTint="?attr/zzSurface2" android:text="反选" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="12sp" />
+        <Button android:id="@+id/btn_restore_global" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1.25" android:layout_marginStart="4dp" android:backgroundTint="?attr/zzSurface2" android:text="恢复全局" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="11sp" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:background="?attr/zzLine"
         android:orientation="horizontal"
-        android:background="#F2F4F7">
+        android:paddingTop="1dp">
 
-        <!-- 左边：全部应用 -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:layout_marginEnd="4dp">
-
-            <!-- Row 1: Header Title -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="📱 全部应用"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#333333"
-                android:padding="12dp"
-                android:background="#F5F5F5"/>
-
-            <!-- Row 2: Quick Select & Auto Blacklist Action Button -->
-            <Button
-                android:id="@+id/btn_quick_import"
-                android:layout_width="match_parent"
-                android:layout_height="36dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginTop="6dp"
-                android:layout_marginBottom="2dp"
-                android:text="⚡ 批量勾选与新应用自动拦截"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:backgroundTint="#F1F5F9"
-                android:textColor="#0F172A"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp"/>
-
-            <!-- Row 3: Search Bar -->
-            <EditText
-                android:id="@+id/et_search_apps"
-                android:layout_width="match_parent"
-                android:layout_height="38dp"
-                android:hint="🔍 搜索应用..."
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:textSize="13sp"
-                android:background="#FFFFFF"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginTop="4dp"
-                android:layout_marginBottom="6dp"
-                android:drawableStart="@android:drawable/ic_menu_search"
-                android:drawablePadding="8dp"
-                android:backgroundTint="#E0E0E0"
-                android:textColor="#333333"
-                android:textColorHint="#999999"
-                android:maxLines="1"
-                android:inputType="text"/>
-
-            <ListView
-                android:id="@+id/list_all_apps"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="8dp"
-                android:clipToPadding="false"
-                android:divider="@null"
-                android:dividerHeight="6dp"/>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.12" android:layout_marginEnd="1dp" android:background="?attr/zzSurface" android:orientation="vertical">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/zzSurface2" android:paddingHorizontal="12dp" android:paddingVertical="11dp" android:text="全部应用" android:textColor="?attr/zzText" android:textSize="13sp" android:textStyle="bold" />
+            <Button android:id="@+id/btn_quick_import" android:layout_width="match_parent" android:layout_height="40dp" android:layout_marginHorizontal="8dp" android:layout_marginTop="7dp" android:backgroundTint="?attr/zzAccentSofter" android:text="批量勾选与新应用自动拦截" android:textAllCaps="false" android:textColor="?attr/zzAccentStrong" android:textSize="10sp" />
+            <EditText android:id="@+id/et_search_apps" android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginHorizontal="8dp" android:layout_marginTop="6dp" android:layout_marginBottom="5dp" android:background="@drawable/bg_input_field" android:drawableStart="@android:drawable/ic_menu_search" android:drawablePadding="7dp" android:hint="搜索应用" android:inputType="text" android:maxLines="1" android:paddingHorizontal="10dp" android:textColor="?attr/zzText" android:textColorHint="?attr/zzSubtle" android:textSize="12sp" />
+            <ListView android:id="@+id/list_all_apps" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false" android:divider="@null" android:dividerHeight="5dp" android:paddingHorizontal="7dp" android:paddingBottom="8dp" />
         </LinearLayout>
 
-        <!-- 右边：黑名单内应用 -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:layout_marginStart="4dp">
-
-            <TextView
-                android:id="@+id/tv_selected_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="🚫 黑名单"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#37474F"
-                android:padding="12dp"
-                android:background="#ECEFF1"/>
-
-            <ListView
-                android:id="@+id/list_selected_apps"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="8dp"
-                android:clipToPadding="false"
-                android:divider="@null"
-                android:dividerHeight="6dp"/>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.88" android:layout_marginStart="1dp" android:background="?attr/zzSurface" android:orientation="vertical">
+            <TextView android:id="@+id/tv_selected_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/zzAccentSofter" android:paddingHorizontal="12dp" android:paddingVertical="11dp" android:text="已选择" android:textColor="?attr/zzAccentStrong" android:textSize="13sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="10dp" android:paddingTop="7dp" android:paddingBottom="3dp" android:text="当前选择结果始终显示在这里" android:textColor="?attr/zzSubtle" android:textSize="10sp" />
+            <ListView android:id="@+id/list_selected_apps" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false" android:divider="@null" android:dividerHeight="5dp" android:paddingHorizontal="7dp" android:paddingBottom="8dp" />
         </LinearLayout>
     </LinearLayout>
 
     <Button
         android:id="@+id/btn_save_apps"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="💾 保存配置"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:backgroundTint="#1A1C1E"
-        android:textColor="#FFFFFF"
-        android:layout_margin="16dp"/>
+        android:layout_height="56dp"
+        android:layout_margin="14dp"
+        android:backgroundTint="?attr/zzAccent"
+        android:text="保存配置"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold" />
 </LinearLayout>

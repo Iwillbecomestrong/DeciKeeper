@@ -3,261 +3,203 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F5F5F5"
+    android:background="?attr/zzPageBg"
     android:fitsSystemWindows="true">
 
-    <!-- 顶部标题栏 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="60dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#FFFFFF"
-        android:elevation="2dp"
-        android:paddingHorizontal="8dp">
+        android:background="?attr/zzSurface"
+        android:paddingHorizontal="14dp">
 
         <Button
             android:id="@+id/btn_back"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:text="←"
-            android:textSize="18sp"
-            android:textColor="#37474F"
-            android:backgroundTint="#00000000"
+            android:text="‹"
+            android:textSize="26sp"
+            android:textColor="?attr/zzText"
+            android:backgroundTint="@android:color/transparent"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp" />
+            android:minWidth="0dp" />
 
         <TextView
             android:id="@+id/tv_title"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:textSize="18sp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="收藏本"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#00838F"
-            android:layout_marginStart="8dp" />
+            android:textColor="?attr/zzText" />
     </LinearLayout>
 
-    <!-- Tab 切换栏 -->
     <LinearLayout
         android:id="@+id/tab_bar"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="50dp"
         android:orientation="horizontal"
-        android:background="#FFFFFF"
-        android:elevation="1dp"
-        android:paddingHorizontal="8dp">
+        android:background="?attr/zzSurface"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="5dp">
 
         <Button
             android:id="@+id/btn_tab_poems"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="📜 诗词"
-            android:textSize="14sp"
-            android:textColor="#004D40"
-            android:backgroundTint="#00000000"
+            android:text="诗词"
+            android:textSize="13sp"
+            android:textAllCaps="false"
+            android:textColor="?attr/zzText"
+            android:backgroundTint="?attr/zzAccentSoft"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp" />
+            android:minWidth="0dp" />
 
         <Button
             android:id="@+id/btn_tab_words"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="📖 单词"
-            android:textSize="14sp"
-            android:textColor="#004D40"
-            android:backgroundTint="#00000000"
+            android:layout_marginStart="6dp"
+            android:text="单词"
+            android:textSize="13sp"
+            android:textAllCaps="false"
+            android:textColor="?attr/zzText"
+            android:backgroundTint="?attr/zzSurface2"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp" />
+            android:minWidth="0dp" />
 
         <Button
             android:id="@+id/btn_tab_clozes"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="📚 选词填空"
-            android:textSize="14sp"
-            android:textColor="#004D40"
-            android:backgroundTint="#00000000"
+            android:layout_marginStart="6dp"
+            android:text="选词填空"
+            android:textSize="13sp"
+            android:textAllCaps="false"
+            android:textColor="?attr/zzText"
+            android:backgroundTint="?attr/zzSurface2"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp" />
+            android:minWidth="0dp" />
     </LinearLayout>
 
-    <!-- 搜索框 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="#FFFFFF"
-        android:paddingHorizontal="16dp"
-        android:paddingBottom="12dp">
+        android:background="?attr/zzPageBg"
+        android:paddingStart="16dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="10dp">
 
         <EditText
             android:id="@+id/et_search"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:hint="输入关键词搜索…"
+            android:hint="搜索收藏…"
             android:textSize="14sp"
-            android:textColor="#424242"
-            android:textColorHint="#90A4AE"
-            android:background="#ECEFF1"
-            android:paddingHorizontal="12dp"
+            android:textColor="?attr/zzText"
+            android:textColorHint="?attr/zzSubtle"
+            android:background="@drawable/bg_input_field"
+            android:paddingHorizontal="14dp"
             android:maxLines="1"
             android:inputType="text" />
 
-        <!-- 排序方式 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="12dp"
             android:gravity="center_vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="排序"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
-                android:textColor="#004D40" />
+                android:textColor="?attr/zzMuted" />
 
-            <Space
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
+            <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
 
             <Button
                 android:id="@+id/btn_sort_skip"
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
+                android:layout_height="36dp"
                 android:text="跳过次数"
                 android:textSize="12sp"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzAccentStrong"
+                android:backgroundTint="?attr/zzAccentSoft"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
-                android:paddingHorizontal="12dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp" />
+                android:paddingHorizontal="12dp" />
 
             <Button
                 android:id="@+id/btn_sort_time"
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="6dp"
                 android:text="收藏时间"
                 android:textSize="12sp"
-                android:layout_marginStart="8dp"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzMuted"
+                android:backgroundTint="?attr/zzSurface2"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
-                android:paddingHorizontal="12dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp" />
+                android:paddingHorizontal="12dp" />
         </LinearLayout>
 
-        <!-- 时间过滤 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="8dp"
             android:gravity="center_vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="时间"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
-                android:textColor="#004D40" />
+                android:textColor="?attr/zzMuted" />
 
-            <Space
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
+            <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
 
-            <Button
-                android:id="@+id/btn_range_all"
-                android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:text="全部"
-                android:textSize="12sp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp" />
-
-            <Button
-                android:id="@+id/btn_range_7d"
-                android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:text="近7天"
-                android:textSize="12sp"
-                android:layout_marginStart="6dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp" />
-
-            <Button
-                android:id="@+id/btn_range_30d"
-                android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:text="近30天"
-                android:textSize="12sp"
-                android:layout_marginStart="6dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp" />
-
-            <Button
-                android:id="@+id/btn_range_90d"
-                android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:text="近90天"
-                android:textSize="12sp"
-                android:layout_marginStart="6dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
-                android:paddingTop="0dp"
-                android:paddingBottom="0dp" />
+            <Button android:id="@+id/btn_range_all" android:layout_width="wrap_content" android:layout_height="34dp" android:text="全部" android:textAllCaps="false" android:textSize="11sp" android:textColor="?attr/zzAccentStrong" android:backgroundTint="?attr/zzAccentSoft" android:minHeight="0dp" android:minWidth="0dp" android:insetTop="0dp" android:insetBottom="0dp" android:paddingHorizontal="10dp" />
+            <Button android:id="@+id/btn_range_7d" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginStart="5dp" android:text="7天" android:textAllCaps="false" android:textSize="11sp" android:textColor="?attr/zzMuted" android:backgroundTint="?attr/zzSurface2" android:minHeight="0dp" android:minWidth="0dp" android:insetTop="0dp" android:insetBottom="0dp" android:paddingHorizontal="10dp" />
+            <Button android:id="@+id/btn_range_30d" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginStart="5dp" android:text="30天" android:textAllCaps="false" android:textSize="11sp" android:textColor="?attr/zzMuted" android:backgroundTint="?attr/zzSurface2" android:minHeight="0dp" android:minWidth="0dp" android:insetTop="0dp" android:insetBottom="0dp" android:paddingHorizontal="10dp" />
+            <Button android:id="@+id/btn_range_90d" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginStart="5dp" android:text="90天" android:textAllCaps="false" android:textSize="11sp" android:textColor="?attr/zzMuted" android:backgroundTint="?attr/zzSurface2" android:minHeight="0dp" android:minWidth="0dp" android:insetTop="0dp" android:insetBottom="0dp" android:paddingHorizontal="10dp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 列表区域 -->
     <ScrollView
         android:id="@+id/scroll_list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipToPadding="false"
         android:paddingHorizontal="16dp"
-        android:paddingTop="12dp">
+        android:paddingTop="4dp"
+        android:paddingBottom="20dp">
 
         <LinearLayout
             android:id="@+id/container_list"
