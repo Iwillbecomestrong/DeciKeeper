@@ -23,7 +23,9 @@ jobs:
 
       - name: Apply lock exit authority patch
         shell: powershell
-        run: python .\scripts\ci\apply_lock_exit_authority.py
+        run: |
+          python .\scripts\ci\apply_lock_exit_authority.py
+          python .\scripts\ci\apply_temp_exit_authority.py
 
       - name: Commit generated lock exit authority sources
         if: github.event_name == 'pull_request'
