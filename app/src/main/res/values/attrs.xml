@@ -1,0 +1,24 @@
+<resources>
+    <attr name="zzPageBg" format="color" />
+    <attr name="zzSurface" format="color" />
+    <attr name="zzSurface2" format="color" />
+    <attr name="zzSurface3" format="color" />
+    <attr name="zzText" format="color" />
+    <attr name="zzMuted" format="color" />
+    <attr name="zzSubtle" format="color" />
+    <attr name="zzLine" format="color" />
+    <attr name="zzAccent" format="color" />
+    <attr name="zzAccentStrong" format="color" />
+    <attr name="zzAccentSoft" format="color" />
+    <attr name="zzAccentSofter" format="color" />
+    <attr name="zzAlt" format="color" />
+    <attr name="zzAltSoft" format="color" />
+    <attr name="zzSuccess" format="color" />
+    <attr name="zzSuccessSoft" format="color" />
+    <attr name="zzWarning" format="color" />
+    <attr name="zzWarningSoft" format="color" />
+    <attr name="zzDanger" format="color" />
+    <attr name="zzDangerSoft" format="color" />
+    <attr name="zzInfo" format="color" />
+    <attr name="zzInfoSoft" format="color" />
+</resources>

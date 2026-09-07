@@ -4,26 +4,27 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/bg_sea_surface"
-    android:paddingTop="40dp"
+    android:background="?attr/zzPageBg"
+    android:paddingTop="18dp"
     android:clipToPadding="false">
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tab_focus_rules"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="10dp"
+        android:layout_height="52dp"
+        android:layout_marginStart="18dp"
+        android:layout_marginEnd="18dp"
+        android:layout_marginBottom="8dp"
         android:background="@drawable/bg_focus_rules_tab_container"
+        android:backgroundTint="?attr/zzSurface"
         android:padding="4dp"
         app:tabBackground="@drawable/selector_focus_rules_tab"
         app:tabGravity="fill"
         app:tabIndicatorHeight="0dp"
         app:tabMode="fixed"
         app:tabRippleColor="@android:color/transparent"
-        app:tabSelectedTextColor="#FFFFFF"
-        app:tabTextColor="#006064" />
+        app:tabSelectedTextColor="@android:color/white"
+        app:tabTextColor="?attr/zzMuted" />
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/pager_focus_rules"
@@ -35,23 +36,23 @@
         android:id="@+id/card_time_rule_policy"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginStart="18dp"
+        android:layout_marginEnd="18dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="12dp"
         android:clickable="true"
         android:focusable="true"
         android:foreground="?android:attr/selectableItemBackground"
-        app:cardBackgroundColor="#E3F2FD"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="2dp">
+        app:cardBackgroundColor="?attr/zzSurface"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:padding="14dp">
+            android:padding="16dp">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -63,9 +64,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="时间规则生效策略"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
-                    android:textColor="#0D47A1" />
+                    android:textColor="?attr/zzText" />
 
                 <TextView
                     android:id="@+id/tv_time_rule_policy_current"
@@ -73,8 +74,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="当前：宽严有别"
-                    android:textSize="13sp"
-                    android:textColor="#1565C0" />
+                    android:textSize="12sp"
+                    android:textColor="?attr/zzAccentStrong" />
 
                 <TextView
                     android:id="@+id/tv_time_rule_policy_scope"
@@ -83,7 +84,7 @@
                     android:layout_marginTop="3dp"
                     android:text="仅影响勿扰时段和应用时间窗"
                     android:textSize="11sp"
-                    android:textColor="#607D8B" />
+                    android:textColor="?attr/zzMuted" />
             </LinearLayout>
 
             <TextView
@@ -91,8 +92,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:text="›"
-                android:textSize="28sp"
-                android:textColor="#1565C0" />
+                android:textSize="26sp"
+                android:textColor="?attr/zzAccentStrong" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 

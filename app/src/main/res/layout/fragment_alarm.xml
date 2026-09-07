@@ -3,8 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_sea_surface"
-    android:fitsSystemWindows="true"
+    android:background="?attr/zzPageBg"
     android:clipToPadding="false"
     android:fillViewport="true">
 
@@ -12,385 +11,55 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
-        android:paddingBottom="80dp">
+        android:paddingStart="18dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="96dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="起床闹钟" android:textColor="?attr/zzText" android:textSize="26sp" android:textStyle="bold" />
+            <Button android:id="@+id/btn_emergency_whitelist" android:layout_width="wrap_content" android:layout_height="40dp" android:backgroundTint="?attr/zzSurface2" android:text="应急应用" android:textAllCaps="false" android:textColor="?attr/zzMuted" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="14dp" android:text="手机放身边，二维码放远处；听得到，也避免躺着直接按掉。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="⏰ 起床闹钟"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:textColor="#004D40"
-                android:shadowColor="#40000000"
-                android:shadowDx="1"
-                android:shadowRadius="2" />
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" app:cardBackgroundColor="?attr/zzSurface" app:cardCornerRadius="18dp" app:cardElevation="0dp">
+            <LinearLayout android:id="@+id/layout_snooze_settings" android:layout_width="match_parent" android:layout_height="wrap_content" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="闹钟默认设置" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tv_snooze_summary" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="双阶段 · 再响10min×2" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                </LinearLayout>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textColor="?attr/zzSubtle" android:textSize="22sp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
-            <Button
-                android:id="@+id/btn_emergency_whitelist"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="🛡️ 应急应用"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="#004D40"
-                android:background="@drawable/bg_sea_bubble"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp" />
+        <androidx.cardview.widget.CardView android:id="@+id/card_alarm_keepalive" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="14dp" app:cardBackgroundColor="?attr/zzAccentSofter" app:cardCornerRadius="18dp" app:cardElevation="0dp">
+            <LinearLayout android:id="@+id/layout_alarm_keepalive" android:layout_width="match_parent" android:layout_height="wrap_content" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="闹钟保活" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tv_keepalive_summary" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="防睡眠冻结 / 后台保活" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                </LinearLayout>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textColor="?attr/zzSubtle" android:textSize="22sp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 兼容旧绑定：已并入统一默认设置，运行时同样会隐藏。 -->
+        <androidx.cardview.widget.CardView android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" app:cardBackgroundColor="?attr/zzSurface">
+            <LinearLayout android:id="@+id/layout_challenge_settings" android:layout_width="1dp" android:layout_height="1dp"><TextView android:id="@+id/tv_challenge_summary" android:layout_width="1dp" android:layout_height="1dp" /></LinearLayout>
+        </androidx.cardview.widget.CardView>
+        <androidx.cardview.widget.CardView android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" app:cardBackgroundColor="?attr/zzSurface">
+            <LinearLayout android:id="@+id/layout_unlock_settings" android:layout_width="1dp" android:layout_height="1dp"><TextView android:id="@+id/tv_unlock_summary" android:layout_width="1dp" android:layout_height="1dp" /></LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:layout_marginBottom="8dp" android:text="闹钟列表" android:textColor="?attr/zzText" android:textSize="16sp" android:textStyle="bold" />
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/rv_alarm_list" android:layout_width="match_parent" android:layout_height="wrap_content" android:nestedScrollingEnabled="false" android:overScrollMode="never" />
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
+            <Button android:id="@+id/btn_add_alarm" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:layout_marginEnd="5dp" android:backgroundTint="?attr/zzAccent" android:text="新增闹钟" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="15sp" android:textStyle="bold" />
+            <Button android:id="@+id/btn_test_alarm" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:layout_marginStart="5dp" android:backgroundTint="?attr/zzSurface2" android:text="测试闹钟" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
         </LinearLayout>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="手机放身边，二维码放远处；听得到，也防止躺着按掉"
-            android:textSize="14sp"
-            android:textColor="#006064"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="12dp" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="3dp"
-            app:cardBackgroundColor="#E0F2F1">
-
-            <LinearLayout
-                android:id="@+id/layout_snooze_settings"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:gravity="center_vertical"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="再响设置"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#004D40" />
-
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1" />
-
-                <TextView
-                    android:id="@+id/tv_snooze_summary"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="每10分钟,最多2次"
-                    android:textSize="13sp"
-                    android:textColor="#555555"
-                    android:layout_marginEnd="4dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textSize="20sp"
-                    android:textColor="#999999" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- 闹钟保活 -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/card_alarm_keepalive"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="3dp"
-            app:cardBackgroundColor="#E8F5E9">
-
-            <LinearLayout
-                android:id="@+id/layout_alarm_keepalive"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:gravity="center_vertical"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🛡️ 闹钟保活"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#1B5E20" />
-
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1" />
-
-                <TextView
-                    android:id="@+id/tv_keepalive_summary"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="防睡眠冻结/后台保活"
-                    android:textSize="13sp"
-                    android:textColor="#555555"
-                    android:layout_marginEnd="4dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textSize="20sp"
-                    android:textColor="#999999" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- 默认挑战题目数量（全局默认，适用于新增闹钟） -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="#E8F5E9">
-
-            <LinearLayout
-                android:id="@+id/layout_challenge_settings"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:gravity="center_vertical"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🌐 默认挑战数量"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#1B5E20" />
-
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1" />
-
-                <TextView
-                    android:id="@+id/tv_challenge_summary"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="数学2道/诗词3句/单词10个"
-                    android:textSize="12sp"
-                    android:textColor="#555555"
-                    android:layout_marginEnd="4dp"
-                    android:maxLines="1" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textSize="20sp"
-                    android:textColor="#999999" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- 默认解锁方式（全局默认，适用于新增闹钟） -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="#F3E5F5">
-
-            <LinearLayout
-                android:id="@+id/layout_unlock_settings"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:gravity="center_vertical"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="默认解锁方式"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#4A148C" />
-
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1" />
-
-                <TextView
-                    android:id="@+id/tv_unlock_summary"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="单次"
-                    android:textSize="13sp"
-                    android:textColor="#555555"
-                    android:layout_marginEnd="4dp"
-                    android:maxLines="1" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textSize="20sp"
-                    android:textColor="#999999" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="闹钟列表"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#004D40"
-            android:layout_marginBottom="8dp" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_alarm_list"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false"
-            android:overScrollMode="never" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="12dp">
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="6dp"
-                app:cardBackgroundColor="#00838F">
-
-                <Button
-                    android:id="@+id/btn_add_alarm"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="新增闹钟"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFFFF"
-                    android:background="@android:color/transparent" />
-            </androidx.cardview.widget.CardView>
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="6dp"
-                app:cardBackgroundColor="#F57C00">
-
-                <Button
-                    android:id="@+id/btn_test_alarm"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="测试闹钟"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFFFF"
-                    android:background="@android:color/transparent" />
-            </androidx.cardview.widget.CardView>
-        </LinearLayout>
-
-        <!-- 收藏本按钮 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="12dp">
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="#3E2723">
-
-                <Button
-                    android:id="@+id/btn_bookmarked_poems"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:text="📜 收藏的诗词"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFCC80"
-                    android:background="@android:color/transparent" />
-            </androidx.cardview.widget.CardView>
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="#1A237E">
-
-                <Button
-                    android:id="@+id/btn_bookmarked_words"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:text="📖 收藏的单词"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textColor="#90CAF9"
-                    android:background="@android:color/transparent" />
-            </androidx.cardview.widget.CardView>
-        </LinearLayout>
-
-        <!-- 收藏本 cloze tab 入口（C0 单独一行） -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="#004D40">
-
-            <Button
-                android:id="@+id/btn_bookmarked_clozes"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="📚 收藏的选词填空"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="#A7FFEB"
-                android:background="@android:color/transparent" />
-        </androidx.cardview.widget.CardView>
-
+        <Button android:id="@+id/btn_bookmarked_poems" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp" android:backgroundTint="?attr/zzSurface2" android:text="收藏本" android:textAllCaps="false" android:textColor="?attr/zzMuted" android:textSize="13sp" android:textStyle="bold" />
+        <Button android:id="@+id/btn_bookmarked_words" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+        <Button android:id="@+id/btn_bookmarked_clozes" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

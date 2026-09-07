@@ -1,27 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-     <item
-        android:id="@+id/nav_home"
-        android:title="主页"
-        android:icon="@drawable/ic_nav_home" />
-
-    <item
-        android:id="@+id/nav_time_config"
-        android:icon="@android:drawable/ic_menu_recent_history"
-        android:title="时间规则" />
-
-    <item
-        android:id="@+id/nav_statistics"
-        android:icon="@android:drawable/ic_menu_sort_by_size"
-        android:title="统计" />
-
-    <item
-        android:id="@+id/nav_alarm"
-        android:icon="@android:drawable/ic_lock_idle_alarm"
-        android:title="闹钟" />
-
-    <item
-        android:id="@+id/nav_rules"
-        android:title="设置"
-        android:icon="@android:drawable/ic_menu_manage" />
+    <item android:id="@+id/nav_home" android:title="主页" android:icon="@drawable/ic_nav_home" />
+    <item android:id="@+id/nav_time_config" android:title="时间规则" android:icon="@drawable/ic_nav_focus" />
+    <item android:id="@+id/nav_statistics" android:title="统计" android:icon="@drawable/ic_nav_stats" />
+    <item android:id="@+id/nav_alarm" android:title="闹钟" android:icon="@drawable/ic_nav_alarm" />
+    <item android:id="@+id/nav_rules" android:title="设置" android:icon="@drawable/ic_nav_settings" />
 </menu>

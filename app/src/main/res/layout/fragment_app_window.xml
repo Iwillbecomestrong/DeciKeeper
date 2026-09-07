@@ -1,183 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_sea_surface"
+    android:background="?attr/zzPageBg"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingStart="18dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="92dp">
 
-        <!-- Header: Title + Preview Button -->
-        <LinearLayout
-            android:id="@+id/headerLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/tvTitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="应用时间窗规则"
-                android:textSize="24sp"
-                android:textColor="#333333"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnPreview"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="应用时间窗预览"
-                android:textColor="?android:attr/colorPrimary" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="应用时间窗规则" android:textColor="?attr/zzText" android:textSize="24sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="应用仅在设定时段内可用，并需同时处于休息或空档期。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
+            </LinearLayout>
+            <Button android:id="@+id/btnPreview" android:layout_width="wrap_content" android:layout_height="40dp" android:backgroundTint="?attr/zzAccentSofter" android:text="预览" android:textAllCaps="false" android:textColor="?attr/zzAccentStrong" android:textSize="12sp" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvSubtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="应用仅在设定时段内可用（需同时处于休息或空档期）"
-            android:textSize="14sp"
-            android:textColor="?android:attr/textColorSecondary"
-            android:layout_marginTop="4dp"/>
-
-        <!-- Pending Changes Card -->
         <androidx.cardview.widget.CardView
             android:id="@+id/card_pending_changes"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            app:cardBackgroundColor="#FFF8E1"
+            android:visibility="gone"
+            app:cardBackgroundColor="?attr/zzWarningSoft"
             app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            app:contentPadding="12dp"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/tv_lockout_hint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="13sp"
-                    android:textColor="#E65100"
-                    android:lineSpacingExtra="4dp"
-                    android:layout_marginBottom="8dp"
-                    android:visibility="gone"/>
-
-                <TextView
-                    android:id="@+id/tv_pending_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="⏳ 延迟生效表"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#F57C00"
-                    android:layout_marginBottom="8dp"/>
-
-                <TextView
-                    android:id="@+id/tv_pending_changes"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="待生效变更..."
-                    android:textSize="13sp"
-                    android:lineSpacingExtra="4dp"
-                    android:textColor="#795548" />
+            app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="14dp">
+                <TextView android:id="@+id/tv_lockout_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="?attr/zzWarning" android:textSize="12sp" android:textStyle="bold" android:visibility="gone" />
+                <TextView android:id="@+id/tv_pending_changes" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Rules List (RecyclerView with nested scrolling disabled) -->
+        <TextView
+            android:id="@+id/tvEmpty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:padding="24dp"
+            android:text="还没有应用时间窗规则"
+            android:textColor="?attr/zzSubtle"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvRules"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:nestedScrollingEnabled="false" />
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never" />
 
-        <!-- Empty State -->
-        <TextView
-            android:id="@+id/tvEmpty"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="暂无规则，点击下方按钮添加"
-            android:gravity="center"
-            android:padding="32dp"
-            android:visibility="gone"/>
-
-        <!-- Control Panel (Moves with content) -->
-        <LinearLayout
-            android:id="@+id/control_panel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="16dp">
-
-            <!-- Top Row Buttons -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_undo"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="撤销"
-                    app:icon="@android:drawable/ic_menu_rotate"
-                    android:textColor="#E64A19"
-                    app:iconTint="#E64A19"
-                    app:backgroundTint="#FFCCBC"
-                    app:cornerRadius="24dp"
-                    android:textStyle="bold"
-                    android:visibility="gone"/>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_add"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="添加时间窗"
-                    android:textColor="#1B5E20"
-                    app:iconTint="#1B5E20"
-                    app:backgroundTint="#C8E6C9"
-                    app:cornerRadius="24dp"
-                    android:textStyle="bold"/>
-
-                <!-- Batch Set Button (Moved to same row) -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_batch_cycle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="批量设置周期"
-                    android:textColor="#4A148C"
-                    app:iconTint="#4A148C"
-                    app:backgroundTint="#E1BEE7"
-                    app:cornerRadius="24dp"
-                    android:textStyle="bold"/>
-                    
-            </LinearLayout>
-                
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
+            <Button android:id="@+id/btn_add" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginEnd="5dp" android:backgroundTint="?attr/zzAccent" android:text="添加时间窗" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="12sp" />
+            <Button android:id="@+id/btn_batch_cycle" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="5dp" android:backgroundTint="?attr/zzSurface2" android:text="批量设置周期" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- Bottom Padding for navigation bar -->
-        <View
+        <Button
+            android:id="@+id/btn_undo"
             android:layout_width="match_parent"
-            android:layout_height="60dp"/>
-
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="?attr/zzSurface2"
+            android:text="撤销待生效变更"
+            android:textAllCaps="false"
+            android:textColor="?attr/zzMuted"
+            android:textSize="11sp" />
     </LinearLayout>
-
 </androidx.core.widget.NestedScrollView>

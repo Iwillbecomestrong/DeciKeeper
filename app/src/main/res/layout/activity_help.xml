@@ -1,273 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_sea_depths"
+    android:background="?attr/zzPageBg"
+    android:clipToPadding="false"
     android:paddingStart="20dp"
-    android:paddingTop="80dp"
+    android:paddingTop="28dp"
     android:paddingEnd="20dp"
-    android:paddingBottom="20dp"
-    android:clipToPadding="false">
+    android:paddingBottom="24dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="使用说明" android:textColor="?attr/zzText" android:textSize="26sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="16dp" android:text="快速理解“勿扰时段 + 应用时间窗 + 出口”。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
 
-    <!--
-      页面名称: 帮助页
-      文件路径: app/src/main/res/layout/activity_help.xml
-      描述:
-      - 使用 ScrollView 包裹的长页面
-      - 包含多个 CardView，分别展示：
-        - 核心理念 (海面模式)
-        - 工作原理 (白名单/分段监管)
-        - 快速上手指南
-        - 规则生效机制 (次日达)
-        - 进阶技巧与疑难解答
-    -->
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="📘 知止 使用说明"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:shadowColor="#80000000"
-            android:shadowDx="2"
-            android:shadowDy="2"
-            android:shadowRadius="4"
-            android:layout_marginBottom="24dp"/>
-
-        <!-- 核心理念 -->
-        <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="⚓ 核心理念"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#006064"
-                    android:layout_marginBottom="12dp"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="知止是一款旨在帮助你建立数字自律、夺回时间掌控权的高强度工具。通过「海面模式」的宁静视觉，我们将复杂的时间规则简化为四个航行阶段，帮助你平稳度过由于冲动产生的干扰波动。"
-                    android:textSize="15sp"
-                    android:textColor="#424242"
-                    android:lineSpacingExtra="4dp"/>
-
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" app:cardBackgroundColor="?attr/zzSurface" app:cardCornerRadius="18dp" app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1. 勿扰时段" android:textColor="?attr/zzText" android:textSize="16sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" android:text="决定什么时候进入需要约束的状态。学习、工作和睡眠都可以设置独立时段；每个时段保留自己的休息时长、次数和黑白名单。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 工作原理 -->
-        <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🔧 工作原理"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#006064"
-                    android:layout_marginBottom="12dp"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="• 黑名单模式：知止采用「黑名单」管理机制。默认情况下，所有应用都是允许使用的。只有被你勾选进入黑名单的应用（如游戏、短视频等）才会在勿扰时段被拦截。\n\n• 分段监管：我们将一天分为多个时段，每个时段可以设置不同的休息时长。\n\n• 适应期：安装第一天为适应期，你可以随意调整设置并立即生效。适应期结束后，所有修改将严格执行「次日生效」逻辑。\n\n• 次日生效：为了防止在冲动时修改规则，所有的黑名单和时间修改都将在明天的 00:00 才正式生效。"
-                    android:textSize="15sp"
-                    android:textColor="#424242"
-                    android:lineSpacingExtra="4dp"/>
-
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" app:cardBackgroundColor="?attr/zzSurface" app:cardCornerRadius="18dp" app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2. 应用时间窗" android:textColor="?attr/zzText" android:textSize="16sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" android:text="决定娱乐应用什么时候才有资格打开。时间窗不是额外加严，而是为娱乐预留确定窗口；如果同时处于勿扰时段，仍需满足休息或空档条件。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 快速上手 -->
-        <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🚀 快速航行指南"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#006064"
-                    android:layout_marginBottom="12dp"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="1️⃣ 两种时间段\n• 勿扰时段：学习、工作、睡眠等专注时间，启动黑名单应用会被拦截。\n• 空闲时段（空档期）：勿扰时段之间的间隙，完全自由，不受任何限制。\n\n2️⃣ 拦截机制\n• 智能防卸载：平时允许使用设置和安装器。但如果检测到卸载对象是知止，会立即强制锁屏惩罚。\n• 临时解锁：勿扰时段内，如果急需使用黑名单应用，可以使用「额度」申请临时解锁。\n\n3️⃣ 额度系统\n每个时段都有「可用时长」。\n每次临时解锁黑名单应用都会消耗额度。额度耗尽后，该时段将无法再打开黑名单应用。"
-                    android:textSize="15sp"
-                    android:textColor="#424242"
-                    android:lineSpacingExtra="4dp"/>
-
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" app:cardBackgroundColor="?attr/zzSurface" app:cardCornerRadius="18dp" app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="3. 三种出口" android:textColor="?attr/zzText" android:textSize="16sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" android:text="申请休息：正常消耗本时段额度，只解除勿扰锁。\n\n临时解锁：短时间打开当前受限应用，可解除应用时间窗锁；额度不足时按规则借用下一阶段。\n\n每周特权：少量但更长的自由出口，在全局参数设定的可用时间范围内使用。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 规则与生效 -->
-        <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="⚙️ 规则生效机制"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#006064"
-                    android:layout_marginBottom="12dp"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="• 次日达：为了防止在冲动或意志薄弱时肆意放宽规则，除了安装当天的“适应期”外，所有的白名单更改、时长调节都将在次日凌晨 00:00 结算生效。"
-                    android:textSize="15sp"
-                    android:textColor="#424242"
-                    android:lineSpacingExtra="4dp"/>
-
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" app:cardBackgroundColor="?attr/zzAccentSofter" app:cardCornerRadius="18dp" app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="生效原则" android:textColor="?attr/zzAccentStrong" android:textSize="15sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:lineSpacingExtra="4dp" android:text="知止允许你休息，也允许你反悔，但不会让一次冲动立刻接管此前做出的决定。默认“宽严有别”：更严格的调整可以立即生效，放宽约束的调整按对应规则延迟生效。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 进阶技巧 -->
-        <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="💡 进阶技巧"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#006064"
-                    android:layout_marginBottom="12dp"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="• 搜索直达：在拦截页面的应用列表中使用搜索功能，可以快速点击你需要的生产力工具，避免翻找寻找导致的专注力分散。\n\n• 借用机制：当氧气耗尽，你可以预支未来的氧气，但这将产生高额的“偿还时长”，建议谨慎使用。"
-                    android:textSize="15sp"
-                    android:textColor="#424242"
-                    android:lineSpacingExtra="4dp"/>
-
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="14dp" app:cardBackgroundColor="?attr/zzSurface" app:cardCornerRadius="18dp" app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="权限在哪里设置？" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:lineSpacingExtra="4dp" android:text="首次使用所需的基础权限在主页初始化流程逐项开启；无障碍服务属于“加强约束功能”，在设置页按需开启；闹钟需要的保活与附加权限在闹钟页自己的入口中处理。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 疑难解答 -->
-        <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="❓ 疑难解答"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#006064"
-                    android:layout_marginBottom="12dp"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Q: 为什么搜不到某些系统软件？\nA: 拦截界面仅展示常用的用户安装应用和基础系统软件，部分底层系统组件已被默认排除以保证系统运行稳定。\n\nQ: 误入拦截怎么办？\nA: 如果此时尚有氧气（休息时间），点击“查看应用”即可进入应用中心；如果氧气耗尽，则必须等待当前时段结束或返回允许的应用。"
-                    android:textSize="15sp"
-                    android:textColor="#424242"
-                    android:lineSpacingExtra="4dp"/>
-
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <Button
-            android:id="@+id/btn_close_help"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="✓  我已了解"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#00796B"
-            android:elevation="4dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="24dp"/>
-
+        <Button android:id="@+id/btn_close_help" android:layout_width="match_parent" android:layout_height="52dp" android:backgroundTint="?attr/zzAccent" android:text="我已了解" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="15sp" android:textStyle="bold" />
     </LinearLayout>
 </ScrollView>
