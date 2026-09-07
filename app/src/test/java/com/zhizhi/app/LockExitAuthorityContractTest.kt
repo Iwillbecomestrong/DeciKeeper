@@ -41,10 +41,19 @@ class LockExitAuthorityContractTest {
         listOf(
             "LockDismissAuthority.RETURN_HOME",
             "LockDismissAuthority.REST",
+            "LockDismissAuthority.TEMPORARY_ACCESS",
             "LockDismissAuthority.WEEKLY_PRIVILEGE"
         ).forEach { call ->
             assertTrue("missing authorized exit call $call", lockWindow.contains(call))
         }
+        assertFalse(
+            "temporary access must not bypass the authority gate with direct WindowManager removal",
+            lockWindow.contains("startTemporaryAccess: force removeView ignored")
+        )
+        assertFalse(
+            "emergency temporary access must not bypass the authority gate with direct WindowManager removal",
+            lockWindow.contains("startTemporaryAccess(emergency): force removeView ignored")
+        )
     }
 
     @Test
