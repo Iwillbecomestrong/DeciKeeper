@@ -1,0 +1,46 @@
+name: One-shot Rule Copy Cleanup
+
+on:
+  push:
+    branches: [ai/rule-display-baseline-consistency]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ai/rule-display-baseline-consistency
+          fetch-depth: 0
+
+      - name: Normalize remaining user-facing copy and self-delete
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $manager = 'app/src/main/java/com/zhizhi/app/manager/AppWindowManager.kt'
+          $content = [System.IO.File]::ReadAllText($manager, [System.Text.Encoding]::UTF8)
+
+          $old1 = '[新增-部切待生效]'
+          $new1 = '[新增-部分待生效]'
+          $old2 = '[待生效-部分延迟]'
+          $new2 = '[部分待生效]'
+
+          if (-not $content.Contains($old1)) { throw "Expected text not found: $old1" }
+          if (-not $content.Contains($old2)) { throw "Expected text not found: $old2" }
+
+          $content = $content.Replace($old1, $new1).Replace($old2, $new2)
+          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText($manager, $content, $utf8NoBom)
+
+          git rm .github/workflows/_temp_rule_copy_cleanup.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $manager
+          git commit -m "fix: normalize remaining rule change copy"
+          git push origin HEAD:ai/rule-display-baseline-consistency
