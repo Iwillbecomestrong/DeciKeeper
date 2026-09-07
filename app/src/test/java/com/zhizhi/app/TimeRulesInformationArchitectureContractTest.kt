@@ -40,4 +40,14 @@ class TimeRulesInformationArchitectureContractTest {
         assertTrue(controller.contains("EffectiveActivationPolicyManager"))
         assertTrue(controller.contains("setupEffectivePolicyToggle"))
     }
+
+    @Test
+    fun settingsControllerNoLongerOwnsTimeRuleActivationPolicy() {
+        val settingsController = source("src/main/java/com/zhizhi/app/ui/RulesFragment.kt")
+
+        assertFalse(settingsController.contains("EffectiveActivationPolicyManager"))
+        assertFalse(settingsController.contains("setupEffectivePolicyToggle"))
+        assertFalse(settingsController.contains("updateEffectivePolicyUI"))
+        assertFalse(settingsController.contains("showEffectivePolicyHelpDialog"))
+    }
 }
