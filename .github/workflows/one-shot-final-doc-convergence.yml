@@ -25,30 +25,30 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          function Replace-Required([string]$path, [string]$old, [string]$new, [string]$label) {
+          function Replace-RegexRequired([string]$path, [string]$pattern, [string]$replacement, [string]$label) {
             $text = [System.IO.File]::ReadAllText($path)
-            if (-not $text.Contains($old)) {
+            if (-not [regex]::IsMatch($text, $pattern)) {
               throw "Expected pattern not found ($label): $path"
             }
-            $text = $text.Replace($old, $new)
+            $text = [regex]::Replace($text, $pattern, $replacement, 1)
             [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
           }
 
-          Replace-Required `
+          Replace-RegexRequired `
             'SPEC.md' `
-            '> 详细模块规格由 [`docs/specs/`](docs/specs/) 承担。旧 [`docs/specs/requirements.md`](docs/specs/requirements.md) 在迁移完成前仅作为历史需求输入，不再与本文件并列作为另一份当前真相。' `
-            '> 详细模块规格由 [`docs/specs/`](docs/specs/) 承担；历史版本与已退役需求由 Git 历史保留，不再维护第二套并列规格。' `
+            '(?m)^> 详细模块规格由 .+另一份当前真相。$' `
+            '> 详细模块规格由 docs/specs/ 承担；历史版本与已退役需求由 Git 历史保留，不再维护第二套并列规格。' `
             'SPEC retired requirements transition'
 
-          Replace-Required `
+          Replace-RegexRequired `
             'docs/README.md' `
-            "App Help`r`n  ↓ 后续与使用手册同源" `
-            "App Help`r`n  ↓ 构建时读取同一份使用手册资源" `
+            '(?m)^  ↓ 后续与使用手册同源$' `
+            '  ↓ 构建时读取同一份使用手册资源' `
             'Help single-source status'
 
-          Replace-Required `
+          Replace-RegexRequired `
             'PLAN.md' `
-            '- [ ] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。' `
+            '(?m)^- \[ \] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。$' `
             '- [x] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。' `
             'PLAN settings dead-code task'
 
@@ -57,8 +57,13 @@ jobs:
           }
           git rm 'docs/specs/requirements.md'
 
-          if (git grep -n 'docs/specs/requirements.md' -- ':!HISTORY.md' ':!docs/history/**') {
+          $liveRefs = git grep -n 'docs/specs/requirements.md' -- ':!HISTORY.md' ':!docs/history/**'
+          if ($LASTEXITCODE -eq 0 -and $liveRefs) {
+            $liveRefs | Write-Host
             throw 'Live documentation still references docs/specs/requirements.md'
+          }
+          if ($LASTEXITCODE -gt 1) {
+            throw "git grep failed with exit code $LASTEXITCODE"
           }
 
           Remove-Item '.github/workflows/one-shot-final-doc-convergence.yml'
