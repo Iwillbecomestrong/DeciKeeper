@@ -67,6 +67,50 @@ class UiVisualMasterContractTest {
     }
 
     @Test
+    fun normalSecondaryActivitiesApplyTheSelectedSeason() {
+        listOf(
+            "SchedulePreviewActivity.kt",
+            "AppWindowPreviewActivity.kt",
+            "AppSelectionActivity.kt",
+            "GlobalParamsActivity.kt",
+            "BookmarkActivity.kt",
+            "AboutActivity.kt",
+            "LegalDocumentActivity.kt",
+            "HelpActivity.kt"
+        ).forEach { name ->
+            val kt = source("src/main/java/com/zhizhi/app/ui/$name")
+            assertTrue("$name must apply the selected ZhiZhi season before rendering", kt.contains("ThemeManager.apply(this)"))
+        }
+    }
+
+    @Test
+    fun statisticsRuntimeUsesApprovedTerminologyAndSeasonalPalette() {
+        val kt = source("src/main/java/com/zhizhi/app/ui/StatisticsFragment.kt")
+        assertFalse("statistics runtime must not expose the retired 自律 wording", kt.contains("自律"))
+        listOf("#00838F", "#4CAF50", "#2196F3", "#9C27B0", "#FF9800").forEach {
+            assertFalse("statistics runtime must not hard-code legacy/rainbow palette $it", kt.contains(it))
+        }
+        assertTrue("statistics charts must derive color from seasonal tokens", kt.contains("R.attr.zzAccent"))
+    }
+
+    @Test
+    fun helpRuntimeUsesSeasonalPalette() {
+        val kt = source("src/main/java/com/zhizhi/app/ui/HelpActivity.kt")
+        assertTrue(kt.contains("ThemeManager.apply(this)"))
+        listOf("#F5F5F5", "#00838F", "#006064", "#004D40").forEach {
+            assertFalse("HelpActivity must not hard-code legacy palette $it", kt.contains(it))
+        }
+        assertTrue(kt.contains("R.attr.zzPageBg") || kt.contains("R.attr.zzSurface"))
+    }
+
+    @Test
+    fun homeRuntimeUsesThemeTokenForBorrowStatus() {
+        val kt = source("src/main/java/com/zhizhi/app/ui/HomeFragment.kt")
+        assertFalse("borrow status must not use the old orange literal", kt.contains("#FFB74D"))
+        assertTrue("borrow status should use the warning theme token", kt.contains("R.attr.zzWarning"))
+    }
+
+    @Test
     fun statisticsMatchesApprovedProductDecisions() {
         val xml = layout("fragment_statistics.xml")
         assertTrue(xml.contains("勿扰时长"))
