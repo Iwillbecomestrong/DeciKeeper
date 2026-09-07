@@ -30,7 +30,7 @@ class UiMasterLayoutContractTest {
         assertTrue("context action button must exist", contextAction >= 0)
         assertTrue("weekly privilege button must exist", privilege >= 0)
         assertTrue("primary action order must be desktop -> context action -> weekly privilege", home < contextAction && contextAction < privilege)
-        assertTrue("lock screen should use the approved light surface", xml.contains("android:background=\"#F5F7F4\""))
+        assertTrue("lock screen should use the seasonal light page surface", xml.contains("?attr/zzPageBg"))
     }
 
     @Test
