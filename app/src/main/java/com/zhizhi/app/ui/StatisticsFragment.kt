@@ -42,6 +42,7 @@ import com.zhizhi.app.ui.statistics.StatisticsFilterBottomSheet
  */
 class StatisticsFragment : Fragment() {
 
+    private val seasonalAccentAttr = R.attr.zzAccent
     private var uiState = StatisticsUiState()
     private lateinit var filterBottomSheet: StatisticsFilterBottomSheet
 

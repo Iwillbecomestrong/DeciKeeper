@@ -4149,7 +4149,7 @@ object LockWindowManager {
                 "例如：申请 0.5 分钟，冷却期还剩 0.2 分钟 → 重叠部分加权，剩余部分正常。"
         } else ""
         val dialog = AlertDialog.Builder(dialogContext)
-            .setTitle("超级临时使用说明")
+            .setTitle("临时解锁使用说明")
             .setMessage(
                 "可临时放行 1~$maxSeconds 秒。\n" +
                     "结束后不再强制锁机；冷却规则按时长分段递增：1分钟内按1倍，2分钟内按2倍，3分钟内按3倍。比如放行3分钟，冷却就是6分钟。二级临时总次数按本轮初始冷却秒数÷60四舍五入后固定，仅在实际使用10秒二级临时时扣减，且两次至少间隔60秒。" +
@@ -4183,18 +4183,18 @@ object LockWindowManager {
         val remainingMins = CreditManager.getRemainingMinutes(context)
 
         val message = buildString {
-            append("⚠️ 勿扰时段内使用超级临时将消耗休息额度\n\n")
+            append("⚠️ 勿扰时段内使用临时解锁将消耗休息额度\n\n")
             append("• 临时放行时长: ${rawSeconds} 秒\n")
             append("• 需扣除额度: ${formatMinutesForLock(minutesToDeduct)} 分钟\n")
             append("• 当前可用额度: ${formatMinutesForLock(remainingMins)} 分钟\n")
             if (remainingMins < minutesToDeduct) {
                 append("\n⚠️ 额度不足，将自动借用下时段额度（借1分钟扣2分钟）\n")
             }
-            append("\n确定要使用超级临时吗？")
+            append("\n确定要使用临时解锁吗？")
         }
 
         val dialog = AlertDialog.Builder(dialogContext)
-            .setTitle("超级临时确认")
+            .setTitle("临时解锁确认")
             .setMessage(message)
             .setPositiveButton("确认") { _, _ ->
                 startTemporaryAccess(context, rawSeconds, maxSeconds)
