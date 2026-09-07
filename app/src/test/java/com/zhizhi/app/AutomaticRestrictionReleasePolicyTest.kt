@@ -5,11 +5,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-
-
 class AutomaticRestrictionReleasePolicyTest {
     @Test
-    fun releasesAllActiveStatesWhenNoRestrictionRemains() {
+    fun naturalFreedomSettlesSessionsButKeepsAnAlreadyVisibleBlacklistOverlay() {
         val result = resolveAutomaticRestrictionRelease(
             isDndBlocked = false,
             isAppWindowBlocked = false,
@@ -20,7 +18,10 @@ class AutomaticRestrictionReleasePolicyTest {
 
         assertTrue(result.settleRest)
         assertTrue(result.settleTemporaryAccess)
-        assertTrue(result.dismissBlacklistOverlay)
+        assertFalse(
+            "Natural rule changes are not an unlock authority once the lock is visible",
+            result.dismissBlacklistOverlay
+        )
     }
 
     @Test
@@ -42,7 +43,7 @@ class AutomaticRestrictionReleasePolicyTest {
     }
 
     @Test
-    fun onlyRequestsActionsForStatesThatExist() {
+    fun onlyRequestsSessionSettlementForStatesThatExist() {
         val result = resolveAutomaticRestrictionRelease(false, false, false, true, false)
 
         assertFalse(result.settleRest)

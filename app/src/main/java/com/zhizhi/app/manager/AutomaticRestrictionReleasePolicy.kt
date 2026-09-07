@@ -1,4 +1,5 @@
 package com.zhizhi.app.manager
+
 internal data class AutomaticRestrictionReleaseDecision(
     val settleRest: Boolean,
     val settleTemporaryAccess: Boolean,
@@ -16,6 +17,8 @@ internal fun resolveAutomaticRestrictionRelease(
     return AutomaticRestrictionReleaseDecision(
         settleRest = naturallyFree && hasActiveRest,
         settleTemporaryAccess = naturallyFree && hasActiveTemporaryAccess,
-        dismissBlacklistOverlay = naturallyFree && hasBlacklistOverlay
+        // Once a blacklist overlay is visible, a rule transition is not an unlock authority.
+        // The overlay remains until REST / TEMPORARY_ACCESS / WEEKLY_PRIVILEGE / RETURN_HOME.
+        dismissBlacklistOverlay = false
     )
 }

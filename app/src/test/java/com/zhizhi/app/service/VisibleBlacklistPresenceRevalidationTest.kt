@@ -1,13 +1,31 @@
 package com.zhizhi.app.service
 
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class VisibleBlacklistPresenceRevalidationTest {
 
     private val testPkg = "com.ss.android.ugc.aweme"
+    private var originalServiceActive = false
+    private var originalVisiblePackages: Set<String> = emptySet()
+
+    @Before
+    fun setUpAccessibilityFixture() {
+        originalServiceActive = CoreService.isServiceActive
+        originalVisiblePackages = CoreService.lastVisiblePackagesFromWindows
+        CoreService.isServiceActive = true
+        CoreService.lastVisiblePackagesFromWindows = setOf(testPkg, "com.bbk.launcher2")
+    }
+
+    @After
+    fun restoreAccessibilityFixture() {
+        CoreService.isServiceActive = originalServiceActive
+        CoreService.lastVisiblePackagesFromWindows = originalVisiblePackages
+    }
 
     @Test
     fun `failed accessibility scan with stale package blocks relock until a fresh observation`() {
@@ -48,6 +66,7 @@ class VisibleBlacklistPresenceRevalidationTest {
             nowMs = 12_000L,
             scanSucceeded = true
         )
+        CoreService.lastVisiblePackagesFromWindows = setOf("com.bbk.launcher2", testPkg)
 
         assertFalse(tracker.accessibilityRevalidationRequired)
         assertEquals(PresenceTrackerAction.LOCK, tracker.evaluate(14_500L))
@@ -75,6 +94,7 @@ class VisibleBlacklistPresenceRevalidationTest {
             nowMs = 12_500L,
             scanSucceeded = true
         )
+        CoreService.lastVisiblePackagesFromWindows = setOf("com.bbk.launcher2", testPkg)
 
         assertTrue(tracker.isLastTimeVisibleValid(testPkg, 12_600L))
     }
