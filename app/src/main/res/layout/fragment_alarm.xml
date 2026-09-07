@@ -58,7 +58,10 @@
             <Button android:id="@+id/btn_test_alarm" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:layout_marginStart="5dp" android:backgroundTint="?attr/zzSurface2" android:text="测试闹钟" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
         </LinearLayout>
 
-        <Button android:id="@+id/btn_bookmarked_poems" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp" android:backgroundTint="?attr/zzSurface2" android:text="收藏本" android:textAllCaps="false" android:textColor="?attr/zzMuted" android:textSize="13sp" android:textStyle="bold" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal">
+            <Button android:id="@+id/btn_bookmarked_poems" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginEnd="5dp" android:backgroundTint="?attr/zzSurface2" android:text="收藏本" android:textAllCaps="false" android:textColor="?attr/zzMuted" android:textSize="13sp" android:textStyle="bold" />
+            <Button android:id="@+id/btn_custom_question_bank" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="5dp" android:backgroundTint="?attr/zzSurface2" android:text="自定义题库" android:textAllCaps="false" android:textColor="?attr/zzMuted" android:textSize="13sp" android:textStyle="bold" />
+        </LinearLayout>
         <Button android:id="@+id/btn_bookmarked_words" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
         <Button android:id="@+id/btn_bookmarked_clozes" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
     </LinearLayout>

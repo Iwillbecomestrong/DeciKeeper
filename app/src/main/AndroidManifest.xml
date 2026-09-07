@@ -171,6 +171,22 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.questionbank.CustomQuestionBankActivity"
+            android:exported="false"
+            android:label="自定义题库" />
+
+        <activity
+            android:name=".ui.questionbank.CustomQuestionBankImportActivity"
+            android:exported="false"
+            android:label="导入自定义题库"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.questionbank.CustomQuestionReviewActivity"
+            android:exported="false"
+            android:label="题库回顾" />
+
+        <activity
             android:name=".ui.HelpActivity"
             android:exported="false"
             android:label="使用说明" />

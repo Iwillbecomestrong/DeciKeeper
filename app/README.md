@@ -31,11 +31,17 @@ adb install -r -d app/build/outputs/apk/release/app-release.apk
 ```text
 com.zhizhi.app
 ├── manager/     # 业务规则管理器（CreditManager, TimeRuleManager, AppWindowManager 等）
+│   ├── questionbank/ # 自定义题库管理器与解析器（CustomQuestionBankManager, CustomQuestionBankParser）
+│   └── statistics/ # 统计数据分桶与仓储层（StatisticsRepository, StatsDateRangeResolver）
 ├── ui/          # 视图展现层（Activity, Fragment, Adapter, Dialog）
+│   ├── questionbank/ # 题库管理、智能导入与错题回顾（CustomQuestionBankActivity 等）
+│   └── statistics/ # 统计图表渲染与筛选弹窗（StatisticsChartRenderer, StatisticsFilterBottomSheet）
 ├── protection/  # 系统级防护（无障碍拦截、防卸载、防强行停止、权限守护）
 ├── service/     # 核心服务（CoreService 无障碍通道、MonitorService 前台监控）
 ├── receiver/    # 广播接收器（BootReceiver 开机自启、DeviceAdmin 设备管理器）
 ├── data/        # 持久化存储与数据模型
+│   ├── questionbank/ # 自定义题库与题目模型（CustomQuestionModels）
+│   └── statistics/ # 统计数据模型（StatisticsModels）
 └── util/        # 纯通用工具类（日期格式化、字符串处理等）
 ```
 
@@ -60,6 +66,8 @@ com.zhizhi.app
 | **前台监控** | `service/MonitorService.kt`<br>`service/ForegroundSessionTracker.kt` | 前台应用识别、滑窗投票、未关闭前台会话跟踪、规则边界锁定 |
 | **覆盖层状态机** | `manager/LockWindowManager.kt` | 锁屏 Window 管理、代际（Generation）验证、到期重锁兜底 |
 | **防卸载守护** | `protection/AntiUninstallProtection.kt`<br>`service/CoreService.kt` | 无障碍事件捕获、5秒热窗口拦截、设置页退栈 |
+| **使用统计** | `ui/StatisticsFragment.kt`<br>`manager/statistics/StatisticsRepository.kt`<br>`manager/statistics/StatsDateRangeResolver.kt` | 休息、起床、应用、规则保护行为统计，双图表阈值自适应引擎与两层筛选体系 |
+| **自定义题库** | `manager/questionbank/CustomQuestionBankManager.kt`<br>`manager/questionbank/CustomQuestionBankParser.kt`<br>`ui/questionbank/CustomQuestionBankActivity.kt` | Markdown 智能语法解析与行号告警、AI 出题提示词、多题库管理与错题常驻回顾 |
 
 ---
 

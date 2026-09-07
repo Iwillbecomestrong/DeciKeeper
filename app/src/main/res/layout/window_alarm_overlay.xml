@@ -8,6 +8,7 @@
     android:keepScreenOn="true">
 
     <LinearLayout
+        android:id="@+id/root_content_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
@@ -551,6 +552,164 @@
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
+                <!-- 自定义题库挑战模块（custom） -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cv_alarm_custom"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#1A2421">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/tv_custom_progress"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="自定义题库 (0/3)"
+                            android:textSize="14sp"
+                            android:textColor="#A5D6A7"
+                            android:layout_marginBottom="6dp" />
+
+                        <TextView
+                            android:id="@+id/tv_custom_stem"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="题目加载中..."
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF"
+                            android:lineSpacingMultiplier="1.2"
+                            android:layout_marginBottom="10dp" />
+
+                        <!-- 提示按钮 + 提示文字（默认隐藏，点击展开） -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp"
+                            android:gravity="center_vertical">
+
+                            <Button
+                                android:id="@+id/btn_custom_hint"
+                                android:layout_width="wrap_content"
+                                android:layout_height="36dp"
+                                android:text="💡 提示"
+                                android:textSize="12sp"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#2E7D32"
+                                android:minWidth="0dp"
+                                android:paddingStart="12dp"
+                                android:paddingEnd="12dp"
+                                android:layout_marginEnd="8dp" />
+
+                            <TextView
+                                android:id="@+id/tv_custom_hint"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textSize="13sp"
+                                android:textColor="#C8E6C9"
+                                android:background="#24332C"
+                                android:padding="8dp"
+                                android:visibility="gone" />
+                        </LinearLayout>
+
+                        <!-- 选项 2x2 网格 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="6dp">
+
+                            <Button
+                                android:id="@+id/btn_custom_a"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:minHeight="48dp"
+                                android:layout_weight="1"
+                                android:text="A"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1B5E20"
+                                android:textAllCaps="false"
+                                android:layout_marginEnd="6dp" />
+
+                            <Button
+                                android:id="@+id/btn_custom_b"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:minHeight="48dp"
+                                android:layout_weight="1"
+                                android:text="B"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1B5E20"
+                                android:textAllCaps="false" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="6dp">
+
+                            <Button
+                                android:id="@+id/btn_custom_c"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:minHeight="48dp"
+                                android:layout_weight="1"
+                                android:text="C"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1B5E20"
+                                android:textAllCaps="false"
+                                android:layout_marginEnd="6dp" />
+
+                            <Button
+                                android:id="@+id/btn_custom_d"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:minHeight="48dp"
+                                android:layout_weight="1"
+                                android:text="D"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#1B5E20"
+                                android:textAllCaps="false" />
+                        </LinearLayout>
+
+                        <!-- 跳过按钮 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="2dp">
+
+                            <Button
+                                android:id="@+id/btn_custom_skip"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:text="⏭ 跳过此题"
+                                android:textSize="13sp"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#37474F"
+                                android:textAllCaps="false" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
                 <!-- 扫码模块 -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/cv_alarm_qr"
@@ -662,6 +821,18 @@
                     android:textColor="#90CAF9"
                     android:backgroundTint="#102030"
                     android:layout_marginStart="4dp" />
+
+                <Button
+                    android:id="@+id/btn_review_tab_custom"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:text="📚 题库"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#A5D6A7"
+                    android:backgroundTint="#1A2421"
+                    android:layout_marginStart="4dp" />
             </LinearLayout>
 
             <!-- v3.1 Bug-2: 三种都做了时, 在 tabs 旁显示"📝 选词填空"快捷按钮 -->
@@ -677,7 +848,7 @@
                 android:visibility="gone"
                 android:layout_marginBottom="8dp" />
 
-            <!-- 复习卡片滚动区域 (诗词 / 单词, 单页 ScrollView 不分页) -->
+            <!-- 复习卡片滚动区域 (诗词 / 单词 / 自定义, 单页 ScrollView 不分页) -->
             <ScrollView
                 android:id="@+id/sv_review_cards"
                 android:layout_width="match_parent"
@@ -702,6 +873,14 @@
                     <!-- 单词复习卡片容器 (单页 ScrollView, 不分页) -->
                     <LinearLayout
                         android:id="@+id/container_review_words"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone" />
+
+                    <!-- 自定义题库复习卡片容器 (单页 ScrollView, 不分页) -->
+                    <LinearLayout
+                        android:id="@+id/container_review_custom"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"

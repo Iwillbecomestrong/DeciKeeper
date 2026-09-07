@@ -1,0 +1,139 @@
+package com.zhizhi.app.questionbank
+
+import android.content.Context
+import com.zhizhi.app.data.questionbank.CustomQuestion
+import com.zhizhi.app.data.questionbank.CustomQuestionBank
+import com.zhizhi.app.manager.questionbank.CustomQuestionBankManager
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+
+@RunWith(RobolectricTestRunner::class)
+class CustomQuestionBankManagerTest {
+
+    private lateinit var context: Context
+
+    @Before
+    fun setUp() {
+        context = RuntimeEnvironment.getApplication()
+        CustomQuestionBankManager.clearForTest(context)
+    }
+
+    @After
+    fun tearDown() {
+        CustomQuestionBankManager.clearForTest(context)
+    }
+
+    @Test
+    fun testSaveAndGetBanks() {
+        val q1 = CustomQuestion(
+            id = "q1",
+            bankId = "b1",
+            stem = "题干1",
+            options = listOf("A", "B", "C", "D"),
+            answer = "A",
+            explanation = "解析1"
+        )
+        val bank = CustomQuestionBank(
+            id = "b1",
+            title = "考研题库",
+            description = "描述",
+            enabled = true,
+            questions = listOf(q1)
+        )
+
+        CustomQuestionBankManager.saveBank(context, bank)
+
+        val retrieved = CustomQuestionBankManager.getBank(context, "b1")
+        assertNotNull(retrieved)
+        assertEquals("考研题库", retrieved?.title)
+        assertEquals(1, retrieved?.questions?.size)
+        assertEquals("题干1", retrieved?.questions?.get(0)?.stem)
+
+        // 重新从磁盘强制加载测试持久化
+        val reloadBanks = CustomQuestionBankManager.getBanks(context, forceReload = true)
+        assertEquals(1, reloadBanks.size)
+        assertEquals("b1", reloadBanks[0].id)
+    }
+
+    @Test
+    fun testDeleteAndSetEnabled() {
+        val bank1 = CustomQuestionBank(id = "b1", title = "题库1", enabled = true)
+        val bank2 = CustomQuestionBank(id = "b2", title = "题库2", enabled = true)
+        CustomQuestionBankManager.saveBank(context, bank1)
+        CustomQuestionBankManager.saveBank(context, bank2)
+
+        assertEquals(2, CustomQuestionBankManager.getBanks(context).size)
+
+        CustomQuestionBankManager.setBankEnabled(context, "b1", false)
+        assertFalse(CustomQuestionBankManager.getBank(context, "b1")!!.enabled)
+
+        CustomQuestionBankManager.deleteBank(context, "b2")
+        assertEquals(1, CustomQuestionBankManager.getBanks(context).size)
+        assertNull(CustomQuestionBankManager.getBank(context, "b2"))
+    }
+
+    @Test
+    fun testRandomQuestionSelection() {
+        // 无题库时抽题为 null
+        assertNull(CustomQuestionBankManager.getRandomQuestion(context))
+
+        val q1 = CustomQuestion(id = "q1", bankId = "b1", stem = "题1", options = listOf("1", "2", "3", "4"), answer = "A")
+        val q2 = CustomQuestion(id = "q2", bankId = "b1", stem = "题2", options = listOf("1", "2", "3", "4"), answer = "B")
+        val bank = CustomQuestionBank(id = "b1", title = "题库1", enabled = false, questions = listOf(q1, q2))
+        CustomQuestionBankManager.saveBank(context, bank)
+
+        // enabled == false 时不可被抽取
+        assertNull(CustomQuestionBankManager.getRandomQuestion(context))
+
+        // enabled == true 时可被抽取
+        CustomQuestionBankManager.setBankEnabled(context, "b1", true)
+        val picked = CustomQuestionBankManager.getRandomQuestion(context)
+        assertNotNull(picked)
+        assertTrue(picked?.id in listOf("q1", "q2"))
+    }
+
+    @Test
+    fun testRecordAttemptAndMistakes() {
+        val q1 = CustomQuestion(id = "q1", bankId = "b1", stem = "题1", options = listOf("1", "2", "3", "4"), answer = "A")
+        val bank = CustomQuestionBank(id = "b1", title = "题库1", enabled = true, questions = listOf(q1))
+        CustomQuestionBankManager.saveBank(context, bank)
+
+        // 答错
+        CustomQuestionBankManager.recordAttempt(context, "b1", "q1", isCorrect = false, pickedOption = "2")
+        var mistakes = CustomQuestionBankManager.getAllMistakes(context)
+        assertEquals(1, mistakes.size)
+        assertEquals(1, mistakes[0].second.wrongCount)
+        assertEquals("wrong", mistakes[0].second.lastAttemptStatus)
+
+        // 答对
+        CustomQuestionBankManager.recordAttempt(context, "b1", "q1", isCorrect = true, pickedOption = "1")
+        val currentQ = CustomQuestionBankManager.getBank(context, "b1")!!.questions[0]
+        assertEquals("correct", currentQ.lastAttemptStatus)
+        assertEquals(1, currentQ.wrongCount) // 历史错题计数值仍保留
+
+        // 移除错题
+        CustomQuestionBankManager.resetMistake(context, "b1", "q1")
+        mistakes = CustomQuestionBankManager.getAllMistakes(context)
+        assertEquals(0, mistakes.size)
+    }
+
+    @Test
+    fun testStandardTemplateAndPromptNotEmpty() {
+        val template = CustomQuestionBankManager.getStandardTemplate()
+        assertTrue(template.contains("唯物辩证法"))
+        assertTrue(template.contains("答案: B"))
+
+        val prompt = CustomQuestionBankManager.getAiPrompt()
+        assertTrue(prompt.contains("四选一"))
+        assertTrue(prompt.contains("Markdown"))
+    }
+}

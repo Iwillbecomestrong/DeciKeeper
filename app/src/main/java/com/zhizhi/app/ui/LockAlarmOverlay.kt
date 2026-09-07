@@ -231,11 +231,16 @@ internal object LockAlarmOverlayController {
         val effectiveUsePoem = "poem" in allTypes
         val effectiveUseWord = "word" in allTypes
         val effectiveUseCloze = "cloze" in allTypes
+        val effectiveUseCustom = "custom" in allTypes
 
         targetMathCount = if (isTest) (if (effectiveUseMath) (testCfg?.mathCount ?: 1) else 0) else (if (effectiveUseMath) (entry?.mathCount ?: 2) else 0)
         targetPoemCount = if (isTest) (if (effectiveUsePoem) (testCfg?.poemCount ?: 1) else 0) else (if (effectiveUsePoem) (entry?.poemCount ?: 3) else 0)
         targetWordCount = if (isTest) (if (effectiveUseWord) (testCfg?.wordCount ?: 1) else 0) else (if (effectiveUseWord) (entry?.wordCount ?: 10) else 0)
         targetClozeCount = if (isTest) (if (effectiveUseCloze) (testCfg?.clozeCount ?: 3) else 0) else (if (effectiveUseCloze) (entry?.clozeCount ?: 5) else 0)
+        targetCustomCount = if (isTest) (if (effectiveUseCustom) (testCfg?.customCount ?: 3) else 0) else (if (effectiveUseCustom) (entry?.customCount ?: 3) else 0)
+        alarmStage1CustomBanks = if (isTest) (testCfg?.stage1CustomBanks ?: emptyMap()) else (entry?.stage1CustomBanks ?: emptyMap())
+        alarmStage2CustomBanks = if (isTest) (testCfg?.stage2CustomBanks ?: emptyMap()) else (entry?.stage2CustomBanks ?: emptyMap())
+        rebuildCustomQueue()
 
         // Store vibration mode for AlarmVibrationService to read
         testVibrationMode = if (isTest) (testCfg?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE) else null
@@ -249,10 +254,10 @@ internal object LockAlarmOverlayController {
         testAutoEscalate = if (isTest) (testCfg?.autoEscalate ?: false) else null
 
         // 如果啥都没选，强制用扫码
-        val finalUseQr = if (!effectiveUseQr && targetMathCount == 0 && targetPoemCount == 0 && targetWordCount == 0 && targetClozeCount == 0) true else effectiveUseQr
+        val finalUseQr = if (!effectiveUseQr && targetMathCount == 0 && targetPoemCount == 0 && targetWordCount == 0 && targetClozeCount == 0 && targetCustomCount == 0) true else effectiveUseQr
         isQrEnabled = finalUseQr
 
-        Log.i(TAG, "showAlarmOverlay: isTest=$isTest, s1=$alarmStage1Types, s2=$alarmStage2Types, math=$targetMathCount, poem=$targetPoemCount, word=$targetWordCount, cloze=$targetClozeCount, qr=$isQrEnabled, twoStage=$isTwoStageUnlock")
+        Log.i(TAG, "showAlarmOverlay: isTest=$isTest, s1=$alarmStage1Types, s2=$alarmStage2Types, math=$targetMathCount, poem=$targetPoemCount, word=$targetWordCount, cloze=$targetClozeCount, custom=$targetCustomCount, qr=$isQrEnabled, twoStage=$isTwoStageUnlock")
 
         val ctx = LockWindowManager.getAlarmContext() ?: return
         try {
@@ -272,9 +277,11 @@ internal object LockAlarmOverlayController {
             LockWindowManager.getSessionPoems().clear()
             LockWindowManager.getSessionWords().clear()
             LockWindowManager.getSessionClozes().clear()
+            LockWindowManager.getSessionCustomQuestions().clear()
             currentPoem = null
             currentWord = null
             currentCloze = null
+            currentCustomQuestion = null
             initAlarmUI()
             syncChallengeUiByStage()
 
@@ -381,12 +388,30 @@ internal object LockAlarmOverlayController {
     private var targetPoemCount = 0
     private var targetWordCount = 0
     private var targetClozeCount = 0
+    private var targetCustomCount = 0
+    private var alarmStage1CustomBanks: Map<String, Int> = emptyMap()
+    private var alarmStage2CustomBanks: Map<String, Int> = emptyMap()
+    private val customBankQueue = mutableListOf<String?>()
+
+    private fun rebuildCustomQueue() {
+        customBankQueue.clear()
+        val bankMap = if (!isAlarmFirstStagePassed) alarmStage1CustomBanks else alarmStage2CustomBanks
+        if (bankMap.isNotEmpty()) {
+            for ((bId, count) in bankMap) {
+                repeat(count) { customBankQueue.add(bId) }
+            }
+            targetCustomCount = customBankQueue.size
+        } else {
+            repeat(targetCustomCount) { customBankQueue.add(null) }
+        }
+    }
     private var isQrEnabled = true
 
     private var currentMathIndex = 0
     private var currentPoemIndex = 0
     private var currentWordIndex = 0
     private var currentClozeIndex = 0
+    private var currentCustomIndex = 0
 
     private var currentMathAnswer = 0
     private var currentPoemAnswer = ""
@@ -395,6 +420,7 @@ internal object LockAlarmOverlayController {
     private var currentWordPhonetic = ""
     private var currentWord: AlarmChallengeManager.Word? = null
     private var currentCloze: AlarmChallengeManager.ClozeQuestion? = null
+    private var currentCustomQuestion: com.zhizhi.app.data.questionbank.CustomQuestion? = null
     private var currentPoemHint = ""
     private var isAlarmFirstStagePassed = false
     private var alarmStageCooldownSeconds: Int = 0
@@ -491,10 +517,13 @@ internal object LockAlarmOverlayController {
         currentWordAnswer = ""
         currentWordPhonetic = ""
         currentCloze = null
+        currentCustomQuestion = null
         currentMathIndex = 0
         currentPoemIndex = 0
         currentWordIndex = 0
         currentClozeIndex = 0
+        currentCustomIndex = 0
+        rebuildCustomQueue()
     }
 
     // ── 会话复习数据收集 ──
@@ -526,6 +555,13 @@ internal object LockAlarmOverlayController {
         currentCloze = null
     }
 
+    private fun settleCurrentCustom(status: String, userAnswer: String? = null) {
+        val q = currentCustomQuestion ?: return
+        LockWindowManager.getSessionCustomQuestions().add(LockWindowManager.SessionCustomQuestionEntry(q, status, userAnswer))
+        Log.i(TAG, "settleCurrentCustom: status=$status, total=${LockWindowManager.getSessionCustomQuestions().size}, answer=${q.answer}")
+        currentCustomQuestion = null
+    }
+
     private fun initAlarmUI() {
         val view = LockWindowManager.getAlarmView() ?: return
         val cvQr = view.findViewById<View>(R.id.cv_alarm_qr)
@@ -533,12 +569,14 @@ internal object LockAlarmOverlayController {
         val cvPoem = view.findViewById<View>(R.id.cv_alarm_poem)
         val cvWord = view.findViewById<View>(R.id.cv_alarm_word)
         val cvCloze = view.findViewById<View>(R.id.cv_alarm_cloze)
+        val cvCustom = view.findViewById<View>(R.id.cv_alarm_custom)
 
         cvQr.visibility = if (isQrEnabled) View.VISIBLE else View.GONE
         cvMath.visibility = if (targetMathCount > 0) View.VISIBLE else View.GONE
         cvPoem.visibility = if (targetPoemCount > 0) View.VISIBLE else View.GONE
         cvWord.visibility = if (targetWordCount > 0) View.VISIBLE else View.GONE
         cvCloze.visibility = if (targetClozeCount > 0) View.VISIBLE else View.GONE
+        cvCustom?.visibility = if (targetCustomCount > 0) View.VISIBLE else View.GONE
 
         // 按钮事件绑定
         view.findViewById<Button>(R.id.btn_alarm_scan).setOnClickListener {
@@ -796,6 +834,66 @@ internal object LockAlarmOverlayController {
             }
         }
 
+        // --- Custom (自定义题库) ---
+        val btnCustomA = view.findViewById<Button>(R.id.btn_custom_a)
+        val btnCustomB = view.findViewById<Button>(R.id.btn_custom_b)
+        val btnCustomC = view.findViewById<Button>(R.id.btn_custom_c)
+        val btnCustomD = view.findViewById<Button>(R.id.btn_custom_d)
+        val btnCustomSkip = view.findViewById<Button>(R.id.btn_custom_skip)
+        val btnCustomHint = view.findViewById<Button>(R.id.btn_custom_hint)
+        val tvCustomHint = view.findViewById<TextView>(R.id.tv_custom_hint)
+
+        view.findViewById<TextView>(R.id.tv_custom_progress)?.text = "自定义题库 (0/$targetCustomCount)"
+        if (targetCustomCount > 0) rollCustom()
+
+        fun onCustomOptionClicked(idx: Int) {
+            val q = currentCustomQuestion ?: return
+            val letter = when (idx) { 0 -> "A"; 1 -> "B"; 2 -> "C"; else -> "D" }
+            val picked = q.options.getOrNull(idx) ?: letter
+            val isCorrect = letter.equals(q.answer, ignoreCase = true)
+            val ctx = LockWindowManager.getAlarmContext()
+
+            if (isCorrect) {
+                settleCurrentCustom("correct", picked)
+                if (ctx != null) {
+                    com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.recordAttempt(
+                        ctx, q.bankId, q.id, isCorrect = true, pickedOption = picked
+                    )
+                }
+                currentCustomIndex++
+                if (currentCustomIndex >= targetCustomCount) {
+                    onAnyChallengePassed()
+                } else {
+                    rollCustom()
+                }
+            } else {
+                settleCurrentCustom("wrong", picked)
+                if (ctx != null) {
+                    com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.recordAttempt(
+                        ctx, q.bankId, q.id, isCorrect = false, pickedOption = picked
+                    )
+                }
+                Toast.makeText(LockWindowManager.getAlarmContext(), "答案不正确，已记录到错题本，换下一题", Toast.LENGTH_SHORT).show()
+                rollCustom()
+            }
+        }
+        btnCustomA?.setOnClickListener { onCustomOptionClicked(0) }
+        btnCustomB?.setOnClickListener { onCustomOptionClicked(1) }
+        btnCustomC?.setOnClickListener { onCustomOptionClicked(2) }
+        btnCustomD?.setOnClickListener { onCustomOptionClicked(3) }
+        btnCustomSkip?.setOnClickListener {
+            settleCurrentCustom("skipped")
+            rollCustom()
+        }
+        btnCustomHint?.setOnClickListener {
+            val q = currentCustomQuestion
+            // 提示隔离铁律：仅当明确存在 hint 且非空时展示 hint，绝不展示答案或解析
+            if (q != null && q.hint.isNotBlank() && tvCustomHint != null) {
+                tvCustomHint.text = "💡 提示：${q.hint}"
+                tvCustomHint.visibility = View.VISIBLE
+            }
+        }
+
         showAlarmActionPanel(view.findViewById(R.id.layout_alarm_actions), view.findViewById(R.id.btn_alarm_close), btnSnooze, forceHide = true)
     }
 
@@ -1044,6 +1142,46 @@ internal object LockAlarmOverlayController {
         btnD.isEnabled = true
     }
 
+    private fun rollCustom() {
+        val view = LockWindowManager.getAlarmView() ?: return
+        val ctx = LockWindowManager.getAlarmContext() ?: return
+        val bankId = customBankQueue.getOrNull(currentCustomIndex)
+        val q = com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.getRandomQuestion(ctx, bankId)
+            ?: com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.getRandomQuestion(ctx)
+        if (q == null) {
+            Toast.makeText(ctx, "未找到可用自定义题目，已自动完成该项", Toast.LENGTH_SHORT).show()
+            currentCustomIndex = targetCustomCount
+            onAnyChallengePassed()
+            return
+        }
+        currentCustomQuestion = q
+        val bankName = bankId?.let { com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.getBank(ctx, it)?.title } ?: "自定义题库"
+        view.findViewById<TextView>(R.id.tv_custom_progress)?.text = "$bankName ($currentCustomIndex/$targetCustomCount)"
+        view.findViewById<TextView>(R.id.tv_custom_stem)?.text = q.stem
+
+        // 提示安全隔离铁律：仅当明确存在 hint 且非空时显示提示按钮
+        val btnHint = view.findViewById<Button>(R.id.btn_custom_hint)
+        val hasHint = q.hint.isNotBlank()
+        btnHint?.visibility = if (hasHint) View.VISIBLE else View.GONE
+        view.findViewById<TextView>(R.id.tv_custom_hint)?.apply {
+            visibility = View.GONE
+            text = ""
+        }
+
+        val btnA = view.findViewById<Button>(R.id.btn_custom_a)
+        val btnB = view.findViewById<Button>(R.id.btn_custom_b)
+        val btnC = view.findViewById<Button>(R.id.btn_custom_c)
+        val btnD = view.findViewById<Button>(R.id.btn_custom_d)
+        btnA?.text = "A. ${q.options.getOrNull(0) ?: ""}"
+        btnB?.text = "B. ${q.options.getOrNull(1) ?: ""}"
+        btnC?.text = "C. ${q.options.getOrNull(2) ?: ""}"
+        btnD?.text = "D. ${q.options.getOrNull(3) ?: ""}"
+        btnA?.isEnabled = true
+        btnB?.isEnabled = true
+        btnC?.isEnabled = true
+        btnD?.isEnabled = true
+    }
+
     private fun disablePaste(editText: EditText) {
         editText.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
             override fun onCreateActionMode(mode: android.view.ActionMode, menu: android.view.Menu) = false
@@ -1062,6 +1200,8 @@ internal object LockAlarmOverlayController {
             // Stage 1 cleared — advance to stage 2 (reset counters for fresh Stage 2 challenges)
             isAlarmFirstStagePassed = true
             AlarmScheduler.markFirstStagePassed(ctx, true)
+            // 第一关通过立即将震动和铃声衰减为最微弱温和模式
+            com.zhizhi.app.service.AlarmVibrationService.attenuate(ctx)
             // [Fix: two-stage counter exhaustion] 重置计数器并重新出题，让 Stage 2 有全新的数学/诗词/单词题
             resetAlarmQuestions()
 
@@ -1080,6 +1220,7 @@ internal object LockAlarmOverlayController {
                 if ("poem" in alarmStage2Types && targetPoemCount > 0) rollPoem()
                 if ("word" in alarmStage2Types && targetWordCount > 0) rollWord()
                 if ("cloze" in alarmStage2Types && targetClozeCount > 0) rollCloze()
+                if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
             }
             syncChallengeUiByStage()
             Toast.makeText(ctx, "第一关通过，请完成第二关", Toast.LENGTH_SHORT).show()
@@ -1094,10 +1235,14 @@ internal object LockAlarmOverlayController {
         view.findViewById<View>(R.id.cv_alarm_poem)?.visibility = View.GONE
         view.findViewById<View>(R.id.cv_alarm_word)?.visibility = View.GONE
         view.findViewById<View>(R.id.cv_alarm_cloze)?.visibility = View.GONE
+        view.findViewById<View>(R.id.cv_alarm_custom)?.visibility = View.GONE
 
         // 构建复习回顾卡片
-        val hasReview = LockWindowManager.getSessionPoems().isNotEmpty() || LockWindowManager.getSessionWords().isNotEmpty() || LockWindowManager.getSessionClozes().isNotEmpty()
-        Log.i(TAG, "onAnyChallengePassed: final stage done, hasReview=$hasReview, poems=${LockWindowManager.getSessionPoems().size}, words=${LockWindowManager.getSessionWords().size}, clozes=${LockWindowManager.getSessionClozes().size}")
+        val hasReview = LockWindowManager.getSessionPoems().isNotEmpty() ||
+            LockWindowManager.getSessionWords().isNotEmpty() ||
+            LockWindowManager.getSessionClozes().isNotEmpty() ||
+            LockWindowManager.getSessionCustomQuestions().isNotEmpty()
+        Log.i(TAG, "onAnyChallengePassed: final stage done, hasReview=$hasReview, poems=${LockWindowManager.getSessionPoems().size}, words=${LockWindowManager.getSessionWords().size}, clozes=${LockWindowManager.getSessionClozes().size}, customs=${LockWindowManager.getSessionCustomQuestions().size}")
         if (hasReview) {
             // 隐藏挑战 ScrollView，显示固定头部的复习区域
             view.findViewById<View>(R.id.sv_alarm_challenges)?.visibility = View.GONE
@@ -1120,6 +1265,7 @@ internal object LockAlarmOverlayController {
     private fun buildReviewCards(view: View) {
         val containerPoems = view.findViewById<LinearLayout>(R.id.container_review_poems) ?: return
         val containerWords = view.findViewById<LinearLayout>(R.id.container_review_words) ?: return
+        val containerCustom = view.findViewById<LinearLayout>(R.id.container_review_custom) ?: return
         val layoutClozePager = view.findViewById<LinearLayout>(R.id.layout_review_cloze_pager) ?: return
         val vpCloze = view.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.vp_review_cloze) ?: return
         val tvClozeIndicator = view.findViewById<TextView>(R.id.tv_review_cloze_indicator) ?: return
@@ -1129,15 +1275,17 @@ internal object LockAlarmOverlayController {
         val btnTabPoem = view.findViewById<Button>(R.id.btn_review_tab_poem) ?: return
         val btnTabWord = view.findViewById<Button>(R.id.btn_review_tab_word) ?: return
         val btnTabCloze = view.findViewById<Button>(R.id.btn_review_tab_cloze) ?: return
+        val btnTabCustom = view.findViewById<Button>(R.id.btn_review_tab_custom) ?: return
         val btnJumpCloze = view.findViewById<Button>(R.id.btn_review_jump_cloze) ?: return
         val ctx = view.context
         val d = ctx.resources.displayMetrics.density
-        // v3.1.4 fix: 父容器 sv_review_cards (诗词/单词 ScrollView) 必须与 layout_review_cloze_pager 互斥,
+        // v3.1.4 fix: 父容器 sv_review_cards (诗词/单词/自定义题库 ScrollView) 必须与 layout_review_cloze_pager 互斥,
         // 否则两者同时 VISIBLE + 都有 weight=1 会导致卡片区域被平分一半高度.
         val svReviewCards = view.findViewById<ScrollView>(R.id.sv_review_cards)
 
         containerPoems.removeAllViews()
         containerWords.removeAllViews()
+        containerCustom.removeAllViews()
 
         // 构建诗词卡片 (单页 ScrollView, 不分页)
         for (entry in LockWindowManager.getSessionPoems()) {
@@ -1147,6 +1295,11 @@ internal object LockAlarmOverlayController {
         // 构建单词卡片 (单页 ScrollView, 不分页)
         for (entry in LockWindowManager.getSessionWords()) {
             containerWords.addView(buildReviewWordCard(ctx, entry, d))
+        }
+
+        // 构建自定义题库卡片 (单页 ScrollView, 不分页)
+        for (entry in LockWindowManager.getSessionCustomQuestions()) {
+            containerCustom.addView(buildReviewCustomCard(ctx, entry, d))
         }
 
         // v3.1 Bug-1: 选词填空卡片 → ViewPager2 分页
@@ -1174,7 +1327,8 @@ internal object LockAlarmOverlayController {
         val hasPoems = LockWindowManager.getSessionPoems().isNotEmpty()
         val hasWords = LockWindowManager.getSessionWords().isNotEmpty()
         val hasClozes = LockWindowManager.getSessionClozes().isNotEmpty()
-        val activeTabs = listOf(hasPoems, hasWords, hasClozes).count { it }
+        val hasCustoms = LockWindowManager.getSessionCustomQuestions().isNotEmpty()
+        val activeTabs = listOf(hasPoems, hasWords, hasClozes, hasCustoms).count { it }
 
         if (activeTabs >= 2) {
             // 两种及以上 → 显示 Tab 切换
@@ -1182,60 +1336,40 @@ internal object LockAlarmOverlayController {
             btnTabPoem.visibility = if (hasPoems) View.VISIBLE else View.GONE
             btnTabWord.visibility = if (hasWords) View.VISIBLE else View.GONE
             btnTabCloze.visibility = if (hasClozes) View.VISIBLE else View.GONE
+            btnTabCustom.visibility = if (hasCustoms) View.VISIBLE else View.GONE
 
-            // v3.1 Bug-2: 三种都做了才显示快捷跳转按钮
-            if (hasPoems && hasWords && hasClozes) {
+            if (hasClozes && (hasPoems || hasWords || hasCustoms)) {
                 btnJumpCloze.visibility = View.VISIBLE
                 btnJumpCloze.text = "📝 选词填空 (${LockWindowManager.getSessionClozes().size} 题)"
             } else {
                 btnJumpCloze.visibility = View.GONE
             }
 
-            // 默认显示第一个非空 tab
-            val firstTab = when {
-                hasPoems -> Triple(containerPoems, btnTabPoem, listOf(containerWords, layoutClozePager) to listOf(btnTabWord, btnTabCloze))
-                hasWords -> Triple(containerWords, btnTabWord, listOf(containerPoems, layoutClozePager) to listOf(btnTabPoem, btnTabCloze))
-                else -> Triple(layoutClozePager, btnTabCloze, listOf(containerPoems, containerWords) to listOf(btnTabPoem, btnTabWord))
+            fun switchTab(activeView: View, activeBtn: Button, isScrollChild: Boolean) {
+                val allContainers = listOf(containerPoems, containerWords, layoutClozePager, containerCustom)
+                val allButtons = listOf(btnTabPoem, btnTabWord, btnTabCloze, btnTabCustom)
+                allContainers.forEach { it.visibility = if (it === activeView) View.VISIBLE else View.GONE }
+                allButtons.forEach { setReviewTabActive(it, it === activeBtn) }
+                svReviewCards?.visibility = if (isScrollChild) View.VISIBLE else View.GONE
             }
-            val (activeContainer, activeBtn, others) = firstTab
-            activeContainer.visibility = View.VISIBLE
-            setReviewTabActive(activeBtn, true)
-            val (otherContainers, otherBtns) = others
-            otherContainers.forEach { it.visibility = View.GONE }
-            otherBtns.forEach { setReviewTabActive(it, false) }
-            // v3.1.4 fix: 同步 sv_review_cards 父容器的 visibility.
-            // 当默认激活的是 cloze tab 时, 必须把 sv_review_cards 设 GONE 以让 layout_review_cloze_pager 占满 weight=1 空间.
-            svReviewCards?.visibility = if (activeContainer === layoutClozePager) View.GONE else View.VISIBLE
+
+            // 默认显示第一个非空 tab
+            when {
+                hasPoems -> switchTab(containerPoems, btnTabPoem, true)
+                hasWords -> switchTab(containerWords, btnTabWord, true)
+                hasClozes -> switchTab(layoutClozePager, btnTabCloze, false)
+                else -> switchTab(containerCustom, btnTabCustom, true)
+            }
 
             // 设置点击事件
-            if (hasPoems) {
-                btnTabPoem.setOnClickListener {
-                    showReviewTab(containerPoems, btnTabPoem, listOf(containerWords, layoutClozePager), listOf(btnTabWord, btnTabCloze))
-                    // v3.1.4 fix: 诗词 tab 显示时, sv_review_cards 应可见
-                    svReviewCards?.visibility = View.VISIBLE
-                }
-            }
-            if (hasWords) {
-                btnTabWord.setOnClickListener {
-                    showReviewTab(containerWords, btnTabWord, listOf(containerPoems, layoutClozePager), listOf(btnTabPoem, btnTabCloze))
-                    // v3.1.4 fix: 单词 tab 显示时, sv_review_cards 应可见
-                    svReviewCards?.visibility = View.VISIBLE
-                }
-            }
-            if (hasClozes) {
-                btnTabCloze.setOnClickListener {
-                    showReviewTab(layoutClozePager, btnTabCloze, listOf(containerPoems, containerWords), listOf(btnTabPoem, btnTabWord))
-                    // v3.1.4 fix: 选词 tab 显示时, 必须把 sv_review_cards 设 GONE 以独占 weight=1 空间
-                    svReviewCards?.visibility = View.GONE
-                }
-            }
-            // v3.1 Bug-2: 快捷按钮跳到选词填空第 1 页
-            if (hasPoems && hasWords && hasClozes) {
+            if (hasPoems) btnTabPoem.setOnClickListener { switchTab(containerPoems, btnTabPoem, true) }
+            if (hasWords) btnTabWord.setOnClickListener { switchTab(containerWords, btnTabWord, true) }
+            if (hasClozes) btnTabCloze.setOnClickListener { switchTab(layoutClozePager, btnTabCloze, false) }
+            if (hasCustoms) btnTabCustom.setOnClickListener { switchTab(containerCustom, btnTabCustom, true) }
+            if (hasClozes && (hasPoems || hasWords || hasCustoms)) {
                 btnJumpCloze.setOnClickListener {
                     vpCloze.setCurrentItem(0, false)
-                    showReviewTab(layoutClozePager, btnTabCloze, listOf(containerPoems, containerWords), listOf(btnTabPoem, btnTabWord))
-                    // v3.1.4 fix: 跳到选词填空后, sv_review_cards 必须 GONE
-                    svReviewCards?.visibility = View.GONE
+                    switchTab(layoutClozePager, btnTabCloze, false)
                 }
             }
         } else {
@@ -1245,13 +1379,12 @@ internal object LockAlarmOverlayController {
             containerPoems.visibility = if (hasPoems) View.VISIBLE else View.GONE
             containerWords.visibility = if (hasWords) View.VISIBLE else View.GONE
             layoutClozePager.visibility = if (hasClozes) View.VISIBLE else View.GONE
-            // v3.1.4 fix: sv_review_cards 和 layout_review_cloze_pager 都有 weight=1, 必须互斥.
-            // 仅诗词/单词有数据时显示 sv_review_cards; 仅选词填空时让它 GONE 避免空间被平分.
-            svReviewCards?.visibility = if (hasPoems || hasWords) View.VISIBLE else View.GONE
+            containerCustom.visibility = if (hasCustoms) View.VISIBLE else View.GONE
+            svReviewCards?.visibility = if (hasPoems || hasWords || hasCustoms) View.VISIBLE else View.GONE
         }
 
         view.findViewById<View>(R.id.layout_alarm_review)?.visibility = View.VISIBLE
-        Log.i(TAG, "buildReviewCards: ${LockWindowManager.getSessionPoems().size} poems + ${LockWindowManager.getSessionWords().size} words + ${LockWindowManager.getSessionClozes().size} clozes rendered")
+        Log.i(TAG, "buildReviewCards: ${LockWindowManager.getSessionPoems().size} poems + ${LockWindowManager.getSessionWords().size} words + ${LockWindowManager.getSessionClozes().size} clozes + ${LockWindowManager.getSessionCustomQuestions().size} customs rendered")
     }
 
     /** v3.1 Bug-1: 更新选词填空分页指示器 + 边界箭头禁用. */
@@ -1585,6 +1718,93 @@ internal object LockAlarmOverlayController {
         }
     }
 
+    internal fun buildReviewCustomCard(ctx: Context, entry: LockWindowManager.SessionCustomQuestionEntry, d: Float): View {
+        val q = entry.question
+        return LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#1A2E26"))
+            setPadding((14 * d).toInt(), (12 * d).toInt(), (14 * d).toInt(), (12 * d).toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, (8 * d).toInt()) }
+
+            // 1. 标题行 + 状态标签
+            val titleRow = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            titleRow.addView(TextView(ctx).apply {
+                text = "📚 自定义挑战"
+                textSize = 14f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(Color.parseColor("#A5D6A7"))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            titleRow.addView(buildReviewStatusBadge(ctx, entry.status, d))
+            addView(titleRow)
+            addView(buildReviewDivider(ctx, d))
+
+            // 2. 题干
+            addView(TextView(ctx).apply {
+                text = q.stem
+                textSize = 14f
+                setTextColor(Color.parseColor("#ECEFF1"))
+                setLineSpacing(0f, 1.2f)
+                setPadding(0, (2 * d).toInt(), 0, (4 * d).toInt())
+            })
+
+            // 3. 选项
+            val letters = listOf("A", "B", "C", "D")
+            q.options.forEachIndexed { idx, optText ->
+                val letter = letters.getOrNull(idx) ?: "A"
+                val isCorrect = letter.equals(q.answer, ignoreCase = true)
+                val isUserWrongPick = entry.status == "wrong" && (entry.userAnswer == optText || entry.userAnswer == letter)
+                val marker = when {
+                    isCorrect -> " ✓"
+                    isUserWrongPick -> " ✗"
+                    else -> ""
+                }
+                val optColor = when {
+                    isCorrect -> Color.parseColor("#81C784")
+                    isUserWrongPick -> Color.parseColor("#E53935")
+                    else -> Color.parseColor("#B0BEC5")
+                }
+                addView(TextView(ctx).apply {
+                    text = "$letter. $optText$marker"
+                    textSize = 13f
+                    setTypeface(null, if (isCorrect || isUserWrongPick) Typeface.BOLD else Typeface.NORMAL)
+                    setTextColor(optColor)
+                    setPadding((8 * d).toInt(), (2 * d).toInt(), 0, (2 * d).toInt())
+                })
+            }
+            addView(buildReviewDivider(ctx, d))
+
+            // 4. 正确答案
+            addView(TextView(ctx).apply {
+                text = "✏️ 答案：选项 ${q.answer}"
+                textSize = 13f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(Color.parseColor("#81C784"))
+                setPadding(0, (2 * d).toInt(), 0, (2 * d).toInt())
+            })
+
+            // 5. 解析（若有）
+            if (q.explanation.isNotBlank()) {
+                addView(TextView(ctx).apply {
+                    text = "💡 解析：${q.explanation}"
+                    textSize = 12f
+                    setTextColor(Color.parseColor("#C8E6C9"))
+                    setPadding(0, (2 * d).toInt(), 0, (2 * d).toInt())
+                })
+            }
+        }
+    }
+
     /** v3.1 复习卡片细分隔线, 1dp #2C3E50. */
     private fun buildReviewDivider(ctx: Context, d: Float): View {
         return View(ctx).apply {
@@ -1646,6 +1866,7 @@ internal object LockAlarmOverlayController {
                         if ("poem" in alarmStage2Types && targetPoemCount > 0) rollPoem()
                         if ("word" in alarmStage2Types && targetWordCount > 0) rollWord()
                         if ("cloze" in alarmStage2Types && targetClozeCount > 0) rollCloze()
+                        if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
                     }
                     syncChallengeUiByStage()
                     Toast.makeText(ctx, "冷却结束，请完成第二关", Toast.LENGTH_SHORT).show()
@@ -1696,6 +1917,7 @@ internal object LockAlarmOverlayController {
                 view.findViewById<View>(R.id.cv_alarm_word)?.visibility = View.GONE
                 // Req-4 fix: 冷却期隐藏所有解锁方式（含选词填空），冷却结束后再显示
                 view.findViewById<View>(R.id.cv_alarm_cloze)?.visibility = View.GONE
+                view.findViewById<View>(R.id.cv_alarm_custom)?.visibility = View.GONE
                 LockWindowManager.getAlarmContext()?.let { updateCooldownDisplay(it) }
                 return
             }
@@ -1722,19 +1944,22 @@ internal object LockAlarmOverlayController {
             view.findViewById<View>(R.id.cv_alarm_word)?.visibility = if ("word" in s1 && targetWordCount > 0) View.VISIBLE else View.GONE
             // Req-4 fix: 第一关解锁方式也按 stage1 配置显隐选词填空
             view.findViewById<View>(R.id.cv_alarm_cloze)?.visibility = if ("cloze" in s1 && targetClozeCount > 0) View.VISIBLE else View.GONE
+            view.findViewById<View>(R.id.cv_alarm_custom)?.visibility = if ("custom" in s1 && targetCustomCount > 0) View.VISIBLE else View.GONE
 
             // Hide stage-2 challenges
             if ("math" !in s1) view.findViewById<View>(R.id.cv_alarm_math)?.visibility = View.GONE
             if ("poem" !in s1) view.findViewById<View>(R.id.cv_alarm_poem)?.visibility = View.GONE
             if ("word" !in s1) view.findViewById<View>(R.id.cv_alarm_word)?.visibility = View.GONE
             if ("cloze" !in s1) view.findViewById<View>(R.id.cv_alarm_cloze)?.visibility = View.GONE
+            if ("custom" !in s1) view.findViewById<View>(R.id.cv_alarm_custom)?.visibility = View.GONE
 
             // If no stage-1 challenge is configured, skip to stage 2
             val hasStage1 = ("qr" in s1 && isQrEnabled) ||
                 ("math" in s1 && targetMathCount > 0) ||
                 ("poem" in s1 && targetPoemCount > 0) ||
                 ("word" in s1 && targetWordCount > 0) ||
-                ("cloze" in s1 && targetClozeCount > 0)
+                ("cloze" in s1 && targetClozeCount > 0) ||
+                ("custom" in s1 && targetCustomCount > 0)
             if (!hasStage1) {
                 isAlarmFirstStagePassed = true
                 LockWindowManager.getAlarmContext()?.let { AlarmScheduler.markFirstStagePassed(it, true) }
@@ -1754,11 +1979,22 @@ internal object LockAlarmOverlayController {
         view.findViewById<View>(R.id.cv_alarm_qr)?.visibility = if (stage2QrVisible) View.VISIBLE else View.GONE
         val mathRemaining = "math" in s2 && targetMathCount > 0 && currentMathIndex < targetMathCount
         view.findViewById<View>(R.id.cv_alarm_math)?.visibility = if (mathRemaining) View.VISIBLE else View.GONE
-        view.findViewById<View>(R.id.cv_alarm_poem)?.visibility = if ("poem" in s2 && targetPoemCount > 0 && currentPoemIndex < targetPoemCount) View.VISIBLE else View.GONE
-        view.findViewById<View>(R.id.cv_alarm_word)?.visibility = if ("word" in s2 && targetWordCount > 0 && currentWordIndex < targetWordCount) View.VISIBLE else View.GONE
+        val poemRemaining = "poem" in s2 && targetPoemCount > 0 && currentPoemIndex < targetPoemCount
+        view.findViewById<View>(R.id.cv_alarm_poem)?.visibility = if (poemRemaining) View.VISIBLE else View.GONE
+        val wordRemaining = "word" in s2 && targetWordCount > 0 && currentWordIndex < targetWordCount
+        view.findViewById<View>(R.id.cv_alarm_word)?.visibility = if (wordRemaining) View.VISIBLE else View.GONE
         // Req-4 fix: 第二关冷却结束后按 stage2 配置显隐选词填空
         val clozeRemaining = "cloze" in s2 && targetClozeCount > 0 && currentClozeIndex < targetClozeCount
         view.findViewById<View>(R.id.cv_alarm_cloze)?.visibility = if (clozeRemaining) View.VISIBLE else View.GONE
+        val customRemaining = "custom" in s2 && targetCustomCount > 0 && currentCustomIndex < targetCustomCount
+        view.findViewById<View>(R.id.cv_alarm_custom)?.visibility = if (customRemaining) View.VISIBLE else View.GONE
+
+        val hasAnyStage2 = stage2QrVisible || mathRemaining || poemRemaining || wordRemaining || clozeRemaining || customRemaining
+        if (!hasAnyStage2) {
+            Log.i(TAG, "syncChallengeUiByStage: no stage 2 challenge remaining, advancing to passed")
+            onAnyChallengePassed()
+            return
+        }
 
         showAlarmActionPanel(view.findViewById(R.id.layout_alarm_actions),
             view.findViewById(R.id.btn_alarm_close),
@@ -1786,6 +2022,8 @@ internal object LockAlarmOverlayController {
         if (isTwoStageUnlock && !isAlarmFirstStagePassed) {
             isAlarmFirstStagePassed = true
             AlarmScheduler.markFirstStagePassed(ctx, true)
+            // 第一关通过立即将震动和铃声衰减为最微弱温和模式
+            com.zhizhi.app.service.AlarmVibrationService.attenuate(ctx)
             // [Fix: two-stage counter exhaustion] 重置计数器并重新出题
             resetAlarmQuestions()
 
@@ -1803,6 +2041,8 @@ internal object LockAlarmOverlayController {
                 if ("math" in alarmStage2Types && targetMathCount > 0) rollMath()
                 if ("poem" in alarmStage2Types && targetPoemCount > 0) rollPoem()
                 if ("word" in alarmStage2Types && targetWordCount > 0) rollWord()
+                if ("cloze" in alarmStage2Types && targetClozeCount > 0) rollCloze()
+                if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
             }
             syncChallengeUiByStage()
             Toast.makeText(ctx, "扫码通过第一关，请继续完成第二关", Toast.LENGTH_SHORT).show()
@@ -2138,7 +2378,8 @@ internal object LockAlarmOverlayController {
         val otherChallengesActive = (targetMathCount > 0 && currentMathIndex < targetMathCount) ||
             (targetPoemCount > 0 && currentPoemIndex < targetPoemCount) ||
             (targetWordCount > 0 && currentWordIndex < targetWordCount) ||
-            (targetClozeCount > 0 && currentClozeIndex < targetClozeCount)
+            (targetClozeCount > 0 && currentClozeIndex < targetClozeCount) ||
+            (targetCustomCount > 0 && currentCustomIndex < targetCustomCount)
 
         if (!otherChallengesActive) {
             targetMathCount = 3

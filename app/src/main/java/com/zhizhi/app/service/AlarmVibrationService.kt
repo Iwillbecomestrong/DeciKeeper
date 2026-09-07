@@ -107,6 +107,25 @@ class AlarmVibrationService : Service() {
             context.startForegroundService(intent)
         }
 
+        const val ACTION_ATTENUATE = "com.zhizhi.app.service.ACTION_ATTENUATE"
+
+        @JvmStatic
+        fun attenuate(context: Context) {
+            try {
+                val intent = Intent(context, AlarmVibrationService::class.java).apply {
+                    action = ACTION_ATTENUATE
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                Log.i(TAG, "Sent ACTION_ATTENUATE to AlarmVibrationService")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to attenuate alarm vibration service: ${e.message}")
+            }
+        }
+
         @JvmStatic
         fun stop(context: Context) {
             context.stopService(Intent(context, AlarmVibrationService::class.java))
@@ -125,6 +144,31 @@ class AlarmVibrationService : Service() {
     private var lockedFinalIntensity = 0
     // 铃声播放（使用 MediaPlayer + USAGE_MEDIA，音量完全由 app 控制）
     private var mediaPlayer: android.media.MediaPlayer? = null
+    private var isAttenuated: Boolean = false
+
+    private fun applyAttenuation() {
+        isAttenuated = true
+        currentDisplayVolume = 1
+        currentDisplayIntensity = 1
+        currentVibrationMode = "attenuated"
+        val mpVol = 0.02f
+        mediaPlayer?.setVolume(mpVol, mpVol)
+
+        if (alarmMode != AlarmScheduler.AlarmMode.RING_ONLY) {
+            if (vibrator == null) {
+                vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            vibrator?.cancel()
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .build()
+            val pattern = longArrayOf(0, 300, 2700)
+            val amplitudes = intArrayOf(0, 20, 0)
+            val effect = VibrationEffect.createWaveform(pattern, amplitudes, 0)
+            vibrator?.vibrate(effect, audioAttributes)
+        }
+        Log.i(TAG, "Alarm attenuated: volume=0.02f, vibration=mild 20/255 pulse")
+    }
 
     // Event-driven logging bridge (task-6). 震动服务对桥决策无权威——
     // 仅在铃声"实际开始/停止播放"这个已完成事实发生时各记录一次事件。
@@ -234,6 +278,11 @@ class AlarmVibrationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_ATTENUATE) {
+            Log.i(TAG, "Received ACTION_ATTENUATE in onStartCommand")
+            applyAttenuation()
+            return START_STICKY
+        }
         val newAlarmId = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: -1
 
         // 读取铃声设置
@@ -318,6 +367,26 @@ class AlarmVibrationService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun startVibrationImpl() {
+        if (isAttenuated) {
+            currentDisplayIntensity = 1
+            currentDisplayVolume = 1
+            val mpVol = 0.02f
+            mediaPlayer?.setVolume(mpVol, mpVol)
+            if (alarmMode != AlarmScheduler.AlarmMode.RING_ONLY) {
+                if (vibrator == null) {
+                    vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                }
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .build()
+                val pattern = longArrayOf(0, 300, 2700)
+                val amplitudes = intArrayOf(0, 20, 0)
+                val effect = VibrationEffect.createWaveform(pattern, amplitudes, 0)
+                vibrator?.vibrate(effect, audioAttributes)
+            }
+            return
+        }
+
         val alarmEntry = AlarmScheduler.findAlarm(this, alarmId)
         val testMode = LockWindowManager.testVibrationMode
         val testIntensity = LockWindowManager.testVibrationIntensity
@@ -417,6 +486,12 @@ class AlarmVibrationService : Service() {
 
     /** 更新铃声强度显示值 + 实际 MediaPlayer 音量（RING_ONLY 和 VIBRATE_AND_RING 都需要） */
     private fun updateRingVolumeDisplay(mode: AlarmScheduler.VibrationMode, elapsedSec: Int, stagePassed: Boolean) {
+        if (isAttenuated) {
+            currentDisplayVolume = 1
+            val mpVol = 0.02f
+            mediaPlayer?.setVolume(mpVol, mpVol)
+            return
+        }
         val alarmEntry = AlarmScheduler.findAlarm(this, alarmId)
         val testProgMin = LockWindowManager.testProgressiveMinIntensity
         val testProgMaxRing = LockWindowManager.testProgressiveMaxRingVolume

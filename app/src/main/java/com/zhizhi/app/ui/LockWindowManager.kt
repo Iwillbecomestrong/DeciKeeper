@@ -486,9 +486,16 @@ object LockWindowManager {
         val userAnswer: String? = null
     )
 
+    data class SessionCustomQuestionEntry(
+        val question: com.zhizhi.app.data.questionbank.CustomQuestion,
+        val status: String,       // "correct" | "wrong" | "skipped" | "bookmarked"
+        val userAnswer: String? = null
+    )
+
     private val sessionPoems = mutableListOf<SessionPoemEntry>()
     private val sessionWords = mutableListOf<SessionWordEntry>()
     private val sessionClozes = mutableListOf<SessionClozeEntry>()
+    private val sessionCustomQuestions = mutableListOf<SessionCustomQuestionEntry>()
 
 
     // Test alarm configuration (set before starting test alarm)
@@ -498,10 +505,12 @@ object LockWindowManager {
         val usePoem: Boolean = true,
         val useWord: Boolean = true,
         val useCloze: Boolean = false,
+        val useCustom: Boolean = false,
         val mathCount: Int = 1,
         val poemCount: Int = 1,
         val wordCount: Int = 1,
         val clozeCount: Int = 3,
+        val customCount: Int = 3,
         val vibrationIntensity: Int = 7,
         val vibrationMode: AlarmScheduler.VibrationMode = AlarmScheduler.VibrationMode.PROGRESSIVE,
         val unlockMode: AlarmScheduler.UnlockMode = AlarmScheduler.UnlockMode.SINGLE,
@@ -514,7 +523,9 @@ object LockWindowManager {
         val progressiveMinIntensity: Int = 1,
         val progressiveMaxIntensity: Int = 10,
         val progressiveMaxRingVolume: Int = 10,
-        val autoEscalate: Boolean = false
+        val autoEscalate: Boolean = false,
+        val stage1CustomBanks: Map<String, Int> = emptyMap(),
+        val stage2CustomBanks: Map<String, Int> = emptyMap()
     )
 
     // ── 闹钟覆盖层共享状态（保留在本对象，供 LockAlarmOverlayController 通过 internal getter 访问）──
@@ -535,6 +546,7 @@ object LockWindowManager {
     internal fun getSessionPoems(): MutableList<SessionPoemEntry> = sessionPoems
     internal fun getSessionWords(): MutableList<SessionWordEntry> = sessionWords
     internal fun getSessionClozes(): MutableList<SessionClozeEntry> = sessionClozes
+    internal fun getSessionCustomQuestions(): MutableList<SessionCustomQuestionEntry> = sessionCustomQuestions
     internal fun isCurrentOverlayInline(): Boolean =
         mAlarmView != null && mAlarmView?.layoutParams !is WindowManager.LayoutParams
 

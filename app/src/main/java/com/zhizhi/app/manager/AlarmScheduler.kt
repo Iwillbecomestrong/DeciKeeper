@@ -172,6 +172,7 @@ object AlarmScheduler {
         val poemCount: Int = 3,
         val wordCount: Int = 10,
         val clozeCount: Int = 5,
+        val customCount: Int = 3,
         val vibrationIntensity: Int = 7,
         val vibrationMode: VibrationMode = VibrationMode.PROGRESSIVE,
         val unlockMode: UnlockMode = UnlockMode.SINGLE,
@@ -185,7 +186,9 @@ object AlarmScheduler {
         val progressiveMaxIntensity: Int = 10,
         val progressiveMaxRingVolume: Int = 10,
         val autoEscalate: Boolean = false,  // 5分钟后突破最大值继续渐进至10
-        val scheduleToken: String = ""
+        val scheduleToken: String = "",
+        val stage1CustomBanks: Map<String, Int> = emptyMap(),
+        val stage2CustomBanks: Map<String, Int> = emptyMap()
     )
 
     /** 生成一个不可复用的调度令牌 */
@@ -303,6 +306,7 @@ object AlarmScheduler {
         poemCount: Int = 3,
         wordCount: Int = 10,
         clozeCount: Int = 5,
+        customCount: Int = 3,
         vibrationIntensity: Int = 7,
         vibrationMode: VibrationMode = VibrationMode.PROGRESSIVE,
         unlockMode: UnlockMode = UnlockMode.SINGLE,
@@ -315,7 +319,9 @@ object AlarmScheduler {
         progressiveMinIntensity: Int = 1,
         progressiveMaxIntensity: Int = 10,
         progressiveMaxRingVolume: Int = 10,
-        autoEscalate: Boolean = false
+        autoEscalate: Boolean = false,
+        stage1CustomBanks: Map<String, Int> = emptyMap(),
+        stage2CustomBanks: Map<String, Int> = emptyMap()
     ): AlarmEntry {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val nextId = prefs.getInt(KEY_NEXT_ID, 1)
@@ -323,12 +329,14 @@ object AlarmScheduler {
         return AlarmEntry(
             nextId, hour, minute, enabled, days,
             useQr, useMath, usePoem, useWord,
-            mathCount, poemCount, wordCount, clozeCount,
+            mathCount, poemCount, wordCount, clozeCount, customCount,
             vibrationIntensity, vibrationMode, unlockMode,
             stage1Types, stage2Types, stageCooldownSeconds,
             ringtoneUri, alarmMode, ringVolume,
             progressiveMinIntensity, progressiveMaxIntensity, progressiveMaxRingVolume,
-            autoEscalate
+            autoEscalate,
+            stage1CustomBanks = stage1CustomBanks,
+            stage2CustomBanks = stage2CustomBanks
         )
     }
 
@@ -1320,7 +1328,7 @@ object AlarmScheduler {
         }
     }
 
-    private fun toJson(alarm: AlarmEntry): JSONObject {
+    internal fun toJson(alarm: AlarmEntry): JSONObject {
         val obj = JSONObject()
         obj.put("id", alarm.id)
         obj.put("hour", alarm.hour)
@@ -1337,6 +1345,7 @@ object AlarmScheduler {
         obj.put("poemCount", alarm.poemCount)
         obj.put("wordCount", alarm.wordCount)
         obj.put("clozeCount", alarm.clozeCount)
+        obj.put("customCount", alarm.customCount)
         obj.put("vibrationIntensity", alarm.vibrationIntensity)
         obj.put("vibrationMode", alarm.vibrationMode.name)
         obj.put("unlockMode", alarm.unlockMode.name)
@@ -1351,10 +1360,16 @@ object AlarmScheduler {
         obj.put("progressiveMaxRingVolume", alarm.progressiveMaxRingVolume)
         obj.put("autoEscalate", alarm.autoEscalate)
         obj.put("scheduleToken", alarm.scheduleToken)
+        val s1BanksObj = JSONObject()
+        alarm.stage1CustomBanks.forEach { (k, v) -> s1BanksObj.put(k, v) }
+        obj.put("stage1CustomBanks", s1BanksObj)
+        val s2BanksObj = JSONObject()
+        alarm.stage2CustomBanks.forEach { (k, v) -> s2BanksObj.put(k, v) }
+        obj.put("stage2CustomBanks", s2BanksObj)
         return obj
     }
 
-    private fun fromJson(obj: JSONObject): AlarmEntry {
+    internal fun fromJson(obj: JSONObject): AlarmEntry {
         val id = obj.optInt("id", 0)
         val hour = obj.optInt("hour", 7)
         val minute = obj.optInt("minute", 0)
@@ -1374,6 +1389,7 @@ object AlarmScheduler {
         val poemCount = obj.optInt("poemCount", 3)
         val wordCount = obj.optInt("wordCount", 10)
         val clozeCount = obj.optInt("clozeCount", 5)
+        val customCount = obj.optInt("customCount", 3)
         val vibrationIntensity = obj.optInt("vibrationIntensity", 7)
         val vibrationMode = runCatching {
             VibrationMode.valueOf(obj.optString("vibrationMode", VibrationMode.PROGRESSIVE.name))
@@ -1410,6 +1426,15 @@ object AlarmScheduler {
             set
         }
 
+        val s1Banks = mutableMapOf<String, Int>()
+        obj.optJSONObject("stage1CustomBanks")?.let { bObj ->
+            bObj.keys().forEach { k -> s1Banks[k] = bObj.optInt(k, 3) }
+        }
+        val s2Banks = mutableMapOf<String, Int>()
+        obj.optJSONObject("stage2CustomBanks")?.let { bObj ->
+            bObj.keys().forEach { k -> s2Banks[k] = bObj.optInt(k, 3) }
+        }
+
         val progressiveMinIntensity = obj.optInt("progressiveMinIntensity", 1).coerceIn(1, 10)
         val progressiveMaxIntensity = obj.optInt("progressiveMaxIntensity", 10).coerceIn(1, 10)
         val progressiveMaxRingVolume = obj.optInt("progressiveMaxRingVolume", 10).coerceIn(1, 10)
@@ -1418,15 +1443,27 @@ object AlarmScheduler {
         return AlarmEntry(
             id, hour, minute, enabled, days,
             useQr, useMath, usePoem, useWord,
-            mathCount, poemCount, wordCount, clozeCount,
+            mathCount, poemCount, wordCount, clozeCount, customCount,
             vibrationIntensity, vibrationMode, unlockMode,
             stage1Types, stage2Types, stageCooldownSeconds,
             ringtoneUri, alarmMode,
             ringVolume,
             progressiveMinIntensity, progressiveMaxIntensity, progressiveMaxRingVolume,
             autoEscalate,
-            scheduleToken
+            scheduleToken,
+            stage1CustomBanks = s1Banks,
+            stage2CustomBanks = s2Banks
         )
+    }
+
+    fun getDefaultCustomCount(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("default_custom_count", 3)
+    }
+
+    fun setDefaultCustomCount(context: Context, count: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("default_custom_count", count).apply()
     }
 
     /**

@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/zzPageBg"
+    android:fitsSystemWindows="true">
+
+    <!-- Top Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?attr/zzSurface"
+        android:paddingHorizontal="14dp">
+
+        <Button
+            android:id="@+id/btn_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:text="‹"
+            android:textSize="26sp"
+            android:textColor="?attr/zzText"
+            android:backgroundTint="@android:color/transparent"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="0dp"
+            android:minWidth="0dp" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="导入自定义题库"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="?attr/zzText" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="40dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Guide Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                app:cardBackgroundColor="?attr/zzSurface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💡 快速出题助手"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/zzText"
+                        android:layout_marginBottom="6dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="点击下方按钮复制 AI 出题提示词，发给 DeepSeek / ChatGPT / Claude 等大模型，再将生成的 Markdown 文本粘贴回此处即可！"
+                        android:textSize="12sp"
+                        android:textColor="?attr/zzMuted"
+                        android:lineSpacingMultiplier="1.2"
+                        android:layout_marginBottom="10dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <Button
+                                android:id="@+id/btn_copy_conversion_prompt"
+                                android:layout_width="0dp"
+                                android:layout_height="40dp"
+                                android:layout_weight="1"
+                                android:layout_marginEnd="4dp"
+                                android:text="🔄 现有题库转换 Prompt"
+                                android:textSize="11sp"
+                                android:textColor="@android:color/white"
+                                android:backgroundTint="?attr/zzAccent" />
+
+                            <Button
+                                android:id="@+id/btn_copy_ai_prompt"
+                                android:layout_width="0dp"
+                                android:layout_height="40dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="4dp"
+                                android:text="🤖 原创出题 Prompt"
+                                android:textSize="11sp"
+                                android:textColor="@android:color/white"
+                                android:backgroundTint="?attr/zzAccent" />
+                        </LinearLayout>
+
+                        <Button
+                            android:id="@+id/btn_copy_template"
+                            android:layout_width="match_parent"
+                            android:layout_height="38dp"
+                            android:text="📋 复制 Markdown / JSON 格式模板"
+                            android:textSize="12sp"
+                            android:textColor="?attr/zzText"
+                            android:backgroundTint="?attr/zzSurface2" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Bank Title Input -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="题库名称"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="?attr/zzText"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/et_bank_title"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:hint="例如：考研高频政治选择题"
+                android:textColorHint="?attr/zzSubtle"
+                android:textColor="?attr/zzText"
+                android:textSize="14sp"
+                android:background="?attr/zzSurface"
+                android:paddingHorizontal="12dp"
+                android:layout_marginBottom="14dp" />
+
+            <!-- Input Controls Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="题目内容 (Markdown)"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/zzText" />
+
+                <Button
+                    android:id="@+id/btn_pick_file"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:text="📁 导入文件"
+                    android:textSize="12sp"
+                    android:textColor="?attr/zzText"
+                    android:backgroundTint="?attr/zzSurface2"
+                    android:layout_marginEnd="6dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp" />
+
+                <Button
+                    android:id="@+id/btn_paste_clipboard"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:text="📋 粘贴"
+                    android:textSize="12sp"
+                    android:textColor="?attr/zzText"
+                    android:backgroundTint="?attr/zzSurface2"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/et_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="180dp"
+                android:gravity="top|start"
+                android:hint="在此输入或粘贴 Markdown 格式题目...\n\n示例：\n## 题目：下列哪个是地球的卫星？\nA. 月球\nB. 火星\nC. 金星\nD. 太阳\n答案：A\n解析：月球是地球唯一的天然卫星。"
+                android:textColorHint="?attr/zzSubtle"
+                android:textColor="?attr/zzText"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.2"
+                android:background="?attr/zzSurface"
+                android:padding="12dp"
+                android:layout_marginBottom="14dp" />
+
+            <!-- Parser Live Preview Card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/card_parse_preview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/zzSurface2"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:id="@+id/tv_parse_summary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="尚未输入题目内容"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/zzMuted" />
+
+                    <TextView
+                        android:id="@+id/tv_parse_issues"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textSize="12sp"
+                        android:textColor="?attr/zzDanger"
+                        android:lineSpacingMultiplier="1.2"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Save Button -->
+            <Button
+                android:id="@+id/btn_save_bank"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="保存题库并启用"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:backgroundTint="?attr/zzAccent"
+                android:enabled="false" />
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

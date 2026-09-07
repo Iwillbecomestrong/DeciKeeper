@@ -79,6 +79,8 @@ exports/
 .superpowers/
 .ai-handoff/
 .ai-work/
+.gpt-web/
+docs/work/
 
 # IDE / 编辑器（项目级）
 .vscode/
