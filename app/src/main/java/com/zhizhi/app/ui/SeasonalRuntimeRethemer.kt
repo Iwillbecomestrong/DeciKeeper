@@ -82,7 +82,7 @@ object SeasonalRuntimeRethemer {
         borrowColorListeners[status] = listener
     }
 
-    private inline fun walk(view: View, block: (View) -> Unit) {
+    private fun walk(view: View, block: (View) -> Unit) {
         block(view)
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) walk(view.getChildAt(i), block)
