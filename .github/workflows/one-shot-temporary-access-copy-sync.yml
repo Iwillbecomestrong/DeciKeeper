@@ -1,0 +1,57 @@
+name: One-shot temporary access copy sync
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-copy-fix:
+    if: github.head_ref == 'ai/time-rules-spec-sync'
+    runs-on: [self-hosted, Windows, X64]
+    steps:
+      - name: Check out task branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Replace legacy temporary-access terminology
+        shell: powershell
+        run: |
+          $paths = @(
+            'app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt',
+            'app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt',
+            'app/src/main/res/layout/window_lock_screen.xml',
+            'app/src/main/res/layout/activity_global_params_new.xml',
+            'docs/使用手册.md'
+          )
+
+          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+          foreach ($path in $paths) {
+            $content = [System.IO.File]::ReadAllText($path)
+            $content = $content.Replace('超级临时放行', '临时解锁')
+            $content = $content.Replace('超级临时', '临时解锁')
+            [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+          }
+
+          $lockPath = 'app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt'
+          $lockContent = [System.IO.File]::ReadAllText($lockPath)
+          $lockContent = $lockContent.Replace('临时解锁使用受限应用(<=', '临时解锁(<=')
+          [System.IO.File]::WriteAllText($lockPath, $lockContent, $utf8NoBom)
+
+          $helpPath = 'app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt'
+          $helpContent = [System.IO.File]::ReadAllText($helpPath)
+          $helpContent = $helpContent.Replace('临时使用受限应用时长上限 —— 临时解锁时', '临时解锁时长上限 —— 临时解锁时')
+          [System.IO.File]::WriteAllText($helpPath, $helpContent, $utf8NoBom)
+
+          Remove-Item '.github/workflows/one-shot-temporary-access-copy-sync.yml'
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add $paths $lockPath $helpPath .github/workflows/one-shot-temporary-access-copy-sync.yml
+          git diff --cached --check
+          git commit -m 'fix(copy): unify temporary unlock terminology'
+          git push origin HEAD:${{ github.head_ref }}
