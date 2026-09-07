@@ -1,99 +1,57 @@
 $ErrorActionPreference = 'Stop'
 
 function Replace-RegexOnce {
-    param(
-        [string]$Text,
-        [string]$Pattern,
-        [string]$Replacement,
-        [string]$Label
-    )
+    param([string]$Text, [string]$Pattern, [string]$Replacement, [string]$Label)
     $rx = [regex]::new($Pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
     $matches = $rx.Matches($Text)
-    if ($matches.Count -ne 1) {
-        throw "[$Label] expected exactly one match, got $($matches.Count)"
-    }
+    if ($matches.Count -ne 1) { throw "[$Label] expected exactly one match, got $($matches.Count)" }
     return $rx.Replace($Text, $Replacement, 1)
 }
 
 function Replace-LiteralOnce {
-    param(
-        [string]$Text,
-        [string]$Old,
-        [string]$New,
-        [string]$Label
-    )
+    param([string]$Text, [string]$Old, [string]$New, [string]$Label)
     $first = $Text.IndexOf($Old, [System.StringComparison]::Ordinal)
-    if ($first -lt 0) {
-        throw "[$Label] expected literal was not found"
-    }
+    if ($first -lt 0) { throw "[$Label] expected literal was not found" }
     $second = $Text.IndexOf($Old, $first + $Old.Length, [System.StringComparison]::Ordinal)
-    if ($second -ge 0) {
-        throw "[$Label] expected exactly one literal match"
-    }
+    if ($second -ge 0) { throw "[$Label] expected exactly one literal match" }
     return $Text.Substring(0, $first) + $New + $Text.Substring($first + $Old.Length)
+}
+
+function Write-Utf8NoBom {
+    param([string]$Path, [string]$Text)
+    [System.IO.File]::WriteAllText($Path, $Text, [System.Text.UTF8Encoding]::new($false))
 }
 
 $lockPath = 'app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt'
 $monitorPath = 'app/src/main/java/com/zhizhi/app/service/MonitorService.kt'
 $corePath = 'app/src/main/java/com/zhizhi/app/service/CoreService.kt'
 
-# -----------------------------------------------------------------------------
-# LockWindowManager: final lock dismissal requires an explicit user exit.
-# Internal stale-view rebuilds still use resetLockState; they are repairs, not exits.
-# -----------------------------------------------------------------------------
 $lock = Get-Content -Raw -Encoding UTF8 $lockPath
 if (-not $lock.Contains('fun dismissLockScreen(authority: LockDismissAuthority)')) {
-    $lock = Replace-LiteralOnce $lock `
-        'fun dismissLockScreen(force: Boolean = false) {' `
-        'fun dismissLockScreen(authority: LockDismissAuthority) {' `
-        'dismiss signature'
+    $lock = Replace-LiteralOnce $lock 'fun dismissLockScreen(force: Boolean = false) {' 'fun dismissLockScreen(authority: LockDismissAuthority) {' 'dismiss signature'
 
     $lockExitLog = @'
 
         Log.i(TAG, "[LOCK_EXIT] authority=$authority pkg=$lastBlockedPackageName")
 
 '@
-    $lock = Replace-RegexOnce $lock `
-        '\s*if \(isBlacklistLock && !force\) \{\s*Log\.d\(TAG, "Dismiss rejected: Blacklist Lock Active \(use force=true or button click\)"\)\s*return\s*\}\s*' `
-        $lockExitLog `
-        'remove force bypass guard'
+    $lock = Replace-RegexOnce $lock '\s*if \(isBlacklistLock && !force\) \{\s*Log\.d\(TAG, "Dismiss rejected: Blacklist Lock Active \(use force=true or button click\)"\)\s*return\s*\}\s*' $lockExitLog 'remove force bypass guard'
 
-    $lock = Replace-LiteralOnce $lock `
-        'dismissLockScreen(true)' `
-        'dismissLockScreen(LockDismissAuthority.RETURN_HOME)' `
-        'return-home authority'
-
-    $lock = Replace-RegexOnce $lock `
-        '(resetConsecutiveNormalLockState\("free_time_granted_gap"\)\s*totalSegmentBlacklistHits = 0\s*)dismissLockScreen\(force = true\)' `
-        '$1dismissLockScreen(LockDismissAuthority.REST)' `
-        'gap-rest authority'
-
-    $lock = Replace-RegexOnce $lock `
-        '(resetConsecutiveNormalLockState\("weekly_privilege_granted"\)\s*totalSegmentBlacklistHits = 0\s*)dismissLockScreen\(force = true\)' `
-        '$1dismissLockScreen(LockDismissAuthority.WEEKLY_PRIVILEGE)' `
-        'weekly-privilege authority'
-
-    $lock = Replace-RegexOnce $lock `
-        '(resetConsecutiveNormalLockState\("free_time_granted"\)\s*totalSegmentBlacklistHits = 0\s*)dismissLockScreen\(force = true\)' `
-        '$1dismissLockScreen(LockDismissAuthority.REST)' `
-        'rest authority'
+    $lock = Replace-LiteralOnce $lock 'dismissLockScreen(true)' 'dismissLockScreen(LockDismissAuthority.RETURN_HOME)' 'return-home authority'
+    $lock = Replace-RegexOnce $lock '(resetConsecutiveNormalLockState\("free_time_granted_gap"\)\s*totalSegmentBlacklistHits = 0\s*)dismissLockScreen\(force = true\)' '$1dismissLockScreen(LockDismissAuthority.REST)' 'gap-rest authority'
+    $lock = Replace-RegexOnce $lock '(resetConsecutiveNormalLockState\("weekly_privilege_granted"\)\s*totalSegmentBlacklistHits = 0\s*)dismissLockScreen\(force = true\)' '$1dismissLockScreen(LockDismissAuthority.WEEKLY_PRIVILEGE)' 'weekly-privilege authority'
+    $lock = Replace-RegexOnce $lock '(resetConsecutiveNormalLockState\("free_time_granted"\)\s*totalSegmentBlacklistHits = 0\s*)dismissLockScreen\(force = true\)' '$1dismissLockScreen(LockDismissAuthority.REST)' 'rest authority'
 
     $autoReleaseReplacement = @'
 LogExporter.i("LockScreen", "[AUTO_RELEASE_BLOCKED] restrictions cleared for pkg=$targetPackage but visible lock requires explicit exit")
         return false
 '@
-    $lock = Replace-RegexOnce $lock `
-        'LogExporter\.i\("LockScreen", "\[AUTO_RELEASE\] restrictions cleared for pkg=\$targetPackage"\)\s*dismissLockScreen\(force = true\)\s*return true' `
-        $autoReleaseReplacement `
-        'block automatic overlay release'
+    $lock = Replace-RegexOnce $lock 'LogExporter\.i\("LockScreen", "\[AUTO_RELEASE\] restrictions cleared for pkg=\$targetPackage"\)\s*dismissLockScreen\(force = true\)\s*return true' $autoReleaseReplacement 'block automatic overlay release'
 
     $naturalFreedomReplacement = @'
 $1LogExporter.i("TemporaryAccess", "[NATURAL_FREEDOM] visible lock preserved; explicit exit required")
 '@
-    $lock = Replace-RegexOnce $lock `
-        '(endTemporaryAccessLifecycle\(nowMs, reason = "FREE_TIME_STARTED", nextState = "FREE_TIME"\)\s*clearTemporaryAccessState\(\)\s*)dismissLockScreen\(force = true\)' `
-        $naturalFreedomReplacement `
-        'natural-freedom overlay preserve'
+    $lock = Replace-RegexOnce $lock '(endTemporaryAccessLifecycle\(nowMs, reason = "FREE_TIME_STARTED", nextState = "FREE_TIME"\)\s*clearTemporaryAccessState\(\)\s*)dismissLockScreen\(force = true\)' $naturalFreedomReplacement 'natural-freedom overlay preserve'
 
     $screenOffPolicy = @'
 internal fun shouldDismissForScreenOff(
@@ -105,27 +63,17 @@ internal fun shouldDismissForScreenOff(
         return false
     }
 '@
-    $lock = Replace-RegexOnce $lock `
-        'internal fun shouldDismissForScreenOff\(\s*isAlarmOverlayActive: Boolean,\s*isLocked: Boolean,\s*isBlacklistLock: Boolean\s*\): Boolean \{.*?\n    \}' `
-        $screenOffPolicy `
-        'screen-off policy'
-
-    $lock = Replace-LiteralOnce $lock `
-        'resetLockState("ScreenOff")' `
-        'LogExporter.logEvent("LockScreen", "[SCREEN_OFF_PRESERVE] visible lock kept; explicit exit required")' `
-        'remove screen-off reset'
+    $lock = Replace-RegexOnce $lock 'internal fun shouldDismissForScreenOff\(\s*isAlarmOverlayActive: Boolean,\s*isLocked: Boolean,\s*isBlacklistLock: Boolean\s*\): Boolean \{.*?\n    \}' $screenOffPolicy 'screen-off policy'
+    $lock = Replace-LiteralOnce $lock 'resetLockState("ScreenOff")' 'LogExporter.logEvent("LockScreen", "[SCREEN_OFF_PRESERVE] visible lock kept; explicit exit required")' 'remove screen-off reset'
 
     if ($lock.Contains('dismissLockScreen(force = true)') -or $lock.Contains('dismissLockScreen(true)')) {
         throw '[LockWindowManager] legacy force-dismiss call remains after patch'
     }
-    Set-Content -Encoding UTF8 -NoNewline $lockPath $lock
+    Write-Utf8NoBom $lockPath $lock
 } else {
     Write-Host 'LockWindowManager authority patch already applied.'
 }
 
-# -----------------------------------------------------------------------------
-# MonitorService: Presence and automatic detection may update state, never unlock.
-# -----------------------------------------------------------------------------
 $monitor = Get-Content -Raw -Encoding UTF8 $monitorPath
 if ($monitor.Contains('LockWindowManager.dismissLockScreen')) {
     $presenceReplacement = @'
@@ -141,32 +89,23 @@ if ($monitor.Contains('LockWindowManager.dismissLockScreen')) {
 
     /** 重置检测状态 */
 '@
-    $monitor = Replace-RegexOnce $monitor `
-        '/\*\* 小窗关闭后解除锁机（冷却期内不解锁，冷却结束前仍保持锁屏） \*/\s*private fun handlePresenceUnlock\(pkg: String, reason: String\) \{.*?\n    \}\s*\n\s*/\*\* 重置检测状态 \*/' `
-        $presenceReplacement `
-        'presence clear-only'
+    $monitor = Replace-RegexOnce $monitor '/\*\* 小窗关闭后解除锁机（冷却期内不解锁，冷却结束前仍保持锁屏） \*/\s*private fun handlePresenceUnlock\(pkg: String, reason: String\) \{.*?\n    \}\s*\n\s*/\*\* 重置检测状态 \*/' $presenceReplacement 'presence clear-only'
 
     $monitorAutoReleaseReplacement = @'
 if (decision.dismissBlacklistOverlay) {
             Log.w(TAG, "[AUTO_RELEASE_BLOCKED] visible lock requires explicit exit")
         }
 '@
-    $monitor = Replace-RegexOnce $monitor `
-        'if \(decision\.dismissBlacklistOverlay\) \{\s*LockWindowManager\.dismissLockScreen\(force = true\)\s*currentLockedPkg = null\s*\}' `
-        $monitorAutoReleaseReplacement `
-        'monitor automatic release'
+    $monitor = Replace-RegexOnce $monitor 'if \(decision\.dismissBlacklistOverlay\) \{\s*LockWindowManager\.dismissLockScreen\(force = true\)\s*currentLockedPkg = null\s*\}' $monitorAutoReleaseReplacement 'monitor automatic release'
 
     if ($monitor.Contains('LockWindowManager.dismissLockScreen')) {
         throw '[MonitorService] detection path still directly dismisses the lock'
     }
-    Set-Content -Encoding UTF8 -NoNewline $monitorPath $monitor
+    Write-Utf8NoBom $monitorPath $monitor
 } else {
     Write-Host 'MonitorService dismiss-authority patch already applied.'
 }
 
-# -----------------------------------------------------------------------------
-# CoreService: reconnect is an internal stale-overlay rebuild trigger, never unlock.
-# -----------------------------------------------------------------------------
 $core = Get-Content -Raw -Encoding UTF8 $corePath
 if (-not $core.Contains('[A11Y_RECONNECT_REBUILD]')) {
     $needle = @'
@@ -202,7 +141,7 @@ if (-not $core.Contains('[A11Y_RECONNECT_REBUILD]')) {
             }
 '@
     $core = Replace-LiteralOnce $core $needle $replacement 'a11y reconnect rebuild insertion'
-    Set-Content -Encoding UTF8 -NoNewline $corePath $core
+    Write-Utf8NoBom $corePath $core
 } else {
     Write-Host 'CoreService reconnect rebuild patch already applied.'
 }
