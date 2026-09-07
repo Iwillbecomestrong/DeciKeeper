@@ -222,7 +222,7 @@ class AppWindowFragment : Fragment() {
             // 有 pending flag 但 ChangeLog 为空——显示兜底提示（动态读取实际生效时间）
             cardPending.visibility = View.VISIBLE
             val refreshTime = TimeRuleManager.getRefreshTime(ctx)
-            tvPendingChanges.text = "有待生效的变更，将于明日 $refreshTime 生效"
+            tvPendingChanges.text = "有待生效的变更，将在下一刷新时刻 $refreshTime 生效"
         }
     }
     
@@ -230,26 +230,20 @@ class AppWindowFragment : Fragment() {
         if (isSettingsLocked()) return
         val item = rulesWithStatus[position]
         val rule = item.rule
-        if (rule.isEnabled == isEnabled) return // No change
-        
-        val newRule = rule.copy(isEnabled = isEnabled)
-        // 弹窗显示：对比当前活跃规则（只看本次改了什么）
-        val displayAnalysis = AppWindowManager.analyzeChange(requireContext(), rule, newRule)
-        // 生效判断：对比 baseline（决定有利/不利）
-        val baselineAnalysis = AppWindowManager.analyzeChange(requireContext(), item.baselineRule ?: rule, newRule)
+        if (rule.isEnabled == isEnabled) return
 
-        if (baselineAnalysis.isOverallAdverse) {
-            showDetailedConfirmDialog(displayAnalysis, {
-                AppWindowManager.updateRule(requireContext(), newRule)
-                refreshList()
-            }, rule.id)
-        } else {
-            // Check for benign update conflict? (Unlikely for just Toggle)
-            // But we can check overlap just in case, though overlap is allowed for App Window logic (Union).
-            // User only asked for strict uniqueness on Definition (Name/Time).
+        val newRule = rule.copy(isEnabled = isEnabled)
+        val analysis = AppWindowManager.analyzeChangeForDisplay(
+            requireContext(),
+            item.baselineRule,
+            rule,
+            newRule
+        )
+
+        showDetailedConfirmDialog(analysis, {
             AppWindowManager.updateRule(requireContext(), newRule)
             refreshList()
-        }
+        }, rule.id)
     }
 
     private fun onUndoRule(position: Int) {
@@ -453,8 +447,8 @@ class AppWindowFragment : Fragment() {
                     return@setPositiveButton
                 }
                 
-                // 🚀 对比当前活跃规则，只看本次修改（baseline 用于判断有利/不利）
-                val analysis = AppWindowManager.analyzeChange(context, rule, newRule)
+                // 展示与执行统一基于同一份 baseline 语义，避免弹窗和实际生效时机不一致
+                val analysis = AppWindowManager.analyzeChangeForDisplay(context, baseline, rule, newRule)
                 
                 // 🚀 [User Requirement] Always show dialog for any change (Restored, Favorable, or Adverse)
                 showDetailedConfirmDialog(analysis, {
@@ -468,17 +462,18 @@ class AppWindowFragment : Fragment() {
     }
     
     private fun showDeleteConfirmDialog(rule: AppWindowManager.AppWindowRule, baseline: AppWindowManager.AppWindowRule? = null) {
-            if (isSettingsLocked()) return
-         // 弹窗显示：对比当前活跃规则
-         val displayAnalysis = AppWindowManager.analyzeChange(requireContext(), rule, null)
-         // 生效判断：对比 baseline
-         val baselineAnalysis = AppWindowManager.analyzeChange(requireContext(), baseline, null)
+        if (isSettingsLocked()) return
+        val analysis = AppWindowManager.analyzeChangeForDisplay(
+            requireContext(),
+            baseline,
+            rule,
+            null
+        )
 
-         // 🚀 [User Requirement] Always show detailed dialog for deletion
-         showDetailedConfirmDialog(displayAnalysis, {
-             AppWindowManager.deleteRule(requireContext(), rule.id)
-             refreshList()
-         }, rule.id)
+        showDetailedConfirmDialog(analysis, {
+            AppWindowManager.deleteRule(requireContext(), rule.id)
+            refreshList()
+        }, rule.id)
     }
 
     private fun showAppSelectionDialog(selectedApps: MutableSet<String>, onDismiss: () -> Unit) {
@@ -633,18 +628,21 @@ class AppWindowFragment : Fragment() {
     }
 
     private fun showDetailedConfirmDialog(analysis: AppWindowManager.ChangeAnalysis, onConfirm: () -> Unit, targetRuleId: String? = null) {
-        // 🚀 [Fix] 适应期内所有变更均立即生效，不区分有利/不利
-        val isAdaptation = CreditManager.isInAdaptationPeriod(requireContext())
+        val context = requireContext()
+        val refreshTime = TimeRuleManager.getRefreshTime(context)
+
+        // 适应期内所有修改均立即生效，但仍使用同一份分析结果描述“加严/放宽/恢复基准”。
+        val isAdaptation = CreditManager.isInAdaptationPeriod(context)
         if (isAdaptation) {
             val sb = StringBuilder()
             sb.append("当前处于【适应期】，所有修改均立即生效。\n\n")
             analysis.details.filter { it.type != AppWindowManager.ChangeType.INFO }.forEach {
                 sb.append("• ${it.text}\n")
             }
-            sb.append("\n(适应期结束后，放松规则的修改将延迟到次日生效)")
+            sb.append("\n(适应期结束后，放宽规则的修改将在下一刷新时刻生效)")
 
-            AlertDialog.Builder(requireContext())
-                .setTitle("✅ 适应期 - 立即生效")
+            AlertDialog.Builder(context)
+                .setTitle("✅ 适应期 · 立即生效")
                 .setMessage(sb.toString().trim())
                 .setPositiveButton("确定") { _, _ -> onConfirm() }
                 .setNegativeButton("取消") { _, _ -> refreshList() }
@@ -652,74 +650,69 @@ class AppWindowFragment : Fragment() {
             return
         }
 
-        // 🚀 [Optimization] No Change -> Toast Only
-        if (analysis.details.any { it.type == AppWindowManager.ChangeType.INFO }) {
-            Toast.makeText(requireContext(), "设置已保存 (未发生变更)", Toast.LENGTH_SHORT).show()
+        if (analysis.details.all { it.type == AppWindowManager.ChangeType.INFO }) {
+            Toast.makeText(context, "设置已保存 (未发生变更)", Toast.LENGTH_SHORT).show()
             onConfirm()
             return
         }
 
         val isAllNextDayPolicy =
-            EffectiveActivationPolicyManager.getPolicy(requireContext()) == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+            EffectiveActivationPolicyManager.getPolicy(context) == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
         val sb = StringBuilder()
         if (isAllNextDayPolicy) {
-            sb.append("当前策略：全部修改均次日生效。\n\n")
+            sb.append("当前策略：勿扰时段和应用时间窗的修改统一在下一刷新时刻 $refreshTime 生效。\n\n")
         }
-        
-        // 1. Restored
+
         val restored = analysis.details.filter { it.type == AppWindowManager.ChangeType.RESTORED }
         if (restored.isNotEmpty()) {
-            val label = if (isAllNextDayPolicy) "🟢 【恢复基准 (次日生效)】" else "🟢 【恢复基准 (立即生效)】"
-            sb.append("$label\n")
+            val timing = if (isAllNextDayPolicy) "下一刷新时刻生效" else "立即生效"
+            sb.append("🟢 【恢复基准 · $timing】\n")
             restored.forEach { sb.append("• ${it.text}\n") }
             sb.append("\n")
         }
 
-        // 2. Favorable
         val favorable = analysis.details.filter { it.type == AppWindowManager.ChangeType.FAVORABLE }
         if (favorable.isNotEmpty()) {
             val label = when {
-                isAllNextDayPolicy -> "🔵 【有利变更 (次日生效)】"
-                analysis.isOverallAdverse -> "🔵 【有利变更 (随延迟生效)】"
-                else -> "🔵 【有利变更 (立即生效)】"
+                isAllNextDayPolicy -> "🔵 【加严 · 下一刷新时刻生效】"
+                analysis.isOverallAdverse -> "🔵 【加严】"
+                else -> "🔵 【加严 · 立即生效】"
             }
             sb.append("$label\n")
             favorable.forEach { sb.append("• ${it.text}\n") }
             sb.append("\n")
         }
 
-        // 3. Adverse (Delayed)
         val adverse = analysis.details.filter { it.type == AppWindowManager.ChangeType.ADVERSE }
         if (adverse.isNotEmpty()) {
-            sb.append("🔴 【不利变更 (次日生效)】\n")
+            sb.append("🟠 【放宽 · 下一刷新时刻生效】\n")
             adverse.forEach { sb.append("• ${it.text}\n") }
             sb.append("\n")
         }
-        
-        // 🚀 检查该规则是否已有待生效的延迟变更，给用户提示
+
         if (targetRuleId != null) {
-            val pendingRules = AppWindowManager.getPendingRules(requireContext())
+            val pendingRules = AppWindowManager.getPendingRules(context)
             val pendingForThisRule = pendingRules?.find { it.id == targetRuleId }
             if (pendingForThisRule != null) {
-                sb.append("\n\n📋 注意：该规则在「延迟生效表」中已有待生效变更：\n")
+                sb.append("\n\n📋 注意：该规则已有待生效变更：\n")
                 sb.append("  - ${pendingForThisRule.name} (${AppWindowManager.formatTimeRange(pendingForThisRule)})\n")
-                sb.append("本次修改将与上述变更累加，次日一起生效。")
+                sb.append("本次修改将与上述变更合并，在下一刷新时刻 $refreshTime 生效。")
             }
         }
 
         sb.append("\n确定要应用这些更改吗？")
 
-        AlertDialog.Builder(requireContext())
+        AlertDialog.Builder(context)
             .setTitle(
                 when {
-                    isAllNextDayPolicy -> "⏳ 全部次日"
-                    analysis.isOverallAdverse -> "⚠️ 包含延后生效项"
+                    isAllNextDayPolicy -> "⏳ 统一延后"
+                    analysis.isOverallAdverse -> "⚠️ 包含放宽项"
                     else -> "变更确认"
                 }
             )
             .setMessage(sb.toString().trim())
             .setPositiveButton("确定") { _, _ -> onConfirm() }
-            .setNegativeButton("取消") { _, _ -> refreshList() } // refresh logic needed for toggle revert
+            .setNegativeButton("取消") { _, _ -> refreshList() }
             .show()
     }
 }

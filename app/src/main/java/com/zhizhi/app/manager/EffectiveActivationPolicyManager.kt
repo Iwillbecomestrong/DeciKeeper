@@ -59,14 +59,14 @@ object EffectiveActivationPolicyManager {
     fun getPolicyTitle(policy: Policy): String {
         return when (policy) {
             Policy.FAVORABLE_IMMEDIATE -> "宽严有别"
-            Policy.ALL_NEXT_DAY -> "全部次日"
+            Policy.ALL_NEXT_DAY -> "统一延后"
         }
     }
 
     fun getPolicyDescription(policy: Policy): String {
         return when (policy) {
             Policy.FAVORABLE_IMMEDIATE ->
-                "加严立即生效，放宽在下一刷新时刻生效。仅影响勿扰时段和应用时间窗。"
+                "加严立即生效；放宽在下一刷新时刻生效；恢复到当前基准的修改立即生效。仅影响勿扰时段和应用时间窗。"
             Policy.ALL_NEXT_DAY ->
                 "勿扰时段和应用时间窗的所有修改，都在下一刷新时刻生效。"
         }

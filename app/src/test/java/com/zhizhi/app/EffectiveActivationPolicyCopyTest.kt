@@ -13,7 +13,7 @@ class EffectiveActivationPolicyCopyTest {
 
         assertEquals("宽严有别", EffectiveActivationPolicyManager.getPolicyTitle(policy))
         assertEquals(
-            "加严立即生效，放宽在下一刷新时刻生效。仅影响勿扰时段和应用时间窗。",
+            "加严立即生效；放宽在下一刷新时刻生效；恢复到当前基准的修改立即生效。仅影响勿扰时段和应用时间窗。",
             EffectiveActivationPolicyManager.getPolicyDescription(policy)
         )
     }
@@ -22,7 +22,7 @@ class EffectiveActivationPolicyCopyTest {
     fun allNextDay_copyStatesScopeAndActivationPoint() {
         val policy = EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
 
-        assertEquals("全部次日", EffectiveActivationPolicyManager.getPolicyTitle(policy))
+        assertEquals("统一延后", EffectiveActivationPolicyManager.getPolicyTitle(policy))
         assertEquals(
             "勿扰时段和应用时间窗的所有修改，都在下一刷新时刻生效。",
             EffectiveActivationPolicyManager.getPolicyDescription(policy)

@@ -984,7 +984,7 @@ object AppWindowManager {
                          .orEmpty()
                      if (delayedByApp.isNotEmpty()) {
                          val delayedText = formatAppDayMatrix(context, delayedByApp)
-                         val refreshedLog = "[待生效-部分延迟] ${newRule.name}\n  - 延迟生效: $delayedText"
+                         val refreshedLog = "[部分待生效] ${newRule.name}\n  - 下一刷新时刻生效: $delayedText"
                          ChangeLogManager.addEntry(context, CATEGORY_LOG, refreshedLog, true, tag = targetId)
                      }
                  }
@@ -1022,7 +1022,7 @@ object AppWindowManager {
                  }
 
                  val delayedText = formatAppDayMatrix(context, mixedSplit.delayedByApp)
-                 logDescription = "[删除-部分延迟] ${oldRule.name}\n  - 延迟删除: $delayedText"
+                 logDescription = "[删除-部分待生效] ${oldRule.name}\n  - 下一刷新时刻删除: $delayedText"
 
                  // 在 pending 中写入完全删除
                  pushUndoSnapshot(context)
@@ -1036,7 +1036,7 @@ object AppWindowManager {
                  val effDateStr = if (effTs > 0L) {
                      SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(effTs))
                  } else {
-                     "次日生效"
+                     "下一刷新时刻"
                  }
                  ChangeLogManager.addEntry(context, CATEGORY_LOG, "$logDescription\n  - 生效日: $effDateStr", true, tag = targetId)
                  Log.i(TAG, "applyChange: Mixed deletion. Favorable removed now, adverse delayed. logDescription=$logDescription")
@@ -1056,7 +1056,7 @@ object AppWindowManager {
                  }
 
                  val delayedText = formatAppDayMatrix(context, mixedSplit.delayedByApp)
-                 logDescription = "[新增-部分延迟] ${newRule.name}\n  - 延迟生效: $delayedText"
+                 logDescription = "[新增-部分待生效] ${newRule.name}\n  - 下一刷新时刻生效: $delayedText"
              } else {
                  clearPartialDelayedDaysForRule(context, targetId)
              }
@@ -1089,7 +1089,7 @@ object AppWindowManager {
              val effDateStr = if (effTs > 0L) {
                  SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(effTs))
              } else {
-                 "次日生效"
+                 "下一刷新时刻"
              }
              ChangeLogManager.addEntry(context, CATEGORY_LOG, "$logDescription\n  - 生效日: $effDateStr", true, tag = targetId)
              Log.i(TAG, "applyChange: Pending entry logged to ChangeLogManager. tag=$targetId")
@@ -1274,7 +1274,7 @@ object AppWindowManager {
     }
 
     /**
-     * 供 UI 保存弹窗使用：与 applyChange 的关键豁免保持一致，避免“弹窗说不利、执行却立即生效”。
+     * UI 展示的单一分析入口。比较基准必须与 applyChange 一致，避免“弹窗说延后、执行却立即”的分裂。
      */
     fun analyzeChangeForDisplay(
         context: Context,
@@ -1282,10 +1282,22 @@ object AppWindowManager {
         oldRule: AppWindowRule?,
         newRule: AppWindowRule?
     ): ChangeAnalysis {
-        if (baselineRule == null && oldRule != null && newRule == null) {
+        if (baselineRule != null && newRule != null &&
+            isRuleContentSame(baselineRule, newRule) &&
+            (oldRule == null || !isRuleContentSame(oldRule, newRule))
+        ) {
             return ChangeAnalysis(
                 isOverallAdverse = false,
-                details = listOf(ChangeDetail("删除规则 (新鲜规则恢复基准)", ChangeType.RESTORED))
+                details = listOf(ChangeDetail("恢复到本次刷新时的基准设置", ChangeType.RESTORED))
+            )
+        }
+
+        if (baselineRule == null && oldRule != null && newRule == null) {
+            val apps = formatAppNames(context, oldRule.packageNames)
+            val suffix = if (apps.isBlank()) "" else "：$apps"
+            return ChangeAnalysis(
+                isOverallAdverse = false,
+                details = listOf(ChangeDetail("恢复到本次刷新时的基准设置$suffix", ChangeType.RESTORED))
             )
         }
 
@@ -1294,7 +1306,12 @@ object AppWindowManager {
             if (removedApps.isNotEmpty()) {
                 return ChangeAnalysis(
                     isOverallAdverse = false,
-                    details = listOf(ChangeDetail("移除应用 (新鲜规则恢复基准)", ChangeType.RESTORED))
+                    details = listOf(
+                        ChangeDetail(
+                            "恢复到本次刷新时的基准设置：${formatAppNames(context, removedApps)}",
+                            ChangeType.RESTORED
+                        )
+                    )
                 )
             }
         }
@@ -1322,8 +1339,8 @@ object AppWindowManager {
                 }
             }
 
-            if (favorableApps.isNotEmpty()) details.add(ChangeDetail("立即删除 (仍有窗口): ${formatAppNames(context, favorableApps)}", ChangeType.FAVORABLE))
-            if (adverseApps.isNotEmpty()) details.add(ChangeDetail("延迟删除 (最后窗口): ${formatAppNames(context, adverseApps)}", ChangeType.ADVERSE))
+            if (favorableApps.isNotEmpty()) details.add(ChangeDetail("删除（仍有其他窗口）: ${formatAppNames(context, favorableApps)}", ChangeType.FAVORABLE))
+            if (adverseApps.isNotEmpty()) details.add(ChangeDetail("删除（最后一个窗口）: ${formatAppNames(context, adverseApps)}", ChangeType.ADVERSE))
 
             return ChangeAnalysis(adverseApps.isNotEmpty(), details)
         }
@@ -1376,11 +1393,11 @@ object AppWindowManager {
             val favorable = addedApps.filter { !hasOtherTimeWindow(context, it, newRule.id, newRule.daysOfWeek) }
             val adverse = addedApps.filter { hasOtherTimeWindow(context, it, newRule.id, newRule.daysOfWeek) }
             if (adverse.isNotEmpty()) {
-                details.add(ChangeDetail("新增 (追加窗口 → 延迟): ${formatAppNames(context, adverse)}", ChangeType.ADVERSE))
+                details.add(ChangeDetail("新增应用（已有其他窗口）: ${formatAppNames(context, adverse)}", ChangeType.ADVERSE))
                 isOverallAdverse = true
             }
             if (favorable.isNotEmpty()) {
-                details.add(ChangeDetail("新增 (首个窗口 → 立即): ${formatAppNames(context, favorable)}", ChangeType.FAVORABLE))
+                details.add(ChangeDetail("新增应用（首个窗口）: ${formatAppNames(context, favorable)}", ChangeType.FAVORABLE))
             }
         }
         val removedApps = oldRule.packageNames - newRule.packageNames
@@ -1389,11 +1406,11 @@ object AppWindowManager {
             val favorable = removedApps.filter { hasOtherTimeWindow(context, it, oldRule.id, oldRule.daysOfWeek) }
             val adverse = removedApps.filter { !hasOtherTimeWindow(context, it, oldRule.id, oldRule.daysOfWeek) }
             if (adverse.isNotEmpty()) {
-                details.add(ChangeDetail("移除 (最后窗口 → 延迟): ${formatAppNames(context, adverse)}", ChangeType.ADVERSE))
+                details.add(ChangeDetail("移除应用（最后一个窗口）: ${formatAppNames(context, adverse)}", ChangeType.ADVERSE))
                 isOverallAdverse = true
             }
             if (favorable.isNotEmpty()) {
-                details.add(ChangeDetail("移除 (仍有窗口 → 立即): ${formatAppNames(context, favorable)}", ChangeType.FAVORABLE))
+                details.add(ChangeDetail("移除应用（仍有其他窗口）: ${formatAppNames(context, favorable)}", ChangeType.FAVORABLE))
             }
         }
 
@@ -1422,12 +1439,12 @@ object AppWindowManager {
                   }
                   val appsWithFallback = oldRule.packageNames - appsWithNoFallback.toSet()
                   if (appsWithNoFallback.isEmpty()) {
-                      details.add(ChangeDetail("减少日期 (仍有兜底 → 立即): ${formatDaysShort(removedDays)}", ChangeType.FAVORABLE))
+                      details.add(ChangeDetail("减少日期（仍有其他规则兜底）: ${formatDaysShort(removedDays)}", ChangeType.FAVORABLE))
                   } else {
                       if (appsWithFallback.isNotEmpty()) {
-                          details.add(ChangeDetail("减少日期 (有兜底 → 立即): ${formatDaysShort(removedDays)} / ${formatAppNames(context, appsWithFallback)}", ChangeType.FAVORABLE))
+                          details.add(ChangeDetail("减少日期（有其他规则兜底）: ${formatDaysShort(removedDays)} / ${formatAppNames(context, appsWithFallback)}", ChangeType.FAVORABLE))
                       }
-                      details.add(ChangeDetail("减少日期 (无兜底 → 延迟): ${formatDaysShort(removedDays)} / ${formatAppNames(context, appsWithNoFallback)}", ChangeType.ADVERSE))
+                      details.add(ChangeDetail("减少日期（无其他规则兜底）: ${formatDaysShort(removedDays)} / ${formatAppNames(context, appsWithNoFallback)}", ChangeType.ADVERSE))
                       isOverallAdverse = true
                   }
              }
