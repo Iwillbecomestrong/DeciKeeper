@@ -260,9 +260,11 @@ internal object LockAlarmOverlayController {
         Log.i(TAG, "showAlarmOverlay: isTest=$isTest, s1=$alarmStage1Types, s2=$alarmStage2Types, math=$targetMathCount, poem=$targetPoemCount, word=$targetWordCount, cloze=$targetClozeCount, custom=$targetCustomCount, qr=$isQrEnabled, twoStage=$isTwoStageUnlock")
 
         val ctx = LockWindowManager.getAlarmContext() ?: return
+        val themeRes = ThemeManager.themeRes(ctx)
+        val themedContext = android.view.ContextThemeWrapper(ctx, themeRes)
         try {
             if (LockWindowManager.getAlarmView() == null) {
-                LockWindowManager.setAlarmView(android.view.LayoutInflater.from(ctx).inflate(R.layout.window_alarm_overlay, null))
+                LockWindowManager.setAlarmView(android.view.LayoutInflater.from(themedContext).inflate(R.layout.window_alarm_overlay, null))
             }
             if (mAlarmActiveWindowManager == null) {
                 // Use CoreService's WindowManager when A11y is active — TYPE_ACCESSIBILITY_OVERLAY
@@ -562,8 +564,164 @@ internal object LockAlarmOverlayController {
         currentCustomQuestion = null
     }
 
+    fun applyThemeToAlarmView(view: View, ctx: Context) {
+        val pageBg = ThemeManager.getColorAttr(ctx, R.attr.zzPageBg)
+        val surfaceBg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface)
+        val surface2Bg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface2)
+        val surfaceStrong = ThemeManager.getColorAttr(ctx, R.attr.zzSurfaceStrong)
+        val textColor = ThemeManager.getColorAttr(ctx, R.attr.zzText)
+        val mutedColor = ThemeManager.getColorAttr(ctx, R.attr.zzMuted)
+        val accentColor = ThemeManager.getColorAttr(ctx, R.attr.zzAccent)
+        val warningColor = ThemeManager.getColorAttr(ctx, R.attr.zzWarning)
+        val dangerColor = ThemeManager.getColorAttr(ctx, R.attr.zzDanger)
+        val successColor = ThemeManager.getColorAttr(ctx, R.attr.zzSuccess)
+
+        // 1. 根容器背景
+        view.findViewById<View>(R.id.root_container)?.setBackgroundColor(pageBg)
+
+        // 2. 标题与提示文字
+        view.findViewById<TextView>(R.id.tv_alarm_title)?.setTextColor(textColor)
+        view.findViewById<TextView>(R.id.tv_alarm_hint)?.setTextColor(mutedColor)
+        view.findViewById<TextView>(R.id.tv_alarm_vibration_intensity)?.setTextColor(warningColor)
+        view.findViewById<TextView>(R.id.tv_alarm_ring_intensity)?.setTextColor(successColor)
+        view.findViewById<TextView>(R.id.tv_stage_cooldown)?.setTextColor(warningColor)
+
+        // 3. 挑战卡片背景
+        listOf(
+            R.id.cv_alarm_math,
+            R.id.cv_alarm_poem,
+            R.id.cv_alarm_word,
+            R.id.cv_alarm_cloze,
+            R.id.cv_alarm_custom,
+            R.id.cv_alarm_qr
+        ).forEach { id ->
+            (view.findViewById<View>(id) as? androidx.cardview.widget.CardView)?.setCardBackgroundColor(surfaceBg)
+        }
+
+        // 4. 数学题内部组件
+        view.findViewById<TextView>(R.id.tv_math_progress)?.setTextColor(accentColor)
+        view.findViewById<TextView>(R.id.tv_math_question)?.setTextColor(textColor)
+        view.findViewById<EditText>(R.id.et_math_answer)?.apply {
+            setTextColor(textColor)
+            setHintTextColor(mutedColor)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+        }
+        view.findViewById<Button>(R.id.btn_math_submit)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+            setTextColor(Color.WHITE)
+        }
+
+        // 5. 诗词题内部组件
+        view.findViewById<TextView>(R.id.tv_poem_progress)?.setTextColor(accentColor)
+        view.findViewById<TextView>(R.id.tv_poem_question)?.setTextColor(textColor)
+        view.findViewById<EditText>(R.id.et_poem_answer)?.apply {
+            setTextColor(textColor)
+            setHintTextColor(mutedColor)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+        }
+        view.findViewById<TextView>(R.id.tv_poem_hint)?.apply {
+            setTextColor(mutedColor)
+            setBackgroundColor(surface2Bg)
+        }
+        listOf(R.id.btn_poem_hint, R.id.btn_poem_skip, R.id.btn_poem_bookmark_skip).forEach { id ->
+            view.findViewById<Button>(id)?.apply {
+                backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
+                setTextColor(textColor)
+            }
+        }
+        view.findViewById<Button>(R.id.btn_poem_submit)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+            setTextColor(Color.WHITE)
+        }
+
+        // 6. 单词题内部组件
+        view.findViewById<TextView>(R.id.tv_word_progress)?.setTextColor(accentColor)
+        view.findViewById<TextView>(R.id.tv_word_question)?.setTextColor(textColor)
+        view.findViewById<EditText>(R.id.et_word_answer)?.apply {
+            setTextColor(textColor)
+            setHintTextColor(mutedColor)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+        }
+        view.findViewById<TextView>(R.id.tv_word_hint)?.apply {
+            setTextColor(mutedColor)
+            setBackgroundColor(surface2Bg)
+        }
+        listOf(R.id.btn_word_hint, R.id.btn_word_skip, R.id.btn_word_bookmark_skip).forEach { id ->
+            view.findViewById<Button>(id)?.apply {
+                backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
+                setTextColor(textColor)
+            }
+        }
+        view.findViewById<Button>(R.id.btn_word_submit)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+            setTextColor(Color.WHITE)
+        }
+
+        // 7. 选词填空内部组件
+        view.findViewById<TextView>(R.id.tv_cloze_progress)?.setTextColor(accentColor)
+        view.findViewById<TextView>(R.id.tv_cloze_passage)?.setTextColor(textColor)
+        view.findViewById<TextView>(R.id.tv_cloze_word_hint)?.apply {
+            setTextColor(warningColor)
+            setBackgroundColor(surface2Bg)
+        }
+        view.findViewById<Button>(R.id.btn_cloze_hint)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
+            setTextColor(textColor)
+        }
+        view.findViewById<TextView>(R.id.tv_cloze_hint)?.apply {
+            setTextColor(mutedColor)
+            setBackgroundColor(surface2Bg)
+        }
+        listOf(R.id.btn_cloze_a, R.id.btn_cloze_b, R.id.btn_cloze_c, R.id.btn_cloze_d, R.id.btn_cloze_bookmark, R.id.btn_cloze_skip).forEach { id ->
+            view.findViewById<Button>(id)?.apply {
+                backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
+                setTextColor(textColor)
+            }
+        }
+
+        // 8. 自定义题库内部组件
+        view.findViewById<TextView>(R.id.tv_custom_progress)?.setTextColor(accentColor)
+        view.findViewById<TextView>(R.id.tv_custom_stem)?.setTextColor(textColor)
+        view.findViewById<Button>(R.id.btn_custom_hint)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
+            setTextColor(textColor)
+        }
+        view.findViewById<TextView>(R.id.tv_custom_hint)?.apply {
+            setTextColor(mutedColor)
+            setBackgroundColor(surface2Bg)
+        }
+        listOf(R.id.btn_custom_a, R.id.btn_custom_b, R.id.btn_custom_c, R.id.btn_custom_d, R.id.btn_custom_skip).forEach { id ->
+            view.findViewById<Button>(id)?.apply {
+                backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
+                setTextColor(textColor)
+            }
+        }
+
+        // 9. 扫码按钮
+        view.findViewById<Button>(R.id.btn_alarm_scan)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+            setTextColor(Color.WHITE)
+        }
+
+        // 10. 底部关闭与稍后再响按钮
+        view.findViewById<Button>(R.id.btn_alarm_close)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(dangerColor)
+            setTextColor(Color.WHITE)
+        }
+        view.findViewById<Button>(R.id.btn_alarm_snooze)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(surfaceStrong)
+            setTextColor(textColor)
+        }
+
+        // 11. 复习回顾标题与指示器
+        view.findViewById<TextView>(R.id.tv_review_title)?.setTextColor(textColor)
+        view.findViewById<TextView>(R.id.tv_review_cloze_indicator)?.setTextColor(textColor)
+    }
+
     private fun initAlarmUI() {
         val view = LockWindowManager.getAlarmView() ?: return
+        val effectiveCtx = LockWindowManager.getAlarmContext() ?: view.context
+        applyThemeToAlarmView(view, effectiveCtx)
         val cvQr = view.findViewById<View>(R.id.cv_alarm_qr)
         val cvMath = view.findViewById<View>(R.id.cv_alarm_math)
         val cvPoem = view.findViewById<View>(R.id.cv_alarm_poem)
@@ -1413,22 +1571,29 @@ internal object LockAlarmOverlayController {
     }
 
     private fun setReviewTabActive(btn: Button, active: Boolean) {
+        val ctx = btn.context
+        val accent = ThemeManager.getColorAttr(ctx, R.attr.zzAccent)
+        val surface2 = ThemeManager.getColorAttr(ctx, R.attr.zzSurface2)
+        val text = ThemeManager.getColorAttr(ctx, R.attr.zzText)
         if (active) {
-            btn.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E65100"))
+            btn.backgroundTintList = android.content.res.ColorStateList.valueOf(accent)
             btn.setTextColor(Color.WHITE)
         } else {
-            btn.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#37474F"))
-            btn.setTextColor(Color.parseColor("#90A4AE"))
+            btn.backgroundTintList = android.content.res.ColorStateList.valueOf(surface2)
+            btn.setTextColor(text)
         }
     }
 
     private fun buildReviewPoemCard(ctx: Context, entry: LockWindowManager.SessionPoemEntry, d: Float): View {
         val poem = entry.poem
         val cleanUp = poem.up.replace("【请填下句】", "").replace("【请填上句】", "").trim()
+        val surfaceBg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface)
+        val accentColor = ThemeManager.getColorAttr(ctx, R.attr.zzAccent)
+        val successColor = ThemeManager.getColorAttr(ctx, R.attr.zzSuccess)
 
         return LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#1A2A30"))
+            setBackgroundColor(surfaceBg)
             setPadding((14 * d).toInt(), (12 * d).toInt(), (14 * d).toInt(), (12 * d).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1439,7 +1604,7 @@ internal object LockAlarmOverlayController {
             addView(TextView(ctx).apply {
                 text = "📜 $cleanUp"
                 textSize = 14f
-                setTextColor(Color.parseColor("#FFD54F"))
+                setTextColor(accentColor)
                 setTypeface(null, Typeface.BOLD)
                 setPadding(0, 0, 0, (4 * d).toInt())
             })
@@ -1447,7 +1612,7 @@ internal object LockAlarmOverlayController {
             addView(TextView(ctx).apply {
                 text = "✏️ ${poem.down}"
                 textSize = 14f
-                setTextColor(Color.parseColor("#81C784"))
+                setTextColor(successColor)
                 setTypeface(null, Typeface.BOLD)
                 setPadding(0, 0, 0, (8 * d).toInt())
             })
@@ -1465,10 +1630,14 @@ internal object LockAlarmOverlayController {
                 append("UK: /${word.uk}/")
             }
         }
+        val surfaceBg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface)
+        val textColor = ThemeManager.getColorAttr(ctx, R.attr.zzText)
+        val mutedColor = ThemeManager.getColorAttr(ctx, R.attr.zzMuted)
+        val subtleColor = ThemeManager.getColorAttr(ctx, R.attr.zzSubtle)
 
         return LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#1A2F38"))
+            setBackgroundColor(surfaceBg)
             setPadding((14 * d).toInt(), (12 * d).toInt(), (14 * d).toInt(), (12 * d).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1479,7 +1648,7 @@ internal object LockAlarmOverlayController {
             addView(TextView(ctx).apply {
                 text = word.text
                 textSize = 18f
-                setTextColor(Color.WHITE)
+                setTextColor(textColor)
                 setTypeface(null, Typeface.BOLD)
                 setPadding(0, 0, 0, (2 * d).toInt())
             })
@@ -1487,7 +1656,7 @@ internal object LockAlarmOverlayController {
             addView(TextView(ctx).apply {
                 text = word.translation
                 textSize = 13f
-                setTextColor(Color.parseColor("#B0BEC5"))
+                setTextColor(mutedColor)
                 setPadding(0, 0, 0, if (phonetic.isNotEmpty()) (2 * d).toInt() else (8 * d).toInt())
             })
             // 音标
@@ -1495,7 +1664,7 @@ internal object LockAlarmOverlayController {
                 addView(TextView(ctx).apply {
                     text = phonetic
                     textSize = 11f
-                    setTextColor(Color.parseColor("#78909C"))
+                    setTextColor(subtleColor)
                     setPadding(0, 0, 0, (8 * d).toInt())
                 })
             }
@@ -1506,9 +1675,17 @@ internal object LockAlarmOverlayController {
 
     internal fun buildReviewClozeCard(ctx: Context, entry: LockWindowManager.SessionClozeEntry, d: Float): View {
         val cloze = entry.cloze
+        val surfaceBg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface)
+        val textColor = ThemeManager.getColorAttr(ctx, R.attr.zzText)
+        val accentColor = ThemeManager.getColorAttr(ctx, R.attr.zzAccent)
+        val successColor = ThemeManager.getColorAttr(ctx, R.attr.zzSuccess)
+        val dangerColor = ThemeManager.getColorAttr(ctx, R.attr.zzDanger)
+        val mutedColor = ThemeManager.getColorAttr(ctx, R.attr.zzMuted)
+        val subtleColor = ThemeManager.getColorAttr(ctx, R.attr.zzSubtle)
+
         return LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#1A2A3A"))
+            setBackgroundColor(surfaceBg)
             setPadding((14 * d).toInt(), (12 * d).toInt(), (14 * d).toInt(), (12 * d).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1531,7 +1708,7 @@ internal object LockAlarmOverlayController {
                 text = headerText
                 textSize = 14f
                 setTypeface(null, Typeface.BOLD)
-                setTextColor(Color.parseColor("#80DEEA"))
+                setTextColor(accentColor)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
             titleRow.addView(buildReviewStatusBadge(ctx, entry.status, d))
@@ -1539,12 +1716,10 @@ internal object LockAlarmOverlayController {
             addView(buildReviewDivider(ctx, d))
 
             // 2. 题目(英文) + 题目翻译(中文) 紧贴
-            // Plan-E: 题面与节选翻译共用 cleanPassage 这一规范源，保证一致性（不各用各的）。
-            // Req-1: 复习回顾的题目段落同样支持长按任意英文单词查词+收藏
             addView(WordLookupTextView(ctx).apply {
                 text = AlarmChallengeManager.cleanPassage(cloze.sentence)
                 textSize = 14f
-                setTextColor(Color.parseColor("#ECEFF1"))
+                setTextColor(textColor)
                 setLineSpacing(0f, 1.2f)
                 setPadding(0, (2 * d).toInt(), 0, (2 * d).toInt())
                 onWordPressed = { w -> showWordBookmarkDialog(ctx, w) }
@@ -1556,7 +1731,7 @@ internal object LockAlarmOverlayController {
                 addView(TextView(ctx).apply {
                     text = "📋 选项"
                     textSize = 12f
-                    setTextColor(Color.parseColor("#B0BEC5"))
+                    setTextColor(mutedColor)
                     setPadding(0, (2 * d).toInt(), 0, (2 * d).toInt())
                 })
                 cloze.options.forEachIndexed { idx, word ->
@@ -1568,7 +1743,6 @@ internal object LockAlarmOverlayController {
                         else -> AlarmChallengeManager.lookupWordWithLemma(word)?.translation
                     }
                     val isCorrect = word == cloze.answer
-                    // Plan-D: 正确选项绿勾；错选的(用户答错)选项红勾，方便一眼分辨对错
                     val isUserWrongPick = entry.userAnswer != null &&
                         entry.userAnswer == word && entry.userAnswer != cloze.answer
                     val marker = when {
@@ -1577,12 +1751,10 @@ internal object LockAlarmOverlayController {
                         else -> ""
                     }
                     val optionColor = when {
-                        isCorrect -> Color.parseColor("#81C784")
-                        isUserWrongPick -> Color.parseColor("#E53935")
-                        else -> Color.parseColor("#ECEFF1")
+                        isCorrect -> successColor
+                        isUserWrongPick -> dangerColor
+                        else -> textColor
                     }
-                    // v3.1.1 fix: 每个选项单独一"块", 字母+单词第一行, 翻译第二行 (避免长翻译被截断)
-                    // Req-1: 复习回顾时长按选项单词 → 单词详情(原单词+音标+简短翻译)+ 收藏单词
                     val optionWord = word
                     val optionBlock = LinearLayout(ctx).apply {
                         orientation = LinearLayout.VERTICAL
@@ -1601,7 +1773,7 @@ internal object LockAlarmOverlayController {
                         text = "$letter."
                         textSize = 14f
                         setTypeface(null, Typeface.BOLD)
-                        setTextColor(Color.parseColor("#FFD54F"))
+                        setTextColor(accentColor)
                     })
                     headerLine.addView(TextView(ctx).apply {
                         text = "  $word$marker"
@@ -1614,8 +1786,8 @@ internal object LockAlarmOverlayController {
                         optionBlock.addView(TextView(ctx).apply {
                             text = "  $trans"
                             textSize = 12f
-                            setTextColor(Color.parseColor("#90A4AE"))
-                            setPadding((16 * d).toInt(), 0, 0, 0)  // 缩进对齐 letter 后的位置
+                            setTextColor(mutedColor)
+                            setPadding((16 * d).toInt(), 0, 0, 0)
                         })
                     }
                     addView(optionBlock)
@@ -1623,13 +1795,13 @@ internal object LockAlarmOverlayController {
             }
             addView(buildReviewDivider(ctx, d))
 
-            // 4. 节选翻译 — Plan-E: 用 buildExcerptPairs 取「含填空句的恰好 ≤3 句」规范对，不冗余、不乱翻译。
+            // 4. 节选翻译
             val excerptPairs = AlarmChallengeManager.buildExcerptPairs(cloze)
             if (excerptPairs.isNotEmpty()) {
                 addView(TextView(ctx).apply {
                     text = "📝 节选翻译"
                     textSize = 12f
-                    setTextColor(Color.parseColor("#80DEEA"))
+                    setTextColor(accentColor)
                     setPadding(0, (2 * d).toInt(), 0, (2 * d).toInt())
                 })
                 excerptPairs.forEach { (en, zh) ->
@@ -1637,24 +1809,23 @@ internal object LockAlarmOverlayController {
                         orientation = LinearLayout.VERTICAL
                         setPadding((8 * d).toInt(), (2 * d).toInt(), 0, (2 * d).toInt())
                     }
-                    // Plan-C: 节选翻译里的英文句也支持长按任意英文单词查词+收藏
                     pair.addView(WordLookupTextView(ctx).apply {
                         text = en
                         textSize = 12f
-                        setTextColor(Color.parseColor("#B0BEC5"))
+                        setTextColor(textColor)
                         onWordPressed = { w -> showWordBookmarkDialog(ctx, w) }
                     })
                     pair.addView(TextView(ctx).apply {
                         text = "→ $zh"
                         textSize = 12f
-                        setTextColor(Color.parseColor("#90A4AE"))
+                        setTextColor(mutedColor)
                     })
                     addView(pair)
                 }
             }
             addView(buildReviewDivider(ctx, d))
 
-            // 5. 答案 + 精讲 (精讲长时折叠)
+            // 5. 答案 + 精讲
             val answerTrans = cloze.answerTranslation.ifEmpty {
                 AlarmChallengeManager.words.find { it.text == cloze.answer }?.translation ?: ""
             }
@@ -1663,24 +1834,20 @@ internal object LockAlarmOverlayController {
             } else {
                 "✏️ 答案: ${cloze.answer}"
             }
-            // Plan-C: 答案行英文单词可长按查词+收藏
             addView(WordLookupTextView(ctx).apply {
                 text = answerLine
                 textSize = 14f
                 setTypeface(null, Typeface.BOLD)
-                setTextColor(Color.parseColor("#81C784"))
+                setTextColor(successColor)
                 setPadding(0, (2 * d).toInt(), 0, (4 * d).toInt())
                 onWordPressed = { w -> showWordBookmarkDialog(ctx, w) }
             })
             if (cloze.grammarExplanation.isNotEmpty()) {
                 val cleanedExplanation = AlarmChallengeManager.cleanTranslation(cloze.grammarExplanation)
-                // Req-2 fix: 复习回顾的选词填空「详解」不再截断（原 maxLines=4 导致显示不全）。
-                // 卡片本身包在 NestedScrollView 里可滚动，完整展示解析内容。
-                // Plan-C: 详解中的英文单词也可长按查词+收藏；中文长按返回 null 不弹窗。
                 addView(WordLookupTextView(ctx).apply {
                     text = "📖 详解\n$cleanedExplanation"
                     textSize = 11f
-                    setTextColor(Color.parseColor("#B0BEC5"))
+                    setTextColor(mutedColor)
                     setPadding(0, 0, 0, (4 * d).toInt())
                     onWordPressed = { w -> showWordBookmarkDialog(ctx, w) }
                 })
@@ -1692,7 +1859,7 @@ internal object LockAlarmOverlayController {
                 addView(TextView(ctx).apply {
                     text = "📅 ${cloze.sourceYear} 年考研英语一 第 ${cloze.sourceQuestionNo} 题$repo"
                     textSize = 10f
-                    setTextColor(Color.parseColor("#607D8B"))
+                    setTextColor(subtleColor)
                     setPadding(0, (2 * d).toInt(), 0, (4 * d).toInt())
                 })
             }
@@ -1706,11 +1873,10 @@ internal object LockAlarmOverlayController {
                 } else {
                     "❌ 你选了: ${entry.userAnswer}"
                 }
-                // Plan-C: 错答行的英文单词可长按查词+收藏
                 addView(WordLookupTextView(ctx).apply {
                     text = userLine
                     textSize = 12f
-                    setTextColor(Color.parseColor("#EF9A9A"))
+                    setTextColor(dangerColor)
                     setPadding(0, (2 * d).toInt(), 0, (4 * d).toInt())
                     onWordPressed = { w -> showWordBookmarkDialog(ctx, w) }
                 })
@@ -1720,9 +1886,16 @@ internal object LockAlarmOverlayController {
 
     internal fun buildReviewCustomCard(ctx: Context, entry: LockWindowManager.SessionCustomQuestionEntry, d: Float): View {
         val q = entry.question
+        val surfaceBg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface)
+        val textColor = ThemeManager.getColorAttr(ctx, R.attr.zzText)
+        val accentColor = ThemeManager.getColorAttr(ctx, R.attr.zzAccent)
+        val successColor = ThemeManager.getColorAttr(ctx, R.attr.zzSuccess)
+        val dangerColor = ThemeManager.getColorAttr(ctx, R.attr.zzDanger)
+        val mutedColor = ThemeManager.getColorAttr(ctx, R.attr.zzMuted)
+
         return LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#1A2E26"))
+            setBackgroundColor(surfaceBg)
             setPadding((14 * d).toInt(), (12 * d).toInt(), (14 * d).toInt(), (12 * d).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1742,7 +1915,7 @@ internal object LockAlarmOverlayController {
                 text = "📚 自定义挑战"
                 textSize = 14f
                 setTypeface(null, Typeface.BOLD)
-                setTextColor(Color.parseColor("#A5D6A7"))
+                setTextColor(accentColor)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
             titleRow.addView(buildReviewStatusBadge(ctx, entry.status, d))
@@ -1753,7 +1926,7 @@ internal object LockAlarmOverlayController {
             addView(TextView(ctx).apply {
                 text = q.stem
                 textSize = 14f
-                setTextColor(Color.parseColor("#ECEFF1"))
+                setTextColor(textColor)
                 setLineSpacing(0f, 1.2f)
                 setPadding(0, (2 * d).toInt(), 0, (4 * d).toInt())
             })
@@ -1770,9 +1943,9 @@ internal object LockAlarmOverlayController {
                     else -> ""
                 }
                 val optColor = when {
-                    isCorrect -> Color.parseColor("#81C784")
-                    isUserWrongPick -> Color.parseColor("#E53935")
-                    else -> Color.parseColor("#B0BEC5")
+                    isCorrect -> successColor
+                    isUserWrongPick -> dangerColor
+                    else -> textColor
                 }
                 addView(TextView(ctx).apply {
                     text = "$letter. $optText$marker"
@@ -1789,7 +1962,7 @@ internal object LockAlarmOverlayController {
                 text = "✏️ 答案：选项 ${q.answer}"
                 textSize = 13f
                 setTypeface(null, Typeface.BOLD)
-                setTextColor(Color.parseColor("#81C784"))
+                setTextColor(successColor)
                 setPadding(0, (2 * d).toInt(), 0, (2 * d).toInt())
             })
 
@@ -1798,17 +1971,25 @@ internal object LockAlarmOverlayController {
                 addView(TextView(ctx).apply {
                     text = "💡 解析：${q.explanation}"
                     textSize = 12f
-                    setTextColor(Color.parseColor("#C8E6C9"))
+                    setTextColor(mutedColor)
                     setPadding(0, (2 * d).toInt(), 0, (2 * d).toInt())
                 })
             }
         }
     }
 
-    /** v3.1 复习卡片细分隔线, 1dp #2C3E50. */
+    /** 复习卡片细分隔线, 1dp 引用 zzLine 主题色. */
     private fun buildReviewDivider(ctx: Context, d: Float): View {
+        val lineColor = ThemeManager.getColorAttr(ctx, R.attr.zzLine)
         return View(ctx).apply {
-            setBackgroundColor(Color.parseColor("#2C3E50"))
+            setBackgroundColor(lineColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (1 * d).toInt()
+            ).apply {
+                setMargins(0, (4 * d).toInt(), 0, (4 * d).toInt())
+            }
+        }
+    }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (1 * d).toInt()
             ).apply {

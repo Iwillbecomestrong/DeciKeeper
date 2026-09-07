@@ -35,6 +35,17 @@
         <item name="android:includeFontPadding">false</item>
     </style>
     <style name="Theme.ZhiZhi.Transparent" parent="Theme.ZhiZhi.Spring"><item name="android:windowIsTranslucent">true</item><item name="android:windowBackground">@android:color/transparent</item><item name="android:windowNoTitle">true</item><item name="android:backgroundDimEnabled">false</item></style>
-    <style name="Theme.ZhiZhi.Alarm" parent="Theme.ZhiZhi.Spring"><item name="android:windowIsTranslucent">false</item><item name="android:windowBackground">#24312A</item><item name="android:windowNoTitle">true</item><item name="android:windowActionBar">false</item><item name="android:backgroundDimEnabled">false</item><item name="android:windowFullscreen">true</item><item name="android:windowDrawsSystemBarBackgrounds">true</item><item name="android:statusBarColor">#24312A</item><item name="android:navigationBarColor">#24312A</item></style>
+    <style name="Theme.ZhiZhi.Alarm" parent="Theme.ZhiZhi">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowBackground">?attr/zzPageBg</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">?attr/zzPageBg</item>
+        <item name="android:navigationBarColor">?attr/zzSurface</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
     <style name="Base.Theme.IronWill" parent="Base.Theme.ZhiZhi" /><style name="Theme.IronWill" parent="Theme.ZhiZhi" /><style name="Theme.IronWill.Transparent" parent="Theme.ZhiZhi.Transparent" /><style name="Theme.IronWill.Alarm" parent="Theme.ZhiZhi.Alarm" />
 </resources>
