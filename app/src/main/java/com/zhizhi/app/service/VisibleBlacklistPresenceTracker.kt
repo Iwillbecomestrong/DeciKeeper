@@ -91,6 +91,19 @@ class VisibleBlacklistPresenceTracker(
     }
 
     /**
+     * Presence 小窗能力属于 Accessibility 增强能力：
+     * - 无障碍服务不可用时，UsageStats.lastTimeVisible 不能单独证明小窗仍在屏幕上；
+     * - 无障碍可用时，也必须在当前窗口集合中真实看到目标包，才允许把 UsageStats
+     *   的时间戳当作“小窗仍存在”的辅助证据。
+     *
+     * 普通全屏前台应用的 UsageEvents / ForegroundGuard 链路不经过这里，不受影响。
+     */
+    private fun hasAccessibilityBackedPresence(pkg: String): Boolean {
+        if (!CoreService.isServiceActive) return false
+        return CoreService.lastVisiblePackagesFromWindows.contains(pkg)
+    }
+
+    /**
      * 首次 Presence 连续确认
      */
     fun onPresenceConfirmed(pkg: String, nowMs: Long): PresenceTrackerAction {
@@ -267,11 +280,15 @@ class VisibleBlacklistPresenceTracker(
 
     /**
      * 检查当前包的 lastTimeVisible 是否合法：
-     * 1. 如果包当前处于 CLOSED Tombstone 状态（未收到新的 FG/RESUMED 打开事件），则一律拒绝！
-     * 2. 如果当前 Presence 因窗口观测 UNKNOWN 处于待复核状态，UsageStats 不能绕过复核重新建立 Session。
-     * 3. 如果 lastTimeVisible <= lastStoppedAt，说明这是关闭小窗时系统刷新的残留时间戳，拒绝！
+     * 1. 小窗 Presence 必须有 Accessibility 当前窗口集合的同包佐证；无障碍不可用时一律拒绝。
+     * 2. 如果包当前处于 CLOSED Tombstone 状态（未收到新的 FG/RESUMED 打开事件），则一律拒绝！
+     * 3. 如果当前 Presence 因窗口观测 UNKNOWN 处于待复核状态，UsageStats 不能绕过复核重新建立 Session。
+     * 4. 如果 lastTimeVisible <= lastStoppedAt，说明这是关闭小窗时系统刷新的残留时间戳，拒绝！
      */
     fun isLastTimeVisibleValid(pkg: String, lastTimeVisible: Long): Boolean {
+        if (!hasAccessibilityBackedPresence(pkg)) {
+            return false
+        }
         if (isPackageClosed(pkg)) {
             return false
         }
@@ -287,12 +304,24 @@ class VisibleBlacklistPresenceTracker(
 
     /**
      * 周期轮询评估：
-     * - DESKTOP_GRACE：宽限期结束后，只有 Presence 仍处于已验证状态才允许重新锁；
+     * - Presence 重锁只属于 Accessibility 增强能力；无障碍不可用时永不根据历史 Presence 重锁；
+     * - DESKTOP_GRACE：宽限期结束后，必须仍能在 Accessibility 当前窗口集合中看到目标包才允许重新锁；
      * - CONFIRMED_VISIBLE：正常保持锁定；一旦窗口观测 UNKNOWN，则暂停重复锁，等待下一次明确观测；
-     * - 成功观测 PRESENT 可恢复锁定，成功观测 ABSENT 则直接清除 Session。
+     * - 成功观测 PRESENT 可恢复锁定，成功观测 ABSENT 则只清除 Presence Session，不代表撤销锁屏。
      */
     fun evaluate(nowMs: Long): PresenceTrackerAction {
         val current = currentPackage ?: "unknown"
+        if (state == PresenceTrackerState.NONE) {
+            return PresenceTrackerAction.NONE
+        }
+        if (!CoreService.isServiceActive) {
+            setRevalidationRequired(true, reason = "A11Y_UNAVAILABLE")
+            return PresenceTrackerAction.NONE
+        }
+        if (!hasAccessibilityBackedPresence(current)) {
+            return PresenceTrackerAction.NONE
+        }
+
         return when (state) {
             PresenceTrackerState.NONE -> PresenceTrackerAction.NONE
             PresenceTrackerState.DESKTOP_GRACE -> {
