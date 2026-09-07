@@ -38,7 +38,7 @@
   - [`docs/specs/alarm.md`](docs/specs/alarm.md)
   - [`docs/specs/protection.md`](docs/specs/protection.md)
   - [`docs/specs/data.md`](docs/specs/data.md)
-- [x] 将旧 `docs/specs/requirements.md` 退役为迁移入口，不再维护第二套巨型当前需求真相。
+- [x] 完成旧巨型 requirements 规格迁移并删除退役入口，不再维护第二套当前需求真相。
 - [x] 根 README 精简为项目门面；详细使用说明集中到 `docs/使用手册.md`。
 - [x] App Help 改为构建时读取 `docs/使用手册.md` 生成的资源，避免维护第二份硬编码手册。
 - [x] 用户侧三个出口统一为：**休息 / 临时解锁 / 每周特权**。
@@ -46,7 +46,7 @@
 
 ### 2.3 本轮收尾
 
-- [ ] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。
+- [x] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。
 - [ ] 清理帮助文案和当前 UI 中残留的旧术语 / 旧入口名称。
 - [ ] 对 PR #22 做最终 Convergence Review：SPEC、scoped specs、代码、测试、手册互相一致。
 - [ ] 合并准备前再次同步最新 `dev`，确认 `behind = 0`。

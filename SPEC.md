@@ -2,7 +2,7 @@
 
 > **定位**：本文件是「知止」当前产品规格的总入口，定义已经确认的产品原则、跨模块行为契约、关键技术边界与验收标准。
 >
-> 详细模块规格由 [`docs/specs/`](docs/specs/) 承担。旧 [`docs/specs/requirements.md`](docs/specs/requirements.md) 在迁移完成前仅作为历史需求输入，不再与本文件并列作为另一份当前真相。
+> 详细模块规格由 [`docs/specs/`](docs/specs/) 承担；历史版本与已退役需求由 Git 历史保留，不再维护第二套并列规格。
 
 ---
 
@@ -284,7 +284,7 @@
 | 保护系统 | [`docs/specs/protection.md`](docs/specs/protection.md) | 防卸载、权限保护、隐私空间、闹钟防关机、ROM 绕过 |
 | 数据与持久化 | [`docs/specs/data.md`](docs/specs/data.md) | 业务日、active/baseline/pending、备份恢复、兼容性 |
 
-`docs/specs/requirements.md` 是旧阶段形成的历史全量需求文档。其仍有价值的内容应逐项审计并迁移到上述明确 owner；迁移完成后删除旧文件，避免产生两套并列规格。
+旧阶段的巨型全量需求文档已经完成拆分与退役；仍有价值的历史内容由 Git 保留，当前详细规则只在上表对应的 scoped spec 中维护。
 
 ---
 
