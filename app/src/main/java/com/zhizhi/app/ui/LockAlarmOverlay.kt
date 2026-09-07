@@ -32,6 +32,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewTreeObserver
@@ -260,8 +261,7 @@ internal object LockAlarmOverlayController {
         Log.i(TAG, "showAlarmOverlay: isTest=$isTest, s1=$alarmStage1Types, s2=$alarmStage2Types, math=$targetMathCount, poem=$targetPoemCount, word=$targetWordCount, cloze=$targetClozeCount, custom=$targetCustomCount, qr=$isQrEnabled, twoStage=$isTwoStageUnlock")
 
         val ctx = LockWindowManager.getAlarmContext() ?: return
-        val themeRes = ThemeManager.themeRes(ctx)
-        val themedContext = android.view.ContextThemeWrapper(ctx, themeRes)
+        val themedContext = ContextThemeWrapper(ctx, ThemeManager.themeRes(ctx))
         try {
             if (LockWindowManager.getAlarmView() == null) {
                 LockWindowManager.setAlarmView(android.view.LayoutInflater.from(themedContext).inflate(R.layout.window_alarm_overlay, null))
@@ -1990,13 +1990,8 @@ internal object LockAlarmOverlayController {
             }
         }
     }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, (1 * d).toInt()
-            ).apply {
-                setMargins(0, (4 * d).toInt(), 0, (4 * d).toInt())
-            }
-        }
-    }
+
+
 
     private fun buildReviewStatusBadge(ctx: Context, status: String, d: Float): TextView {
         return TextView(ctx).apply {

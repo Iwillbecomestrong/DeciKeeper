@@ -595,6 +595,54 @@ object AlarmScheduler {
         prefs.edit().putStringSet(KEY_DEFAULT_STAGE2_TYPES, types).apply()
     }
 
+    private const val KEY_DEFAULT_STAGE1_CUSTOM_BANKS = "default_stage1_custom_banks"
+    private const val KEY_DEFAULT_STAGE2_CUSTOM_BANKS = "default_stage2_custom_banks"
+
+    fun getDefaultStage1CustomBanks(context: Context): Map<String, Int> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_DEFAULT_STAGE1_CUSTOM_BANKS, null) ?: return emptyMap()
+        return try {
+            val obj = org.json.JSONObject(raw)
+            val map = mutableMapOf<String, Int>()
+            val it = obj.keys()
+            while (it.hasNext()) {
+                val k = it.next()
+                map[k] = obj.getInt(k)
+            }
+            map
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun setDefaultStage1CustomBanks(context: Context, banks: Map<String, Int>) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val obj = org.json.JSONObject()
+        banks.forEach { (k, v) -> obj.put(k, v) }
+        prefs.edit().putString(KEY_DEFAULT_STAGE1_CUSTOM_BANKS, obj.toString()).apply()
+    }
+
+    fun getDefaultStage2CustomBanks(context: Context): Map<String, Int> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_DEFAULT_STAGE2_CUSTOM_BANKS, null) ?: return emptyMap()
+        return try {
+            val obj = org.json.JSONObject(raw)
+            val map = mutableMapOf<String, Int>()
+            val it = obj.keys()
+            while (it.hasNext()) {
+                val k = it.next()
+                map[k] = obj.getInt(k)
+            }
+            map
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun setDefaultStage2CustomBanks(context: Context, banks: Map<String, Int>) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val obj = org.json.JSONObject()
+        banks.forEach { (k, v) -> obj.put(k, v) }
+        prefs.edit().putString(KEY_DEFAULT_STAGE2_CUSTOM_BANKS, obj.toString()).apply()
+    }
+
+
     fun getStageCooldownSeconds(context: Context, alarmId: Int): Int {
         val alarm = getAlarms(context).find { it.id == alarmId }
         return alarm?.stageCooldownSeconds ?: getDefaultStageCooldownSeconds(context)

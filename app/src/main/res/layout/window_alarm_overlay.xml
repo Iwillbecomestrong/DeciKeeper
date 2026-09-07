@@ -989,7 +989,7 @@
         android:id="@+id/layout_alarm_scan"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#0B1114"
+        android:background="?attr/zzPageBg"
         android:visibility="gone">
 
         <com.journeyapps.barcodescanner.DecoratedBarcodeView
@@ -1006,7 +1006,7 @@
             android:layout_gravity="top"
             android:orientation="vertical"
             android:padding="24dp"
-            android:background="#CC0B1114">
+            android:background="?attr/zzSurface">
 
             <TextView
                 android:layout_width="match_parent"
@@ -1014,14 +1014,14 @@
                 android:text="扫码关闭"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                android:textColor="?attr/zzText" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="对准任意二维码"
                 android:textSize="14sp"
-                android:textColor="#B0BEC5"
+                android:textColor="?attr/zzMuted"
                 android:layout_marginTop="4dp" />
         </LinearLayout>
 
@@ -1031,10 +1031,10 @@
             android:layout_height="56dp"
             android:layout_gravity="bottom"
             android:layout_margin="24dp"
-            android:text="返回答题"
+            android:text="返回挑战"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#455A64" />
+            android:textColor="?attr/zzText"
+            android:backgroundTint="?attr/zzSurfaceStrong" />
     </FrameLayout>
 </FrameLayout>
