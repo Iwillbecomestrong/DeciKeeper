@@ -45,7 +45,6 @@ import com.zhizhi.app.manager.AlarmPowerOffProtectionManager
 import com.zhizhi.app.manager.AntiUninstallManager
 import com.zhizhi.app.manager.ConfigPendingManager
 import com.zhizhi.app.manager.CreditManager
-import com.zhizhi.app.manager.EffectiveActivationPolicyManager
 import com.zhizhi.app.manager.ManualPermissionRecoveryManager
 import com.zhizhi.app.manager.PrivacyProtectionManager
 import com.zhizhi.app.manager.RecentTasksHideManager
@@ -222,9 +221,6 @@ class RulesFragment : Fragment() {
     private var btnQuickSendLogs: Button? = null
     private var btnExportSettings: Button? = null
     private var btnImportSettings: Button? = null
-    private var rgEffectivePolicy: android.widget.RadioGroup? = null
-    private var tvEffectivePolicyStatus: TextView? = null
-    private var policyUiUpdating = false
 
     private var pendingExportCategories: List<SettingsBackupManager.BackupCategory>? = null
 
@@ -277,7 +273,6 @@ class RulesFragment : Fragment() {
         updateAlarmPowerOffProtectionUI()
         updateHideInRecentTasksUI()
         updatePrivacySpaceGuardUI()
-        updateEffectivePolicyUI()
 
         // After returning from accessibility settings, ask about 闹钟防关机保护
         if (pendingAskAlarmPowerOffAfterAccessibility) {
@@ -308,8 +303,6 @@ class RulesFragment : Fragment() {
         btnQuickSendLogs = view.findViewById(R.id.btn_quick_send_logs)
         btnExportSettings = view.findViewById(R.id.btn_export_settings)
         btnImportSettings = view.findViewById(R.id.btn_import_settings)
-        rgEffectivePolicy = view.findViewById(R.id.rg_effective_policy)
-        // tvEffectivePolicyStatus = view.findViewById(R.id.tv_effective_policy_status)
 
         // Setup Anti-Uninstall Switch
         switchUninstall?.let { setupAntiUninstallSwitch(it) }
@@ -337,7 +330,6 @@ class RulesFragment : Fragment() {
 
         switchPrivacySpaceGuard?.let { setupPrivacySpaceGuardSwitch(it) }
 
-        setupEffectivePolicyToggle()
     }
 
     private fun setupClickEvents(view: View) {
@@ -351,10 +343,6 @@ class RulesFragment : Fragment() {
         view.findViewById<Button>(R.id.btn_open_about)?.setOnClickListener {
             startActivity(Intent(requireContext(), AboutActivity::class.java))
         }
-        view.findViewById<TextView>(R.id.btn_effective_policy_help)?.setOnClickListener {
-            showEffectivePolicyHelpDialog()
-        }
-
         btnQuickSendLogs?.setOnClickListener {
             LogExporter.showQuickSendLogOptions(requireContext(), "导出日志", "请选择要导出的时间范围")
         }
@@ -485,8 +473,7 @@ class RulesFragment : Fragment() {
                 updateAntiUninstallUI()
                 updatePermProtectionUI()
                 updateAlarmPowerOffProtectionUI()
-                updateEffectivePolicyUI()
-                Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+                        Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
             }
         }.start()
     }
@@ -496,39 +483,6 @@ class RulesFragment : Fragment() {
         btnImportSettings?.isEnabled = enabled
         btnExportSettings?.alpha = if (enabled) 1.0f else 0.55f
         btnImportSettings?.alpha = if (enabled) 1.0f else 0.55f
-    }
-
-    private fun setupEffectivePolicyToggle() {
-        rgEffectivePolicy?.setOnCheckedChangeListener { _, checkedId ->
-            if (policyUiUpdating || !isAdded) return@setOnCheckedChangeListener
-            val context = requireContext()
-            val selected = if (checkedId == R.id.rb_policy_all_next_day) {
-                EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
-            } else {
-                EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
-            }
-            val current = EffectiveActivationPolicyManager.getPolicy(context)
-            if (current == selected) return@setOnCheckedChangeListener
-            EffectiveActivationPolicyManager.setPolicy(context, selected)
-            updateEffectivePolicyUI()
-            Toast.makeText(context, "已切换为：${EffectiveActivationPolicyManager.getPolicyTitle(selected)}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun updateEffectivePolicyUI() {
-        if (!isAdded) return
-        val policy = EffectiveActivationPolicyManager.getPolicy(requireContext())
-        val title = EffectiveActivationPolicyManager.getPolicyTitle(policy)
-        // tvEffectivePolicyStatus?.text = "当前：$title"
-
-        policyUiUpdating = true
-        val targetId = if (policy == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY) {
-            R.id.rb_policy_all_next_day
-        } else {
-            R.id.rb_policy_favorable
-        }
-        rgEffectivePolicy?.check(targetId)
-        policyUiUpdating = false
     }
 
     private fun setupAntiUninstallSwitch(switchView: Switch) {
@@ -2410,34 +2364,6 @@ class RulesFragment : Fragment() {
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "无法打开应用设置", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun showEffectivePolicyHelpDialog() {
-        val ctx = requireContext()
-        val policy = EffectiveActivationPolicyManager.getPolicy(ctx)
-        val title = EffectiveActivationPolicyManager.getPolicyTitle(policy)
-        val desc = EffectiveActivationPolicyManager.getPolicyDescription(policy)
-
-        val message = buildString {
-            append("「生效策略」控制的是勿扰时段和应用时间窗修改何时生效。\n\n")
-            append("━━━ 选项说明 ━━━\n\n")
-            append("「宽严有别」（推荐）\n")
-            append("   • 加严限制 → 立即生效\n")
-            append("   • 放宽限制 → 下一刷新时刻生效\n")
-            append("   • 例如：缩短允许时间窗属于加严；延长允许时间窗属于放宽\n\n")
-            append("「全部次日」\n")
-            append("   • 勿扰时段和应用时间窗的所有修改 → 下一刷新时刻生效\n\n")
-            append("━━━ 适用范围 ━━━\n\n")
-            append("• 只影响勿扰时段和应用时间窗\n")
-            append("• 黑白名单、全局参数和保护功能仍按各自规则处理\n\n")
-            append("当前状态：$title\n$desc")
-        }
-
-        AlertDialog.Builder(ctx)
-            .setTitle("生效策略详解")
-            .setMessage(message)
-            .setPositiveButton("知道了", null)
-            .show()
     }
 
     private fun isAccessibilityServiceEnabled(ctx: Context? = context): Boolean {
