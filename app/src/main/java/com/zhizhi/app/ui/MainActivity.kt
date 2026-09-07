@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.zhizhi.app.R
@@ -43,7 +45,17 @@ class MainActivity : AppCompatActivity() {
             return
         }
         setContentView(R.layout.activity_main)
+        val fragmentContainer = findViewById<View>(R.id.fragment_container)
+        ViewCompat.setOnApplyWindowInsetsListener(fragmentContainer) { view, insets ->
+            val topInset = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
+            ).top
+            view.setPadding(view.paddingLeft, topInset, view.paddingRight, view.paddingBottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(fragmentContainer)
         bottomNav = findViewById(R.id.bottom_navigation)
+        bottomNav.isItemActiveIndicatorEnabled = false
         initFragments(savedInstanceState)
         setupBottomNav()
         startMonitorService()
