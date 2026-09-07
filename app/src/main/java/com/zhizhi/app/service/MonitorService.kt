@@ -1464,7 +1464,7 @@ class MonitorService : Service() {
         resetPresenceDetection()
     }
 
-    /** 小窗关闭后解除锁机（冷却期内不解锁，冷却结束前仍保持锁屏） */
+    /** 小窗 Presence 消失后仅清理检测状态；锁屏只能由四个显式出口撤销。 */
     private fun handlePresenceUnlock(pkg: String, reason: String) {
         val lockedFor = (System.currentTimeMillis() - mPresentLockedAtMs).coerceAtLeast(0L)
         Log.i(TAG, "[Presence] CLEAR_ONLY: pkg=$pkg reason=$reason lockedFor=${lockedFor}ms")

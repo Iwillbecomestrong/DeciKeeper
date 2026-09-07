@@ -2153,7 +2153,7 @@ object LockWindowManager {
         val context = mContext ?: return
         Log.i(TAG, "[LOCK_EXIT] authority=$authority pkg=$lastBlockedPackageName")
 
-val now = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
 
         val minGrace = now + 1000L
         if (mDismissUntil < minGrace) {
@@ -4442,29 +4442,7 @@ val now = System.currentTimeMillis()
             totalSegmentBlacklistHits = 0
             Toast.makeText(context, "已临时放行10s，若未切换App则到时自动锁定", Toast.LENGTH_SHORT).show()
 
-            // 移除锁屏视图
-            try {
-                if (mLockView != null && mLockView?.parent != null) {
-                    val wm = mActiveWindowManager ?: mWindowManager
-                    if (wm != null && mLockView?.parent != null) {
-                        wm.removeView(mLockView)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "startTemporaryAccess(emergency): force removeView ignored", e)
-            }
-            mActiveWindowManager = null
-            _isLocked.set(false)
-            _isAntiUninstallLock.set(false)
-            _isBlacklistLock.set(false)
-            _isAppWindowLock.set(false)
-            mBlockedAppLabel = null
-            mLockEntryReasonRaw = null
-            isLockAttachPending = false
-            lockAttachScheduledAt = 0L
-            stopLockRefreshTimer()
-            stopBlacklistMonitor()
-            clearSystemDialogCompatState()
+            dismissLockScreen(LockDismissAuthority.TEMPORARY_ACCESS)
             return
         }
         val accessUntil = now + seconds * 1000L
@@ -4592,30 +4570,7 @@ val now = System.currentTimeMillis()
         } else {
             Toast.makeText(context, "已放行 ${seconds}s${freeTag}，本次无冷却", Toast.LENGTH_SHORT).show()
         }
-        // 🛡️ [Anti-Zombie] 直接强制移除锁屏视图，不依赖 isLocked 标志位
-        // 因为 startTemporaryAccess 已经扣了额度、设了冷却，锁屏必须消失
-        try {
-            if (mLockView != null && mLockView?.parent != null) {
-                val wm = mActiveWindowManager ?: mWindowManager
-                if (wm != null && mLockView?.parent != null) {
-                    wm.removeView(mLockView)
-                }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "startTemporaryAccess: force removeView ignored", e)
-        }
-        mActiveWindowManager = null
-        _isLocked.set(false)
-        _isAntiUninstallLock.set(false)
-        _isBlacklistLock.set(false)
-        _isAppWindowLock.set(false)
-        mBlockedAppLabel = null
-        mLockEntryReasonRaw = null
-        isLockAttachPending = false
-        lockAttachScheduledAt = 0L
-        stopLockRefreshTimer()
-        stopBlacklistMonitor()
-        clearSystemDialogCompatState()
+        dismissLockScreen(LockDismissAuthority.TEMPORARY_ACCESS)
     }
 
     internal fun normalizeTemporaryAccessSeconds(rawSeconds: Int, maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS): Int {
