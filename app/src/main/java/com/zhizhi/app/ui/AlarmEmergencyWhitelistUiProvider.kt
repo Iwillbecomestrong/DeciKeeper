@@ -12,9 +12,8 @@ import androidx.core.widget.NestedScrollView
 import com.zhizhi.app.R
 
 /**
- * Lightweight auto-init hook that injects the emergency-whitelist card into the
- * existing global settings screen without coupling the large settings Activity
- * to alarm-specific selection logic.
+ * Lightweight auto-init hook used for small runtime UI adjustments that cannot
+ * be expressed purely through XML resources.
  */
 class AlarmEmergencyWhitelistUiProvider : ContentProvider() {
     companion object {
@@ -42,7 +41,12 @@ class AlarmEmergencyWhitelistUiProvider : ContentProvider() {
     }
 
     private fun installOrRefresh(activity: Activity) {
-        // 应急名单入口已统一收敛至闹钟主页面右上角「🛡️ 应急应用」，
+        // HelpActivity is built programmatically, so it needs one runtime pass after
+        // its view tree exists. Calling this on create is harmless; onResume performs
+        // the effective pass once setContentView has completed.
+        SeasonalRuntimeRethemer.apply(activity)
+
+        // 应急名单入口已统一收敛至闹钟主页面右上角「应急应用」，
         // 全局参数页面不再重复注入该卡片；若存在旧视图则清理。
         if (activity !is GlobalParamsActivity) return
         val root = activity.findViewById<NestedScrollView>(R.id.root_global_params) ?: return
