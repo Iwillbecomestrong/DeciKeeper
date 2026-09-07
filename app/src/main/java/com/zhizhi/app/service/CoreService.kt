@@ -536,6 +536,30 @@ class CoreService : AccessibilityService() {
             LockWindowManager.setCoreService(this)
             LockWindowManager.init(this)
 
+            // A11y reconnect invalidates TYPE_ACCESSIBILITY_OVERLAY ownership. If a
+            // blacklist lock was already visible, resubmit the same lock under the new
+            // generation. LockWindowManager will classify the old generation as stale,
+            // remove only the stale physical view, then rebuild it immediately.
+            val reconnectLockedPkg = LockWindowManager.getCurrentBlockedPackageName()
+            if (LockWindowManager.isLocked &&
+                LockWindowManager.isBlacklistLock &&
+                !reconnectLockedPkg.isNullOrBlank()
+            ) {
+                Log.w(TAG, "[A11Y_RECONNECT_REBUILD] generation=$newGen pkg=$reconnectLockedPkg")
+                LogExporter.logEvent(
+                    "LockScreen",
+                    "[A11Y_RECONNECT_REBUILD] generation=$newGen pkg=$reconnectLockedPkg"
+                )
+                LockWindowManager.showLockScreen(
+                    reason = "Accessibility reconnect rebuild",
+                    isBlacklist = true,
+                    forceBypassGrace = true,
+                    blockedPackageName = reconnectLockedPkg,
+                    isScreenOnRedetection = true,
+                    detectionSource = "A11Y_RECONNECT"
+                )
+            }
+
             // 馃殌 [Fix] Explicitly start MonitorService to ensure background logic runs
             // This is critical if BootReceiver failed to launch MainActivity
             try {

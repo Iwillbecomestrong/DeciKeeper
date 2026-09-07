@@ -1466,26 +1466,9 @@ class MonitorService : Service() {
 
     /** 小窗关闭后解除锁机（冷却期内不解锁，冷却结束前仍保持锁屏） */
     private fun handlePresenceUnlock(pkg: String, reason: String) {
-        // 🚀 [Rule] 冷却期内不解除锁屏，确保用户能看到冷却倒计时和双倍扣费提示
-        if (CreditManager.isCooling(this)) {
-            Log.d(TAG, "[Presence] UNLOCK BLOCKED: pkg=$pkg reason=$reason — cooling period active")
-            LogExporter.logEvent("MonitorService", "[Presence_UNLOCK_BLOCKED] pkg=$pkg reason=$reason coolingActive=true")
-            return
-        }
-        val lockedFor = System.currentTimeMillis() - mPresentLockedAtMs
-        Log.w(TAG, "[Presence] UNLOCK: pkg=$pkg reason=$reason lockedFor=${lockedFor}ms")
-        LockWindowManager.dismissLockScreen(force = true)
-        EventLog.unlockResult(
-            traceId = currentTraceId,
-            pkg = pkg,
-            unlockType = "PRESENCE_STALE",
-            source = EventLog.UnlockSource.PRESENCE_STALE,
-            durationSec = lockedFor / 1000,
-            endTime = null,
-            quotaConsumeSec = 0,
-            goHome = false,
-            reason = reason
-        )
+        val lockedFor = (System.currentTimeMillis() - mPresentLockedAtMs).coerceAtLeast(0L)
+        Log.i(TAG, "[Presence] CLEAR_ONLY: pkg=$pkg reason=$reason lockedFor=${lockedFor}ms")
+        LogExporter.logEvent("MonitorService", "[Presence_CLEAR_ONLY] pkg=$pkg reason=$reason lockedFor=${lockedFor}ms")
         mPresentLockedPkg = null
         mPresentLockedAtMs = 0L
         mPresenceStatUnlocked++
@@ -2625,8 +2608,7 @@ class MonitorService : Service() {
             LockWindowManager.settleTemporaryAccessForNaturalFreedom(this, now)
         }
         if (decision.dismissBlacklistOverlay) {
-            LockWindowManager.dismissLockScreen(force = true)
-            currentLockedPkg = null
+            Log.w(TAG, "[AUTO_RELEASE_BLOCKED] visible lock requires explicit exit")
         }
         return true
     }

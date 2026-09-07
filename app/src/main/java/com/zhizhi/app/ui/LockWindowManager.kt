@@ -2119,10 +2119,10 @@ object LockWindowManager {
 
         Log.i(TAG, "[ScreenOff] Dismissing non-alarm lock screen for screen off")
         LogExporter.logEvent("LockScreen", "[SCREEN_OFF_DISMISS] Dismissing non-alarm lock for screen off")
-        resetLockState("ScreenOff")
+        LogExporter.logEvent("LockScreen", "[SCREEN_OFF_PRESERVE] visible lock kept; explicit exit required")
     }
 
-    fun dismissLockScreen(force: Boolean = false) {
+    fun dismissLockScreen(authority: LockDismissAuthority) {
         // 🛡️ [Anti-Zombie] 防御性移除：不论 isLocked 为何值，先尝试清理可能残留的视图
         // 防止因 Handler.post 竞态产生的"幽灵锁屏"无法被清除
         try {
@@ -2151,13 +2151,9 @@ object LockWindowManager {
             return
         }
         val context = mContext ?: return
+        Log.i(TAG, "[LOCK_EXIT] authority=$authority pkg=$lastBlockedPackageName")
 
-        if (isBlacklistLock && !force) {
-            Log.d(TAG, "Dismiss rejected: Blacklist Lock Active (use force=true or button click)")
-            return
-        }
-
-        val now = System.currentTimeMillis()
+val now = System.currentTimeMillis()
 
         val minGrace = now + 1000L
         if (mDismissUntil < minGrace) {
@@ -2273,9 +2269,8 @@ object LockWindowManager {
         )
         if (!decision.dismissBlacklistOverlay) return false
 
-        LogExporter.i("LockScreen", "[AUTO_RELEASE] restrictions cleared for pkg=$targetPackage")
-        dismissLockScreen(force = true)
-        return true
+        LogExporter.i("LockScreen", "[AUTO_RELEASE_BLOCKED] restrictions cleared for pkg=$targetPackage but visible lock requires explicit exit")
+        return false
     }
 
     private fun stopLockRefreshTimer() {
@@ -2433,7 +2428,7 @@ object LockWindowManager {
                 addCategory(Intent.CATEGORY_HOME)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            dismissLockScreen(true)
+            dismissLockScreen(LockDismissAuthority.RETURN_HOME)
             try {
                 context.startActivity(homeIntent)
             } catch (e: Exception) {
@@ -3662,7 +3657,7 @@ object LockWindowManager {
                     dismissRestWindow()
                     resetConsecutiveNormalLockState("free_time_granted_gap")
                     totalSegmentBlacklistHits = 0
-                    dismissLockScreen(force = true)
+                    dismissLockScreen(LockDismissAuthority.REST)
                     return@setOnClickListener
                 }
 
@@ -3853,7 +3848,7 @@ object LockWindowManager {
                             resetConsecutiveNormalLockState("weekly_privilege_granted")
                             totalSegmentBlacklistHits = 0
                             
-                            dismissLockScreen(force = true)
+                            dismissLockScreen(LockDismissAuthority.WEEKLY_PRIVILEGE)
                         } else {
                             Toast.makeText(context, "无法启用特权（可能不在可用时段或已进行中）", Toast.LENGTH_SHORT).show()
                         }
@@ -4933,7 +4928,7 @@ object LockWindowManager {
         mDismissUntil = maxOf(mDismissUntil, nowMs + 1_000L)
         endTemporaryAccessLifecycle(nowMs, reason = "FREE_TIME_STARTED", nextState = "FREE_TIME")
         clearTemporaryAccessState()
-        dismissLockScreen(force = true)
+        LogExporter.i("TemporaryAccess", "[NATURAL_FREEDOM] visible lock preserved; explicit exit required")
     }
 
     internal fun isTemporaryAccessInputValid(rawSeconds: Int?, maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS): Boolean {
@@ -5771,10 +5766,8 @@ object LockWindowManager {
         isLocked: Boolean,
         isBlacklistLock: Boolean
     ): Boolean {
-        if (isAlarmOverlayActive) return false
-        if (!isLocked) return false
-        if (!isBlacklistLock) return false
-        return true
+        // Screen-off is not one of the four explicit exits. Preserve every visible lock.
+        return false
     }
 
     private fun reassertAttachedLockVisibility(reason: String) {
@@ -5871,7 +5864,7 @@ object LockWindowManager {
         }
         resetConsecutiveNormalLockState("free_time_granted")
         totalSegmentBlacklistHits = 0
-        dismissLockScreen(force = true) // 🚀 [Fix] Force dismiss for granted rest
+        dismissLockScreen(LockDismissAuthority.REST) // 🚀 [Fix] Force dismiss for granted rest
 
         val untilTime = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(System.currentTimeMillis() + requestedMins.toLong() * 60 * 1000L))
         val remainMins = CreditManager.getRemainingMinutes(context)
