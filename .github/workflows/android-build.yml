@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-debug-apk:
@@ -20,6 +20,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Apply lock exit authority patch
+        shell: powershell
+        run: .\scripts\ci\apply_lock_exit_authority.ps1
 
       - name: Detect Android SDK from adb
         shell: powershell
@@ -47,14 +53,31 @@ jobs:
       - name: Check Gradle wrapper
         shell: powershell
         run: .\gradlew.bat --version
+
       - name: Run all unit tests
         shell: powershell
         run: .\gradlew.bat --no-daemon testDebugUnitTest
 
-
       - name: Build debug APK
         shell: powershell
         run: .\gradlew.bat --no-daemon assembleDebug
+
+      - name: Commit verified lock exit authority sources
+        if: success() && github.event_name == 'pull_request'
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt
+          git add app/src/main/java/com/zhizhi/app/service/MonitorService.kt
+          git add app/src/main/java/com/zhizhi/app/service/CoreService.kt
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "No generated source changes to commit."
+          } else {
+            git commit -m "fix: enforce explicit lock exit authority"
+            git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          }
 
       - name: Upload debug APK
         if: success()
