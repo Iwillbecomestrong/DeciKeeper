@@ -28,4 +28,12 @@ class HelpManualSingleSourceContractTest {
         assertTrue(gradle.contains("generated/userGuideAssets"))
         assertTrue(gradle.contains("docs/使用手册.md"))
     }
+
+    @Test
+    fun appHelpParsesMarkdownHeadingsFromCanonicalManual() {
+        val help = source("src/main/java/com/zhizhi/app/ui/HelpActivity.kt")
+
+        assertTrue(help.contains("markdownLevel = trimmed.takeWhile { it == '#' }.length"))
+        assertTrue(help.contains("markdownTitle"))
+    }
 }
