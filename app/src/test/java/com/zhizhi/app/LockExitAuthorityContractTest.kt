@@ -6,7 +6,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LockExitAuthorityContractTest {
-    private val root = File(System.getProperty("user.dir") ?: ".")
+    private val root: File = run {
+        val cwd = File(System.getProperty("user.dir") ?: ".")
+        sequenceOf(cwd, cwd.parentFile)
+            .filterNotNull()
+            .first { File(it, "app/src/main").exists() }
+    }
 
     private fun source(path: String): String = File(root, path).readText()
 
