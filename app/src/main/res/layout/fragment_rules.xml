@@ -90,45 +90,6 @@
             </androidx.cardview.widget.CardView>
         </LinearLayout>
 
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="?attr/zzSurface"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="0dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="生效策略" android:textColor="?attr/zzText" android:textSize="16sp" android:textStyle="bold" />
-                    <TextView android:id="@+id/btn_effective_policy_help" android:layout_width="26dp" android:layout_height="26dp" android:gravity="center" android:background="@drawable/bg_zz_pill" android:backgroundTint="?attr/zzAccentSoft" android:text="?" android:textColor="?attr/zzAccentStrong" android:textStyle="bold" />
-                </LinearLayout>
-                <android.widget.RadioGroup
-                    android:id="@+id/rg_effective_policy"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical">
-                    <RadioButton
-                        android:id="@+id/rb_policy_favorable"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:buttonTint="?attr/zzAccent"
-                        android:paddingVertical="7dp"
-                        android:text="「宽严有别」（推荐）\n放宽立即，加严次日"
-                        android:textColor="?attr/zzText"
-                        android:textSize="13sp" />
-                    <RadioButton
-                        android:id="@+id/rb_policy_all_next_day"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:buttonTint="?attr/zzAccent"
-                        android:paddingVertical="7dp"
-                        android:text="「全部次日」\n所有修改次日生效"
-                        android:textColor="?attr/zzText"
-                        android:textSize="13sp" />
-                </android.widget.RadioGroup>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
