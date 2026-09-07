@@ -3,6 +3,13 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
+val generatedUserGuideAssetsDir = layout.buildDirectory.dir("generated/userGuideAssets").get().asFile
+val syncUserGuideAsset by tasks.registering(Copy::class) {
+    from(rootProject.file("docs/使用手册.md"))
+    into(generatedUserGuideAssetsDir)
+}
+
+
 android {
     namespace = "com.zhizhi.app"
     compileSdk {
@@ -12,6 +19,11 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    sourceSets {
+        getByName("main").assets.srcDir(generatedUserGuideAssetsDir)
+    }
+
 
     defaultConfig {
         applicationId = "com.zhizhi.app"
@@ -50,6 +62,10 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+}
+
+tasks.named("preBuild") {
+    dependsOn(syncUserGuideAsset)
 }
 
 tasks.register("testClasses") {
