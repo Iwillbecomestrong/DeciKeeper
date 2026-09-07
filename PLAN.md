@@ -47,10 +47,10 @@
 ### 2.3 本轮收尾
 
 - [x] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。
-- [ ] 清理帮助文案和当前 UI 中残留的旧术语 / 旧入口名称。
-- [ ] 对 PR #22 做最终 Convergence Review：SPEC、scoped specs、代码、测试、手册互相一致。
-- [ ] 合并准备前再次同步最新 `dev`，确认 `behind = 0`。
-- [ ] 最终 HEAD 再跑一次全量 JVM 单测、Debug APK 构建与产物上传。
+- [x] 清理帮助文案和当前 UI 中残留的旧正式术语 / 旧入口名称；用户侧入口统一为「休息 / 临时解锁 / 每周特权」。
+- [x] 对 PR #22 做最终 Convergence Review：SPEC、scoped specs、代码、测试、手册互相一致。
+- [x] 合并准备前再次同步最新 `dev`，确认 `behind = 0`。
+- [ ] 最终 HEAD 的全量 JVM 单测、Debug APK 构建与产物上传，以 PR #22 checks 作为合并前最终门禁。
 
 ---
 
