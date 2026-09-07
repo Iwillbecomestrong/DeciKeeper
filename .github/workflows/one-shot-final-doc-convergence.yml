@@ -42,10 +42,22 @@ jobs:
               "SPEC retired requirements transition",
           )
           replace_required(
+              "SPEC.md",
+              "`docs/specs/requirements.md` 是旧阶段形成的历史全量需求文档。其仍有价值的内容应逐项审计并迁移到上述明确 owner；迁移完成后删除旧文件，避免产生两套并列规格。",
+              "旧阶段的巨型全量需求文档已经完成拆分与退役；仍有价值的历史内容由 Git 保留，当前详细规则只在上表对应的 scoped spec 中维护。",
+              "SPEC module-map retirement note",
+          )
+          replace_required(
               "docs/README.md",
               "App Help\n  ↓ 后续与使用手册同源",
               "App Help\n  ↓ 构建时读取同一份使用手册资源",
               "Help single-source status",
+          )
+          replace_required(
+              "PLAN.md",
+              "- [x] 将旧 `docs/specs/requirements.md` 退役为迁移入口，不再维护第二套巨型当前需求真相。",
+              "- [x] 完成旧巨型 requirements 规格迁移并删除退役入口，不再维护第二套当前需求真相。",
+              "PLAN retired requirements status",
           )
           replace_required(
               "PLAN.md",
@@ -56,13 +68,12 @@ jobs:
           PY
 
           git rm docs/specs/requirements.md
+          rm .github/workflows/one-shot-final-doc-convergence.yml
 
-          if git grep -n 'docs/specs/requirements.md' -- ':!HISTORY.md' ':!docs/history/**'; then
+          if git grep -n 'docs/specs/requirements.md' -- ':!HISTORY.md' ':!docs/history/**' ':!.github/workflows/**'; then
             echo 'Live documentation still references docs/specs/requirements.md' >&2
             exit 1
           fi
-
-          rm .github/workflows/one-shot-final-doc-convergence.yml
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
