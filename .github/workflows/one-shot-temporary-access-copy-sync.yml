@@ -21,30 +21,42 @@ jobs:
       - name: Replace legacy temporary-access terminology
         shell: powershell
         run: |
+          function Decode-Utf8([string]$b64) {
+            return [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($b64))
+          }
+
           $paths = @(
             'app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt',
             'app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt',
             'app/src/main/res/layout/window_lock_screen.xml',
             'app/src/main/res/layout/activity_global_params_new.xml',
-            'docs/使用手册.md'
+            (Decode-Utf8 'ZG9jcy/kvb/nlKjmiYvlhowubWQ=')
           )
 
+          $oldLong = Decode-Utf8 '6LaF57qn5Li05pe25pS+6KGM'
+          $oldShort = Decode-Utf8 '6LaF57qn5Li05pe2'
+          $canonical = Decode-Utf8 '5Li05pe26Kej6ZSB'
           $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
           foreach ($path in $paths) {
             $content = [System.IO.File]::ReadAllText($path)
-            $content = $content.Replace('超级临时放行', '临时解锁')
-            $content = $content.Replace('超级临时', '临时解锁')
+            $content = $content.Replace($oldLong, $canonical)
+            $content = $content.Replace($oldShort, $canonical)
             [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
           }
 
           $lockPath = 'app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt'
           $lockContent = [System.IO.File]::ReadAllText($lockPath)
-          $lockContent = $lockContent.Replace('临时解锁使用受限应用(<=', '临时解锁(<=')
+          $lockOld = Decode-Utf8 '5Li05pe26Kej6ZSB5L2/55So5Y+X6ZmQ5bqU55SoKDw9'
+          $lockNew = Decode-Utf8 '5Li05pe26Kej6ZSBKDw9'
+          $lockContent = $lockContent.Replace($lockOld, $lockNew)
           [System.IO.File]::WriteAllText($lockPath, $lockContent, $utf8NoBom)
 
           $helpPath = 'app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt'
           $helpContent = [System.IO.File]::ReadAllText($helpPath)
-          $helpContent = $helpContent.Replace('临时使用受限应用时长上限 —— 临时解锁时', '临时解锁时长上限 —— 临时解锁时')
+          $helpOld = Decode-Utf8 '5Li05pe25L2/55So5Y+X6ZmQ5bqU55So5pe26ZW/5LiK6ZmQIOKAlOKAlCDkuLTml7bop6PplIHml7Y='
+          $helpNew = Decode-Utf8 '5Li05pe26Kej6ZSB5pe26ZW/5LiK6ZmQIOKAlOKAlCDkuLTml7bop6PplIHml7Y='
+          $helpContent = $helpContent.Replace($helpOld, $helpNew)
           [System.IO.File]::WriteAllText($helpPath, $helpContent, $utf8NoBom)
 
           Remove-Item '.github/workflows/one-shot-temporary-access-copy-sync.yml'
