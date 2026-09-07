@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   converge-docs:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Check out task branch
         uses: actions/checkout@v4
@@ -21,48 +21,52 @@ jobs:
           fetch-depth: 0
 
       - name: Remove retired requirements entry and sync document map
-        shell: powershell
+        shell: bash
         run: |
-          $ErrorActionPreference = "Stop"
-          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+          set -euo pipefail
 
-          function Replace-RegexRequired([string]$path, [string]$pattern, [string]$replacement, [string]$label) {
-            $text = [System.IO.File]::ReadAllText($path)
-            if (-not [regex]::IsMatch($text, $pattern)) {
-              throw "Expected pattern not found ($label): $path"
-            }
-            $text = [regex]::Replace($text, $pattern, $replacement, 1)
-            [System.IO.File]::WriteAllText($path, $text, $utf8NoBom)
-          }
+          python3 - <<'PY'
+          from pathlib import Path
 
-          Replace-RegexRequired "SPEC.md" "(?m)^> 详细模块规格由 .*另一份当前真相。$" "> 详细模块规格由 docs/specs/ 承担；历史版本与已退役需求由 Git 历史保留，不再维护第二套并列规格。" "SPEC retired requirements transition"
-          Replace-RegexRequired "docs/README.md" "(?m)^  ↓ 后续与使用手册同源$" "  ↓ 构建时读取同一份使用手册资源" "Help single-source status"
-          Replace-RegexRequired "PLAN.md" "(?m)^- \[ \] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。$" "- [x] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。" "PLAN settings dead-code task"
+          def replace_required(path: str, old: str, new: str, label: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"Expected pattern not found ({label}): {path}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
 
-          if (-not (Test-Path "docs/specs/requirements.md")) {
-            throw "Retired requirements.md not found before deletion"
-          }
-          git rm -- "docs/specs/requirements.md"
-          if ($LASTEXITCODE -ne 0) { throw "git rm failed" }
+          replace_required(
+              "SPEC.md",
+              "> 详细模块规格由 [`docs/specs/`](docs/specs/) 承担。旧 [`docs/specs/requirements.md`](docs/specs/requirements.md) 在迁移完成前仅作为历史需求输入，不再与本文件并列作为另一份当前真相。",
+              "> 详细模块规格由 [`docs/specs/`](docs/specs/) 承担；历史版本与已退役需求由 Git 历史保留，不再维护第二套并列规格。",
+              "SPEC retired requirements transition",
+          )
+          replace_required(
+              "docs/README.md",
+              "App Help\n  ↓ 后续与使用手册同源",
+              "App Help\n  ↓ 构建时读取同一份使用手册资源",
+              "Help single-source status",
+          )
+          replace_required(
+              "PLAN.md",
+              "- [ ] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。",
+              "- [x] 清理设置页中已迁走的时间规则策略死代码，保持职责一致。",
+              "PLAN settings dead-code task",
+          )
+          PY
 
-          $liveRefs = git grep -n "docs/specs/requirements.md" -- ":!HISTORY.md" ":!docs/history/**"
-          $grepExit = $LASTEXITCODE
-          if ($grepExit -eq 0 -and $liveRefs) {
-            $liveRefs | Write-Host
-            throw "Live documentation still references docs/specs/requirements.md"
-          }
-          if ($grepExit -gt 1) {
-            throw "git grep failed with exit code $grepExit"
-          }
+          git rm docs/specs/requirements.md
 
-          Remove-Item ".github/workflows/one-shot-final-doc-convergence.yml"
+          if git grep -n 'docs/specs/requirements.md' -- ':!HISTORY.md' ':!docs/history/**'; then
+            echo 'Live documentation still references docs/specs/requirements.md' >&2
+            exit 1
+          fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/one-shot-final-doc-convergence.yml
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add SPEC.md PLAN.md docs/README.md .github/workflows/one-shot-final-doc-convergence.yml
           git diff --cached --check
-          if ($LASTEXITCODE -ne 0) { throw "git diff --check failed" }
-          git commit -m "docs: finish specification document convergence"
-          if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
+          git commit -m 'docs: finish specification document convergence'
           git push origin HEAD:ai/time-rules-spec-sync
-          if ($LASTEXITCODE -ne 0) { throw "git push failed" }
