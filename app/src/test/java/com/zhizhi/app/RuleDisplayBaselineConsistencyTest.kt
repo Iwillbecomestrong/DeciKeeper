@@ -91,6 +91,7 @@ class RuleDisplayBaselineConsistencyTest {
     fun userFacingRuleCopyUsesCanonicalTermsAndRefreshTiming() {
         val ui = source("src/main/java/com/zhizhi/app/ui/AppWindowFragment.kt")
         val policy = source("src/main/java/com/zhizhi/app/manager/EffectiveActivationPolicyManager.kt")
+        val manager = source("src/main/java/com/zhizhi/app/manager/AppWindowManager.kt")
 
         assertTrue(policy.contains("Policy.ALL_NEXT_DAY -> \"统一延后\""))
         assertTrue(policy.contains("恢复到当前基准的修改立即生效"))
@@ -110,6 +111,11 @@ class RuleDisplayBaselineConsistencyTest {
         assertTrue(ui.contains("【放宽"))
         assertTrue(ui.contains("【恢复基准"))
         assertTrue(ui.contains("下一刷新时刻"))
+
+        assertFalse("corrupted character must never reach rule copy", manager.contains('\u515E'))
+        assertFalse("corrupted phrase must never reach rule copy", manager.contains("部切待生效"))
+        assertTrue(manager.contains("[新增-部分待生效]"))
+        assertTrue(manager.contains("[部分待生效]"))
     }
 
     @Test
