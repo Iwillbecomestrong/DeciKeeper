@@ -775,7 +775,7 @@ class RulesFragment : Fragment() {
             text = "确认关闭"
             setAllCaps(false)
             setTextColor(android.graphics.Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzDanger))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
             cornerRadius = (12 * density).toInt()
             minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -885,7 +885,7 @@ class RulesFragment : Fragment() {
             text = "同时提交关闭"
             setAllCaps(false)
             setTextColor(android.graphics.Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzDanger))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
             cornerRadius = (12 * density).toInt()
             minHeight = (44 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)

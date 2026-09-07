@@ -143,8 +143,23 @@ class LockScreenPresentationPolicyTest {
         assertTrue(presentation.enabled)
         assertEquals(1.0f, presentation.alpha, 0.01f)
         assertTrue(presentation.label.contains("临时解锁"))
-        assertTrue(presentation.label.contains("加权"))
+        assertTrue(presentation.label.contains("翻倍"))
         assertTrue(presentation.label.contains("45s"))
+    }
+
+    @Test
+    fun givenAppWindowBlocked_whenTemporaryAccessExhausted_disablesButton() {
+        val presentation = resolveEmergencyActionPresentation(
+            mode = LockOverlayRestrictionMode.APP_WINDOW,
+            privilegeUnavailableReason = null,
+            restExhausted = false,
+            inAnyCooling = false,
+            isTemporaryAccessExhausted = true
+        )
+
+        assertFalse(presentation.enabled)
+        assertEquals(0.5f, presentation.alpha, 0.01f)
+        assertEquals("临时解锁已用完", presentation.label)
     }
 
     @Test

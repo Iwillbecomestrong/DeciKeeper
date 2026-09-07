@@ -50,21 +50,48 @@ class TemporaryAccessChargeSnapshotTest {
     }
 
     /**
-     * Test C: 部分 cooldown 重叠，仅对重叠部分加权双倍
+     * Test C: 冷却期内申请，整单直接翻倍扣除（×2），不再碎切加权
      */
     @Test
-    fun existingCooldown_partialOverlapOnlyWeightsOverlap() {
+    fun existingCooldown_triggersFullOrderDoubling() {
         val now = 100_000L
         val snapshot = resolveTemporaryAccessChargeSnapshot(
             requestedSec = 60,
             freeSec = 0,
             coolingAnchorMs = now,
-            existingCooldownEndMs = now + 30_000L // 仅重叠前 30s
+            existingCooldownEndMs = now + 30_000L // 处于冷却期中
         )
 
-        assertEquals("重叠部分应为 30s", 30, snapshot.coolingSec)
-        assertEquals("非重叠正常部分应为 30s", 30, snapshot.normalDndSec)
-        assertEquals("加权总时长应为 30 + 30*2 = 90s", 90, snapshot.weightedTimeCostSec)
+        assertEquals("处于冷却期 coolingSec 为 60s", 60, snapshot.coolingSec)
+        assertEquals("处于冷却期 normalDndSec 为 0s", 0, snapshot.normalDndSec)
+        assertEquals("整单直接翻倍时长应为 120s", 120, snapshot.weightedTimeCostSec)
+        assertEquals("≤3分钟基础0.5次，冷却翻倍后为 1次 (2个 halfUnits)", 2, snapshot.weightedCountHalfUnits)
+    }
+
+    @Test
+    fun coolingOrderDoublingAndBorrowDoubling_matchesUserRequirement() {
+        val now = 100_000L
+        // 1. 冷却期申请 3 分钟 (180s)
+        val snapshot = resolveTemporaryAccessChargeSnapshot(
+            requestedSec = 180,
+            freeSec = 0,
+            coolingAnchorMs = now,
+            existingCooldownEndMs = now + 60_000L
+        )
+        assertEquals("冷却期申请 3分钟 翻倍为 6分钟 (360s)", 360, snapshot.weightedTimeCostSec)
+        assertEquals("冷却期申请 3分钟 次数翻倍为 1次 (2个 halfUnits)", 2, snapshot.weightedCountHalfUnits)
+
+        // 2. 全部借用情况：下阶段偿还翻倍（借一还二）
+        val plan = calculateTemporaryAccessQuotaPlan(
+            totalTimeCostSec = snapshot.weightedTimeCostSec,
+            currentAvailableSec = 0,
+            nextAvailableSec = 1000,
+            totalCountCostHalfUnits = snapshot.weightedCountHalfUnits,
+            currentAvailableCountHalfUnits = 0,
+            nextAvailableCountHalfUnits = 10
+        )
+        assertEquals("下阶段偿还时长应为 12分钟 (720s)", 720, plan.nextTimeCostSec)
+        assertEquals("下阶段偿还次数应为 2次 (4个 halfUnits)", 4, plan.nextCountCostHalfUnits)
     }
 
     /**

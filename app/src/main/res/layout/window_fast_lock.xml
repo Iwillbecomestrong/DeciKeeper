@@ -4,23 +4,23 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:background="#E0F7FA">
+    android:background="?attr/zzPageBg">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="🛡️ 知止"
+        android:text="知止"
         android:textSize="32sp"
         android:textStyle="bold"
-        android:textColor="#006064"
+        android:textColor="?attr/zzAccentStrong"
         android:layout_marginBottom="16dp"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="知止防卸载功能正在初始化..."
-        android:textSize="18sp"
-        android:textColor="#00796B"/>
+        android:textSize="16sp"
+        android:textColor="?attr/zzText"/>
 
     <TextView
         android:id="@+id/countdown_text"
@@ -28,13 +28,13 @@
         android:layout_height="wrap_content"
         android:text="剩余 30 秒"
         android:textSize="14sp"
-        android:textColor="#546E7A"
+        android:textColor="?attr/zzMuted"
         android:layout_marginTop="12dp"/>
 
     <ProgressBar
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:indeterminateTint="#00E5FF"/>
+        android:indeterminateTint="?attr/zzAccent"/>
 
 </LinearLayout>

@@ -68,7 +68,16 @@ object StartupProtectionManager {
         return try {
             val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             earlyBootWindowManager = wm
-            val inflater = LayoutInflater.from(context)
+            val themeKey = context.getSharedPreferences("zhizhi_ui_theme", Context.MODE_PRIVATE)
+                .getString("theme", "spring") ?: "spring"
+            val themeRes = when (themeKey) {
+                "summer" -> R.style.Theme_ZhiZhi_Summer
+                "autumn" -> R.style.Theme_ZhiZhi_Autumn
+                "winter" -> R.style.Theme_ZhiZhi_Winter
+                else -> R.style.Theme_ZhiZhi_Spring
+            }
+            val themedContext = android.view.ContextThemeWrapper(context, themeRes)
+            val inflater = LayoutInflater.from(themedContext)
             val view = inflater.inflate(R.layout.window_fast_lock, null).apply {
                 isClickable = true
                 isFocusable = true

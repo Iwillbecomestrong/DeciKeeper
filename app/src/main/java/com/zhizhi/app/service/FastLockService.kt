@@ -23,6 +23,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import com.zhizhi.app.ui.ThemeManager
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -276,7 +277,8 @@ class FastLockService : Service() {
 
         mWindowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
-        val inflater = LayoutInflater.from(this)
+        val themedContext = android.view.ContextThemeWrapper(this, ThemeManager.themeRes(this))
+        val inflater = LayoutInflater.from(themedContext)
         mLockView = inflater.inflate(R.layout.window_fast_lock, null).apply {
             isClickable = true
             isFocusable = true

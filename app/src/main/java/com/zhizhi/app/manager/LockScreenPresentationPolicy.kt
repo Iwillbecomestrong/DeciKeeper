@@ -62,28 +62,48 @@ internal fun shouldShowStandaloneTemporaryAccess(
     return mode == LockOverlayRestrictionMode.DND
 }
 
+internal fun resolveTemporaryAccessPresentation(
+    isTemporaryAccessExhausted: Boolean,
+    inAnyCooling: Boolean,
+    coolingRemainingSeconds: Long = 0L
+): EmergencyActionPresentation {
+    if (isTemporaryAccessExhausted) {
+        return EmergencyActionPresentation(
+            label = "临时解锁已用完",
+            enabled = false,
+            alpha = 0.5f
+        )
+    }
+    val label = if (inAnyCooling) {
+        if (coolingRemainingSeconds > 0L) {
+            "⚡ 临时解锁（冷却翻倍 ${coolingRemainingSeconds}s）"
+        } else {
+            "⚡ 临时解锁（冷却翻倍）"
+        }
+    } else {
+        "⚡ 临时解锁"
+    }
+    return EmergencyActionPresentation(
+        label = label,
+        enabled = true,
+        alpha = 1.0f
+    )
+}
+
 internal fun resolveEmergencyActionPresentation(
     mode: LockOverlayRestrictionMode,
     privilegeUnavailableReason: String?,
     restExhausted: Boolean,
     inAnyCooling: Boolean,
-    coolingRemainingSeconds: Long = 0L
+    coolingRemainingSeconds: Long = 0L,
+    isTemporaryAccessExhausted: Boolean = false
 ): EmergencyActionPresentation {
-    // 应用时间窗限制锁屏：主操作为【临时解锁】（冷静期再犯双倍扣除，不硬性禁用）
+    // 应用时间窗限制锁屏：主操作为【临时解锁】
     if (mode == LockOverlayRestrictionMode.APP_WINDOW) {
-        val label = if (inAnyCooling) {
-            if (coolingRemainingSeconds > 0L) {
-                "⚡ 临时解锁（冷却加权 ${coolingRemainingSeconds}s）"
-            } else {
-                "⚡ 临时解锁（冷却加权）"
-            }
-        } else {
-            "⚡ 临时解锁"
-        }
-        return EmergencyActionPresentation(
-            label = label,
-            enabled = true,
-            alpha = 1.0f
+        return resolveTemporaryAccessPresentation(
+            isTemporaryAccessExhausted = isTemporaryAccessExhausted,
+            inAnyCooling = inAnyCooling,
+            coolingRemainingSeconds = coolingRemainingSeconds
         )
     }
 
@@ -94,7 +114,7 @@ internal fun resolveEmergencyActionPresentation(
     }
 
     return EmergencyActionPresentation(
-        label = if (inAnyCooling) "⚠️ 冷静期申请 (加权扣费)" else "🌱 申请休息",
+        label = if (inAnyCooling) "⚠️ 冷静期申请 (翻倍扣费)" else "🌱 申请休息",
         enabled = true,
         alpha = 1.0f
     )

@@ -55,7 +55,7 @@ class TimeSegmentAdapter(
     }
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val cardSegment: androidx.cardview.widget.CardView = view.findViewById(R.id.card_segment)
+        val cardSegment: com.google.android.material.card.MaterialCardView = view.findViewById(R.id.card_segment)
         val tvTitle: TextView = view.findViewById(R.id.tv_segment_title)
         val tvName: TextView = view.findViewById(R.id.tv_segment_name)
         val tvTime: TextView = view.findViewById(R.id.tv_segment_time)
@@ -111,7 +111,10 @@ class TimeSegmentAdapter(
 
         // Badge & Card Background
         val context = holder.itemView.context
+        val density = context.resources.displayMetrics.density
         val surfaceColor = ThemeManager.getColorAttr(context, R.attr.zzSurface)
+        val lineColor = ThemeManager.getColorAttr(context, R.attr.zzLine)
+        val accentColor = ThemeManager.getColorAttr(context, R.attr.zzAccent)
         val warningColor = ThemeManager.getColorAttr(context, R.attr.zzWarning)
         val warningSoft = ThemeManager.getColorAttr(context, R.attr.zzWarningSoft)
         val dangerColor = ThemeManager.getColorAttr(context, R.attr.zzDanger)
@@ -122,24 +125,34 @@ class TimeSegmentAdapter(
         val isPendingDel = isPendingDeletion(segment)
         if (isReadOnly) {
             holder.cardSegment.setCardBackgroundColor(ThemeManager.getColorAttr(context, R.attr.zzSurface2))
+            holder.cardSegment.strokeWidth = (1 * density).toInt()
+            holder.cardSegment.strokeColor = lineColor
             holder.tvNewBadge.visibility = View.GONE
         } else if (isPendingDel) {
             holder.cardSegment.setCardBackgroundColor(dangerSoft)
+            holder.cardSegment.strokeWidth = (1.5f * density).toInt()
+            holder.cardSegment.strokeColor = dangerColor
             holder.tvNewBadge.text = "待生效: 删除"
             holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(dangerColor)
             holder.tvNewBadge.visibility = View.VISIBLE
         } else if (isNewSegment(segment)) {
             holder.cardSegment.setCardBackgroundColor(successSoft)
+            holder.cardSegment.strokeWidth = (1.5f * density).toInt()
+            holder.cardSegment.strokeColor = successColor
             holder.tvNewBadge.text = "待生效: 新增"
             holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(successColor)
             holder.tvNewBadge.visibility = View.VISIBLE
         } else if (isModifiedSegment(segment)) {
             holder.cardSegment.setCardBackgroundColor(warningSoft)
+            holder.cardSegment.strokeWidth = (1.5f * density).toInt()
+            holder.cardSegment.strokeColor = warningColor
             holder.tvNewBadge.text = "待生效: 修改"
             holder.tvNewBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(warningColor)
             holder.tvNewBadge.visibility = View.VISIBLE
         } else {
             holder.cardSegment.setCardBackgroundColor(surfaceColor)
+            holder.cardSegment.strokeWidth = (1 * density).toInt()
+            holder.cardSegment.strokeColor = lineColor
             holder.tvNewBadge.visibility = View.GONE
         }
 
@@ -158,13 +171,13 @@ class TimeSegmentAdapter(
         // Delete button
         if (isPendingDel) {
             holder.btnDelete.setImageResource(android.R.drawable.ic_menu_revert)
-            holder.btnDelete.setColorFilter(Color.parseColor("#1565C0"))
+            holder.btnDelete.setColorFilter(accentColor)
             holder.btnDelete.setOnClickListener {
                 onDelete(holder.adapterPosition) // This will undo
             }
         } else {
             holder.btnDelete.setImageResource(android.R.drawable.ic_menu_delete)
-            holder.btnDelete.setColorFilter(Color.parseColor("#D32F2F"))
+            holder.btnDelete.setColorFilter(dangerColor)
             holder.btnDelete.visibility = if (isReadOnly) View.GONE else View.VISIBLE
             holder.btnDelete.setOnClickListener {
                 onDelete(holder.adapterPosition)
