@@ -1,0 +1,25 @@
+name: alarm-snooze-contract
+
+on:
+  push:
+    branches:
+      - ai/alarm-snooze-silent-challenge
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+      - name: Run alarm snooze contract test
+        run: ./gradlew :app:testDebugUnitTest --tests com.zhizhi.app.AlarmSnoozeChallengePreserveContractTest --stacktrace
