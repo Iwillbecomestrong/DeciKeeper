@@ -1,0 +1,39 @@
+name: apply-alarm-reminder-redesign
+
+on:
+  push:
+    branches:
+      - ai/alarm-reminder-redesign
+    paths:
+      - scripts/apply_alarm_reminder_redesign.py
+      - .github/workflows/apply-alarm-reminder-redesign.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai/alarm-reminder-redesign
+          fetch-depth: 0
+      - name: Apply patch
+        run: python3 scripts/apply_alarm_reminder_redesign.py
+      - name: Verify fast contracts
+        run: |
+          python3 scripts/test_alarm_alert_policy_contract.py
+          python3 scripts/test_alarm_stage2_policy_persistence_contract.py
+      - name: Commit production changes
+        run: |
+          if git diff --quiet; then
+            echo "No production changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt
+          git commit -m "feat(alarm): persist stage two alert overrides"
+          git push origin HEAD:ai/alarm-reminder-redesign
