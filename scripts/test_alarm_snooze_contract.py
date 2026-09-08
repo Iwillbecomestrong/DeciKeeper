@@ -15,8 +15,8 @@ panel = overlay.split("private fun showAlarmActionPanel(", 1)[1].split("private 
 defaults = fragment.split("// --- 3. 再响设置 ---", 1)[1].split("// --- 4.", 1)[0]
 
 checks = [
-    ("record existing one-shot snooze usage", "AlarmScheduler.recordSnoozeUsed" in handle),
-    ("silence current output instead of replacing session", "AlarmVibrationService.silenceForSnooze" in handle),
+    ("record existing one-shot snooze usage", "AlarmScheduler.recordSnoozeUsed" in overlay),
+    ("silence current output instead of replacing session", "AlarmVibrationService.silenceForSnooze" in overlay),
     ("do not schedule a replacement snooze alarm", "AlarmScheduler.scheduleSnooze" not in handle),
     ("do not dismiss challenge overlay on snooze", 'dismissAlarmOverlay("已暂停' not in handle),
     ("active challenge row exposes snooze", "val canSnooze = forceHide && alarmRemainingSnoozeCount > 0" in panel),
