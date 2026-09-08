@@ -12,27 +12,28 @@ import java.util.UUID
  *
  * 容错特性：
  * 1. 标题支持 `## `、`### `、`1. `、`1、`、`【第1题】` 等多种前缀，或 `---` 分割线。
- * 2. 选项支持 `A.`、`A、`、`A:`、`A：`、`A)`、`A）`、`- A.`、`[A]`、`(A)`、`【A】` 等前缀（不区分大小写）。
- * 3. 答案支持 `答案:`、`答案：`、`【答案】`、`Answer:`、`Key:` 等前缀，自动提取 A/B/C/D。
+ * 2. 选项支持 `A.`、`A、`、`A:`、`A：`、`A)`、`A）`、`- A.`、`· A.`、`• A.`、`**A.**`、`[A]`、`(A)`、`【A】` 等前缀（不区分大小写，并兼容全角 A-D）。
+ * 3. 答案支持 `答案:`、`正确答案:`、`参考答案:`、`【答案】`、`Answer:`、`Key:` 等前缀，自动提取 A/B/C/D。
  * 4. 解析支持 `解析:`、`解析：`、`【解析】`、`Explanation:` 等，支持多行长文。
  * 5. 提示支持 `提示:`、`提示：`、`【提示】`、`Hint:` 等（选填，绝不输出答案）。
- * 6. 原生支持标准 JSON 文件或 JSON 数组文本解析。
+ * 6. 自动忽略 AI 常见的 Markdown 代码块围栏，并兼容 NBSP / 全角空格。
+ * 7. 原生支持标准 JSON 文件或 JSON 数组文本解析。
  */
 object CustomQuestionBankParser {
 
     private val OPTION_REGEX = Regex(
-        """^\s*(?:[-*+]\s+)?(?:(?:\(|\[|【)([A-Da-d])(?:\)|\]|】)|([A-Da-d])[\.、:：\)）\s])\s*(.+)$"""
+        """^\s*(?:>\s*)?(?:[-*+]\s+|[•·●▪◦‣]\s*)?(?:\*\*|__)?\s*(?:(?:\(|\[|【|（)([A-Da-dＡ-Ｄａ-ｄ])(?:\)|\]|】|）)|([A-Da-dＡ-Ｄａ-ｄ])[\.．、:：\)）\s])\s*(?:\*\*|__)?\s*(.+?)\s*(?:\*\*|__)?\s*$"""
     )
     private val ANSWER_REGEX = Regex(
-        """^\s*(?:[-*+]\s+)?(?:【?答案】?|Answer|Key)\s*[:：]?\s*([A-Da-d]).*""",
+        """^\s*(?:[-*+]\s+|[•·●▪◦‣]\s*)?(?:【?(?:答案|正确答案|参考答案)】?|Answer|Key)\s*(?:[:：]|是)?\s*([A-Da-dＡ-Ｄａ-ｄ]).*""",
         RegexOption.IGNORE_CASE
     )
     private val EXPLANATION_HEADER_REGEX = Regex(
-        """^\s*(?:[-*+]\s+)?(?:【?(?:解析|详解|分析)】?|Explanation|Analysis)\s*[:：]?(.*)""",
+        """^\s*(?:[-*+]\s+|[•·●▪◦‣]\s*)?(?:【?(?:解析|详解|分析)】?|Explanation|Analysis)\s*[:：]?(.*)""",
         RegexOption.IGNORE_CASE
     )
     private val HINT_HEADER_REGEX = Regex(
-        """^\s*(?:[-*+]\s+)?(?:【?(?:提示|线索|Hint)】?)\s*[:：]?(.*)""",
+        """^\s*(?:[-*+]\s+|[•·●▪◦‣]\s*)?(?:【?(?:提示|线索|Hint)】?)\s*[:：]?(.*)""",
         RegexOption.IGNORE_CASE
     )
     private val QUESTION_PREFIX_REGEX = Regex(
@@ -40,6 +41,29 @@ object CustomQuestionBankParser {
         RegexOption.IGNORE_CASE
     )
     private val DIVIDER_REGEX = Regex("""^\s*(?:---+|\*\*\*+|===+)\s*$""")
+    private val CODE_FENCE_REGEX = Regex("""^\s*(?:```+|~~~+)(?:[A-Za-z0-9_-]+)?\s*$""")
+
+    private fun normalizeInputLine(line: String): String = line
+        .replace('\u00A0', ' ')
+        .replace('\u3000', ' ')
+        .trim()
+
+    private fun normalizeChoiceLetter(letter: String): String {
+        if (letter.isEmpty()) return letter
+        val ch = letter[0]
+        val normalized = when (ch) {
+            'Ａ' -> 'A'
+            'Ｂ' -> 'B'
+            'Ｃ' -> 'C'
+            'Ｄ' -> 'D'
+            'ａ' -> 'a'
+            'ｂ' -> 'b'
+            'ｃ' -> 'c'
+            'ｄ' -> 'd'
+            else -> ch
+        }
+        return normalized.uppercaseChar().toString()
+    }
 
     private fun cleanStem(line: String): String {
         val noHash = line.replace(Regex("""^\s*#{1,6}\s*"""), "").trim()
@@ -90,7 +114,7 @@ object CustomQuestionBankParser {
                     continue
                 }
                 val stem = (obj.optString("stem").ifEmpty { obj.optString("question").ifEmpty { obj.optString("title") } }).trim()
-                val answer = (obj.optString("answer").ifEmpty { obj.optString("key") }).trim().uppercase()
+                val answer = normalizeChoiceLetter((obj.optString("answer").ifEmpty { obj.optString("key") }).trim())
                 val explanation = (obj.optString("explanation").ifEmpty { obj.optString("analysis") }).trim()
                 val hint = (obj.optString("hint").ifEmpty { obj.optString("clue") }).trim()
 
@@ -99,7 +123,7 @@ object CustomQuestionBankParser {
                 if (optArr != null) {
                     for (j in 0 until optArr.length()) {
                         val optText = optArr.optString(j, "").trim()
-                        val cleaned = optText.replace(Regex("""^[A-Da-d][\.、:：\)）\s]\s*"""), "")
+                        val cleaned = optText.replace(Regex("""^[A-Da-dＡ-Ｄａ-ｄ][\.．、:：\)）\s]\s*"""), "")
                         options.add(cleaned)
                     }
                 } else {
@@ -201,7 +225,7 @@ object CustomQuestionBankParser {
                                 bankId = bankId,
                                 stem = stem,
                                 options = opts,
-                                answer = answer.uppercase(),
+                                answer = answer,
                                 explanation = explanation,
                                 hint = hint
                             )
@@ -222,8 +246,7 @@ object CustomQuestionBankParser {
 
         for (i in lines.indices) {
             val lineNo = i + 1
-            val rawLine = lines[i]
-            val trimmed = rawLine.trim()
+            val trimmed = normalizeInputLine(lines[i])
 
             if (trimmed.isEmpty()) {
                 if (inExplanation && currentExplanationLines.isNotEmpty()) {
@@ -231,6 +254,11 @@ object CustomQuestionBankParser {
                 } else if (inHint && currentHintLines.isNotEmpty()) {
                     currentHintLines.add("")
                 }
+                continue
+            }
+
+            // AI 经常无视 Prompt 包一层 ```markdown / ```，结构上直接忽略即可。
+            if (CODE_FENCE_REGEX.matches(trimmed)) {
                 continue
             }
 
@@ -246,7 +274,7 @@ object CustomQuestionBankParser {
                 hasActiveQuestion = true
                 inExplanation = false
                 inHint = false
-                currentAnswer = ansMatch.groupValues[1].uppercase()
+                currentAnswer = normalizeChoiceLetter(ansMatch.groupValues[1])
                 continue
             }
 
@@ -295,7 +323,8 @@ object CustomQuestionBankParser {
                 hasActiveQuestion = true
                 inExplanation = false
                 inHint = false
-                val letter = (optMatch.groupValues[1].ifEmpty { optMatch.groupValues[2] }).uppercase()
+                val rawLetter = optMatch.groupValues[1].ifEmpty { optMatch.groupValues[2] }
+                val letter = normalizeChoiceLetter(rawLetter)
                 val content = optMatch.groupValues[3].trim()
                 currentOptions[letter] = content
                 continue

@@ -112,18 +112,35 @@ class ConsumePenaltySecondsEpisodeTest {
         val now = java.util.Calendar.getInstance()
         val curH = now.get(java.util.Calendar.HOUR_OF_DAY)
         val curM = now.get(java.util.Calendar.MINUTE)
-        val nextH = (curH + 1) % 24
+
+        // saveTimeSegments rejects a configured refresh boundary that sits
+        // strictly inside a candidate segment. Build the two-segment fixture
+        // around that boundary so the test remains valid at every wall-clock
+        // time instead of depending on when CI happens to run.
+        val refreshParts = TimeRuleManager.getRefreshTime(context).split(":")
+        val refreshH = refreshParts.getOrNull(0)?.toIntOrNull() ?: 8
+        val refreshM = refreshParts.getOrNull(1)?.toIntOrNull() ?: 0
+        val currentTotal = curH * 60 + curM
+        val refreshTotal = refreshH * 60 + refreshM
+        val boundaryTotal = if (currentTotal == refreshTotal) {
+            (refreshTotal + 60) % (24 * 60)
+        } else {
+            refreshTotal
+        }
+        val boundaryH = boundaryTotal / 60
+        val boundaryM = boundaryTotal % 60
+
         val segs = listOf(
             TimeSegment(
                 startHour = curH, startMinute = curM,
-                endHour = nextH, endMinute = curM,
+                endHour = boundaryH, endMinute = boundaryM,
                 limitMins = 60,
                 name = "now",
                 isEnabled = true,
                 usableCountLimitHalfUnits = 4 // 2 visible counts
             ),
             TimeSegment(
-                startHour = nextH, startMinute = curM,
+                startHour = boundaryH, startMinute = boundaryM,
                 endHour = curH, endMinute = curM,
                 limitMins = 60,
                 name = "next",
