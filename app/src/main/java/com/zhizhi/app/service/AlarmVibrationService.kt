@@ -44,8 +44,10 @@ import com.zhizhi.app.data.DefaultNormalEventRenderer
 import com.zhizhi.app.data.LogExporter
 import com.zhizhi.app.data.NormalEventLogger
 import com.zhizhi.app.data.SystemEventClock
+import com.zhizhi.app.manager.AlarmAlertPolicy
 import com.zhizhi.app.manager.AlarmProtectionEventBridge
 import com.zhizhi.app.manager.AlarmScheduler
+import com.zhizhi.app.manager.StageAlertPolicy
 import com.zhizhi.app.ui.AlarmActivity
 import com.zhizhi.app.ui.LockAlarmOverlayController
 import com.zhizhi.app.ui.LockWindowManager
@@ -110,7 +112,27 @@ class AlarmVibrationService : Service() {
 
         const val ACTION_ATTENUATE = "com.zhizhi.app.service.ACTION_ATTENUATE"
         const val ACTION_SNOOZE_SILENCE = "com.zhizhi.app.service.ACTION_SNOOZE_SILENCE"
+        const val ACTION_START_STAGE2_CYCLE = "com.zhizhi.app.service.ACTION_START_STAGE2_CYCLE"
         private const val EXTRA_SNOOZE_DURATION_MS = "alarm_snooze_duration_ms"
+
+        @JvmStatic
+        fun startStage2AlertCycle(context: Context, alarmId: Int) {
+            if (alarmId <= 0) return
+            try {
+                val intent = Intent(context, AlarmVibrationService::class.java).apply {
+                    action = ACTION_START_STAGE2_CYCLE
+                    putExtra(EXTRA_ALARM_ID, alarmId)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                Log.i(TAG, "Sent ACTION_START_STAGE2_CYCLE to AlarmVibrationService for alarmId=$alarmId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start stage 2 alert cycle: ${e.message}")
+            }
+        }
 
         @JvmStatic
         fun silenceForSnooze(context: Context, alarmId: Int, durationMs: Long) {
@@ -158,7 +180,9 @@ class AlarmVibrationService : Service() {
     private var ringtoneUri: String? = null
     private var alarmMode: AlarmScheduler.AlarmMode = AlarmScheduler.AlarmMode.VIBRATE_AND_RING
     private var ringVolume: Int = 7
+    var alertCycleStartTime: Long = 0L
     private var serviceStartTime: Long = 0L
+    private var activeChallengeStage: Int = 1
     private var fixedAmplitude = 0
     private var lockedFinalIntensity = 0
     // 铃声播放（使用 MediaPlayer + USAGE_MEDIA，音量完全由 app 控制）
@@ -208,6 +232,7 @@ class AlarmVibrationService : Service() {
             if (isSnoozeSilenced && sameSession && stillStageOne) {
                 isSnoozeSilenced = false
                 Log.i(TAG, "Silent snooze expired; restoring alarm output for id=$targetAlarmId")
+                resetAlertCycle()
                 startVibrationImpl()
             } else {
                 isSnoozeSilenced = false
@@ -270,6 +295,36 @@ class AlarmVibrationService : Service() {
         }
     }
 
+    internal fun resetAlertCycle(now: Long = System.currentTimeMillis()) {
+        alertCycleStartTime = now
+        AlarmScheduler.saveVibrationStartTime(this, now)
+        fixedAmplitude = 0
+        lockedFinalIntensity = 0
+    }
+
+    private fun resolveCurrentStagePolicy(): StageAlertPolicy {
+        val entry = if (alarmId > 0) AlarmScheduler.findAlarm(this, alarmId) else null
+        val stage1 = StageAlertPolicy(
+            alarmMode = LockWindowManager.testAlarmMode ?: entry?.alarmMode ?: AlarmScheduler.getDefaultAlarmMode(this),
+            vibrationMode = LockWindowManager.testVibrationMode ?: entry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE,
+            fixedVibrationIntensity = LockWindowManager.testVibrationIntensity ?: entry?.vibrationIntensity ?: AlarmScheduler.getDefaultVibrationIntensity(this),
+            fixedRingVolume = LockWindowManager.testRingVolume ?: entry?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(this)
+        )
+        if (activeChallengeStage <= 1 && !AlarmScheduler.isFirstStagePassed(this)) {
+            return stage1
+        }
+        val stage2 = if (entry != null) {
+            StageAlertPolicy(
+                alarmMode = entry.stage2AlarmMode,
+                vibrationMode = entry.stage2VibrationMode,
+                fixedVibrationIntensity = entry.stage2VibrationIntensity,
+                fixedRingVolume = entry.stage2RingVolume
+            )
+        } else null
+        val useIndependent = entry?.stage2UseIndependentAlertPolicy ?: false
+        return AlarmAlertPolicy.resolveStagePolicy(stage1, useIndependent, stage2)
+    }
+
     // 周期性地重新触发震动，防止系统闹钟或其他应用取消震动后 IronWill 震动停止
     // 不设超时——闹钟持续响铃直到用户完成挑战（扫码关闭）
     private val vibrationKeepAliveRunnable = object : Runnable {
@@ -286,14 +341,11 @@ class AlarmVibrationService : Service() {
     private val ringDisplayUpdateRunnable = object : Runnable {
         override fun run() {
             if (!isRunning) return
-            val shouldRing = alarmMode != AlarmScheduler.AlarmMode.VIBRATE_ONLY
+            val currentPolicy = resolveCurrentStagePolicy()
+            val shouldRing = currentPolicy.alarmMode != AlarmScheduler.AlarmMode.VIBRATE_ONLY
             if (shouldRing) {
-                val alarmEntry = AlarmScheduler.findAlarm(this@AlarmVibrationService, alarmId)
-                val testMode = LockWindowManager.testVibrationMode
-                val mode = testMode ?: alarmEntry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE
-                val elapsedSec = ((System.currentTimeMillis() - serviceStartTime) / 1000L).toInt().coerceAtLeast(0)
-                val stagePassed = AlarmScheduler.isFirstStagePassed(this@AlarmVibrationService)
-                updateRingVolumeDisplay(mode, elapsedSec, stagePassed)
+                val elapsedMs = (System.currentTimeMillis() - alertCycleStartTime).coerceAtLeast(0L)
+                updateRingVolumeDisplay(currentPolicy, elapsedMs)
             }
             handler.postDelayed(this, 1000)
         }
@@ -301,13 +353,13 @@ class AlarmVibrationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        // [Fix: process restart] 从 SharedPreferences 恢复 serviceStartTime，
-        // 确保进程重启后震动渐进等级基于原始时间计算，而非从0开始。
+        // 从 SharedPreferences 恢复 alertCycleStartTime
         val savedStartTime = AlarmScheduler.getVibrationStartTime(this)
-        serviceStartTime = if (savedStartTime > 0) savedStartTime else System.currentTimeMillis()
+        alertCycleStartTime = if (savedStartTime > 0) savedStartTime else System.currentTimeMillis()
         if (savedStartTime == 0L) {
-            AlarmScheduler.saveVibrationStartTime(this, serviceStartTime)
+            AlarmScheduler.saveVibrationStartTime(this, alertCycleStartTime)
         }
+        serviceStartTime = alertCycleStartTime
         // 恢复锁定强度（第一关通过后的半强度值）
         lockedFinalIntensity = AlarmScheduler.getVibrationLockedIntensity(this)
         try {
@@ -334,6 +386,16 @@ class AlarmVibrationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_START_STAGE2_CYCLE) {
+            val targetAlarmId = intent.getIntExtra(EXTRA_ALARM_ID, -1)
+            if (targetAlarmId > 0) this.alarmId = targetAlarmId
+            activeChallengeStage = 2
+            isAttenuated = false
+            isSnoozeSilenced = false
+            resetAlertCycle()
+            startVibrationImpl()
+            return START_STICKY
+        }
         if (intent?.action == ACTION_SNOOZE_SILENCE) {
             val targetAlarmId = intent.getIntExtra(EXTRA_ALARM_ID, -1)
             val durationMs = intent.getLongExtra(EXTRA_SNOOZE_DURATION_MS, 0L)
@@ -461,80 +523,28 @@ class AlarmVibrationService : Service() {
             return
         }
 
-        val alarmEntry = AlarmScheduler.findAlarm(this, alarmId)
-        val testMode = LockWindowManager.testVibrationMode
-        val testIntensity = LockWindowManager.testVibrationIntensity
-        val testProgMin = LockWindowManager.testProgressiveMinIntensity
-        val testProgMax = LockWindowManager.testProgressiveMaxIntensity
-        val mode = testMode ?: alarmEntry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE
-        val baseIntensity = testIntensity ?: alarmEntry?.vibrationIntensity ?: AlarmScheduler.getDefaultVibrationIntensity(this)
-        // 渐进式最小/最大强度（第二关回到最小强度）
-        val progMin = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-            (testProgMin ?: alarmEntry?.progressiveMinIntensity ?: AlarmScheduler.getDefaultProgressiveMinIntensity(this)).coerceIn(1, 10)
-        } else 1
-        val progMax = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-            (testProgMax ?: alarmEntry?.progressiveMaxIntensity ?: AlarmScheduler.getDefaultProgressiveMaxIntensity(this)).coerceIn(1, 10)
-        } else 10
+        val elapsedMs = (System.currentTimeMillis() - alertCycleStartTime).coerceAtLeast(0L)
+        val currentPolicy = resolveCurrentStagePolicy()
+        alarmMode = currentPolicy.alarmMode
+        currentAlarmMode = alarmMode.name
 
-        val autoEscalate = alarmEntry?.autoEscalate ?: false
-        val elapsedSec = ((System.currentTimeMillis() - serviceStartTime) / 1000L).toInt().coerceAtLeast(0)
-        val stagePassed = AlarmScheduler.isFirstStagePassed(this)
-
-        // --- 铃声（RING_ONLY 和 VIBRATE_AND_RING；音量显示由 ringDisplayUpdateRunnable 独立更新）---
-        val shouldRing = alarmMode != AlarmScheduler.AlarmMode.VIBRATE_ONLY
+        // --- 铃声（RING_ONLY 和 VIBRATE_AND_RING）---
+        val shouldRing = currentPolicy.alarmMode != AlarmScheduler.AlarmMode.VIBRATE_ONLY
         Log.d(TAG, "[RING-DIAG] startVibrationImpl: alarmMode=$alarmMode, shouldRing=$shouldRing, ringtoneUri=$ringtoneUri")
         if (shouldRing) {
-            startRingtone()
+            startRingtone(currentPolicy, elapsedMs)
         }
 
         // --- 震动（VIBRATE_ONLY 和 VIBRATE_AND_RING；RING_ONLY 跳过）---
-        if (alarmMode == AlarmScheduler.AlarmMode.RING_ONLY) return
+        if (currentPolicy.alarmMode == AlarmScheduler.AlarmMode.RING_ONLY) return
         if (vibrator == null) {
             vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
         acquireWakeLock()
 
-        // 复用前面已计算的值（alarmEntry, mode, baseIntensity, elapsedSec, stagePassed）
-        // progressive: 从 progMin 开始，每 10 秒递增 1
-        // - 前 5 分钟：上限 progMax
-        // - 5 分钟后（autoEscalate 开启）：突破 progMax 继续递增，上限 10
-        val effectiveMax = if (autoEscalate && elapsedSec > 300) 10 else progMax
-        val progressiveIntensity = (progMin + elapsedSec / 10).coerceIn(progMin, effectiveMax)
-        // fixed: 保持设定强度
-        // - 5 分钟后（autoEscalate 开启）：从设定强度开始，每 10 秒 +1，上限 10
-        val rawIntensity = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-            progressiveIntensity
-        } else {
-            if (autoEscalate && elapsedSec > 300) {
-                (baseIntensity + (elapsedSec - 300) / 10).coerceIn(baseIntensity, 10)
-            } else {
-                baseIntensity.coerceIn(1, 10)
-            }
-        }
-
-        val finalIntensity: Int
-        if (stagePassed) {
-            if (lockedFinalIntensity == 0) {
-                // 第二关：渐进模式回到最小强度，固定模式用默认强度
-                lockedFinalIntensity = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) progMin
-                    else AlarmScheduler.getDefaultVibrationIntensity(this)
-                // [Fix: process restart] 持久化锁定强度，进程重启后恢复正确值
-                AlarmScheduler.saveVibrationLockedIntensity(this, lockedFinalIntensity)
-                AlarmScheduler.saveVibrationStartTime(this, serviceStartTime)
-            }
-            finalIntensity = lockedFinalIntensity
-        } else {
-            lockedFinalIntensity = 0
-            finalIntensity = rawIntensity
-        }
-
+        val finalIntensity = AlarmAlertPolicy.vibrationLevel(currentPolicy, elapsedMs)
         val amplitude = (finalIntensity * 25.5).toInt().coerceIn(1, 255)
-        if (fixedAmplitude != 0 && stagePassed) {
-            // 第一关后保持半强度稳定
-        } else if (stagePassed) {
-            fixedAmplitude = amplitude
-        }
-        val stableAmplitude = if (stagePassed && fixedAmplitude > 0) fixedAmplitude else amplitude
+        val stableAmplitude = amplitude
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
@@ -547,9 +557,9 @@ class AlarmVibrationService : Service() {
 
         // 更新震动显示值供 UI 层读取
         currentDisplayIntensity = finalIntensity
-        currentVibrationMode = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) "progressive" else "fixed"
+        currentVibrationMode = if (currentPolicy.vibrationMode == AlarmScheduler.VibrationMode.PROGRESSIVE) "progressive" else "fixed"
 
-        Log.d(TAG, "Alarm vibration started/restarted (mode=$mode, intensity=$finalIntensity, amplitude=$stableAmplitude, stagePassed=$stagePassed)")
+        Log.d(TAG, "Alarm vibration started/restarted (policy=$currentPolicy, intensity=$finalIntensity, amplitude=$stableAmplitude)")
     }
 
     /** 铃声音量等级(1-10) → MediaPlayer浮点音量，使用三次方曲线拉开低强度差距 */
@@ -559,7 +569,7 @@ class AlarmVibrationService : Service() {
     }
 
     /** 更新铃声强度显示值 + 实际 MediaPlayer 音量（RING_ONLY 和 VIBRATE_AND_RING 都需要） */
-    private fun updateRingVolumeDisplay(mode: AlarmScheduler.VibrationMode, elapsedSec: Int, stagePassed: Boolean) {
+    private fun updateRingVolumeDisplay(policy: StageAlertPolicy, elapsedMs: Long) {
         if (isSnoozeSilenced) {
             currentDisplayVolume = 0
             mediaPlayer?.setVolume(0f, 0f)
@@ -571,30 +581,11 @@ class AlarmVibrationService : Service() {
             mediaPlayer?.setVolume(mpVol, mpVol)
             return
         }
-        val alarmEntry = AlarmScheduler.findAlarm(this, alarmId)
-        val testProgMin = LockWindowManager.testProgressiveMinIntensity
-        val testProgMaxRing = LockWindowManager.testProgressiveMaxRingVolume
-        // 铃声渐进：起始为 1（固定），上限为用户设置的铃声最大强度
-        val ringMin = 1
-        val ringMax = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-            (testProgMaxRing ?: alarmEntry?.progressiveMaxRingVolume ?: AlarmScheduler.getDefaultProgressiveMaxRingVolume(this)).coerceIn(1, 10)
-        } else 10
-        val volume = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-            (ringMin + elapsedSec / 10).coerceIn(ringMin, ringMax)
-        } else {
-            ringVolume.coerceIn(1, 10)
-        }
-        if (stagePassed) {
-            // 第二关：渐进模式回到最小强度 1
-            currentDisplayVolume = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) ringMin
-                else ringVolume.coerceIn(1, 10)
-        } else {
-            currentDisplayVolume = volume.coerceIn(1, 10)
-        }
-        // 同步更新 MediaPlayer 实际音量（1-10 → 二次方曲线，拉开低强度差距）
+        val volume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)
+        currentDisplayVolume = volume.coerceIn(1, 10)
         val mpVol = ringVolumeToFloat(currentDisplayVolume)
         mediaPlayer?.setVolume(mpVol, mpVol)
-        Log.d(TAG, "[RING_VOL] display update: mode=$mode, ringVolume=$ringVolume, volume=$volume, stagePassed=$stagePassed, currentDisplayVolume=$currentDisplayVolume, mpVol=$mpVol")
+        Log.d(TAG, "[RING_VOL] display update: policy=$policy, elapsedMs=$elapsedMs, currentDisplayVolume=$currentDisplayVolume, mpVol=$mpVol")
     }
 
     /**
@@ -603,7 +594,7 @@ class AlarmVibrationService : Service() {
      * 系统音量键只影响媒体音量，不影响 app 闹钟音量。
      */
     @SuppressLint("MissingPermission")
-    private fun startRingtone() {
+    private fun startRingtone(policy: StageAlertPolicy, elapsedMs: Long) {
         val alreadyPlaying = mediaPlayer?.isPlaying == true
         Log.d(TAG, "[RING-DIAG] startRingtone called, ringtoneUri=$ringtoneUri, alarmMode=$alarmMode, alreadyPlaying=$alreadyPlaying, mediaPlayerObj=${mediaPlayer != null}")
 
@@ -632,18 +623,7 @@ class AlarmVibrationService : Service() {
         releaseMediaPlayer()
 
         try {
-            // 渐进模式：从 1 开始，与 updateRingVolumeDisplay 计算逻辑一致
-            val alarmEntry = AlarmScheduler.findAlarm(this, alarmId)
-            val mode = LockWindowManager.testVibrationMode ?: alarmEntry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE
-            val initialVolume = if (mode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-                val elapsedSec = ((System.currentTimeMillis() - serviceStartTime) / 1000L).toInt().coerceAtLeast(0)
-                val ringMax = (LockWindowManager.testProgressiveMaxRingVolume
-                    ?: alarmEntry?.progressiveMaxRingVolume
-                    ?: AlarmScheduler.getDefaultProgressiveMaxRingVolume(this)).coerceIn(1, 10)
-                (1 + elapsedSec / 10).coerceIn(1, ringMax)
-            } else {
-                ringVolume.coerceIn(1, 10)
-            }
+            val initialVolume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)
             val vol = ringVolumeToFloat(initialVolume)
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(this@AlarmVibrationService, uri)

@@ -198,8 +198,7 @@ internal object LockAlarmOverlayController {
 
         this.alarmId = alarmId
         this.alarmSnoozeMinutes = snoozeMinutes
-        // 再响现在是每次真实闹钟 session 仅一次：只暂停声音/震动，不关闭挑战。
-        this.alarmRemainingSnoozeCount = if (alarmId > 0 && AlarmScheduler.getSnoozeUsedCount(context, alarmId) == 0) 1 else 0
+        this.alarmRemainingSnoozeCount = if (alarmId > 0) AlarmScheduler.getRemainingSnoozeCount(context, alarmId) else 0
         mAlarmController = controller
 
         val entry = AlarmScheduler.findAlarm(context, alarmId)
@@ -1448,6 +1447,7 @@ internal object LockAlarmOverlayController {
                 if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
             }
             syncChallengeUiByStage()
+            AlarmVibrationService.startStage2AlertCycle(ctx, alarmId)
             Toast.makeText(ctx, "第一关通过，请完成第二关", Toast.LENGTH_SHORT).show()
             return
         }
@@ -1496,7 +1496,7 @@ internal object LockAlarmOverlayController {
             singleStageCooldownUntilMs = System.currentTimeMillis() + alarmStageCooldownSeconds * 1000L
             showAlarmActionPanel(layoutActions, btnClose, btnSnooze, forceHide = true)
             startStageCooldown(ctx)
-            Toast.makeText(ctx, "挑战完成！防刷手机倒计时中，稍后方可关闭", Toast.LENGTH_SHORT).show()
+            Toast.makeText(ctx, "挑战完成！完成后延迟中，稍后方可关闭", Toast.LENGTH_SHORT).show()
         } else {
             showAlarmActionPanel(layoutActions, btnClose, btnSnooze, forceHide = false)
             Toast.makeText(ctx, "验证成功，可以关闭闹钟了", Toast.LENGTH_SHORT).show()
@@ -2229,8 +2229,8 @@ internal object LockAlarmOverlayController {
                     stageCooldownHandler?.removeCallbacksAndMessages(null)
                     updateCooldownDisplay(ctx)
                     if (isTwoStageUnlock) {
-                        // 冷却结束，显示第二关
-                        // 为第二关重新出题
+                        // 延迟结束，显示第二关并启动第二关提醒周期
+                        AlarmVibrationService.startStage2AlertCycle(ctx, alarmId)
                         val v = LockWindowManager.getAlarmView()
                         if (v != null) {
                             if ("math" in alarmStage2Types && targetMathCount > 0) rollMath()
@@ -2240,9 +2240,9 @@ internal object LockAlarmOverlayController {
                             if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
                         }
                         syncChallengeUiByStage()
-                        Toast.makeText(ctx, "冷却结束，请完成第二关", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(ctx, "延迟结束，请完成第二关", Toast.LENGTH_SHORT).show()
                     } else {
-                        // 单次模式：防刷手机延迟结束，解除按钮隐藏
+                        // 单次模式：完成后延迟结束，解除按钮隐藏
                         singleStageCooldownUntilMs = 0L
                         val v = LockWindowManager.getAlarmView()
                         if (v != null) {
@@ -2251,7 +2251,7 @@ internal object LockAlarmOverlayController {
                             val btnSnooze = v.findViewById<Button>(R.id.btn_alarm_snooze)
                             showAlarmActionPanel(layoutActions, btnClose, btnSnooze, forceHide = false)
                         }
-                        Toast.makeText(ctx, "倒计时结束，可以关闭闹钟了", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(ctx, "完成后延迟结束，可以关闭闹钟了", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -2266,9 +2266,9 @@ internal object LockAlarmOverlayController {
         val tvReviewCooldown = view.findViewById<TextView>(R.id.tv_review_cooldown)
         if (stageCooldownRemainingSeconds > 0) {
             val cooldownText = if (isTwoStageUnlock) {
-                "⏳ 第二关冷却中... ${stageCooldownRemainingSeconds} 秒后开放\n可以先去刷牙、洗脸，挑战界面不会关闭"
+                "⏳ 第二关延迟中... ${stageCooldownRemainingSeconds} 秒后开放\n可以先去刷牙、洗脸，挑战界面不会关闭"
             } else {
-                "⏳ 防刷手机倒计时中... ${stageCooldownRemainingSeconds} 秒后方可关闭闹钟\n可以先去刷牙、洗脸，让大脑清醒一下"
+                "⏳ 完成后延迟中... ${stageCooldownRemainingSeconds} 秒后方可关闭闹钟\n可以先去刷牙、洗脸，让大脑清醒一下"
             }
             tvCooldown?.apply {
                 visibility = View.VISIBLE
@@ -2453,6 +2453,7 @@ internal object LockAlarmOverlayController {
                 if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
             }
             syncChallengeUiByStage()
+            AlarmVibrationService.startStage2AlertCycle(ctx, alarmId)
             Toast.makeText(ctx, "扫码通过第一关，请继续完成第二关", Toast.LENGTH_SHORT).show()
             return
         }
@@ -2686,19 +2687,19 @@ internal object LockAlarmOverlayController {
         if (isTwoStageUnlock && isAlarmFirstStagePassed) return false
         val btnClose = view.findViewById<Button>(R.id.btn_alarm_close)
         if (btnClose?.visibility == View.VISIBLE) return false
-        if (alarmRemainingSnoozeCount <= 0 || AlarmScheduler.getSnoozeUsedCount(ctx, alarmId) > 0) return false
+        if (alarmRemainingSnoozeCount <= 0 || AlarmScheduler.getRemainingSnoozeCount(ctx, alarmId) <= 0) return false
         if (!AlarmScheduler.recordSnoozeUsed(ctx, alarmId)) {
             alarmRemainingSnoozeCount = 0
             return false
         }
 
-        alarmRemainingSnoozeCount = 0
+        alarmRemainingSnoozeCount = AlarmScheduler.getRemainingSnoozeCount(ctx, alarmId)
         val durationMs = alarmSnoozeMinutes.coerceAtLeast(1) * 60_000L
         val snoozeUntilMs = System.currentTimeMillis() + durationMs
         AlarmVibrationService.silenceForSnooze(ctx, alarmId, durationMs)
         alarmProtectionEventBridge.recordAlarmSnooze(
             alarmId = alarmId.toString(),
-            snoozeIndex = 1,
+            snoozeIndex = AlarmScheduler.getSnoozeUsedCount(ctx, alarmId),
             snoozeUntilMs = snoozeUntilMs
         )
 
