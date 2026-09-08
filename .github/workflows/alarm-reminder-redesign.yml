@@ -5,6 +5,10 @@ on:
     branches:
       - ai/alarm-reminder-redesign
 
+concurrency:
+  group: alarm-reminder-redesign-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -18,6 +22,8 @@ jobs:
         run: python3 scripts/test_alarm_alert_policy_contract.py
       - name: Run stage two persistence contract
         run: python3 scripts/test_alarm_stage2_policy_persistence_contract.py
+      - name: Run alert cycle contract
+        run: python3 scripts/test_alarm_alert_cycle_contract.py
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
