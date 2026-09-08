@@ -1,0 +1,37 @@
+name: apply-alarm-snooze-patch
+
+on:
+  push:
+    branches:
+      - ai/alarm-snooze-silent-challenge
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply approved alarm snooze patch
+        run: python3 scripts/apply_alarm_snooze_patch.py
+      - name: Verify source contract before push
+        run: python3 scripts/test_alarm_snooze_contract.py
+      - name: Commit production patch
+        run: |
+          rm -f scripts/apply_alarm_snooze_patch.py
+          rm -f .github/workflows/apply-alarm-snooze-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt \
+                  app/src/main/java/com/zhizhi/app/ui/AlarmActivity.kt \
+                  app/src/main/java/com/zhizhi/app/ui/AlarmFragment.kt \
+                  app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt \
+                  scripts/apply_alarm_snooze_patch.py \
+                  .github/workflows/apply-alarm-snooze-patch.yml
+          git commit -m "fix: keep alarm challenge active during one-shot snooze"
+          git push origin HEAD:ai/alarm-snooze-silent-challenge
