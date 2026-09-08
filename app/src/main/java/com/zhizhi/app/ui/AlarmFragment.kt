@@ -457,7 +457,7 @@ class AlarmFragment : Fragment() {
         val word = AlarmScheduler.getDefaultWordCount(ctx)
         val cloze = AlarmScheduler.getDefaultClozeCount(ctx)
         val custom = AlarmScheduler.getDefaultCustomCount(ctx)
-        tvChallengeSummary?.text = "数学${math}道/诗词${poem}句/单词${word}个/选词填空${cloze}道/题库${custom}道"
+        tvChallengeSummary?.text = "数学${math}道/诗词${poem}句/单词${word}个/选词${cloze}道/题库${custom}道"
 
         val mode = AlarmScheduler.getDefaultUnlockMode(ctx)
         val s1 = AlarmScheduler.getDefaultStage1Types(ctx)
@@ -477,8 +477,8 @@ class AlarmFragment : Fragment() {
         "math" -> "数学"
         "poem" -> "诗词"
         "word" -> "单词"
-        "cloze" -> "选词填空"
-        "custom" -> "自定义题库"
+        "cloze" -> "选词"
+        "custom" -> "题库"
         else -> type
     }
 
@@ -500,10 +500,10 @@ class AlarmFragment : Fragment() {
 
         val allBanks = com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.getBanks(context)
 
-        // 第一项：选词填空（占用 50% 宽度，文字绝不折行）
+        // 第一项：选词（统一为 2 字，与 扫码/数学/诗词/单词 保持整齐一致）
         val clozeCb = CheckBox(context).apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            text = "选词填空"
+            text = "选词"
             textSize = 12f
             includeFontPadding = false
             setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
@@ -514,7 +514,7 @@ class AlarmFragment : Fragment() {
         val allItems = mutableListOf<View>()
         allItems.add(clozeCb)
 
-        // 后续项：自定义题库（如考公、考研），紧随选词填空排布在同一流式网格中
+        // 后续项：自定义题库（如考公、考研），紧随选词排布在同一流式网格中
         for (bank in allBanks) {
             val bankCb = CheckBox(context).apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -530,8 +530,11 @@ class AlarmFragment : Fragment() {
             allItems.add(bankCb)
         }
 
-        // 两两一行（每列 50% 宽度）
-        val chunks = allItems.chunked(2)
+        // 自适应列数：若题库名称均为短名称（<=3字），统一采用标准 4 列与上一行（扫码/数学/诗词/单词）对齐；若有较长名称则自适应为 2 列
+        val maxTitleLen = (listOf("选词") + allBanks.map { it.title }).maxOfOrNull { it.length } ?: 2
+        val numCols = if (maxTitleLen <= 3) 4 else 2
+
+        val chunks = allItems.chunked(numCols)
         for (chunk in chunks) {
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -544,11 +547,13 @@ class AlarmFragment : Fragment() {
             for (view in chunk) {
                 row.addView(view)
             }
-            if (chunk.size == 1) {
-                val space = Space(context).apply {
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            if (chunk.size < numCols) {
+                for (i in 0 until (numCols - chunk.size)) {
+                    val space = Space(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    row.addView(space)
                 }
-                row.addView(space)
             }
             container.addView(row)
         }
