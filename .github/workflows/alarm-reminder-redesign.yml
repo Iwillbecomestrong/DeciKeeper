@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+      - name: Run fast alert policy contract
+        run: python3 scripts/test_alarm_alert_policy_contract.py
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
