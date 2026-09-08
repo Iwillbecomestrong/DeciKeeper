@@ -198,8 +198,7 @@ internal object LockAlarmOverlayController {
 
         this.alarmId = alarmId
         this.alarmSnoozeMinutes = snoozeMinutes
-        // 再响现在是每次真实闹钟 session 仅一次：只暂停声音/震动，不关闭挑战。
-        this.alarmRemainingSnoozeCount = if (alarmId > 0 && AlarmScheduler.getSnoozeUsedCount(context, alarmId) == 0) 1 else 0
+        this.alarmRemainingSnoozeCount = if (alarmId > 0) AlarmScheduler.getRemainingSnoozeCount(context, alarmId) else 0
         mAlarmController = controller
 
         val entry = AlarmScheduler.findAlarm(context, alarmId)
@@ -2686,19 +2685,19 @@ internal object LockAlarmOverlayController {
         if (isTwoStageUnlock && isAlarmFirstStagePassed) return false
         val btnClose = view.findViewById<Button>(R.id.btn_alarm_close)
         if (btnClose?.visibility == View.VISIBLE) return false
-        if (alarmRemainingSnoozeCount <= 0 || AlarmScheduler.getSnoozeUsedCount(ctx, alarmId) > 0) return false
+        if (alarmRemainingSnoozeCount <= 0 || AlarmScheduler.getRemainingSnoozeCount(ctx, alarmId) <= 0) return false
         if (!AlarmScheduler.recordSnoozeUsed(ctx, alarmId)) {
             alarmRemainingSnoozeCount = 0
             return false
         }
 
-        alarmRemainingSnoozeCount = 0
+        alarmRemainingSnoozeCount = AlarmScheduler.getRemainingSnoozeCount(ctx, alarmId)
         val durationMs = alarmSnoozeMinutes.coerceAtLeast(1) * 60_000L
         val snoozeUntilMs = System.currentTimeMillis() + durationMs
         AlarmVibrationService.silenceForSnooze(ctx, alarmId, durationMs)
         alarmProtectionEventBridge.recordAlarmSnooze(
             alarmId = alarmId.toString(),
-            snoozeIndex = 1,
+            snoozeIndex = AlarmScheduler.getSnoozeUsedCount(ctx, alarmId),
             snoozeUntilMs = snoozeUntilMs
         )
 
