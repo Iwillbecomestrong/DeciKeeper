@@ -29,11 +29,11 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:layout_marginBottom="12dp"
-            android:text="时间范围和日期构成分开筛选，数据会实时重算。"
+            android:text="选择时间范围查看统计，数据会实时重算。"
             android:textColor="?attr/zzMuted"
             android:textSize="13sp" />
 
-        <!-- 顶层两栏筛选控制器 -->
+        <!-- 时间范围控制器；日期构成 / 应用筛选暂时隐藏 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="48dp"
@@ -44,7 +44,6 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_zz_control_btn"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
@@ -92,7 +91,8 @@
                 android:background="@drawable/bg_zz_control_btn"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingHorizontal="12dp">
+                android:paddingHorizontal="12dp"
+                android:visibility="gone">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -128,7 +128,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 一级业务页签：休息 / 起床 / 应用 / 规则保护 -->
+        <!-- 当前公开：休息 / 起床；应用 / 规则变动暂时隐藏 -->
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -188,7 +188,8 @@
                     android:text="应用"
                     android:textAllCaps="false"
                     android:textColor="?attr/zzText"
-                    android:textSize="13sp" />
+                    android:textSize="13sp"
+                    android:visibility="gone" />
 
                 <Button
                     android:id="@+id/tab_rules"
@@ -203,7 +204,8 @@
                     android:text="规则变动"
                     android:textAllCaps="false"
                     android:textColor="?attr/zzText"
-                    android:textSize="13sp" />
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
         </HorizontalScrollView>
 
@@ -877,7 +879,6 @@
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
-
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
