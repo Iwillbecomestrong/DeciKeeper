@@ -30,6 +30,7 @@ import com.zhizhi.app.data.DefaultNormalEventRenderer
 import com.zhizhi.app.data.LogExporter
 import com.zhizhi.app.data.NormalEventLogger
 import com.zhizhi.app.data.SystemEventClock
+import com.zhizhi.app.manager.statistics.AlarmWakeStatsRecorder
 import com.zhizhi.app.receiver.AlarmReceiver
 import com.zhizhi.app.service.AlarmGuardianService
 import com.zhizhi.app.service.AlarmWatchdogService
@@ -881,6 +882,16 @@ object AlarmScheduler {
         val alarm = getAlarms(context).firstOrNull { it.id == alarmId }
         val currentToken = alarm?.scheduleToken ?: ""
 
+        // A real wake session starts when the alarm becomes active. Pre-warm does
+        // not call setAlarmActive, and recovery of the same session must not reset it.
+        if (!wasSameActiveAlarm && alarmId > 0 && alarm != null) {
+            AlarmWakeStatsRecorder.startSession(
+                context = context,
+                alarmId = alarmId,
+                plannedMinuteOfDay = alarm.hour * 60 + alarm.minute
+            )
+        }
+
         try {
             val normalPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             normalPrefs.edit()
@@ -917,6 +928,7 @@ object AlarmScheduler {
     fun markFirstStagePassed(context: Context, passed: Boolean) {
         if (passed) {
             val now = System.currentTimeMillis()
+            AlarmWakeStatsRecorder.markFirstStagePassed(context, getActiveAlarmId(context), now)
             try {
                 context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putLong(KEY_FIRST_STAGE_PASSED_AT, now).commit()
             } catch (e: IllegalStateException) {
