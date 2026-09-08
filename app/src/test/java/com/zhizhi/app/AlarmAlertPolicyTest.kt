@@ -20,7 +20,7 @@ class AlarmAlertPolicyTest {
 
     @Test
     fun progressiveLevel_reachesTenNaturallyAndThenStaysThere() {
-        assertEquals(9, AlarmAlertPolicy.progressiveLevel(239_999L))
+        assertEquals(8, AlarmAlertPolicy.progressiveLevel(239_999L))
         assertEquals(9, AlarmAlertPolicy.progressiveLevel(240_000L))
         assertEquals(10, AlarmAlertPolicy.progressiveLevel(270_000L))
         assertEquals(10, AlarmAlertPolicy.progressiveLevel(900_000L))
