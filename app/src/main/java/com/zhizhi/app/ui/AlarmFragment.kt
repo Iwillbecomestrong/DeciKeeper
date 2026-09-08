@@ -611,10 +611,10 @@ class AlarmFragment : Fragment() {
 
                 val tvTitle = TextView(context).apply {
                     layoutParams = LinearLayout.LayoutParams(
-                        0,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
-                        1f
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                     )
+                    maxWidth = dp(68)
                     text = "${bank.title} "
                     textSize = 13f
                     maxLines = 1
