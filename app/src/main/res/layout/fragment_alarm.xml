@@ -22,16 +22,6 @@
         </LinearLayout>
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="14dp" android:text="手机放身边，二维码放远处；听得到，也避免躺着直接按掉。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
 
-        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" app:cardBackgroundColor="?attr/zzSurface" app:cardCornerRadius="18dp" app:cardElevation="0dp">
-            <LinearLayout android:id="@+id/layout_snooze_settings" android:layout_width="match_parent" android:layout_height="wrap_content" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="闹钟默认设置" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                    <TextView android:id="@+id/tv_snooze_summary" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="双阶段 · 再响10min×2" android:textColor="?attr/zzMuted" android:textSize="11sp" />
-                </LinearLayout>
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textColor="?attr/zzSubtle" android:textSize="22sp" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
         <androidx.cardview.widget.CardView android:id="@+id/card_alarm_keepalive" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="14dp" app:cardBackgroundColor="?attr/zzAccentSofter" app:cardCornerRadius="18dp" app:cardElevation="0dp">
             <LinearLayout android:id="@+id/layout_alarm_keepalive" android:layout_width="match_parent" android:layout_height="wrap_content" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
@@ -54,8 +44,8 @@
         <androidx.recyclerview.widget.RecyclerView android:id="@+id/rv_alarm_list" android:layout_width="match_parent" android:layout_height="wrap_content" android:nestedScrollingEnabled="false" android:overScrollMode="never" />
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
-            <Button android:id="@+id/btn_add_alarm" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:layout_marginEnd="5dp" android:backgroundTint="?attr/zzAccent" android:text="新增闹钟" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="15sp" android:textStyle="bold" />
-            <Button android:id="@+id/btn_test_alarm" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:layout_marginStart="5dp" android:backgroundTint="?attr/zzSurface2" android:text="测试闹钟" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+            <Button android:id="@+id/btn_test_alarm" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:layout_marginEnd="5dp" android:backgroundTint="?attr/zzSurface2" android:text="测试默认闹钟" android:textAllCaps="false" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+            <Button android:id="@+id/btn_add_alarm" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:layout_marginStart="5dp" android:backgroundTint="?attr/zzAccent" android:text="新增闹钟" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="15sp" android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal">

@@ -119,12 +119,11 @@ class CustomQuestionBankParserTest {
             答案: A
             解析: 正常
 
-            ## 2. 残缺选项题目（只有3个选项）
+            ## 2. 残缺选项题目（只有2个选项）
             A. 选项A
             B. 选项B
-            C. 选项C
             答案: B
-            解析: 缺少D选项
+            解析: 选项少于3个
 
             ## 3. 缺少答案题目
             A. 选项A
@@ -149,13 +148,48 @@ class CustomQuestionBankParserTest {
         assertEquals(2, result.issues.size)
 
         val issue1 = result.issues[0]
-        assertTrue(issue1.message.contains("选项不足4个"))
+        assertTrue(issue1.message.contains("选项不足3个"))
 
         val issue2 = result.issues[1]
         assertTrue(issue2.message.contains("未找到有效答案"))
 
         assertEquals("正常题目", result.successQuestions[0].stem)
         assertEquals("正常题目2", result.successQuestions[1].stem)
+    }
+
+    @Test
+    fun testParseThreeOptionsAndMultipleChoice() {
+        val markdown = """
+            ## 1. 三选项单选题
+            A. 选项A
+            B. 选项B
+            C. 选项C
+            答案: A
+            解析: 只有3个选项完全合法
+
+            ## 2. 四选项多选题
+            A. 选项1
+            B. 选项2
+            C. 选项3
+            D. 选项4
+            答案: ACD
+            解析: 多选答案
+        """.trimIndent()
+
+        val result = CustomQuestionBankParser.parse(markdown)
+        assertEquals(2, result.totalParsed)
+        assertFalse(result.hasIssues)
+
+        val q1 = result.successQuestions[0]
+        assertEquals(3, q1.options.size)
+        assertEquals("A", q1.answer)
+        assertFalse(q1.isMultipleChoice)
+
+        val q2 = result.successQuestions[1]
+        assertEquals(4, q2.options.size)
+        assertEquals("ACD", q2.answer)
+        assertTrue(q2.isMultipleChoice)
+        assertEquals("选项1；选项3；选项4", q2.getAnswerContent())
     }
 
     @Test

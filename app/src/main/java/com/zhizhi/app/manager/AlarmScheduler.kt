@@ -643,7 +643,6 @@ object AlarmScheduler {
         prefs.edit().putString(KEY_DEFAULT_STAGE2_CUSTOM_BANKS, obj.toString()).apply()
     }
 
-
     fun getStageCooldownSeconds(context: Context, alarmId: Int): Int {
         val alarm = getAlarms(context).find { it.id == alarmId }
         return alarm?.stageCooldownSeconds ?: getDefaultStageCooldownSeconds(context)

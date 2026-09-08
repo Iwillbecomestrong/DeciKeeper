@@ -1348,6 +1348,7 @@ object CreditManager {
         // Increment count immediately. Usage keys are consolidated because older builds
         // keyed them by Monday@refreshTime, so a refresh-time change can otherwise hide usage.
         val newCount = addWeeklyPrivilegeUsageValueAt(context, WEEKLY_PRIVILEGE_COUNT_PREFIX, now, 1)
+        recordPrivilegeEvent(context)
         prefs.edit()
             .putString(KEY_WEEKLY_PRIVILEGE_DAILY_LAST_USED, getBusinessDateString(context)) // 🔴 [Fix] 使用业务日
             .apply()
@@ -2864,6 +2865,7 @@ object CreditManager {
         }
 
         editor.apply()
+        AutoBackupManager.triggerDebouncedBackup(context)
         LogExporter.i(
             "CreditManager",
             "[QUOTA_TRANSACTION] required=${plan.totalTimeCostSec}s/${formatUsableCountHalfUnits(plan.totalCountCostHalfUnits)} current=${plan.currentTimeCostSec}s/${formatUsableCountHalfUnits(plan.currentCountCostHalfUnits)} principal=${plan.borrowedTimePrincipalSec}s/${formatUsableCountHalfUnits(plan.borrowedCountPrincipalHalfUnits)} nextDebt=${plan.nextTimeCostSec}s/${formatUsableCountHalfUnits(plan.nextCountCostHalfUnits)} capacity=${plan.nextTimeCapacitySec}s/${formatUsableCountHalfUnits(plan.nextCountCapacityHalfUnits)}"

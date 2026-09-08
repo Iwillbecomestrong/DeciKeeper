@@ -25,6 +25,7 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -425,11 +426,13 @@ internal object LockAlarmOverlayController {
     private var currentWord: AlarmChallengeManager.Word? = null
     private var currentCloze: AlarmChallengeManager.ClozeQuestion? = null
     private var currentCustomQuestion: com.zhizhi.app.data.questionbank.CustomQuestion? = null
+    private val selectedCustomOptions = mutableSetOf<String>()
     private var currentPoemHint = ""
     private var isAlarmFirstStagePassed = false
     private var alarmStageCooldownSeconds: Int = 0
     private var stageCooldownHandler: android.os.Handler? = null
     private var stageCooldownRemainingSeconds: Int = 0
+    private var singleStageCooldownUntilMs: Long = 0L
     private var isTwoStageUnlock = false
 
     // Test alarm overrides (consumed by AlarmVibrationService)
@@ -522,6 +525,7 @@ internal object LockAlarmOverlayController {
         currentWordPhonetic = ""
         currentCloze = null
         currentCustomQuestion = null
+        selectedCustomOptions.clear()
         currentMathIndex = 0
         currentPoemIndex = 0
         currentWordIndex = 0
@@ -698,6 +702,10 @@ internal object LockAlarmOverlayController {
                 backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
                 setTextColor(textColor)
             }
+        }
+        view.findViewById<Button>(R.id.btn_custom_submit)?.apply {
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+            setTextColor(Color.WHITE)
         }
 
         // 9. 扫码按钮
@@ -1001,6 +1009,7 @@ internal object LockAlarmOverlayController {
         val btnCustomC = view.findViewById<Button>(R.id.btn_custom_c)
         val btnCustomD = view.findViewById<Button>(R.id.btn_custom_d)
         val btnCustomSkip = view.findViewById<Button>(R.id.btn_custom_skip)
+        val btnCustomSubmit = view.findViewById<Button>(R.id.btn_custom_submit)
         val btnCustomHint = view.findViewById<Button>(R.id.btn_custom_hint)
         val tvCustomHint = view.findViewById<TextView>(R.id.tv_custom_hint)
 
@@ -1010,15 +1019,38 @@ internal object LockAlarmOverlayController {
         fun onCustomOptionClicked(idx: Int) {
             val q = currentCustomQuestion ?: return
             val letter = when (idx) { 0 -> "A"; 1 -> "B"; 2 -> "C"; else -> "D" }
-            val picked = q.options.getOrNull(idx) ?: letter
-            val isCorrect = letter.equals(q.answer, ignoreCase = true)
+            if (q.isMultipleChoice) {
+                if (selectedCustomOptions.contains(letter)) {
+                    selectedCustomOptions.remove(letter)
+                } else {
+                    selectedCustomOptions.add(letter)
+                }
+            } else {
+                selectedCustomOptions.clear()
+                selectedCustomOptions.add(letter)
+            }
+            updateCustomOptionStyles(view)
+        }
+        btnCustomA?.setOnClickListener { onCustomOptionClicked(0) }
+        btnCustomB?.setOnClickListener { onCustomOptionClicked(1) }
+        btnCustomC?.setOnClickListener { onCustomOptionClicked(2) }
+        btnCustomD?.setOnClickListener { onCustomOptionClicked(3) }
+
+        btnCustomSubmit?.setOnClickListener {
+            val q = currentCustomQuestion ?: return@setOnClickListener
             val ctx = LockWindowManager.getAlarmContext()
+            if (selectedCustomOptions.isEmpty()) {
+                if (ctx != null) Toast.makeText(ctx, "请先选择答案后再提交", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val userAnswer = selectedCustomOptions.sorted().joinToString("")
+            val isCorrect = userAnswer.equals(q.answer, ignoreCase = true)
 
             if (isCorrect) {
-                settleCurrentCustom("correct", picked)
+                settleCurrentCustom("correct", userAnswer)
                 if (ctx != null) {
                     com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.recordAttempt(
-                        ctx, q.bankId, q.id, isCorrect = true, pickedOption = picked
+                        ctx, q.bankId, q.id, isCorrect = true, pickedOption = userAnswer
                     )
                 }
                 currentCustomIndex++
@@ -1028,22 +1060,20 @@ internal object LockAlarmOverlayController {
                     rollCustom()
                 }
             } else {
-                settleCurrentCustom("wrong", picked)
+                settleCurrentCustom("wrong", userAnswer)
                 if (ctx != null) {
                     com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.recordAttempt(
-                        ctx, q.bankId, q.id, isCorrect = false, pickedOption = picked
+                        ctx, q.bankId, q.id, isCorrect = false, pickedOption = userAnswer
                     )
+                    Toast.makeText(ctx, "答案不正确，已记录到错题本，换下一题", Toast.LENGTH_SHORT).show()
                 }
-                Toast.makeText(LockWindowManager.getAlarmContext(), "答案不正确，已记录到错题本，换下一题", Toast.LENGTH_SHORT).show()
                 rollCustom()
             }
         }
-        btnCustomA?.setOnClickListener { onCustomOptionClicked(0) }
-        btnCustomB?.setOnClickListener { onCustomOptionClicked(1) }
-        btnCustomC?.setOnClickListener { onCustomOptionClicked(2) }
-        btnCustomD?.setOnClickListener { onCustomOptionClicked(3) }
+
         btnCustomSkip?.setOnClickListener {
-            settleCurrentCustom("skipped")
+            val picked = if (selectedCustomOptions.isNotEmpty()) selectedCustomOptions.sorted().joinToString("") else null
+            settleCurrentCustom("skipped", picked)
             rollCustom()
         }
         btnCustomHint?.setOnClickListener {
@@ -1303,6 +1333,32 @@ internal object LockAlarmOverlayController {
         btnD.isEnabled = true
     }
 
+    private fun updateCustomOptionStyles(view: View) {
+        val ctx = view.context
+        val surface2Bg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface2)
+        val accentColor = ThemeManager.getColorAttr(ctx, R.attr.zzAccent)
+        val textColor = ThemeManager.getColorAttr(ctx, R.attr.zzText)
+
+        val map = mapOf(
+            "A" to view.findViewById<Button>(R.id.btn_custom_a),
+            "B" to view.findViewById<Button>(R.id.btn_custom_b),
+            "C" to view.findViewById<Button>(R.id.btn_custom_c),
+            "D" to view.findViewById<Button>(R.id.btn_custom_d)
+        )
+        map.forEach { (letter, btn) ->
+            if (btn != null) {
+                val isSelected = selectedCustomOptions.contains(letter)
+                if (isSelected) {
+                    btn.backgroundTintList = ColorStateList.valueOf(accentColor)
+                    btn.setTextColor(Color.WHITE)
+                } else {
+                    btn.backgroundTintList = ColorStateList.valueOf(surface2Bg)
+                    btn.setTextColor(textColor)
+                }
+            }
+        }
+    }
+
     private fun rollCustom() {
         val view = LockWindowManager.getAlarmView() ?: return
         val ctx = LockWindowManager.getAlarmContext() ?: return
@@ -1316,8 +1372,10 @@ internal object LockAlarmOverlayController {
             return
         }
         currentCustomQuestion = q
+        selectedCustomOptions.clear()
         val bankName = bankId?.let { com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.getBank(ctx, it)?.title } ?: "自定义题库"
-        view.findViewById<TextView>(R.id.tv_custom_progress)?.text = "$bankName ($currentCustomIndex/$targetCustomCount)"
+        val typeTag = if (q.isMultipleChoice) "【多选】" else "【单选】"
+        view.findViewById<TextView>(R.id.tv_custom_progress)?.text = "$bankName $typeTag ($currentCustomIndex/$targetCustomCount)"
         view.findViewById<TextView>(R.id.tv_custom_stem)?.text = q.stem
 
         // 提示安全隔离铁律：仅当明确存在 hint 且非空时显示提示按钮
@@ -1336,11 +1394,17 @@ internal object LockAlarmOverlayController {
         btnA?.text = "A. ${q.options.getOrNull(0) ?: ""}"
         btnB?.text = "B. ${q.options.getOrNull(1) ?: ""}"
         btnC?.text = "C. ${q.options.getOrNull(2) ?: ""}"
-        btnD?.text = "D. ${q.options.getOrNull(3) ?: ""}"
+        if (q.options.size >= 4) {
+            btnD?.visibility = View.VISIBLE
+            btnD?.text = "D. ${q.options.getOrNull(3) ?: ""}"
+            btnD?.isEnabled = true
+        } else {
+            btnD?.visibility = View.GONE
+        }
         btnA?.isEnabled = true
         btnB?.isEnabled = true
         btnC?.isEnabled = true
-        btnD?.isEnabled = true
+        updateCustomOptionStyles(view)
     }
 
     private fun disablePaste(editText: EditText) {
@@ -1426,8 +1490,17 @@ internal object LockAlarmOverlayController {
         val layoutActions = view.findViewById<View>(R.id.layout_alarm_actions)
         val btnClose = view.findViewById<Button>(R.id.btn_alarm_close)
         val btnSnooze = view.findViewById<Button>(R.id.btn_alarm_snooze)
-        showAlarmActionPanel(layoutActions, btnClose, btnSnooze, forceHide = false)
-        Toast.makeText(ctx, "验证成功，可以关闭闹钟了", Toast.LENGTH_SHORT).show()
+
+        if (!isTwoStageUnlock && alarmStageCooldownSeconds > 0) {
+            stageCooldownRemainingSeconds = alarmStageCooldownSeconds
+            singleStageCooldownUntilMs = System.currentTimeMillis() + alarmStageCooldownSeconds * 1000L
+            showAlarmActionPanel(layoutActions, btnClose, btnSnooze, forceHide = true)
+            startStageCooldown(ctx)
+            Toast.makeText(ctx, "挑战完成！防刷手机倒计时中，稍后方可关闭", Toast.LENGTH_SHORT).show()
+        } else {
+            showAlarmActionPanel(layoutActions, btnClose, btnSnooze, forceHide = false)
+            Toast.makeText(ctx, "验证成功，可以关闭闹钟了", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun buildReviewCards(view: View) {
@@ -1626,8 +1699,43 @@ internal object LockAlarmOverlayController {
                 setTypeface(null, Typeface.BOLD)
                 setPadding(0, 0, 0, (8 * d).toInt())
             })
-            // 状态标签
-            addView(buildReviewStatusBadge(ctx, entry.status, d))
+            // 底部操作栏: 状态标签 + 收藏按钮
+            val bottomRow = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            bottomRow.addView(buildReviewStatusBadge(ctx, entry.status, d))
+            bottomRow.addView(View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+            })
+            var isFav = AlarmChallengeManager.isPoemBookmarked(ctx, cleanUp, poem.down)
+            val btnFav = TextView(ctx).apply {
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                fun syncState() {
+                    text = if (isFav) "★ 已收藏" else "☆ 收藏"
+                    setTextColor(if (isFav) Color.parseColor("#FFD54F") else Color.parseColor("#B0BEC5"))
+                }
+                syncState()
+                setPadding((8 * d).toInt(), (4 * d).toInt(), (8 * d).toInt(), (4 * d).toInt())
+                setOnClickListener {
+                    isFav = !isFav
+                    if (isFav) {
+                        AlarmChallengeManager.bookmarkPoem(ctx, cleanUp, poem.down)
+                        Toast.makeText(ctx, "已收藏诗词", Toast.LENGTH_SHORT).show()
+                    } else {
+                        AlarmChallengeManager.removeBookmarkedPoem(ctx, cleanUp, poem.down)
+                        Toast.makeText(ctx, "已取消收藏", Toast.LENGTH_SHORT).show()
+                    }
+                    syncState()
+                }
+            }
+            bottomRow.addView(btnFav)
+            addView(bottomRow)
         }
     }
 
@@ -1678,8 +1786,43 @@ internal object LockAlarmOverlayController {
                     setPadding(0, 0, 0, (8 * d).toInt())
                 })
             }
-            // 状态标签
-            addView(buildReviewStatusBadge(ctx, entry.status, d))
+            // 底部操作栏: 状态标签 + 收藏按钮
+            val bottomRow = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            bottomRow.addView(buildReviewStatusBadge(ctx, entry.status, d))
+            bottomRow.addView(View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+            })
+            var isFav = AlarmChallengeManager.isWordBookmarked(ctx, word.text)
+            val btnFav = TextView(ctx).apply {
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                fun syncState() {
+                    text = if (isFav) "★ 已收藏" else "☆ 收藏"
+                    setTextColor(if (isFav) Color.parseColor("#FFD54F") else Color.parseColor("#B0BEC5"))
+                }
+                syncState()
+                setPadding((8 * d).toInt(), (4 * d).toInt(), (8 * d).toInt(), (4 * d).toInt())
+                setOnClickListener {
+                    isFav = !isFav
+                    if (isFav) {
+                        AlarmChallengeManager.bookmarkWord(ctx, word.text, word.translation, phonetic)
+                        Toast.makeText(ctx, "已收藏单词", Toast.LENGTH_SHORT).show()
+                    } else {
+                        AlarmChallengeManager.removeBookmarkedWord(ctx, word.text)
+                        Toast.makeText(ctx, "已取消收藏", Toast.LENGTH_SHORT).show()
+                    }
+                    syncState()
+                }
+            }
+            bottomRow.addView(btnFav)
+            addView(bottomRow)
         }
     }
 
@@ -1722,6 +1865,30 @@ internal object LockAlarmOverlayController {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
             titleRow.addView(buildReviewStatusBadge(ctx, entry.status, d))
+            val clozeId = "kaoyan_cloze_${cloze.sourceYear}_${cloze.sourceQuestionNo.toString().padStart(2, '0')}"
+            var isFav = AlarmChallengeManager.isClozeBookmarked(ctx, clozeId)
+            val btnFav = TextView(ctx).apply {
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                fun syncState() {
+                    text = if (isFav) "★ 已收藏" else "☆ 收藏"
+                    setTextColor(if (isFav) Color.parseColor("#FFD54F") else Color.parseColor("#B0BEC5"))
+                }
+                syncState()
+                setPadding((8 * d).toInt(), (2 * d).toInt(), 0, (2 * d).toInt())
+                setOnClickListener {
+                    isFav = !isFav
+                    if (isFav) {
+                        AlarmChallengeManager.bookmarkCloze(ctx, cloze, null)
+                        Toast.makeText(ctx, "已收藏该题", Toast.LENGTH_SHORT).show()
+                    } else {
+                        AlarmChallengeManager.removeBookmarkedCloze(ctx, clozeId, null)
+                        Toast.makeText(ctx, "已取消收藏", Toast.LENGTH_SHORT).show()
+                    }
+                    syncState()
+                }
+            }
+            titleRow.addView(btnFav)
             addView(titleRow)
             addView(buildReviewDivider(ctx, d))
 
@@ -1929,6 +2096,23 @@ internal object LockAlarmOverlayController {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
             titleRow.addView(buildReviewStatusBadge(ctx, entry.status, d))
+            var isFav = q.isFavorite
+            val btnFav = TextView(ctx).apply {
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                fun syncState() {
+                    text = if (isFav) "★ 已收藏" else "☆ 收藏"
+                    setTextColor(if (isFav) Color.parseColor("#FFD54F") else Color.parseColor("#B0BEC5"))
+                }
+                syncState()
+                setPadding((8 * d).toInt(), (2 * d).toInt(), 0, (2 * d).toInt())
+                setOnClickListener {
+                    isFav = com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.toggleFavorite(ctx, q.bankId, q.id)
+                    syncState()
+                    Toast.makeText(ctx, if (isFav) "已收藏自定义题" else "已取消收藏", Toast.LENGTH_SHORT).show()
+                }
+            }
+            titleRow.addView(btnFav)
             addView(titleRow)
             addView(buildReviewDivider(ctx, d))
 
@@ -2042,20 +2226,33 @@ internal object LockAlarmOverlayController {
                     updateCooldownDisplay(ctx)
                     stageCooldownHandler?.postDelayed(this, 1000)
                 } else {
-                    // 冷却结束，显示第二关
                     stageCooldownHandler?.removeCallbacksAndMessages(null)
                     updateCooldownDisplay(ctx)
-                    // 为第二关重新出题
-                    val v = LockWindowManager.getAlarmView()
-                    if (v != null) {
-                        if ("math" in alarmStage2Types && targetMathCount > 0) rollMath()
-                        if ("poem" in alarmStage2Types && targetPoemCount > 0) rollPoem()
-                        if ("word" in alarmStage2Types && targetWordCount > 0) rollWord()
-                        if ("cloze" in alarmStage2Types && targetClozeCount > 0) rollCloze()
-                        if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
+                    if (isTwoStageUnlock) {
+                        // 冷却结束，显示第二关
+                        // 为第二关重新出题
+                        val v = LockWindowManager.getAlarmView()
+                        if (v != null) {
+                            if ("math" in alarmStage2Types && targetMathCount > 0) rollMath()
+                            if ("poem" in alarmStage2Types && targetPoemCount > 0) rollPoem()
+                            if ("word" in alarmStage2Types && targetWordCount > 0) rollWord()
+                            if ("cloze" in alarmStage2Types && targetClozeCount > 0) rollCloze()
+                            if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
+                        }
+                        syncChallengeUiByStage()
+                        Toast.makeText(ctx, "冷却结束，请完成第二关", Toast.LENGTH_SHORT).show()
+                    } else {
+                        // 单次模式：防刷手机延迟结束，解除按钮隐藏
+                        singleStageCooldownUntilMs = 0L
+                        val v = LockWindowManager.getAlarmView()
+                        if (v != null) {
+                            val layoutActions = v.findViewById<View>(R.id.layout_alarm_actions)
+                            val btnClose = v.findViewById<Button>(R.id.btn_alarm_close)
+                            val btnSnooze = v.findViewById<Button>(R.id.btn_alarm_snooze)
+                            showAlarmActionPanel(layoutActions, btnClose, btnSnooze, forceHide = false)
+                        }
+                        Toast.makeText(ctx, "倒计时结束，可以关闭闹钟了", Toast.LENGTH_SHORT).show()
                     }
-                    syncChallengeUiByStage()
-                    Toast.makeText(ctx, "冷却结束，请完成第二关", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -2066,13 +2263,24 @@ internal object LockAlarmOverlayController {
     private fun updateCooldownDisplay(ctx: Context) {
         val view = LockWindowManager.getAlarmView() ?: return
         val tvCooldown = view.findViewById<TextView>(R.id.tv_stage_cooldown)
+        val tvReviewCooldown = view.findViewById<TextView>(R.id.tv_review_cooldown)
         if (stageCooldownRemainingSeconds > 0) {
+            val cooldownText = if (isTwoStageUnlock) {
+                "⏳ 第二关冷却中... ${stageCooldownRemainingSeconds} 秒后开放\n可以先去刷牙、洗脸，挑战界面不会关闭"
+            } else {
+                "⏳ 防刷手机倒计时中... ${stageCooldownRemainingSeconds} 秒后方可关闭闹钟\n可以先去刷牙、洗脸，让大脑清醒一下"
+            }
             tvCooldown?.apply {
                 visibility = View.VISIBLE
-                text = "⏳ 第二关冷却中... ${stageCooldownRemainingSeconds} 秒后开放\n可以先去刷牙、洗脸，挑战界面不会关闭"
+                text = cooldownText
+            }
+            tvReviewCooldown?.apply {
+                visibility = View.VISIBLE
+                text = cooldownText
             }
         } else {
             tvCooldown?.visibility = View.GONE
+            tvReviewCooldown?.visibility = View.GONE
         }
     }
 
@@ -2117,7 +2325,21 @@ internal object LockAlarmOverlayController {
         view.clearFocus()
 
         if (!isTwoStageUnlock) {
-            // Single-stage: keep default visibility from initAlarmUI
+            // 单次模式：检查防刷手机倒计时恢复
+            if (singleStageCooldownUntilMs > 0L) {
+                val remaining = ((singleStageCooldownUntilMs - System.currentTimeMillis()) / 1000L).toInt()
+                if (remaining > 0) {
+                    stageCooldownRemainingSeconds = remaining
+                    val ctx = LockWindowManager.getAlarmContext()
+                    if (ctx != null) {
+                        startStageCooldown(ctx)
+                        showAlarmActionPanel(view.findViewById(R.id.layout_alarm_actions), view.findViewById(R.id.btn_alarm_close), view.findViewById(R.id.btn_alarm_snooze), forceHide = true)
+                    }
+                } else {
+                    singleStageCooldownUntilMs = 0L
+                    stageCooldownRemainingSeconds = 0
+                }
+            }
             return
         }
 
@@ -2765,6 +2987,7 @@ internal object LockAlarmOverlayController {
             stageCooldownHandler?.removeCallbacksAndMessages(null)
             stageCooldownHandler = null
             stageCooldownRemainingSeconds = 0
+            singleStageCooldownUntilMs = 0L
 
             // [Fix: anti-uninstall gap] 闹钟关闭后，若存在活跃锁屏且无障碍仍开启，
             // 显示初始化覆盖层桥接重连空窗期（防止用户在此期间卸载）。

@@ -164,6 +164,7 @@ object AppWindowManager {
     private fun saveToPrefs(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString(KEY_RULES_JSON, rulesToJson(rulesCache).toString()).apply()
+        AutoBackupManager.triggerDebouncedBackup(context)
     }
 
 

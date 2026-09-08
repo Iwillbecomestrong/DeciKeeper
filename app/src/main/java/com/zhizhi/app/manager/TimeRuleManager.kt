@@ -363,6 +363,7 @@ object TimeRuleManager {
             checkAndSyncRefreshTime(context, segments)
             saveBaselineSnapshot(context)
             invalidateSegmentsCache()
+            AutoBackupManager.triggerDebouncedBackup(context)
             
             android.util.Log.i("TimeRuleManager", "Adaptation Save: Immediate + Baseline Updated.")
             return
@@ -417,6 +418,7 @@ object TimeRuleManager {
             invalidateSegmentsCache()
 
             updateBaselineAfterImmediateChange(context)
+            AutoBackupManager.triggerDebouncedBackup(context)
 
             android.util.Log.i("TimeRuleManager", "Save Immediate: Favorable/Restored vs Baseline. Timer Reset.")
         }

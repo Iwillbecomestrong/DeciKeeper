@@ -186,6 +186,19 @@
   1. 确立「三级反馈渠道体系」：首选 GitHub/Gitee Issues 公开追踪，私密/离线反馈使用邮箱 `cyz200303@163.com`，应用内「设置 → 🧾 日志诊断 → 发送日志」定性为日志提取取证与分享工具。
   2. 确立「4 要素问题反馈范式」：运行环境（机型+ROM+Android版本）、应用版本（Version/Commit SHA）、操作与复现步骤（时间+期望+实际异常）、取证日志附件（`app_log.txt`）。
 
+#### [DECISION-20] 统计与闹钟轻量化、防刷手机衰减与题库平铺收藏交互
+- **背景**：
+  1. 统计筛选与分类详情在不同主题下出现未跟随四季主题问题，星期块清空后因 MaterialButton 默认 `backgroundTint` 导致颜色残留。
+  2. 闹钟编辑内嵌完整表盘 `TimePicker` 占用大半个屏幕空间，与时间规则轻量时间选择器不统一。
+  3. 单次模式缺乏防刷手机延迟，做完题立刻解锁容易坐下刷手机；第一阶段完成时音量震动未平滑衰减至 1 级。
+  4. 题库选择存在抽象总开关导致只勾总开关而出空题的体验 Bug，题目收藏与题库回顾、全局收藏本未互通。
+- **决策**：
+  1. `StatsFilterActivity` 与 `AppCategoryDetailActivity` 严格注入 `ThemeManager.apply(this)`，星期块清空时配置 `app:backgroundTint="@null"` 彻底清除选中色。
+  2. 闹钟时间编辑改为紧凑时间卡片展示（如 `07:00 🕒 (点击更改)`），点击唤起 `TimePickerDialog` 浮层表盘。
+  3. 单次模式在挑战完成后若配置 `stageCooldownSeconds > 0` 立即将音量与震动衰减为 1（单项降单项，两者均有均降），启动防刷手机倒计时缓冲，倒计时结束自动显示关闭按钮。
+  4. 彻底移除冗余的“自定义题库”顶层总开关 CheckBox，直接平铺显示具体导入题库（名称、题数、复选框与抽取数），未勾选具体题库绝不出题。
+  5. 闹钟关闭后的复习回顾卡片（诗词、单词、选词、自定义题）增加「⭐ 收藏」切换交互；自定义题库支持题目级 `isFavorite` 状态持久化，与题库回顾页「⭐ 收藏」Tab 及全局「我的收藏」（`BookmarkActivity`）双向互通。
+
 ### [DECISION-10] 全屏沉浸式防前置摄像头安全区与弹窗主题无缝化规范
 - **背景**：Android 现代设备多采用顶部打孔前置摄像头与刘海屏。若全屏 Activity 或主页面未严格计算 WindowInsets，顶部标题栏、操作按钮将被摄像头遮挡；同时弹窗内部硬编码背景色产生割裂的独立小框。
 - **决策**：
@@ -382,3 +395,81 @@
      - 两阶段模式必须满足每一关均至少选择一种挑战，否则拦截保存与测试（弹窗不关闭，Toast 拦截）；
      - 倒计时缓冲归属第一关下方；第一关离床完成时，立即调用 `AlarmVibrationService.attenuate(context)` 将响铃与震动降为最微弱温和模式；
      - 修复第一关结束/第二关无题目时的全黑屏无按钮卡死 Bug（自动触发复盘与关闭卡片）。
+
+### [DECISION-19] 统计科学行为 6 分法、下钻详情页、真实前台排他时间线与规则变动 0 轴架构
+- **背景**：
+  1. 应用分类此前仅简单区分游戏与非游戏，无法反映现代自律/防沉迷对社交通讯、短视频、影音、AI学习等多维度的精细化管控需求；且缺乏点击分类进入二级下钻查看内部具体应用明细的能力；
+  2. 原生 `UsageStats.totalTimeInForeground` 包含后台音乐播放、浮窗及多任务重叠，导致统计总时长经常超出 24 小时/天（严重虚高），与系统数字健康存在巨大出入；
+  3. 筛选抽屉（BottomSheet）在应用过多时受到手机屏幕高度挤压截断，双栏滑动体验差；且标签块与文字由于固定高度和未对齐的色差导致对比度低甚至文字底部被截断；
+  4. 第 4 分区「防破防」术语非正式且包含模糊的“部分恢复”，缺乏清晰的收紧（有利）与放宽（不利）的量化走向；
+  5. 首页休息倒计时期间占用过大版面（24sp 巨型卡片），挤压了核心状态区。
+- **决策**：
+  1. **科学行为 6 分类与下钻二级详情页**：
+     - 参考 iOS Screen Time 建立社交通讯、游戏、视频娱乐、音乐音频、AI与效率、系统与工具 6 大分类；
+     - 实现 `AppCategoryDetailActivity`，提供分类 KPI、趋势及子应用使用排行与百分比进度条。
+  2. **亮屏排他前台事件流时间线算法**：
+     - 基于 `UsageEvents` 的 Resumed/Paused/Stopped/Screen-Off 严格计算屏幕开启时的排他前台时间片；
+     - 单日累加物理截断在 $\le 24\text{h}$ 之内，彻底消除数据虚高膨胀，对齐系统原生数字健康口径。
+  3. **全屏筛选界面 (StatsFilterActivity) 与 WCAG 对比度保障**：
+     - 升级筛选抽屉为独立全屏 Activity，配备星期预设与双栏实时搜索过滤；
+     - 接入 `ContrastHelper`（WCAG 2.1 相对亮度对比度 $\ge 4.5:1$），字体在纯黑与纯白间自适应选取，配合 `includeFontPadding="false"` 杜绝文字截断。
+  4. **「规则变动」与 0 轴净变动图表**：
+     - 正式更名为「规则变动」，剔除“部分恢复”，统一收敛为：有利改动（加严）、不利改动（放宽）、不利改动撤销（挽救）及规则净变动；
+     - MPAndroidChart 绘制 0 轴水平基准线，上方绘制有利与挽救（绿色/蓝色），下方绘制不利放宽（橙红），直观呈现纪律走向。
+  5. **首页冷却横幅瘦身**：
+     - 引入紧凑 34dp、13sp 胶囊横幅（`layout_cooldown_pill`），休息中自动收拢，仅在活跃放行时展开主卡片。
+
+### [DECISION-20] 休息出口统计频次精准打点、历史账本回溯与时间规则生效策略底部内嵌
+- **背景**：
+  1. 用户多次申请休息，但统计页休息次数始终为 1。根因是 `StatisticsRepository.kt` 在天级循环中直接使用 `if (restM > 0) sumRestCount += 1`，并将分桶硬编码为 `restCount = if (restM > 0) 1 else 0`，退化成了“是否有休息的天数”而非真实频次；
+  2. 时间规则界面的「时间规则生效策略」卡片固定占用屏幕底部空间，由于该参数极少调整，常驻吸底导致勿扰时段与应用时间窗列表可用高度严重受限。
+- **决策**：
+  1. **出口事件账本打点与历史平滑兼容**：
+     - 在 `CreditManager` 增加 `recordRestEvent`、`recordTempUnlockEvent`、`recordPrivilegeEvent`、`recordCooldownAttemptEvent` 计数打点（按天与按小时分别记录真实调用次数）；
+     - 在 `grantFreeTime`、`performGrant` 与 `startTemporaryAccess` 等授权路径注入打点；
+     - `StatisticsRepository.getExitStats` 在无显式计数的新旧交替期，通过 `count_usage_half_units_v2_${dateStr}_*`（每次休息/放行消耗的可用次数账本）回溯真实历史频次，并由 `maxOf(recRestCount, fallbackRestCount, if (restM > 0) 1 else 0)` 保底，彻底修复历史数据与即时数据；分桶图表按涵盖的小时/天真实累加。
+  2. **时间规则生效策略移入滚动列表底部**：
+     - `fragment_focus_rules.xml` 顶层保留固定 `TabLayout` 便于随时切页；
+     - 将原本固定吸底的生效策略 CardView 移入主 `NestedScrollView` 内部最底部；
+     - 勿扰时段与应用时间窗列表恢复全屏纵向浏览高度，生效策略卡片随列表自然滚动，滑到底部即可配置，兼顾契约测试与极简视觉体验。
+
+### [DECISION-21] 根除 NestedScrollView XML nestedScrollingEnabled="false" 引起的构造期 NPE 崩溃
+- **背景**：安装新版后应用频繁闪退，抓取崩溃日志显示 `Attempt to invoke virtual method 'void androidx.core.view.NestedScrollingChildHelper.setNestedScrollingEnabled(boolean)' on a null object reference`。
+- **根因分析**：在 Android XML 中对 `<androidx.core.widget.NestedScrollView>` 直接声明 `android:nestedScrollingEnabled="false"`，Android 框架 `View.<init>` 在基类构造执行期间解析该 XML 属性并调用虚方法 `setNestedScrollingEnabled`。由于 `NestedScrollView` 内部的 `mChildHelper` 是在派生类构造函数体中才被实例化，此时 `mChildHelper` 尚为 `null`，引发致命 NPE 闪退。
+- **决策与红线**：
+  1. **严禁在 XML 中为 `NestedScrollView` 设置 `android:nestedScrollingEnabled`**：如需禁用嵌套滑动，必须在代码中视图初始化完成后调用 `isNestedScrollingEnabled = false`。
+  2. **容器与子 Fragment 滚动层级归一化**：外层容器 `fragment_focus_rules.xml` 统一承载主滚动控制器 `scroll_focus_rules`；子 Fragment `fragment_time_config.xml` 与 `fragment_app_window.xml` 的根节点统一为 `FrameLayout (wrap_content)`，杜绝多层 NestedScrollView 嵌套与手势冲突。
+
+### [DECISION-22] 使用统计分类单真理源收敛、用户自定义分类与 MaterialButton Insets 截断防御
+- **背景**：
+  1. 用户反馈网易云音乐、UU远程被误判为游戏，大量应用分类混乱；
+  2. 主界面显示“系统与工具”仅 7 分钟，但点击下钻二级详情页却显示 25 款应用且统计达 1 小时，且微信、抖音、ChatGPT 等应用均出现在该分类中；
+  3. 星期预设按钮（全部星期、周一周五）及统计切换按钮（行为大类汇总、单应用真实排行）文字底部被切断/遮挡。
+- **根因分析**：
+  1. `StatisticsRepository.kt` 原逻辑中 `isGame` 使用粗粒度 `"com.netease."` 通配符前缀匹配，且在所有分类前执行，致使网易全家桶全部误判为游戏；
+  2. `getCategoryDetail()` 中存在严重漏洞 `AppCategory.TOOLS_SYSTEM -> true`，导致除游戏外所有应用（包括社交、视频、AI）全部穿透归入系统与工具；
+  3. MaterialButton 拥有默认的上下 6dp 内部 Insets（`android:insetTop` / `android:insetBottom`），在 32~36dp 紧凑高度下，扣除 Insets 后绘制高度仅剩约 12dp，致使 11sp/12sp 汉字底部笔画严重截断。
+- **决策与红线**：
+  1. **抽离单真理源 `resolveCategory(context, pkg, info)`**：
+     - 彻底剔除通配符 `"com.netease."`，建立网易非游戏应用白名单豁免，严格限定游戏包名规则（`moba.`、`party.`、`sky.` 等）；
+     - 将向日葵、ToDesk、UU远程统一收敛至「系统与工具」；
+     - 修复 `getCategoryDetail`，统一使用 `resolveCategory` 过滤，消除主界面与二级详情口径断裂。
+  2. **引入持久化自定义分类**：
+     - 新增 `KEY_CUSTOM_APP_CATEGORIES` 与 `setCustomCategory` API，长按二级详情页或筛选页任意条目可快速重设 6 大分类，自定义覆盖系统默认并享有最高优先级。
+  3. **紧凑 MaterialButton 必须显式清空 Insets**：
+     - 紧凑按钮（$\le 38\text{dp}$）必须声明 `android:insetTop="0dp"` 与 `android:insetBottom="0dp"`，配合 `android:includeFontPadding="false"` 与 `android:paddingVertical="0dp"`，彻底防御字体裁剪。
+
+### [DECISION-23] 统计与核心数据防丢闭环：历史借用回溯与自动双快照外部备份
+- **背景**：
+  1. 用户反馈重装应用后，部分数据未丢失（系统 UsageStatsManager 保留应用时长），但临时解锁次数清零；
+  2. 深入排查发现：`StatisticsRepository` 统计临时解锁时只读了显式打点的 `exit_temp_unlock_count_*`，未像休息次数那样回溯 `count_borrow_*` 账本；
+  3. `SettingsBackupManager` 遗漏了 `count_*`（次数账本）、`rule_protection_ledger`（规则保护统计）、`alarm_stats_ledger`（唤醒统计）、`statistics_prefs`（自定义应用分类覆写与筛选）以及自定义题库 `custom_question_banks.json`。此外，由于国内 ROM 未启用 Google 云备份，应用卸载时私有存储会被完全抹除。
+- **决策与红线**：
+  1. **统计回溯双源对齐**：
+     - `StatisticsRepository` 在计算临时解锁次数时，向前扫描回溯 `count_borrow_half_units_v2_${dateStr}_` 与 `count_borrow_${dateStr}_`，对齐休息次数回溯机制，救回历史临时解锁次数。
+  2. **全量备份范围补全**：
+     - `SettingsBackupManager` 在 `LEDGER` 分类中纳入 `count_*`、`rule_protection_ledger`、`alarm_stats_ledger`、`statistics_prefs`，在 `ALARM` 分类中纳入自定义题库 `custom_question_banks.json` 与 `bookmarked_clozes`。
+  3. **公共文档目录双快照自动备份与重装静默恢复**：
+     - 新增 `AutoBackupManager`，在关键变更（打点、时段、时间窗、题库）发生时 30 秒防抖自动落盘；
+     - 采用双快照轮转机制（`zhizhi_auto_backup.json` + `_prev.json`），并在公共文档目录 `Documents/ZhiZhi/` 与内部私有目录双写；
+     - 在 `MyApplication.onCreate()` 检测空白全新安装或重装，静默自动恢复外部快照并弹出轻量 Toast 提示，实现重装数据免删跨代留存。

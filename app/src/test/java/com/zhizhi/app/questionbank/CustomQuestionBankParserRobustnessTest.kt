@@ -74,10 +74,9 @@ class CustomQuestionBankParserRobustnessTest {
     @Test
     fun stillRejectsActuallyMissingOptionInsteadOfGuessing() {
         val text = """
-            1. 这道题确实缺少 D 选项
+            1. 这道题确实缺少 C 和 D 选项
             • A. 甲
             • B. 乙
-            • C. 丙
             答案: B
         """.trimIndent()
 
@@ -85,6 +84,6 @@ class CustomQuestionBankParserRobustnessTest {
 
         assertEquals(0, result.totalParsed)
         assertTrue(result.hasIssues)
-        assertTrue(result.issues.single().message.contains("选项不足4个"))
+        assertTrue(result.issues.single().message.contains("选项不足3个"))
     }
 }

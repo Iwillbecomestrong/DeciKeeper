@@ -1054,6 +1054,7 @@ class MonitorService : Service() {
 
         val endTime = now + duration
         CreditManager.setFreeTimeEnd(this, endTime)
+        CreditManager.recordRestEvent(this)
 
         // 🚀 [Fix] 预计算冷却结束时间并持久化，防止进程被杀后冷却状态丢失
         val coolingSec = TimeRuleManager.getCoolDownRestSeconds(this)

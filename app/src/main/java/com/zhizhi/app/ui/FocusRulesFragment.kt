@@ -10,10 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
-import androidx.viewpager2.adapter.FragmentStateAdapter
-import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
-import com.google.android.material.tabs.TabLayoutMediator
 import com.zhizhi.app.R
 import com.zhizhi.app.manager.EffectiveActivationPolicyManager
 
@@ -25,7 +22,6 @@ class FocusRulesFragment : Fragment() {
     }
 
     private var pendingTabIndex: Int? = null
-    private var viewPager: ViewPager2? = null
     private var rgEffectivePolicy: RadioGroup? = null
     private var policyUiUpdating = false
 
@@ -41,15 +37,31 @@ class FocusRulesFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val tabLayout = view.findViewById<TabLayout>(R.id.tab_focus_rules)
-        val pager = view.findViewById<ViewPager2>(R.id.pager_focus_rules)
-        viewPager = pager
+        tabLayout.removeAllTabs()
+        val timeTab = tabLayout.newTab().setText("勿扰时段")
+        val appTab = tabLayout.newTab().setText("应用时间窗")
+        tabLayout.addTab(timeTab)
+        tabLayout.addTab(appTab)
 
-        pager.adapter = FocusRulesPagerAdapter(this)
-        pager.offscreenPageLimit = 1
+        val containerTime = view.findViewById<View>(R.id.container_time_config)
+        val containerAppWindow = view.findViewById<View>(R.id.container_app_window)
 
-        TabLayoutMediator(tabLayout, pager) { tab, position ->
-            tab.text = if (position == TAB_TIME) "勿扰时段" else "应用时间窗"
-        }.attach()
+        if (childFragmentManager.findFragmentByTag("time_config") == null) {
+            childFragmentManager.beginTransaction()
+                .replace(R.id.container_time_config, TimeConfigFragment(), "time_config")
+                .replace(R.id.container_app_window, AppWindowFragment(), "app_window")
+                .commitNow()
+        }
+
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                val isTime = (tab?.position == TAB_TIME)
+                containerTime.visibility = if (isTime) View.VISIBLE else View.GONE
+                containerAppWindow.visibility = if (isTime) View.GONE else View.VISIBLE
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
 
         rgEffectivePolicy = view.findViewById(R.id.rg_effective_policy)
         bindPolicyCopy(view)
@@ -60,7 +72,7 @@ class FocusRulesFragment : Fragment() {
         updateEffectivePolicyUI()
 
         pendingTabIndex?.let { index ->
-            pager.setCurrentItem(index, false)
+            tabLayout.getTabAt(index)?.select()
             pendingTabIndex = null
         }
     }
@@ -84,17 +96,16 @@ class FocusRulesFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        viewPager = null
         rgEffectivePolicy = null
         super.onDestroyView()
     }
 
     fun selectTab(index: Int) {
-        val pager = viewPager
-        if (pager == null) {
+        val tabLayout = view?.findViewById<TabLayout>(R.id.tab_focus_rules)
+        if (tabLayout == null) {
             pendingTabIndex = index
         } else {
-            pager.setCurrentItem(index, false)
+            tabLayout.getTabAt(index)?.select()
         }
     }
 
@@ -166,17 +177,5 @@ class FocusRulesFragment : Fragment() {
             .setMessage(message)
             .setPositiveButton("知道了", null)
             .show()
-    }
-
-    private class FocusRulesPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
-        override fun getItemCount(): Int = 2
-
-        override fun createFragment(position: Int): Fragment {
-            return if (position == TAB_TIME) {
-                TimeConfigFragment()
-            } else {
-                AppWindowFragment()
-            }
-        }
     }
 }

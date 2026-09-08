@@ -4570,6 +4570,10 @@ object LockWindowManager {
         } else {
             Toast.makeText(context, "已放行 ${seconds}s${freeTag}，本次无冷却", Toast.LENGTH_SHORT).show()
         }
+        CreditManager.recordTempUnlockEvent(context)
+        if (chargeSnapshot.coolingSec > 0 || CreditManager.isCooling(context) || getTemporaryReuseCooldownRemainingSeconds() > 0L) {
+            CreditManager.recordCooldownAttemptEvent(context)
+        }
         dismissLockScreen(LockDismissAuthority.TEMPORARY_ACCESS)
     }
 
@@ -5813,9 +5817,14 @@ object LockWindowManager {
             }
         }
 
+        if (CreditManager.isCooling(context) || getTemporaryReuseCooldownRemainingSeconds() > 0L) {
+            CreditManager.recordCooldownAttemptEvent(context)
+        }
+
         mMonitorService?.grantFreeTime((requestedMins * 60 * 1000L).toLong(), costMins) ?: run {
             Log.e(TAG, "MonitorService not attached! Using fallback to save FreeTime.")
             CreditManager.setFreeTimeEnd(context, System.currentTimeMillis() + requestedMins.toLong() * 60 * 1000L)
+            CreditManager.recordRestEvent(context)
         }
         resetConsecutiveNormalLockState("free_time_granted")
         totalSegmentBlacklistHits = 0

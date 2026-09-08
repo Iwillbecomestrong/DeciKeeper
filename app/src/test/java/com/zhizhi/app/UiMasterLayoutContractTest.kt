@@ -95,7 +95,8 @@ class UiMasterLayoutContractTest {
     fun alarmEdit_keepsTwoStageFreeMultiSelectAndCounts() {
         val xml = layout("dialog_alarm_edit.xml")
         listOf(
-            "@+id/tp_alarm_edit",
+            "@+id/layout_pick_alarm_time",
+            "@+id/tv_alarm_edit_time",
             "@+id/rg_unlock_mode",
             "@+id/rb_unlock_single",
             "@+id/rb_unlock_two_stage",

@@ -46,6 +46,7 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.SeekBar
+import android.widget.Space
 import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
@@ -310,17 +311,9 @@ class AlarmFragment : Fragment() {
             startActivity(intent)
         }
 
-        // 默认设置 → 合并为单一入口
-        tvSnoozeSummary = view.findViewById(R.id.tv_snooze_summary)
         tvKeepaliveSummary = view.findViewById(R.id.tv_keepalive_summary)
         tvChallengeSummary = view.findViewById(R.id.tv_challenge_summary)
         tvUnlockSummary = view.findViewById(R.id.tv_unlock_summary)
-
-        // 第一个卡片改标题为"闹钟默认设置"，点击进入统一弹窗
-        (view.findViewById<LinearLayout>(R.id.layout_snooze_settings)?.getChildAt(0) as? TextView)?.text = "闹钟默认设置"
-        view.findViewById<View>(R.id.layout_snooze_settings)?.setOnClickListener {
-            showDefaultSettingsDialog()
-        }
 
         // 闹钟保活独立卡片入口（主界面常驻）
         view.findViewById<View>(R.id.layout_alarm_keepalive)?.setOnClickListener {
@@ -450,259 +443,7 @@ class AlarmFragment : Fragment() {
             .show()
     }
     private fun showDefaultSettingsDialog() {
-        val ctx = requireContext()
-        val dialogView = layoutInflater.inflate(R.layout.dialog_alarm_default_settings, null)
-
-        val rgUnlockMode = dialogView.findViewById<RadioGroup>(R.id.rg_unlock_mode)
-        val rbUnlockSingle = dialogView.findViewById<RadioButton>(R.id.rb_unlock_single)
-        val rbUnlockTwoStage = dialogView.findViewById<RadioButton>(R.id.rb_unlock_two_stage)
-        val curMode = AlarmScheduler.getDefaultUnlockMode(ctx)
-        if (curMode == AlarmScheduler.UnlockMode.TWO_STAGE) rbUnlockTwoStage.isChecked = true else rbUnlockSingle.isChecked = true
-
-        val layoutStage1 = dialogView.findViewById<View>(R.id.layout_stage1)
-        val tvStage1Label = dialogView.findViewById<TextView>(R.id.tv_stage1_label)
-        val cbS1Qr = dialogView.findViewById<CheckBox>(R.id.cb_s1_qr)
-        val cbS1Math = dialogView.findViewById<CheckBox>(R.id.cb_s1_math)
-        val cbS1Poem = dialogView.findViewById<CheckBox>(R.id.cb_s1_poem)
-        val cbS1Word = dialogView.findViewById<CheckBox>(R.id.cb_s1_word)
-        val cbS1Cloze = dialogView.findViewById<CheckBox>(R.id.cb_s1_cloze)
-        val curS1 = AlarmScheduler.getDefaultStage1Types(ctx)
-        val hasCamera = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        cbS1Qr.isChecked = ("qr" in curS1) && hasCamera
-        bindQrCheckboxPermission(cbS1Qr)
-        cbS1Math.isChecked = "math" in curS1
-        cbS1Poem.isChecked = "poem" in curS1
-        cbS1Word.isChecked = "word" in curS1
-        cbS1Cloze.isChecked = "cloze" in curS1
-
-        val layoutS1CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s1_custom_banks)
-        val defS1Banks = AlarmScheduler.getDefaultStage1CustomBanks(ctx)
-        val getS1CustomBanks = setupCustomBankSelection(ctx, layoutS1CustomBanks, defS1Banks)
-
-        val layoutStage1Cooldown = dialogView.findViewById<View>(R.id.layout_stage1_cooldown)
-        val etStageCooldown = dialogView.findViewById<EditText>(R.id.et_stage_cooldown)
-        etStageCooldown.setText(AlarmScheduler.getDefaultStageCooldownSeconds(ctx).toString())
-
-        val layoutStage2 = dialogView.findViewById<View>(R.id.layout_stage2)
-        val cbS2Qr = dialogView.findViewById<CheckBox>(R.id.cb_s2_qr)
-        val cbS2Math = dialogView.findViewById<CheckBox>(R.id.cb_s2_math)
-        val cbS2Poem = dialogView.findViewById<CheckBox>(R.id.cb_s2_poem)
-        val cbS2Word = dialogView.findViewById<CheckBox>(R.id.cb_s2_word)
-        val cbS2Cloze = dialogView.findViewById<CheckBox>(R.id.cb_s2_cloze)
-        val curS2 = AlarmScheduler.getDefaultStage2Types(ctx)
-        cbS2Qr.isChecked = ("qr" in curS2) && hasCamera
-        bindQrCheckboxPermission(cbS2Qr)
-        cbS2Math.isChecked = "math" in curS2
-        cbS2Poem.isChecked = "poem" in curS2
-        cbS2Word.isChecked = "word" in curS2
-        cbS2Cloze.isChecked = "cloze" in curS2
-
-        val layoutS2CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s2_custom_banks)
-        val defS2Banks = AlarmScheduler.getDefaultStage2CustomBanks(ctx)
-        val getS2CustomBanks = setupCustomBankSelection(ctx, layoutS2CustomBanks, defS2Banks)
-
-        val etMathCount = dialogView.findViewById<EditText>(R.id.et_math_count)
-        val etPoemCount = dialogView.findViewById<EditText>(R.id.et_poem_count)
-        val etWordCount = dialogView.findViewById<EditText>(R.id.et_word_count)
-        val etClozeCount = dialogView.findViewById<EditText>(R.id.et_cloze_count)
-        val etCustomCount = dialogView.findViewById<EditText>(R.id.et_custom_count)
-        etMathCount.setText(AlarmScheduler.getDefaultMathCount(ctx).toString())
-        etPoemCount.setText(AlarmScheduler.getDefaultPoemCount(ctx).toString())
-        etWordCount.setText(AlarmScheduler.getDefaultWordCount(ctx).toString())
-        etClozeCount.setText(AlarmScheduler.getDefaultClozeCount(ctx).toString())
-        etCustomCount.setText(AlarmScheduler.getDefaultCustomCount(ctx).toString())
-
-        val etSnoozeMinutes = dialogView.findViewById<EditText>(R.id.et_snooze_minutes)
-        val etSnoozeMaxCount = dialogView.findViewById<EditText>(R.id.et_snooze_max_count)
-        etSnoozeMinutes.setText(AlarmScheduler.getSnoozeMinutes(ctx).toString())
-        etSnoozeMaxCount.setText(AlarmScheduler.getMaxSnoozeCount(ctx).toString())
-
-        val rgRingMode = dialogView.findViewById<RadioGroup>(R.id.rg_ring_mode)
-        val rbVibrateRing = dialogView.findViewById<RadioButton>(R.id.rb_ring_mode_vib_ring)
-        val rbVibrateOnly = dialogView.findViewById<RadioButton>(R.id.rb_ring_mode_vib_only)
-        val rbRingOnly = dialogView.findViewById<RadioButton>(R.id.rb_ring_mode_ring_only)
-        when (AlarmScheduler.getDefaultAlarmMode(ctx)) {
-            AlarmScheduler.AlarmMode.VIBRATE_AND_RING -> rbVibrateRing.isChecked = true
-            AlarmScheduler.AlarmMode.VIBRATE_ONLY -> rbVibrateOnly.isChecked = true
-            AlarmScheduler.AlarmMode.RING_ONLY -> rbRingOnly.isChecked = true
-        }
-
-        val btnPickRingtone = dialogView.findViewById<Button>(R.id.btn_pick_ringtone)
-        var pendingRingtoneUri: String? = AlarmScheduler.getDefaultRingtoneUri(ctx)
-        btnPickRingtone.text = if (pendingRingtoneUri != null) "已选自定义铃声" else "选择铃声（默认系统闹钟）"
-        btnPickRingtone.setOnClickListener {
-            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                pendingRingtoneUri?.let { putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it)) }
-            }
-            startActivityForResult(intent, REQUEST_PICK_RINGTONE)
-        }
-
-        val rgVibMode = dialogView.findViewById<RadioGroup>(R.id.rg_vib_mode)
-        val rbVibProg = dialogView.findViewById<RadioButton>(R.id.rb_vib_mode_prog)
-        val rbVibFixed = dialogView.findViewById<RadioButton>(R.id.rb_vib_mode_fixed)
-        if (AlarmScheduler.getDefaultVibrationMode(ctx) == AlarmScheduler.VibrationMode.FIXED) {
-            rbVibFixed.isChecked = true
-        } else {
-            rbVibProg.isChecked = true
-        }
-
-        val tvProgHint = dialogView.findViewById<TextView>(R.id.tv_prog_hint)
-        val layoutProgVibMax = dialogView.findViewById<View>(R.id.layout_prog_vib_max)
-        val sbProgVibMax = dialogView.findViewById<SeekBar>(R.id.sb_prog_vib_max)
-        val tvProgVibMaxLabel = dialogView.findViewById<TextView>(R.id.tv_prog_vib_max_label)
-        sbProgVibMax.progress = (AlarmScheduler.getDefaultProgressiveMaxIntensity(ctx) - 1).coerceIn(0, 9)
-        tvProgVibMaxLabel.text = "${sbProgVibMax.progress + 1} / 10"
-        sbProgVibMax.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { tvProgVibMaxLabel.text = "${p + 1} / 10" }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-
-        val cbAutoEscalate = dialogView.findViewById<CheckBox>(R.id.cb_auto_escalate)
-        cbAutoEscalate.isChecked = false
-
-        val layoutProgVolMax = dialogView.findViewById<View>(R.id.layout_prog_vol_max)
-        val sbProgVolMax = dialogView.findViewById<SeekBar>(R.id.sb_prog_vol_max)
-        val tvProgVolMaxLabel = dialogView.findViewById<TextView>(R.id.tv_prog_vol_max_label)
-        sbProgVolMax.progress = (AlarmScheduler.getDefaultProgressiveMaxRingVolume(ctx) - 1).coerceIn(0, 9)
-        tvProgVolMaxLabel.text = "${sbProgVolMax.progress + 1} / 10"
-        sbProgVolMax.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { tvProgVolMaxLabel.text = "${p + 1} / 10" }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-
-        val layoutVibFixed = dialogView.findViewById<View>(R.id.layout_vib_fixed)
-        val sbVibration = dialogView.findViewById<SeekBar>(R.id.sb_vibration)
-        val tvVibLabel = dialogView.findViewById<TextView>(R.id.tv_vib_label)
-        sbVibration.progress = (AlarmScheduler.getDefaultVibrationIntensity(ctx) - 1).coerceIn(0, 9)
-        tvVibLabel.text = "${sbVibration.progress + 1} / 10"
-        sbVibration.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { tvVibLabel.text = "${p + 1} / 10" }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-
-        val layoutRingVol = dialogView.findViewById<View>(R.id.layout_ring_vol)
-        val sbRingVolume = dialogView.findViewById<SeekBar>(R.id.sb_ring_volume)
-        val tvRingVolLabel = dialogView.findViewById<TextView>(R.id.tv_ring_vol_label)
-        sbRingVolume.progress = (AlarmScheduler.getDefaultRingVolume(ctx) - 1).coerceIn(0, 9)
-        tvRingVolLabel.text = "${sbRingVolume.progress + 1} / 10"
-        sbRingVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { tvRingVolLabel.text = "${p + 1} / 10" }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-
-        fun updateStage2Visibility() {
-            val visible = rgUnlockMode.checkedRadioButtonId == rbUnlockTwoStage.id
-            layoutStage2.visibility = if (visible) View.VISIBLE else View.GONE
-            tvStage1Label.text = if (visible) "第一关类型（通过其一即可）" else "第一关类型（可并联多选）"
-            layoutStage1Cooldown.visibility = if (visible) View.VISIBLE else View.GONE
-        }
-
-        fun updateRingtoneVisibility() {
-            val modeId = rgRingMode.checkedRadioButtonId
-            val isVibOnly = modeId == rbVibrateOnly.id
-            val isRingOnly = modeId == rbRingOnly.id
-            val isProgressive = rgVibMode.checkedRadioButtonId == rbVibProg.id
-            btnPickRingtone.visibility = if (isVibOnly) View.GONE else View.VISIBLE
-            tvProgHint.visibility = if (!isProgressive) View.GONE else View.VISIBLE
-            layoutProgVibMax.visibility = if (!isProgressive || isRingOnly) View.GONE else View.VISIBLE
-            cbAutoEscalate.visibility = if (isRingOnly) View.GONE else View.VISIBLE
-            layoutProgVolMax.visibility = if (!isProgressive || isVibOnly) View.GONE else View.VISIBLE
-            layoutVibFixed.visibility = if (isProgressive || isRingOnly) View.GONE else View.VISIBLE
-            layoutRingVol.visibility = if (isProgressive || isVibOnly) View.GONE else View.VISIBLE
-        }
-
-        rgUnlockMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility() }
-        rgRingMode.setOnCheckedChangeListener { _, _ -> updateRingtoneVisibility() }
-        rgVibMode.setOnCheckedChangeListener { _, _ -> updateRingtoneVisibility() }
-        updateStage2Visibility()
-        updateRingtoneVisibility()
-
-        AlertDialog.Builder(ctx)
-            .setTitle("闹钟默认设置")
-            .setView(dialogView)
-            .setPositiveButton("保存") { _, _ ->
-                // 保存再响：每次真实闹钟固定仅 1 次；这里只配置静音时长。
-                val snoozeMin = etSnoozeMinutes.text.toString().toIntOrNull() ?: 10
-                if (snoozeMin > 0) AlarmScheduler.setSnoozeMinutes(ctx, snoozeMin)
-                AlarmScheduler.setMaxSnoozeCount(ctx, 1)
-
-                val defVibMode = if (rgVibMode.checkedRadioButtonId == rbVibFixed.id)
-                    AlarmScheduler.VibrationMode.FIXED else AlarmScheduler.VibrationMode.PROGRESSIVE
-                if (defVibMode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-                    AlarmScheduler.setDefaultProgressiveMaxIntensity(ctx, sbProgVibMax.progress + 1)
-                    AlarmScheduler.setDefaultProgressiveMaxRingVolume(ctx, sbProgVolMax.progress + 1)
-                } else {
-                    AlarmScheduler.setDefaultVibrationIntensity(ctx, sbVibration.progress + 1)
-                }
-
-                val math = etMathCount.text.toString().toIntOrNull()
-                val poem = etPoemCount.text.toString().toIntOrNull()
-                val word = etWordCount.text.toString().toIntOrNull()
-                val cloze = etClozeCount.text.toString().toIntOrNull()
-                val customCount = etCustomCount.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: 3
-
-                if (math != null && math > 0) AlarmScheduler.setDefaultMathCount(ctx, math)
-                if (poem != null && poem > 0) AlarmScheduler.setDefaultPoemCount(ctx, poem)
-                if (word != null && word > 0) AlarmScheduler.setDefaultWordCount(ctx, word)
-                if (cloze != null && cloze > 0) AlarmScheduler.setDefaultClozeCount(ctx, cloze)
-                AlarmScheduler.setDefaultCustomCount(ctx, customCount)
-
-                val mode = if (rbUnlockTwoStage.isChecked) AlarmScheduler.UnlockMode.TWO_STAGE else AlarmScheduler.UnlockMode.SINGLE
-                val hasCameraNow = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-                val s1Banks = getS1CustomBanks().associateWith { customCount }
-                val s2Banks = getS2CustomBanks().associateWith { customCount }
-                val s1Types = mutableSetOf<String>().apply {
-                    if (cbS1Qr.isChecked && hasCameraNow) add("qr")
-                    if (cbS1Math.isChecked) add("math")
-                    if (cbS1Poem.isChecked) add("poem")
-                    if (cbS1Word.isChecked) add("word")
-                    if (cbS1Cloze.isChecked) add("cloze")
-                    if (s1Banks.isNotEmpty()) add("custom")
-                }
-                val s2Types = mutableSetOf<String>().apply {
-                    if (cbS2Qr.isChecked && hasCameraNow) add("qr")
-                    if (cbS2Math.isChecked) add("math")
-                    if (cbS2Poem.isChecked) add("poem")
-                    if (cbS2Word.isChecked) add("word")
-                    if (cbS2Cloze.isChecked) add("cloze")
-                    if (s2Banks.isNotEmpty()) add("custom")
-                }
-                AlarmScheduler.setDefaultStage1CustomBanks(ctx, s1Banks)
-                AlarmScheduler.setDefaultStage2CustomBanks(ctx, s2Banks)
-
-                val effectiveS1 = if (s1Types.isEmpty()) setOf("math") else s1Types
-                val effectiveS2 = if (mode == AlarmScheduler.UnlockMode.TWO_STAGE && s2Types.isEmpty()) setOf("math", "poem", "word", "cloze") else s2Types
-                AlarmScheduler.setDefaultUnlockMode(ctx, mode)
-                AlarmScheduler.setDefaultStage1Types(ctx, effectiveS1)
-                AlarmScheduler.setDefaultStage2Types(ctx, effectiveS2)
-
-                val cooldown = etStageCooldown.text.toString().toIntOrNull() ?: 0
-                AlarmScheduler.setDefaultStageCooldownSeconds(ctx, cooldown)
-
-                val ringMode = when (rgRingMode.checkedRadioButtonId) {
-                    rbVibrateRing.id -> AlarmScheduler.AlarmMode.VIBRATE_AND_RING
-                    rbRingOnly.id -> AlarmScheduler.AlarmMode.RING_ONLY
-                    else -> AlarmScheduler.AlarmMode.VIBRATE_ONLY
-                }
-                AlarmScheduler.setDefaultAlarmMode(ctx, ringMode)
-                if (ringMode != AlarmScheduler.AlarmMode.VIBRATE_ONLY) {
-                    pendingRingtoneUri?.let { AlarmScheduler.setDefaultRingtoneUri(ctx, it) }
-                }
-                AlarmScheduler.setDefaultRingVolume(ctx, sbRingVolume.progress + 1)
-                AlarmScheduler.setDefaultVibrationMode(ctx, defVibMode)
-
-                refreshSettingsSummaries()
-                Toast.makeText(ctx, "默认设置已保存", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        showTestDialog()
     }
 
     private fun refreshSettingsSummaries() {
@@ -753,30 +494,49 @@ class AlarmFragment : Fragment() {
 
         containerBanks.removeAllViews()
         if (allBanks.isEmpty()) {
-            val tvEmpty = TextView(context).apply {
-                text = "（暂无自定义题库，可在「题库」页面添加）"
-                textSize = 12f
-                setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
-                setPadding(0, dp(4), 0, dp(4))
+            containerBanks.visibility = View.GONE
+            return { emptySet() }
+        }
+        containerBanks.visibility = View.VISIBLE
+
+        val chunks = allBanks.chunked(2)
+        for (chunk in chunks) {
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(2); bottomMargin = dp(2) }
+                gravity = Gravity.CENTER_VERTICAL
             }
-            containerBanks.addView(tvEmpty)
-        } else {
-            for (bank in allBanks) {
+            for (bank in chunk) {
                 val cb = CheckBox(context).apply {
                     layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply { topMargin = dp(2); bottomMargin = dp(2) }
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
                     text = bank.title
                     textSize = 12f
+                    includeFontPadding = false
                     setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
                     isChecked = selectedBankMap.containsKey(bank.id)
                 }
-                containerBanks.addView(cb)
+                row.addView(cb)
                 bankCheckBoxes.add(Pair(bank.id, cb))
             }
+            if (chunk.size == 1) {
+                val space = Space(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+                }
+                row.addView(space)
+            }
+            containerBanks.addView(row)
         }
-        containerBanks.visibility = View.VISIBLE
 
         return {
             bankCheckBoxes.filter { it.second.isChecked }.map { it.first }.toSet()
@@ -785,8 +545,21 @@ class AlarmFragment : Fragment() {
 
     private fun showEditDialog(existing: AlarmScheduler.AlarmEntry?) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_alarm_edit, null)
-        val timePicker = dialogView.findViewById<TimePicker>(R.id.tp_alarm_edit)
-        timePicker.setIs24HourView(true)
+        var selectedHour = existing?.hour ?: 7
+        var selectedMinute = existing?.minute ?: 0
+        val tvAlarmEditTime = dialogView.findViewById<TextView>(R.id.tv_alarm_edit_time)
+        val layoutPickAlarmTime = dialogView.findViewById<View>(R.id.layout_pick_alarm_time)
+        fun updateTimeDisplay() {
+            tvAlarmEditTime?.text = String.format(java.util.Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
+        }
+        updateTimeDisplay()
+        layoutPickAlarmTime?.setOnClickListener {
+            android.app.TimePickerDialog(requireContext(), { _, h, m ->
+                selectedHour = h
+                selectedMinute = m
+                updateTimeDisplay()
+            }, selectedHour, selectedMinute, true).show()
+        }
 
         val cbMon = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_day_mon)
         val cbTue = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_day_tue)
@@ -1005,8 +778,6 @@ class AlarmFragment : Fragment() {
 
         val hasCamera = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (existing != null) {
-            timePicker.hour = existing.hour
-            timePicker.minute = existing.minute
             checkboxes.forEachIndexed { index, cb -> cb.isChecked = existing.days.getOrNull(index) == true }
 
             val s1 = existing.stage1Types
@@ -1030,8 +801,6 @@ class AlarmFragment : Fragment() {
             if (existing.unlockMode == AlarmScheduler.UnlockMode.TWO_STAGE) rbUnlockTwoStage.isChecked = true
             else rbUnlockSingle.isChecked = true
         } else {
-            timePicker.hour = 7
-            timePicker.minute = 0
             checkboxes.forEach { it.isChecked = true }
             val defaultCtx = requireContext()
             val defS1 = AlarmScheduler.getDefaultStage1Types(defaultCtx)
@@ -1069,8 +838,8 @@ class AlarmFragment : Fragment() {
         editDialog.show()
 
         editDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val hour = timePicker.hour
-            val minute = timePicker.minute
+            val hour = selectedHour
+            val minute = selectedMinute
             val days = BooleanArray(7) { index -> checkboxes[index].isChecked }
             val normalizedDays = if (days.none { it }) BooleanArray(7) { true } else days
 
@@ -1191,9 +960,15 @@ class AlarmFragment : Fragment() {
     }
 
     private fun showTestDialog() {
+        val ctx = requireContext()
         val dialogView = layoutInflater.inflate(R.layout.dialog_test_alarm, null)
 
         val rgUnlockMode = dialogView.findViewById<android.widget.RadioGroup>(R.id.rg_unlock_mode)
+        val rbUnlockSingle = dialogView.findViewById<RadioButton>(R.id.rb_unlock_single)
+        val rbUnlockTwoStage = dialogView.findViewById<RadioButton>(R.id.rb_unlock_two_stage)
+        val curMode = AlarmScheduler.getDefaultUnlockMode(ctx)
+        if (curMode == AlarmScheduler.UnlockMode.TWO_STAGE) rbUnlockTwoStage.isChecked = true else rbUnlockSingle.isChecked = true
+
         val layoutStage1 = dialogView.findViewById<View>(R.id.layout_stage1)
         val layoutStage2 = dialogView.findViewById<View>(R.id.layout_stage2)
         val tvStage1Label = dialogView.findViewById<TextView>(R.id.tv_stage1_label)
@@ -1204,11 +979,14 @@ class AlarmFragment : Fragment() {
         val cbS1Poem = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s1_poem)
         val cbS1Word = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s1_word)
         val cbS1Cloze = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s1_cloze)
-        val etMathCount = dialogView.findViewById<EditText>(R.id.et_math_count)
-        val etPoemCount = dialogView.findViewById<EditText>(R.id.et_poem_count)
-        val etWordCount = dialogView.findViewById<EditText>(R.id.et_word_count)
-        val etClozeCount = dialogView.findViewById<EditText>(R.id.et_cloze_count)
-        val etCustomCount = dialogView.findViewById<EditText>(R.id.et_custom_count)
+        val curS1 = AlarmScheduler.getDefaultStage1Types(ctx)
+        val hasCamera = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        cbS1Qr.isChecked = ("qr" in curS1) && hasCamera
+        bindQrCheckboxPermission(cbS1Qr)
+        cbS1Math.isChecked = "math" in curS1
+        cbS1Poem.isChecked = "poem" in curS1
+        cbS1Word.isChecked = "word" in curS1
+        cbS1Cloze?.isChecked = "cloze" in curS1
 
         // Stage 2
         val cbS2Qr = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_qr)
@@ -1216,32 +994,55 @@ class AlarmFragment : Fragment() {
         val cbS2Poem = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_poem)
         val cbS2Word = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_word)
         val cbS2Cloze = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_cloze)
+        val curS2 = AlarmScheduler.getDefaultStage2Types(ctx)
+        cbS2Qr.isChecked = ("qr" in curS2) && hasCamera
+        bindQrCheckboxPermission(cbS2Qr)
+        cbS2Math.isChecked = "math" in curS2
+        cbS2Poem.isChecked = "poem" in curS2
+        cbS2Word.isChecked = "word" in curS2
+        cbS2Cloze?.isChecked = "cloze" in curS2
+
+        val etMathCount = dialogView.findViewById<EditText>(R.id.et_math_count)
+        val etPoemCount = dialogView.findViewById<EditText>(R.id.et_poem_count)
+        val etWordCount = dialogView.findViewById<EditText>(R.id.et_word_count)
+        val etClozeCount = dialogView.findViewById<EditText>(R.id.et_cloze_count)
+        val etCustomCount = dialogView.findViewById<EditText>(R.id.et_custom_count)
+        etMathCount.setText(AlarmScheduler.getDefaultMathCount(ctx).toString())
+        etPoemCount.setText(AlarmScheduler.getDefaultPoemCount(ctx).toString())
+        etWordCount.setText(AlarmScheduler.getDefaultWordCount(ctx).toString())
+        etClozeCount.setText(AlarmScheduler.getDefaultClozeCount(ctx).toString())
+        etCustomCount.setText(AlarmScheduler.getDefaultCustomCount(ctx).toString())
+
+        val etSnoozeMinutes = dialogView.findViewById<EditText>(R.id.et_snooze_minutes)
+        val etSnoozeMaxCount = dialogView.findViewById<EditText>(R.id.et_snooze_max_count)
+        etSnoozeMinutes?.setText(AlarmScheduler.getSnoozeMinutes(ctx).toString())
+        etSnoozeMaxCount?.setText(AlarmScheduler.getMaxSnoozeCount(ctx).toString())
 
         val testInnerLayout = (dialogView as? android.view.ViewGroup)?.let { root ->
             (root.getChildAt(0) as? ScrollView)?.getChildAt(0) as? LinearLayout
         }
         val layoutTestStage1Cooldown = dialogView.findViewById<View>(R.id.layout_stage1_cooldown)
-        val etTestCooldown = dialogView.findViewById<EditText>(R.id.et_stage_cooldown) ?: EditText(requireContext())
-        etTestCooldown.setText(AlarmScheduler.getDefaultStageCooldownSeconds(requireContext()).toString())
+        val etTestCooldown = dialogView.findViewById<EditText>(R.id.et_stage_cooldown) ?: EditText(ctx)
+        etTestCooldown.setText(AlarmScheduler.getDefaultStageCooldownSeconds(ctx).toString())
 
         val layoutTestS1CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s1_custom_banks)
         val layoutTestS2CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s2_custom_banks)
-        val defTestS1Banks = AlarmScheduler.getDefaultStage1CustomBanks(requireContext())
-        val defTestS2Banks = AlarmScheduler.getDefaultStage2CustomBanks(requireContext())
-        val getTestS1CustomBanks = setupCustomBankSelection(requireContext(), layoutTestS1CustomBanks, defTestS1Banks)
-        val getTestS2CustomBanks = setupCustomBankSelection(requireContext(), layoutTestS2CustomBanks, defTestS2Banks)
+        val defTestS1Banks = AlarmScheduler.getDefaultStage1CustomBanks(ctx)
+        val defTestS2Banks = AlarmScheduler.getDefaultStage2CustomBanks(ctx)
+        val getTestS1CustomBanks = setupCustomBankSelection(ctx, layoutTestS1CustomBanks, defTestS1Banks)
+        val getTestS2CustomBanks = setupCustomBankSelection(ctx, layoutTestS2CustomBanks, defTestS2Banks)
 
-        // 铃声模式（程序化添加）
-        val testRingtoneContainer = LinearLayout(requireContext()).apply {
+        // 铃声与震动
+        val testRingtoneContainer = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
         }
-        testRingtoneContainer.addView(TextView(requireContext()).apply { text = "铃声与震动"; textSize = 14f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) })
-        val testRgRingMode = RadioGroup(requireContext()).apply { orientation = RadioGroup.HORIZONTAL }
-        val testRbVibRing = RadioButton(requireContext()).apply { text = "震动+铃声"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
-        val testRbVibOnly = RadioButton(requireContext()).apply { text = "仅震动"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
-        val testRbRingOnly = RadioButton(requireContext()).apply { text = "仅铃声"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
-        when (AlarmScheduler.getDefaultAlarmMode(requireContext())) {
+        testRingtoneContainer.addView(TextView(ctx).apply { text = "铃声与震动"; textSize = 14f; setTypeface(typeface, Typeface.BOLD); setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)) })
+        val testRgRingMode = RadioGroup(ctx).apply { orientation = RadioGroup.HORIZONTAL }
+        val testRbVibRing = RadioButton(ctx).apply { text = "震动+铃声"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)) }
+        val testRbVibOnly = RadioButton(ctx).apply { text = "仅震动"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)) }
+        val testRbRingOnly = RadioButton(ctx).apply { text = "仅铃声"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)) }
+        when (AlarmScheduler.getDefaultAlarmMode(ctx)) {
             AlarmScheduler.AlarmMode.VIBRATE_AND_RING -> testRbVibRing.isChecked = true
             AlarmScheduler.AlarmMode.VIBRATE_ONLY -> testRbVibOnly.isChecked = true
             AlarmScheduler.AlarmMode.RING_ONLY -> testRbRingOnly.isChecked = true
@@ -1249,26 +1050,48 @@ class AlarmFragment : Fragment() {
         testRgRingMode.addView(testRbVibRing); testRgRingMode.addView(testRbVibOnly); testRgRingMode.addView(testRbRingOnly)
         testRingtoneContainer.addView(testRgRingMode)
 
+        val btnPickRingtone = Button(ctx).apply {
+            var curUri = AlarmScheduler.getDefaultRingtoneUri(ctx)
+            text = if (curUri != null) "已选自定义铃声" else "选择铃声（默认系统闹钟）"
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
+            setOnClickListener {
+                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                    curUri?.let { putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it)) }
+                }
+                startActivityForResult(intent, REQUEST_PICK_RINGTONE)
+            }
+        }
+        testRingtoneContainer.addView(btnPickRingtone)
+
         // 模式（渐进/固定）
-        val testRgVibMode = RadioGroup(requireContext()).apply { orientation = RadioGroup.HORIZONTAL }
-        val testRbVibProg = RadioButton(requireContext()).apply { text = "渐进"; id = View.generateViewId(); isChecked = true; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
-        val testRbVibFixed = RadioButton(requireContext()).apply { text = "固定"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
+        val testRgVibMode = RadioGroup(ctx).apply { orientation = RadioGroup.HORIZONTAL }
+        val testRbVibProg = RadioButton(ctx).apply { text = "渐进"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)) }
+        val testRbVibFixed = RadioButton(ctx).apply { text = "固定"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)) }
+        if (AlarmScheduler.getDefaultVibrationMode(ctx) == AlarmScheduler.VibrationMode.FIXED) {
+            testRbVibFixed.isChecked = true
+        } else {
+            testRbVibProg.isChecked = true
+        }
         testRgVibMode.addView(testRbVibProg); testRgVibMode.addView(testRbVibFixed)
         testRingtoneContainer.addView(testRgVibMode)
 
         // 震动强度 — 固定模式单滑块
-        val testVibRow = LinearLayout(requireContext()).apply {
+        val testVibRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
         }
-        testVibRow.addView(TextView(requireContext()).apply { text = "震动"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
-        val testSbVib = SeekBar(requireContext()).apply {
-            max = 9; progress = AlarmScheduler.getDefaultVibrationIntensity(requireContext()) - 1
+        testVibRow.addView(TextView(ctx).apply { text = "震动"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
+        val testSbVib = SeekBar(ctx).apply {
+            max = 9; progress = (AlarmScheduler.getDefaultVibrationIntensity(ctx) - 1).coerceIn(0, 9)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val testTvVibLabel = TextView(requireContext()).apply {
+        val testTvVibLabel = TextView(ctx).apply {
             text = "${testSbVib.progress + 1} / 10"; textSize = 14f
-            setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
         }
         testSbVib.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { testTvVibLabel.text = "${p + 1} / 10" }
@@ -1279,26 +1102,26 @@ class AlarmFragment : Fragment() {
         testRingtoneContainer.addView(testVibRow)
 
         // 渐进模式提示文字（起始强度固定为 1）
-        val testProgHintRow = TextView(requireContext()).apply {
+        val testProgHintRow = TextView(ctx).apply {
             text = "起始强度: 1（固定）"
-            textSize = 12f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzMuted))
+            textSize = 12f; setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
         }
         testRingtoneContainer.addView(testProgHintRow)
 
         // 震动最大强度（渐进模式可见）
-        val testProgVibRow = LinearLayout(requireContext()).apply {
+        val testProgVibRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
         }
-        testProgVibRow.addView(TextView(requireContext()).apply { text = "震动最大"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
-        val testSbProgVibMax = SeekBar(requireContext()).apply {
-            max = 9; progress = AlarmScheduler.getDefaultProgressiveMaxIntensity(requireContext()) - 1
+        testProgVibRow.addView(TextView(ctx).apply { text = "震动最大"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
+        val testSbProgVibMax = SeekBar(ctx).apply {
+            max = 9; progress = (AlarmScheduler.getDefaultProgressiveMaxIntensity(ctx) - 1).coerceIn(0, 9)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val testTvProgVibMaxLabel = TextView(requireContext()).apply {
+        val testTvProgVibMaxLabel = TextView(ctx).apply {
             text = "${testSbProgVibMax.progress + 1} / 10"; textSize = 14f
-            setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
         }
         testSbProgVibMax.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { testTvProgVibMaxLabel.text = "${p + 1} / 10" }
@@ -1309,18 +1132,18 @@ class AlarmFragment : Fragment() {
         testRingtoneContainer.addView(testProgVibRow)
 
         // 声音最大强度（渐进模式可见）
-        val testProgVolRow = LinearLayout(requireContext()).apply {
+        val testProgVolRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
         }
-        testProgVolRow.addView(TextView(requireContext()).apply { text = "声音最大"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
-        val testSbProgVolMax = SeekBar(requireContext()).apply {
-            max = 9; progress = AlarmScheduler.getDefaultProgressiveMaxRingVolume(requireContext()) - 1
+        testProgVolRow.addView(TextView(ctx).apply { text = "声音最大"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
+        val testSbProgVolMax = SeekBar(ctx).apply {
+            max = 9; progress = (AlarmScheduler.getDefaultProgressiveMaxRingVolume(ctx) - 1).coerceIn(0, 9)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val testTvProgVolMaxLabel = TextView(requireContext()).apply {
+        val testTvProgVolMaxLabel = TextView(ctx).apply {
             text = "${testSbProgVolMax.progress + 1} / 10"; textSize = 14f
-            setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
         }
         testSbProgVolMax.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { testTvProgVolMaxLabel.text = "${p + 1} / 10" }
@@ -1331,18 +1154,18 @@ class AlarmFragment : Fragment() {
         testRingtoneContainer.addView(testProgVolRow)
 
         // 声音强度（固定模式可见）
-        val testVolRow = LinearLayout(requireContext()).apply {
+        val testVolRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
         }
-        testVolRow.addView(TextView(requireContext()).apply { text = "声音"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
-        val testSbRingVol = SeekBar(requireContext()).apply {
-            max = 9; progress = AlarmScheduler.getDefaultRingVolume(requireContext()) - 1
+        testVolRow.addView(TextView(ctx).apply { text = "声音"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
+        val testSbRingVol = SeekBar(ctx).apply {
+            max = 9; progress = (AlarmScheduler.getDefaultRingVolume(ctx) - 1).coerceIn(0, 9)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val testTvRingVolLabel = TextView(requireContext()).apply {
+        val testTvRingVolLabel = TextView(ctx).apply {
             text = "${testSbRingVol.progress + 1} / 10"; textSize = 14f
-            setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
         }
         testSbRingVol.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { testTvRingVolLabel.text = "${p + 1} / 10" }
@@ -1358,8 +1181,7 @@ class AlarmFragment : Fragment() {
             val isVibOnly = modeId == testRbVibOnly.id
             val isRingOnly = modeId == testRbRingOnly.id
             val isProgressive = testRgVibMode.checkedRadioButtonId == testRbVibProg.id
-            // 渐进：仅震动→只显示震动最大，仅铃声→只显示声音最大
-            // 固定：仅震动→只显示震动，仅铃声→只显示声音
+            btnPickRingtone.visibility = if (isVibOnly) View.GONE else View.VISIBLE
             testProgHintRow.visibility = if (!isProgressive) View.GONE else View.VISIBLE
             testProgVibRow.visibility = if (!isProgressive || isRingOnly) View.GONE else View.VISIBLE
             testProgVolRow.visibility = if (!isProgressive || isVibOnly) View.GONE else View.VISIBLE
@@ -1367,8 +1189,8 @@ class AlarmFragment : Fragment() {
             testVolRow.visibility = if (isProgressive || isVibOnly) View.GONE else View.VISIBLE
         }
         testRgRingMode.setOnCheckedChangeListener { _, _ -> updateTestRingtoneVisibility() }
-        updateTestRingtoneVisibility()
         testRgVibMode.setOnCheckedChangeListener { _, _ -> updateTestRingtoneVisibility() }
+        updateTestRingtoneVisibility()
 
         fun updateStage2Visibility() {
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
@@ -1376,28 +1198,105 @@ class AlarmFragment : Fragment() {
             tvStage1Label.text = if (isTwoStage) "第一关解锁方式（通过其一即可）" else "解锁方式配置（可并联多选）"
             layoutTestStage1Cooldown?.visibility = if (isTwoStage) View.VISIBLE else View.GONE
         }
-        val hasCameraTest = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        cbS1Qr.isChecked = false
-        cbS2Qr.isChecked = false
-        bindQrCheckboxPermission(cbS1Qr)
-        bindQrCheckboxPermission(cbS2Qr)
-
         rgUnlockMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility(); updateTestRingtoneVisibility() }
         updateStage2Visibility()
 
-        val testDialog = AlertDialog.Builder(requireContext())
-            .setTitle("测试闹钟配置")
+        val testDialog = AlertDialog.Builder(ctx)
+            .setTitle("默认闹钟配置与测试")
             .setView(dialogView)
             .setPositiveButton("开始测试", null)
-            .setNegativeButton("取消", null)
+            .setNeutralButton("保存为默认设置", null)
+            .setNegativeButton("退出", null)
             .create()
 
         testDialog.show()
 
+        // 点击「保存为默认设置」
+        testDialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+            val snoozeMin = etSnoozeMinutes?.text.toString().toIntOrNull() ?: 10
+            if (snoozeMin > 0) AlarmScheduler.setSnoozeMinutes(ctx, snoozeMin)
+            val snoozeMax = etSnoozeMaxCount?.text.toString().toIntOrNull() ?: 2
+            if (snoozeMax > 0) AlarmScheduler.setMaxSnoozeCount(ctx, snoozeMax)
+
+            val defVibMode = if (testRgVibMode.checkedRadioButtonId == testRbVibFixed.id)
+                AlarmScheduler.VibrationMode.FIXED else AlarmScheduler.VibrationMode.PROGRESSIVE
+            if (defVibMode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
+                AlarmScheduler.setDefaultProgressiveMaxIntensity(ctx, testSbProgVibMax.progress + 1)
+                AlarmScheduler.setDefaultProgressiveMaxRingVolume(ctx, testSbProgVolMax.progress + 1)
+            } else {
+                AlarmScheduler.setDefaultVibrationIntensity(ctx, testSbVib.progress + 1)
+            }
+
+            val math = etMathCount.text.toString().toIntOrNull()
+            val poem = etPoemCount.text.toString().toIntOrNull()
+            val word = etWordCount.text.toString().toIntOrNull()
+            val cloze = etClozeCount.text.toString().toIntOrNull()
+            val customCount = etCustomCount.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: 3
+
+            if (math != null && math > 0) AlarmScheduler.setDefaultMathCount(ctx, math)
+            if (poem != null && poem > 0) AlarmScheduler.setDefaultPoemCount(ctx, poem)
+            if (word != null && word > 0) AlarmScheduler.setDefaultWordCount(ctx, word)
+            if (cloze != null && cloze > 0) AlarmScheduler.setDefaultClozeCount(ctx, cloze)
+            AlarmScheduler.setDefaultCustomCount(ctx, customCount)
+
+            val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
+            val mode = if (isTwoStage) AlarmScheduler.UnlockMode.TWO_STAGE else AlarmScheduler.UnlockMode.SINGLE
+            val hasCameraNow = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+            val testS1BankIds = getTestS1CustomBanks()
+            val testS2BankIds = if (isTwoStage) getTestS2CustomBanks() else testS1BankIds
+            val testS1Banks = testS1BankIds.associateWith { customCount }
+            val testS2Banks = testS2BankIds.associateWith { customCount }
+
+            val s1Types = mutableSetOf<String>().apply {
+                if (cbS1Qr.isChecked && hasCameraNow) add("qr")
+                if (cbS1Math.isChecked) add("math")
+                if (cbS1Poem.isChecked) add("poem")
+                if (cbS1Word.isChecked) add("word")
+                if (cbS1Cloze?.isChecked == true) add("cloze")
+                if (testS1Banks.isNotEmpty()) add("custom")
+            }
+            val s2Types = mutableSetOf<String>().apply {
+                if (cbS2Qr.isChecked && hasCameraNow) add("qr")
+                if (cbS2Math.isChecked) add("math")
+                if (cbS2Poem.isChecked) add("poem")
+                if (cbS2Word.isChecked) add("word")
+                if (cbS2Cloze?.isChecked == true) add("cloze")
+                if (testS2Banks.isNotEmpty()) add("custom")
+            }
+
+            val effectiveS1 = if (s1Types.isEmpty()) setOf("math") else s1Types
+            val effectiveS2 = if (mode == AlarmScheduler.UnlockMode.TWO_STAGE && s2Types.isEmpty()) setOf("math", "poem", "word", "cloze") else s2Types
+            AlarmScheduler.setDefaultUnlockMode(ctx, mode)
+            AlarmScheduler.setDefaultStage1Types(ctx, effectiveS1)
+            AlarmScheduler.setDefaultStage2Types(ctx, effectiveS2)
+            AlarmScheduler.setDefaultStage1CustomBanks(ctx, testS1Banks)
+            AlarmScheduler.setDefaultStage2CustomBanks(ctx, testS2Banks)
+
+            val cooldown = etTestCooldown.text.toString().toIntOrNull()?.coerceIn(0, 3600) ?: 0
+            AlarmScheduler.setDefaultStageCooldownSeconds(ctx, cooldown)
+
+            val ringMode = when (testRgRingMode.checkedRadioButtonId) {
+                testRbRingOnly.id -> AlarmScheduler.AlarmMode.RING_ONLY
+                testRbVibOnly.id -> AlarmScheduler.AlarmMode.VIBRATE_ONLY
+                else -> AlarmScheduler.AlarmMode.VIBRATE_AND_RING
+            }
+            AlarmScheduler.setDefaultAlarmMode(ctx, ringMode)
+            if (ringMode != AlarmScheduler.AlarmMode.VIBRATE_ONLY) {
+                pendingRingtoneUri?.let { AlarmScheduler.setDefaultRingtoneUri(ctx, it) }
+            }
+            AlarmScheduler.setDefaultRingVolume(ctx, testSbRingVol.progress + 1)
+            AlarmScheduler.setDefaultVibrationMode(ctx, defVibMode)
+
+            refreshSettingsSummaries()
+            Toast.makeText(ctx, "默认设置已保存", Toast.LENGTH_SHORT).show()
+            testDialog.dismiss()
+        }
+
+        // 点击「开始测试」
         testDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
 
-            val hasCameraNow = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+            val hasCameraNow = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
             val testCustomPerBank = etCustomCount?.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: 3
             val testS1BankIds = getTestS1CustomBanks()
             val testS2BankIds = if (isTwoStage) getTestS2CustomBanks() else testS1BankIds
@@ -1427,16 +1326,16 @@ class AlarmFragment : Fragment() {
             // 严禁任一关为空门禁拦截
             if (isTwoStage) {
                 if (s1Types.isEmpty()) {
-                    Toast.makeText(requireContext(), "两阶段模式下，第一关必须至少选择一种挑战！", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, "两阶段模式下，第一关必须至少选择一种挑战！", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
                 if (s2Types.isEmpty()) {
-                    Toast.makeText(requireContext(), "两阶段模式下，第二关必须至少选择一种挑战！", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, "两阶段模式下，第二关必须至少选择一种挑战！", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
             } else {
                 if (s1Types.isEmpty()) {
-                    Toast.makeText(requireContext(), "请至少选择一种挑战！", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, "请至少选择一种挑战！", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
             }
@@ -1479,7 +1378,7 @@ class AlarmFragment : Fragment() {
                 stage1Types = s1Types, stage2Types = s2Types,
                 stageCooldownSeconds = stageCooldownSec,
                 alarmMode = testAlarmMode,
-                ringtoneUri = AlarmScheduler.getDefaultRingtoneUri(requireContext()),
+                ringtoneUri = pendingRingtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(ctx),
                 ringVolume = testRingVolume,
                 progressiveMaxIntensity = progMax,
                 progressiveMaxRingVolume = progVolMax,
@@ -1490,7 +1389,7 @@ class AlarmFragment : Fragment() {
 
             // [id 流转] 测试闹钟使用专用 TEST_ALARM_ID=0,与真实闹钟 id 命名空间隔离
             // 真实闹钟重排后是 1..N,id=0 仅用于测试
-            val intent = android.content.Intent(requireContext(), AlarmActivity::class.java).apply {
+            val intent = android.content.Intent(ctx, AlarmActivity::class.java).apply {
                 putExtra(AlarmScheduler.EXTRA_ALARM_ID, AlarmScheduler.TEST_ALARM_ID)
             }
             startActivity(intent)

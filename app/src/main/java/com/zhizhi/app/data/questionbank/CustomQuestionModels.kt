@@ -19,16 +19,22 @@ data class CustomQuestion(
     val lastAttemptAt: Long = 0L,           // 最近一次作答时间戳
     val isFavorite: Boolean = false         // 是否已加入收藏
 ) {
+    /** 是否为多选题 */
+    val isMultipleChoice: Boolean get() = answer.trim().length > 1
+
     /** 获取正确答案对应的选项内容文本 */
     fun getAnswerContent(): String {
-        val index = when (answer.trim().uppercase()) {
-            "A" -> 0
-            "B" -> 1
-            "C" -> 2
-            "D" -> 3
-            else -> -1
+        val indices = answer.trim().uppercase().mapNotNull { ch ->
+            when (ch) {
+                'A' -> 0
+                'B' -> 1
+                'C' -> 2
+                'D' -> 3
+                else -> null
+            }
         }
-        return options.getOrNull(index) ?: ""
+        if (indices.isEmpty()) return ""
+        return indices.mapNotNull { options.getOrNull(it) }.joinToString("；")
     }
 }
 

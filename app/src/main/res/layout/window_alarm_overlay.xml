@@ -695,21 +695,36 @@
                                 android:textAllCaps="false" />
                         </LinearLayout>
 
-                        <!-- 跳过按钮 -->
+                        <!-- 操作栏：跳过 + 提交答案 -->
                         <LinearLayout
                             android:layout_width="match_parent"
-                            android:layout_height="40dp"
+                            android:layout_height="44dp"
                             android:orientation="horizontal"
-                            android:layout_marginTop="2dp">
+                            android:layout_marginTop="6dp">
 
                             <Button
                                 android:id="@+id/btn_custom_skip"
-                                android:layout_width="match_parent"
+                                android:layout_width="0dp"
                                 android:layout_height="match_parent"
-                                android:text="⏭ 跳过此题"
+                                android:layout_weight="1"
+                                android:layout_marginEnd="6dp"
+                                android:text="⏭ 跳过"
                                 android:textSize="13sp"
                                 android:textColor="?attr/zzText"
                                 android:backgroundTint="?attr/zzSurface2"
+                                android:textAllCaps="false" />
+
+                            <Button
+                                android:id="@+id/btn_custom_submit"
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1.2"
+                                android:layout_marginStart="6dp"
+                                android:text="提交答案"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="@android:color/white"
+                                android:backgroundTint="?attr/zzAccent"
                                 android:textAllCaps="false" />
                         </LinearLayout>
                     </LinearLayout>
@@ -781,6 +796,18 @@
                 android:textStyle="bold"
                 android:textColor="?attr/zzText"
                 android:layout_marginBottom="0dp" />
+
+            <!-- 防刷手机倒计时（复习回顾显示时展示） -->
+            <TextView
+                android:id="@+id/tv_review_cooldown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:textColor="#FF9800"
+                android:gravity="center"
+                android:padding="8dp"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone" />
 
             <!-- Tab 切换按钮（仅诗词和单词都有数据时显示） -->
             <LinearLayout

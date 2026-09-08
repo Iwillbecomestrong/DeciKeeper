@@ -14,18 +14,22 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="?attr/zzSurface"
-        android:paddingHorizontal="14dp">
+        android:paddingStart="8dp"
+        android:paddingEnd="14dp">
 
         <Button
             android:id="@+id/btn_back"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:text="‹"
             android:textSize="26sp"
             android:textColor="?attr/zzText"
             android:backgroundTint="@android:color/transparent"
             android:insetTop="0dp"
             android:insetBottom="0dp"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:padding="0dp"
             android:minHeight="0dp"
             android:minWidth="0dp" />
 
@@ -34,7 +38,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="4dp"
             android:text="导入自定义题库"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -81,7 +85,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="复制出题/转换 Prompt 发给 AI；如果生成内容格式跑偏导致导入失败，可直接用「格式修复 Prompt」把当前内容重新整理后再粘贴回来。"
+                        android:text="支持导入 .txt / .md / .json 格式文件或直接粘贴文本。复制出题/转换 Prompt 发给 AI；如果生成内容格式跑偏导致导入失败，可直接用「格式修复 Prompt」把当前内容重新整理后再粘贴回来。"
                         android:textSize="12sp"
                         android:textColor="?attr/zzMuted"
                         android:lineSpacingMultiplier="1.2"
@@ -92,34 +96,25 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-                        <LinearLayout
+                        <Button
+                            android:id="@+id/btn_copy_conversion_prompt"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginBottom="8dp">
+                            android:layout_height="40dp"
+                            android:layout_marginBottom="8dp"
+                            android:text="🔄 现有题库转换 Prompt"
+                            android:textSize="12sp"
+                            android:textColor="@android:color/white"
+                            android:backgroundTint="?attr/zzAccent" />
 
-                            <Button
-                                android:id="@+id/btn_copy_conversion_prompt"
-                                android:layout_width="0dp"
-                                android:layout_height="40dp"
-                                android:layout_weight="1"
-                                android:layout_marginEnd="4dp"
-                                android:text="🔄 现有题库转换 Prompt"
-                                android:textSize="11sp"
-                                android:textColor="@android:color/white"
-                                android:backgroundTint="?attr/zzAccent" />
-
-                            <Button
-                                android:id="@+id/btn_copy_ai_prompt"
-                                android:layout_width="0dp"
-                                android:layout_height="40dp"
-                                android:layout_weight="1"
-                                android:layout_marginStart="4dp"
-                                android:text="🤖 原创出题 Prompt"
-                                android:textSize="11sp"
-                                android:textColor="@android:color/white"
-                                android:backgroundTint="?attr/zzAccent" />
-                        </LinearLayout>
+                        <Button
+                            android:id="@+id/btn_copy_ai_prompt"
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            android:layout_marginBottom="8dp"
+                            android:text="🤖 原创出题 Prompt"
+                            android:textSize="12sp"
+                            android:textColor="@android:color/white"
+                            android:backgroundTint="?attr/zzAccent" />
 
                         <Button
                             android:id="@+id/btn_copy_repair_prompt"

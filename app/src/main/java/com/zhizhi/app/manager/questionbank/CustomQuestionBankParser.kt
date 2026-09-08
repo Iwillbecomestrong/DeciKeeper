@@ -25,7 +25,7 @@ object CustomQuestionBankParser {
         """^\s*(?:>\s*)?(?:[-*+]\s+|[•·●▪◦‣]\s*)?(?:\*\*|__)?\s*(?:(?:\(|\[|【|（)([A-Da-dＡ-Ｄａ-ｄ])(?:\)|\]|】|）)|([A-Da-dＡ-Ｄａ-ｄ])[\.．、:：\)）\s])\s*(?:\*\*|__)?\s*(.+?)\s*(?:\*\*|__)?\s*$"""
     )
     private val ANSWER_REGEX = Regex(
-        """^\s*(?:[-*+]\s+|[•·●▪◦‣]\s*)?(?:【?(?:答案|正确答案|参考答案)】?|Answer|Key)\s*(?:[:：]|是)?\s*([A-Da-dＡ-Ｄａ-ｄ]).*""",
+        """^\s*(?:[-*+]\s+|[•·●▪◦‣]\s*)?(?:【?(?:答案|正确答案|参考答案)】?|Answer|Key)\s*(?:[:：]|是)?\s*([A-Da-dＡ-Ｄａ-ｄ\s,，、/]+.*)""",
         RegexOption.IGNORE_CASE
     )
     private val EXPLANATION_HEADER_REGEX = Regex(
@@ -48,7 +48,7 @@ object CustomQuestionBankParser {
         .replace('\u3000', ' ')
         .trim()
 
-    private fun normalizeChoiceLetter(letter: String): String {
+    fun normalizeChoiceLetter(letter: String): String {
         if (letter.isEmpty()) return letter
         val ch = letter[0]
         val normalized = when (ch) {
@@ -63,6 +63,25 @@ object CustomQuestionBankParser {
             else -> ch
         }
         return normalized.uppercaseChar().toString()
+    }
+
+    /**
+     * 规范化答案（支持单选及多选组合，去重并排序），例如：
+     * "B" -> "B", "A, C" -> "AC", "B、A" -> "AB", "BCD" -> "BCD"
+     */
+    fun normalizeAnswer(raw: String): String {
+        val set = mutableSetOf<Char>()
+        for (ch in raw) {
+            val norm = when (ch) {
+                'Ａ', 'ａ', 'A', 'a' -> 'A'
+                'Ｂ', 'ｂ', 'B', 'b' -> 'B'
+                'Ｃ', 'ｃ', 'C', 'c' -> 'C'
+                'Ｄ', 'ｄ', 'D', 'd' -> 'D'
+                else -> null
+            }
+            if (norm != null) set.add(norm)
+        }
+        return set.sorted().joinToString("")
     }
 
     private fun cleanStem(line: String): String {
@@ -114,7 +133,8 @@ object CustomQuestionBankParser {
                     continue
                 }
                 val stem = (obj.optString("stem").ifEmpty { obj.optString("question").ifEmpty { obj.optString("title") } }).trim()
-                val answer = normalizeChoiceLetter((obj.optString("answer").ifEmpty { obj.optString("key") }).trim())
+                val rawAnswer = (obj.optString("answer").ifEmpty { obj.optString("key") }).trim()
+                val answer = normalizeAnswer(rawAnswer)
                 val explanation = (obj.optString("explanation").ifEmpty { obj.optString("analysis") }).trim()
                 val hint = (obj.optString("hint").ifEmpty { obj.optString("clue") }).trim()
 
@@ -136,10 +156,12 @@ object CustomQuestionBankParser {
 
                 if (stem.isBlank()) {
                     issues.add(ParseIssue(i + 1, "第 ${i + 1} 题缺少题干内容 (stem)"))
-                } else if (options.size < 4) {
-                    issues.add(ParseIssue(i + 1, "第 ${i + 1} 题选项不足 4 个（当前 ${options.size} 个）"))
-                } else if (answer.isBlank() || answer !in listOf("A", "B", "C", "D")) {
-                    issues.add(ParseIssue(i + 1, "第 ${i + 1} 题缺少有效答案选项（须为 A/B/C/D）"))
+                } else if (options.size < 3) {
+                    issues.add(ParseIssue(i + 1, "第 ${i + 1} 题选项不足 3 个（当前 ${options.size} 个）"))
+                } else if (answer.isBlank()) {
+                    issues.add(ParseIssue(i + 1, "第 ${i + 1} 题缺少有效答案（须为 A/B/C/D 或多选组合）"))
+                } else if (options.size == 3 && answer.contains("D")) {
+                    issues.add(ParseIssue(i + 1, "第 ${i + 1} 题仅有 3 个选项，但答案包含了 D"))
                 } else {
                     questions.add(
                         CustomQuestion(
@@ -201,12 +223,12 @@ object CustomQuestionBankParser {
                     currentOptions["D"]
                 )
                 when {
-                    opts.size < 4 -> {
-                        val missing = listOf("A", "B", "C", "D").filterNot { currentOptions.containsKey(it) }
+                    opts.size < 3 -> {
+                        val missing = listOf("A", "B", "C").filterNot { currentOptions.containsKey(it) }
                         issues.add(
                             ParseIssue(
                                 currentStartLine,
-                                "选项不足4个（缺少: ${missing.joinToString(", ")}，目前找到 ${opts.size} 个选项）"
+                                "选项不足3个（缺少: ${missing.joinToString(", ")}，目前找到 ${opts.size} 个选项）"
                             )
                         )
                     }
@@ -214,7 +236,15 @@ object CustomQuestionBankParser {
                         issues.add(
                             ParseIssue(
                                 currentStartLine,
-                                "未找到有效答案（支持格式：答案: A/B/C/D）"
+                                "未找到有效答案（支持格式：答案: A/B/C/D 或多选组合如 AB）"
+                            )
+                        )
+                    }
+                    opts.size == 3 && answer.contains("D") -> {
+                        issues.add(
+                            ParseIssue(
+                                currentStartLine,
+                                "题目仅有3个选项(A/B/C)，但答案包含了选项 D"
                             )
                         )
                     }
@@ -224,7 +254,7 @@ object CustomQuestionBankParser {
                                 id = UUID.randomUUID().toString(),
                                 bankId = bankId,
                                 stem = stem,
-                                options = opts,
+                                options = opts.take(4),
                                 answer = answer,
                                 explanation = explanation,
                                 hint = hint
@@ -274,7 +304,7 @@ object CustomQuestionBankParser {
                 hasActiveQuestion = true
                 inExplanation = false
                 inHint = false
-                currentAnswer = normalizeChoiceLetter(ansMatch.groupValues[1])
+                currentAnswer = normalizeAnswer(ansMatch.groupValues[1])
                 continue
             }
 
@@ -307,7 +337,7 @@ object CustomQuestionBankParser {
             // 4. 检查是否为新题目开始
             val hasQPrefix = QUESTION_PREFIX_REGEX.containsMatchIn(trimmed)
             val isExplicitNewHeader = trimmed.startsWith("#") ||
-                (hasActiveQuestion && (currentAnswer != null || currentOptions.size >= 4) && hasQPrefix)
+                (hasActiveQuestion && (currentAnswer != null || currentOptions.size >= 3) && hasQPrefix)
 
             if (isExplicitNewHeader) {
                 commitCurrentQuestion()
