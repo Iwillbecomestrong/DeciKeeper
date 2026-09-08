@@ -11,15 +11,8 @@ permissions:
 jobs:
   contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-      - name: Make Gradle executable
-        run: chmod +x gradlew
-      - name: Run alarm snooze contract test
-        run: ./gradlew :app:testDebugUnitTest --tests com.zhizhi.app.AlarmSnoozeChallengePreserveContractTest --stacktrace
+      - name: Run alarm snooze source contract
+        run: python3 scripts/test_alarm_snooze_contract.py
