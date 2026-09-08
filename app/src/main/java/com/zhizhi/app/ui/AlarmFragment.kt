@@ -628,10 +628,10 @@ class AlarmFragment : Fragment() {
             .setTitle("闹钟默认设置")
             .setView(dialogView)
             .setPositiveButton("保存") { _, _ ->
+                // 保存再响：每次真实闹钟固定仅 1 次；这里只配置静音时长。
                 val snoozeMin = etSnoozeMinutes.text.toString().toIntOrNull() ?: 10
-                val snoozeMax = etSnoozeMaxCount.text.toString().toIntOrNull() ?: 2
                 if (snoozeMin > 0) AlarmScheduler.setSnoozeMinutes(ctx, snoozeMin)
-                if (snoozeMax >= 0) AlarmScheduler.setMaxSnoozeCount(ctx, snoozeMax)
+                AlarmScheduler.setMaxSnoozeCount(ctx, 1)
 
                 val defVibMode = if (rgVibMode.checkedRadioButtonId == rbVibFixed.id)
                     AlarmScheduler.VibrationMode.FIXED else AlarmScheduler.VibrationMode.PROGRESSIVE

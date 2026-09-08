@@ -1,0 +1,35 @@
+name: alarm-snooze-contract
+
+on:
+  push:
+    branches:
+      - ai/alarm-snooze-silent-challenge
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify alarm snooze behavior contract
+        run: python3 scripts/test_alarm_snooze_contract.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+      - name: Run full unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: zhizhi-alarm-snooze-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

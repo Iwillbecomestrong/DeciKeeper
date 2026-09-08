@@ -327,6 +327,12 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
+            keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+            keyCode == KeyEvent.KEYCODE_VOLUME_MUTE
+        ) {
+            if (LockAlarmOverlayController.requestSnoozeFromHardware("VOLUME_KEY")) return true
+        }
         if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
             return true
         }
