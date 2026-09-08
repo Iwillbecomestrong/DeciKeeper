@@ -211,7 +211,7 @@
                     android:id="@+id/tv_cooldown_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="防回床缓冲倒计时"
+                    android:text="完成后延迟"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="?attr/zzText" />
@@ -220,7 +220,7 @@
                     android:id="@+id/tv_cooldown_desc"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="第一关离床完成后立即将响铃震动降为最微弱模式，倒计时结束后进入第二关（0=立即进入）"
+                    android:text="第一关完成后进入最低强度提醒并等待，倒计时结束后方可关闭（0=立即进入第二关或关闭）"
                     android:textSize="12sp"
                     android:textColor="?attr/zzMuted"
                     android:layout_marginTop="2dp"

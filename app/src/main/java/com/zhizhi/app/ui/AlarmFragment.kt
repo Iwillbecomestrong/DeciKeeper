@@ -588,7 +588,7 @@ class AlarmFragment : Fragment() {
         val layoutStage1 = dialogView.findViewById<View>(R.id.layout_stage1)
         val tvStage1Label = dialogView.findViewById<TextView>(R.id.tv_stage1_label)
 
-        val layoutStage2 = dialogView.findViewById<View>(R.id.layout_stage2)
+        val layoutStage2 = dialogView.findViewById<LinearLayout>(R.id.layout_stage2)
         val cbS2Qr = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_qr)
         val cbS2Math = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_math)
         val cbS2Poem = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_poem)
@@ -661,71 +661,13 @@ class AlarmFragment : Fragment() {
         editVibRow.addView(editSbVib); editVibRow.addView(editTvVibLabel)
         editRingtoneContainer.addView(editVibRow)
 
-        // 渐进模式提示文字（起始强度固定为 1）
+        // 渐进模式提示文字
         val editProgHintRow = TextView(requireContext()).apply {
-            text = "起始强度: 1（固定）"
+            text = "从最低强度开始，每 30 秒提高 1 级，直到最高强度"
             textSize = 12f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzMuted))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
         }
         editRingtoneContainer.addView(editProgHintRow)
-
-        // 震动最大强度（渐进模式可见）
-        val editProgVibRow = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
-        }
-        editProgVibRow.addView(TextView(requireContext()).apply { text = "震动最大"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
-        val editSbProgVibMax = SeekBar(requireContext()).apply {
-            max = 9; progress = (existing?.progressiveMaxIntensity ?: AlarmScheduler.getDefaultProgressiveMaxIntensity(requireContext())) - 1
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        val editTvProgVibMaxLabel = TextView(requireContext()).apply {
-            text = "${editSbProgVibMax.progress + 1} / 10"; textSize = 14f
-            setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
-        }
-        editSbProgVibMax.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { editTvProgVibMaxLabel.text = "${p + 1} / 10" }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-        editProgVibRow.addView(editSbProgVibMax); editProgVibRow.addView(editTvProgVibMaxLabel)
-        editRingtoneContainer.addView(editProgVibRow)
-
-        // 5分钟后自动升级（渐进模式可见）
-        val editAutoEscalateRow = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
-        }
-        val editCbAutoEscalate = CheckBox(requireContext()).apply {
-            text = "5分钟后自动升级到最大"
-            textSize = 13f
-            setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText))
-            isChecked = existing?.autoEscalate ?: false
-        }
-        editAutoEscalateRow.addView(editCbAutoEscalate)
-        editRingtoneContainer.addView(editAutoEscalateRow)
-
-        // 声音最大强度（渐进模式可见）
-        val editProgVolRow = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
-        }
-        editProgVolRow.addView(TextView(requireContext()).apply { text = "声音最大"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
-        val editSbProgVolMax = SeekBar(requireContext()).apply {
-            max = 9; progress = (existing?.progressiveMaxRingVolume ?: AlarmScheduler.getDefaultProgressiveMaxRingVolume(requireContext())) - 1
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        val editTvProgVolMaxLabel = TextView(requireContext()).apply {
-            text = "${editSbProgVolMax.progress + 1} / 10"; textSize = 14f
-            setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
-        }
-        editSbProgVolMax.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { editTvProgVolMaxLabel.text = "${p + 1} / 10" }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-        editProgVolRow.addView(editSbProgVolMax); editProgVolRow.addView(editTvProgVolMaxLabel)
-        editRingtoneContainer.addView(editProgVolRow)
 
         // 声音强度（固定模式）
         val editVolContainer = LinearLayout(requireContext()).apply {
@@ -750,17 +692,115 @@ class AlarmFragment : Fragment() {
         editRingtoneContainer.addView(editVolContainer)
         innerLayout?.addView(editRingtoneContainer)
 
+        // 第二关独立提醒设置
+        val editCbStage2Independent = CheckBox(requireContext()).apply {
+            text = "第二关使用独立提醒设置"
+            textSize = 13f
+            setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText))
+            isChecked = existing?.stage2UseIndependentAlertPolicy ?: false
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+        }
+        layoutStage2.addView(editCbStage2Independent)
+
+        val editStage2AlertContainer = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
+            visibility = if (editCbStage2Independent.isChecked) View.VISIBLE else View.GONE
+        }
+        val editS2RgRingMode = RadioGroup(requireContext()).apply { orientation = RadioGroup.HORIZONTAL }
+        val editS2RbVibRing = RadioButton(requireContext()).apply { text = "震动+铃声"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
+        val editS2RbVibOnly = RadioButton(requireContext()).apply { text = "仅震动"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
+        val editS2RbRingOnly = RadioButton(requireContext()).apply { text = "仅铃声"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
+        val s2AlarmModeInitial = existing?.stage2AlarmMode ?: AlarmScheduler.AlarmMode.VIBRATE_AND_RING
+        when (s2AlarmModeInitial) {
+            AlarmScheduler.AlarmMode.VIBRATE_AND_RING -> editS2RbVibRing.isChecked = true
+            AlarmScheduler.AlarmMode.VIBRATE_ONLY -> editS2RbVibOnly.isChecked = true
+            AlarmScheduler.AlarmMode.RING_ONLY -> editS2RbRingOnly.isChecked = true
+        }
+        editS2RgRingMode.addView(editS2RbVibRing); editS2RgRingMode.addView(editS2RbVibOnly); editS2RgRingMode.addView(editS2RbRingOnly)
+        editStage2AlertContainer.addView(editS2RgRingMode)
+
+        val editS2RgVibMode = RadioGroup(requireContext()).apply { orientation = RadioGroup.HORIZONTAL }
+        val editS2RbVibProg = RadioButton(requireContext()).apply { text = "渐进"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
+        val editS2RbVibFixed = RadioButton(requireContext()).apply { text = "固定"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
+        val s2VibModeInitial = existing?.stage2VibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE
+        if (s2VibModeInitial == AlarmScheduler.VibrationMode.FIXED) editS2RbVibFixed.isChecked = true else editS2RbVibProg.isChecked = true
+        editS2RgVibMode.addView(editS2RbVibProg); editS2RgVibMode.addView(editS2RbVibFixed)
+        editStage2AlertContainer.addView(editS2RgVibMode)
+
+        val editS2ProgHintRow = TextView(requireContext()).apply {
+            text = "从最低强度开始，每 30 秒提高 1 级，直到最高强度"
+            textSize = 12f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzMuted))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
+        }
+        editStage2AlertContainer.addView(editS2ProgHintRow)
+
+        val editS2VibRow = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
+        }
+        editS2VibRow.addView(TextView(requireContext()).apply { text = "震动"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
+        val editS2SbVib = SeekBar(requireContext()).apply {
+            max = 9; progress = (existing?.stage2VibrationIntensity ?: 7) - 1
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val editS2TvVibLabel = TextView(requireContext()).apply {
+            text = "${editS2SbVib.progress + 1} / 10"; textSize = 14f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
+        }
+        editS2SbVib.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { editS2TvVibLabel.text = "${p + 1} / 10" }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+        editS2VibRow.addView(editS2SbVib); editS2VibRow.addView(editS2TvVibLabel)
+        editStage2AlertContainer.addView(editS2VibRow)
+
+        val editS2VolContainer = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
+        }
+        editS2VolContainer.addView(TextView(requireContext()).apply { text = "声音"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
+        val editS2SbRingVol = SeekBar(requireContext()).apply {
+            max = 9; progress = (existing?.stage2RingVolume ?: 7) - 1
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val editS2TvRingVolLabel = TextView(requireContext()).apply {
+            text = "${editS2SbRingVol.progress + 1} / 10"; textSize = 14f; setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
+        }
+        editS2SbRingVol.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { editS2TvRingVolLabel.text = "${p + 1} / 10" }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+        editS2VolContainer.addView(editS2SbRingVol); editS2VolContainer.addView(editS2TvRingVolLabel)
+        editStage2AlertContainer.addView(editS2VolContainer)
+
+        fun updateStage2AlertControlsVisibility() {
+            val isInd = editCbStage2Independent.isChecked
+            editStage2AlertContainer.visibility = if (isInd) View.VISIBLE else View.GONE
+            if (isInd) {
+                val modeId = editS2RgRingMode.checkedRadioButtonId
+                val isVibOnly = modeId == editS2RbVibOnly.id
+                val isRingOnly = modeId == editS2RbRingOnly.id
+                val isProgressive = editS2RgVibMode.checkedRadioButtonId == editS2RbVibProg.id
+                editS2ProgHintRow.visibility = if (!isProgressive) View.GONE else View.VISIBLE
+                editS2VibRow.visibility = if (isProgressive || isRingOnly) View.GONE else View.VISIBLE
+                editS2VolContainer.visibility = if (isProgressive || isVibOnly) View.GONE else View.VISIBLE
+            }
+        }
+        editCbStage2Independent.setOnCheckedChangeListener { _, _ -> updateStage2AlertControlsVisibility() }
+        editS2RgRingMode.setOnCheckedChangeListener { _, _ -> updateStage2AlertControlsVisibility() }
+        editS2RgVibMode.setOnCheckedChangeListener { _, _ -> updateStage2AlertControlsVisibility() }
+        updateStage2AlertControlsVisibility()
+
+        layoutStage2.addView(editStage2AlertContainer)
+
         fun updateEditRingtoneVisibility() {
             val modeId = editRgRingMode.checkedRadioButtonId
             val isVibOnly = modeId == editRbVibOnly.id
             val isRingOnly = modeId == editRbRingOnly.id
             val isProgressive = editRgVibMode.checkedRadioButtonId == editRbVibProg.id
-            // 渐进：仅震动→只显示震动最大，仅铃声→只显示声音最大
-            // 固定：仅震动→只显示震动，仅铃声→只显示声音
             editProgHintRow.visibility = if (!isProgressive) View.GONE else View.VISIBLE
-            editProgVibRow.visibility = if (!isProgressive || isRingOnly) View.GONE else View.VISIBLE
-            editAutoEscalateRow.visibility = if (isRingOnly) View.GONE else View.VISIBLE
-            editProgVolRow.visibility = if (!isProgressive || isVibOnly) View.GONE else View.VISIBLE
             editVibRow.visibility = if (isProgressive || isRingOnly) View.GONE else View.VISIBLE
             editVolContainer.visibility = if (isProgressive || isVibOnly) View.GONE else View.VISIBLE
         }
@@ -772,8 +812,9 @@ class AlarmFragment : Fragment() {
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
             layoutStage2.visibility = if (isTwoStage) View.VISIBLE else View.GONE
             tvStage1Label.text = if (isTwoStage) "第一关解锁方式（通过其一即可）" else "解锁方式配置（可并联多选）"
-            layoutStage1Cooldown?.visibility = if (isTwoStage) View.VISIBLE else View.GONE
+            layoutStage1Cooldown?.visibility = View.VISIBLE
         }
+        rgUnlockMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility(); updateEditRingtoneVisibility() }
         rgUnlockMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility(); updateEditRingtoneVisibility() }
 
         val hasCamera = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -906,9 +947,6 @@ class AlarmFragment : Fragment() {
             val vibrationIntensity = if (isProgressive) 1 else editSbVib.progress + 1
             val vibrationMode = if (editRgVibMode.checkedRadioButtonId == editRbVibFixed.id)
                 AlarmScheduler.VibrationMode.FIXED else AlarmScheduler.VibrationMode.PROGRESSIVE
-            val progMax = if (isProgressive) editSbProgVibMax.progress + 1 else 10
-            val progVolMax = if (isProgressive) editSbProgVolMax.progress + 1 else 10
-            val autoEscalate = editCbAutoEscalate.isChecked
             val ringVolume = editSbRingVol.progress + 1
             val unlockMode = if (isTwoStage) AlarmScheduler.UnlockMode.TWO_STAGE else AlarmScheduler.UnlockMode.SINGLE
             val stageCooldownSec = etEditCooldown.text.toString().toIntOrNull()?.coerceIn(0, 3600) ?: 0
@@ -917,6 +955,16 @@ class AlarmFragment : Fragment() {
                 editRbVibOnly.id -> AlarmScheduler.AlarmMode.VIBRATE_ONLY
                 else -> AlarmScheduler.AlarmMode.VIBRATE_AND_RING
             }
+            val s2UseIndependent = isTwoStage && editCbStage2Independent.isChecked
+            val s2AlarmMode = when (editS2RgRingMode.checkedRadioButtonId) {
+                editS2RbRingOnly.id -> AlarmScheduler.AlarmMode.RING_ONLY
+                editS2RbVibOnly.id -> AlarmScheduler.AlarmMode.VIBRATE_ONLY
+                else -> AlarmScheduler.AlarmMode.VIBRATE_AND_RING
+            }
+            val s2VibMode = if (editS2RgVibMode.checkedRadioButtonId == editS2RbVibFixed.id)
+                AlarmScheduler.VibrationMode.FIXED else AlarmScheduler.VibrationMode.PROGRESSIVE
+            val s2VibIntensity = if (s2VibMode == AlarmScheduler.VibrationMode.PROGRESSIVE) 1 else editS2SbVib.progress + 1
+            val s2RingVol = editS2SbRingVol.progress + 1
 
             val entry = if (existing == null) {
                 AlarmScheduler.createAlarm(
@@ -929,11 +977,16 @@ class AlarmFragment : Fragment() {
                     ringtoneUri = AlarmScheduler.getDefaultRingtoneUri(requireContext()),
                     alarmMode = editAlarmModeVal,
                     ringVolume = ringVolume,
-                    progressiveMaxIntensity = progMax,
-                    progressiveMaxRingVolume = progVolMax,
-                    autoEscalate = autoEscalate,
+                    progressiveMaxIntensity = 10,
+                    progressiveMaxRingVolume = 10,
+                    autoEscalate = false,
                     stage1CustomBanks = s1CustomBanks,
-                    stage2CustomBanks = s2CustomBanks
+                    stage2CustomBanks = s2CustomBanks,
+                    stage2UseIndependentAlertPolicy = s2UseIndependent,
+                    stage2AlarmMode = s2AlarmMode,
+                    stage2VibrationMode = s2VibMode,
+                    stage2VibrationIntensity = s2VibIntensity,
+                    stage2RingVolume = s2RingVol
                 )
             } else {
                 existing.copy(
@@ -947,11 +1000,16 @@ class AlarmFragment : Fragment() {
                     stageCooldownSeconds = stageCooldownSec,
                     alarmMode = editAlarmModeVal,
                     ringVolume = ringVolume,
-                    progressiveMaxIntensity = progMax,
-                    progressiveMaxRingVolume = progVolMax,
-                    autoEscalate = autoEscalate,
+                    progressiveMaxIntensity = 10,
+                    progressiveMaxRingVolume = 10,
+                    autoEscalate = false,
                     stage1CustomBanks = s1CustomBanks,
-                    stage2CustomBanks = s2CustomBanks
+                    stage2CustomBanks = s2CustomBanks,
+                    stage2UseIndependentAlertPolicy = s2UseIndependent,
+                    stage2AlarmMode = s2AlarmMode,
+                    stage2VibrationMode = s2VibMode,
+                    stage2VibrationIntensity = s2VibIntensity,
+                    stage2RingVolume = s2RingVol
                 )
             }
             upsertAlarm(entry)
@@ -1101,57 +1159,13 @@ class AlarmFragment : Fragment() {
         testVibRow.addView(testSbVib); testVibRow.addView(testTvVibLabel)
         testRingtoneContainer.addView(testVibRow)
 
-        // 渐进模式提示文字（起始强度固定为 1）
+        // 渐进模式提示文字
         val testProgHintRow = TextView(ctx).apply {
-            text = "起始强度: 1（固定）"
+            text = "从最低强度开始，每 30 秒提高 1 级，直到最高强度"
             textSize = 12f; setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
         }
         testRingtoneContainer.addView(testProgHintRow)
-
-        // 震动最大强度（渐进模式可见）
-        val testProgVibRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
-        }
-        testProgVibRow.addView(TextView(ctx).apply { text = "震动最大"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
-        val testSbProgVibMax = SeekBar(ctx).apply {
-            max = 9; progress = (AlarmScheduler.getDefaultProgressiveMaxIntensity(ctx) - 1).coerceIn(0, 9)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        val testTvProgVibMaxLabel = TextView(ctx).apply {
-            text = "${testSbProgVibMax.progress + 1} / 10"; textSize = 14f
-            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
-        }
-        testSbProgVibMax.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { testTvProgVibMaxLabel.text = "${p + 1} / 10" }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-        testProgVibRow.addView(testSbProgVibMax); testProgVibRow.addView(testTvProgVibMaxLabel)
-        testRingtoneContainer.addView(testProgVibRow)
-
-        // 声音最大强度（渐进模式可见）
-        val testProgVolRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
-        }
-        testProgVolRow.addView(TextView(ctx).apply { text = "声音最大"; textSize = 13f; setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(0, 0, dp(8), 0) })
-        val testSbProgVolMax = SeekBar(ctx).apply {
-            max = 9; progress = (AlarmScheduler.getDefaultProgressiveMaxRingVolume(ctx) - 1).coerceIn(0, 9)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        val testTvProgVolMaxLabel = TextView(ctx).apply {
-            text = "${testSbProgVolMax.progress + 1} / 10"; textSize = 14f
-            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText)); setPadding(dp(8), 0, 0, 0)
-        }
-        testSbProgVolMax.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { testTvProgVolMaxLabel.text = "${p + 1} / 10" }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-        testProgVolRow.addView(testSbProgVolMax); testProgVolRow.addView(testTvProgVolMaxLabel)
-        testRingtoneContainer.addView(testProgVolRow)
 
         // 声音强度（固定模式可见）
         val testVolRow = LinearLayout(ctx).apply {
@@ -1183,8 +1197,6 @@ class AlarmFragment : Fragment() {
             val isProgressive = testRgVibMode.checkedRadioButtonId == testRbVibProg.id
             btnPickRingtone.visibility = if (isVibOnly) View.GONE else View.VISIBLE
             testProgHintRow.visibility = if (!isProgressive) View.GONE else View.VISIBLE
-            testProgVibRow.visibility = if (!isProgressive || isRingOnly) View.GONE else View.VISIBLE
-            testProgVolRow.visibility = if (!isProgressive || isVibOnly) View.GONE else View.VISIBLE
             testVibRow.visibility = if (isProgressive || isRingOnly) View.GONE else View.VISIBLE
             testVolRow.visibility = if (isProgressive || isVibOnly) View.GONE else View.VISIBLE
         }
@@ -1221,8 +1233,8 @@ class AlarmFragment : Fragment() {
             val defVibMode = if (testRgVibMode.checkedRadioButtonId == testRbVibFixed.id)
                 AlarmScheduler.VibrationMode.FIXED else AlarmScheduler.VibrationMode.PROGRESSIVE
             if (defVibMode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-                AlarmScheduler.setDefaultProgressiveMaxIntensity(ctx, testSbProgVibMax.progress + 1)
-                AlarmScheduler.setDefaultProgressiveMaxRingVolume(ctx, testSbProgVolMax.progress + 1)
+                AlarmScheduler.setDefaultProgressiveMaxIntensity(ctx, 10)
+                AlarmScheduler.setDefaultProgressiveMaxRingVolume(ctx, 10)
             } else {
                 AlarmScheduler.setDefaultVibrationIntensity(ctx, testSbVib.progress + 1)
             }
@@ -1357,8 +1369,8 @@ class AlarmFragment : Fragment() {
             val intensity = if (isProgressive) 1 else testSbVib.progress + 1
             val vibrationMode = if (testRgVibMode.checkedRadioButtonId == testRbVibFixed.id)
                 AlarmScheduler.VibrationMode.FIXED else AlarmScheduler.VibrationMode.PROGRESSIVE
-            val progMax = if (isProgressive) testSbProgVibMax.progress + 1 else 10
-            val progVolMax = if (isProgressive) testSbProgVolMax.progress + 1 else 10
+            val progMax = 10
+            val progVolMax = 10
             val unlockMode = if (isTwoStage) AlarmScheduler.UnlockMode.TWO_STAGE else AlarmScheduler.UnlockMode.SINGLE
             val stageCooldownSec = etTestCooldown.text.toString().toIntOrNull()?.coerceIn(0, 3600) ?: 0
             val testAlarmMode = when (testRgRingMode.checkedRadioButtonId) {

@@ -117,7 +117,7 @@
                     android:id="@+id/tv_cooldown_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="防回床缓冲倒计时"
+                    android:text="完成后延迟"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:textColor="?attr/zzText" />
@@ -126,7 +126,7 @@
                     android:id="@+id/tv_cooldown_desc"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="第一关通过后音量与震动衰减为最微弱模式，倒计时结束后进入第二关（0=立即开放）"
+                    android:text="第一关通过后音量与震动衰减为最微弱模式，倒计时结束后进入第二关或允许关闭（0=立即生效）"
                     android:textSize="11sp"
                     android:textColor="?attr/zzMuted"
                     android:layout_marginTop="2dp"
