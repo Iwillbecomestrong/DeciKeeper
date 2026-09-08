@@ -643,6 +643,16 @@ object AlarmScheduler {
         prefs.edit().putString(KEY_DEFAULT_STAGE2_CUSTOM_BANKS, obj.toString()).apply()
     }
 
+    fun getBankDefaultCount(context: Context, bankId: String, fallback: Int = 3): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("custom_bank_count_$bankId", fallback)
+    }
+
+    fun setBankDefaultCount(context: Context, bankId: String, count: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("custom_bank_count_$bankId", count.coerceAtLeast(1)).apply()
+    }
+
     fun getStageCooldownSeconds(context: Context, alarmId: Int): Int {
         val alarm = getAlarms(context).find { it.id == alarmId }
         return alarm?.stageCooldownSeconds ?: getDefaultStageCooldownSeconds(context)

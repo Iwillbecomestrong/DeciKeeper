@@ -176,24 +176,14 @@
                     <CheckBox android:id="@+id/cb_s1_word" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="单词" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                 </LinearLayout>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-                    <CheckBox android:id="@+id/cb_s1_cloze" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="选词填空" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
-                    <Space android:layout_width="0dp" android:layout_weight="3" android:layout_height="wrap_content" />
-                </LinearLayout>
+                <CheckBox android:id="@+id/cb_s1_cloze" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="选词填空" android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/layout_s1_custom_banks"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="4dp"
-                    android:paddingEnd="4dp"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="4dp" />
+                    android:paddingTop="2dp" />
             </LinearLayout>
 
             <!-- 第一关防回床倒计时缓冲（双阶段模式下可见） -->
@@ -284,24 +274,14 @@
                     <CheckBox android:id="@+id/cb_s2_word" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="单词" android:checked="true" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                 </LinearLayout>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-                    <CheckBox android:id="@+id/cb_s2_cloze" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="选词填空" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
-                    <Space android:layout_width="0dp" android:layout_weight="3" android:layout_height="wrap_content" />
-                </LinearLayout>
+                <CheckBox android:id="@+id/cb_s2_cloze" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="选词填空" android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/layout_s2_custom_banks"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="4dp"
-                    android:paddingEnd="4dp"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="4dp" />
+                    android:paddingTop="2dp" />
             </LinearLayout>
 
             <TextView
@@ -359,19 +339,14 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- 动态各题库独立数量（如 考公 3 道、考研 3 道） -->
                 <LinearLayout
+                    android:id="@+id/layout_custom_bank_counts"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="vertical" />
 
-                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="题库 " android:textSize="13sp" android:textColor="?attr/zzText" />
-                        <EditText android:id="@+id/et_custom_count" android:layout_width="52dp" android:layout_height="38dp" android:inputType="number" android:text="3" android:gravity="center" android:textSize="13sp" android:textColor="?attr/zzText" android:background="@drawable/bg_input_field" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 道" android:textSize="12sp" android:textColor="?attr/zzMuted" />
-                    </LinearLayout>
-
-                    <Space android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp" />
-                </LinearLayout>
+                <EditText android:id="@+id/et_custom_count" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
             </LinearLayout>
 
         </LinearLayout>

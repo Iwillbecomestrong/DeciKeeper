@@ -483,23 +483,55 @@ class AlarmFragment : Fragment() {
     }
 
 
-    private fun setupCustomBankSelection(
+    data class UnifiedBankSelectionResult(
+        val isClozeChecked: () -> Boolean,
+        val getSelectedBankIds: () -> Set<String>
+    )
+
+    private fun setupUnifiedBankSelection(
         context: Context,
-        containerBanks: LinearLayout?,
+        container: LinearLayout?,
+        isClozeSelected: Boolean,
         selectedBankMap: Map<String, Int>
-    ): () -> Set<String> {
-        if (containerBanks == null) return { emptySet() }
+    ): UnifiedBankSelectionResult {
+        if (container == null) return UnifiedBankSelectionResult({ false }, { emptySet() })
+        container.removeAllViews()
+        container.visibility = View.VISIBLE
+
         val allBanks = com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.getBanks(context)
-        val bankCheckBoxes = mutableListOf<Pair<String, CheckBox>>()
 
-        containerBanks.removeAllViews()
-        if (allBanks.isEmpty()) {
-            containerBanks.visibility = View.GONE
-            return { emptySet() }
+        // 第一项：选词填空（占用 50% 宽度，文字绝不折行）
+        val clozeCb = CheckBox(context).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            text = "选词填空"
+            textSize = 12f
+            includeFontPadding = false
+            setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
+            isChecked = isClozeSelected
         }
-        containerBanks.visibility = View.VISIBLE
 
-        val chunks = allBanks.chunked(2)
+        val bankCheckBoxes = mutableListOf<Pair<String, CheckBox>>()
+        val allItems = mutableListOf<View>()
+        allItems.add(clozeCb)
+
+        // 后续项：自定义题库（如考公、考研），紧随选词填空排布在同一流式网格中
+        for (bank in allBanks) {
+            val bankCb = CheckBox(context).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                text = bank.title
+                textSize = 12f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                includeFontPadding = false
+                setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
+                isChecked = selectedBankMap.containsKey(bank.id)
+            }
+            bankCheckBoxes.add(Pair(bank.id, bankCb))
+            allItems.add(bankCb)
+        }
+
+        // 两两一行（每列 50% 宽度）
+        val chunks = allItems.chunked(2)
         for (chunk in chunks) {
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -509,37 +541,133 @@ class AlarmFragment : Fragment() {
                 ).apply { topMargin = dp(2); bottomMargin = dp(2) }
                 gravity = Gravity.CENTER_VERTICAL
             }
-            for (bank in chunk) {
-                val cb = CheckBox(context).apply {
+            for (view in chunk) {
+                row.addView(view)
+            }
+            if (chunk.size == 1) {
+                val space = Space(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                row.addView(space)
+            }
+            container.addView(row)
+        }
+
+        return UnifiedBankSelectionResult(
+            isClozeChecked = { clozeCb.isChecked },
+            getSelectedBankIds = {
+                bankCheckBoxes.filter { it.second.isChecked }.map { it.first }.toSet()
+            }
+        )
+    }
+
+    private fun setupCustomBankCounts(
+        context: Context,
+        container: LinearLayout?,
+        savedCounts: Map<String, Int>,
+        defaultCount: Int = 3
+    ): () -> Map<String, Int> {
+        if (container == null) return { emptyMap() }
+        container.removeAllViews()
+        val allBanks = com.zhizhi.app.manager.questionbank.CustomQuestionBankManager.getBanks(context)
+        if (allBanks.isEmpty()) {
+            container.visibility = View.GONE
+            return { emptyMap() }
+        }
+        container.visibility = View.VISIBLE
+
+        val countMap = mutableMapOf<String, EditText>()
+        val chunks = allBanks.chunked(2)
+
+        for (chunk in chunks) {
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dp(7)
+                }
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            for ((index, bank) in chunk.withIndex()) {
+                val col = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                    ).apply {
+                        if (index > 0) marginStart = dp(8)
+                    }
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+
+                val tvTitle = TextView(context).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         0,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         1f
                     )
-                    text = bank.title
-                    textSize = 12f
-                    includeFontPadding = false
+                    text = "${bank.title} "
+                    textSize = 13f
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
                     setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
-                    isChecked = selectedBankMap.containsKey(bank.id)
                 }
-                row.addView(cb)
-                bankCheckBoxes.add(Pair(bank.id, cb))
+
+                val etCount = EditText(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(52), dp(38))
+                    inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                    gravity = Gravity.CENTER
+                    textSize = 13f
+                    setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
+                    setBackgroundResource(R.drawable.bg_input_field)
+                    val initialVal = savedCounts[bank.id] ?: AlarmScheduler.getBankDefaultCount(context, bank.id, defaultCount)
+                    setText(initialVal.toString())
+                }
+                countMap[bank.id] = etCount
+
+                val tvUnit = TextView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    text = " 道"
+                    textSize = 12f
+                    setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
+                }
+
+                col.addView(tvTitle)
+                col.addView(etCount)
+                col.addView(tvUnit)
+                row.addView(col)
             }
+
             if (chunk.size == 1) {
                 val space = Space(context).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         0,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         1f
-                    )
+                    ).apply {
+                        marginStart = dp(8)
+                    }
                 }
                 row.addView(space)
             }
-            containerBanks.addView(row)
+
+            container.addView(row)
         }
 
         return {
-            bankCheckBoxes.filter { it.second.isChecked }.map { it.first }.toSet()
+            val result = mutableMapOf<String, Int>()
+            for ((bankId, et) in countMap) {
+                val cnt = et.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: defaultCount
+                result[bankId] = cnt
+            }
+            result
         }
     }
 
@@ -604,10 +732,25 @@ class AlarmFragment : Fragment() {
 
         val layoutS1CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s1_custom_banks)
         val layoutS2CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s2_custom_banks)
-        val s1BankMap = existing?.stage1CustomBanks ?: emptyMap()
-        val s2BankMap = existing?.stage2CustomBanks ?: emptyMap()
-        val getS1CustomBanks = setupCustomBankSelection(requireContext(), layoutS1CustomBanks, s1BankMap)
-        val getS2CustomBanks = setupCustomBankSelection(requireContext(), layoutS2CustomBanks, s2BankMap)
+        val s1BankMap = existing?.stage1CustomBanks ?: AlarmScheduler.getDefaultStage1CustomBanks(requireContext())
+        val s2BankMap = existing?.stage2CustomBanks ?: AlarmScheduler.getDefaultStage2CustomBanks(requireContext())
+        val isS1Cloze = if (existing != null) "cloze" in existing.stage1Types else "cloze" in AlarmScheduler.getDefaultStage1Types(requireContext())
+        val isS2Cloze = if (existing != null) "cloze" in existing.stage2Types else "cloze" in AlarmScheduler.getDefaultStage2Types(requireContext())
+        val s1Result = setupUnifiedBankSelection(requireContext(), layoutS1CustomBanks, isS1Cloze, s1BankMap)
+        val s2Result = setupUnifiedBankSelection(requireContext(), layoutS2CustomBanks, isS2Cloze, s2BankMap)
+
+        val layoutCustomBankCounts = dialogView.findViewById<LinearLayout>(R.id.layout_custom_bank_counts)
+        val editSavedCounts = if (existing != null) {
+            existing.stage1CustomBanks + existing.stage2CustomBanks
+        } else {
+            AlarmScheduler.getDefaultStage1CustomBanks(requireContext()) + AlarmScheduler.getDefaultStage2CustomBanks(requireContext())
+        }
+        val getCustomBankCounts = setupCustomBankCounts(
+            requireContext(),
+            layoutCustomBankCounts,
+            editSavedCounts,
+            existing?.customCount ?: AlarmScheduler.getDefaultCustomCount(requireContext())
+        )
 
         // 铃声模式（程序化添加）
         val editRingtoneContainer = LinearLayout(requireContext()).apply {
@@ -846,19 +989,22 @@ class AlarmFragment : Fragment() {
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
 
             val hasCameraNow = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-            val customPerBank = etCustomCount?.text.toString().toIntOrNull()?.coerceAtLeast(1)
-                ?: AlarmScheduler.getDefaultCustomCount(requireContext())
-            val s1BankIds = getS1CustomBanks()
-            val s2BankIds = if (isTwoStage) getS2CustomBanks() else s1BankIds
-            val s1CustomBanks = s1BankIds.associateWith { customPerBank }
-            val s2CustomBanks = s2BankIds.associateWith { customPerBank }
+            val bankCounts = getCustomBankCounts()
+            for ((bId, count) in bankCounts) {
+                AlarmScheduler.setBankDefaultCount(requireContext(), bId, count)
+            }
+            val defaultCustomCount = AlarmScheduler.getDefaultCustomCount(requireContext())
+            val s1BankIds = s1Result.getSelectedBankIds()
+            val s2BankIds = if (isTwoStage) s2Result.getSelectedBankIds() else s1BankIds
+            val s1CustomBanks = s1BankIds.associateWith { bankCounts[it] ?: defaultCustomCount }
+            val s2CustomBanks = s2BankIds.associateWith { bankCounts[it] ?: defaultCustomCount }
 
             val s1Types = mutableSetOf<String>()
             if (cbS1Qr.isChecked && hasCameraNow) s1Types.add("qr")
             if (cbS1Math.isChecked) s1Types.add("math")
             if (cbS1Poem.isChecked) s1Types.add("poem")
             if (cbS1Word.isChecked) s1Types.add("word")
-            if (cbS1Cloze?.isChecked == true) s1Types.add("cloze")
+            if (s1Result.isClozeChecked()) s1Types.add("cloze")
             if (s1CustomBanks.isNotEmpty()) s1Types.add("custom")
 
             val s2Types = mutableSetOf<String>()
@@ -867,7 +1013,7 @@ class AlarmFragment : Fragment() {
                 if (cbS2Math.isChecked) s2Types.add("math")
                 if (cbS2Poem.isChecked) s2Types.add("poem")
                 if (cbS2Word.isChecked) s2Types.add("word")
-                if (cbS2Cloze?.isChecked == true) s2Types.add("cloze")
+                if (s2Result.isClozeChecked()) s2Types.add("cloze")
                 if (s2CustomBanks.isNotEmpty()) s2Types.add("custom")
             } else {
                 s2Types.addAll(s1Types)
@@ -901,7 +1047,7 @@ class AlarmFragment : Fragment() {
             val wordCount = etWordCount.text.toString().toIntOrNull() ?: AlarmScheduler.getDefaultWordCount(requireContext())
             val clozeCount = etClozeCount?.text.toString().toIntOrNull() ?: AlarmScheduler.getDefaultClozeCount(requireContext())
             val customSum = s1CustomBanks.values.sum() + s2CustomBanks.values.sum()
-            val customCount = if (customSum > 0) customSum else customPerBank
+            val customCount = if (customSum > 0) (s1CustomBanks.values + s2CustomBanks.values).maxOrNull() ?: defaultCustomCount else defaultCustomCount
             val isProgressive = editRgVibMode.checkedRadioButtonId != editRbVibFixed.id
             val vibrationIntensity = if (isProgressive) 1 else editSbVib.progress + 1
             val vibrationMode = if (editRgVibMode.checkedRadioButtonId == editRbVibFixed.id)
@@ -1029,8 +1175,17 @@ class AlarmFragment : Fragment() {
         val layoutTestS2CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s2_custom_banks)
         val defTestS1Banks = AlarmScheduler.getDefaultStage1CustomBanks(ctx)
         val defTestS2Banks = AlarmScheduler.getDefaultStage2CustomBanks(ctx)
-        val getTestS1CustomBanks = setupCustomBankSelection(ctx, layoutTestS1CustomBanks, defTestS1Banks)
-        val getTestS2CustomBanks = setupCustomBankSelection(ctx, layoutTestS2CustomBanks, defTestS2Banks)
+        val testS1Result = setupUnifiedBankSelection(ctx, layoutTestS1CustomBanks, "cloze" in curS1, defTestS1Banks)
+        val testS2Result = setupUnifiedBankSelection(ctx, layoutTestS2CustomBanks, "cloze" in curS2, defTestS2Banks)
+
+        val layoutTestCustomBankCounts = dialogView.findViewById<LinearLayout>(R.id.layout_custom_bank_counts)
+        val testSavedCounts = defTestS1Banks + defTestS2Banks
+        val getTestCustomBankCounts = setupCustomBankCounts(
+            ctx,
+            layoutTestCustomBankCounts,
+            testSavedCounts,
+            AlarmScheduler.getDefaultCustomCount(ctx)
+        )
 
         // 铃声与震动
         val testRingtoneContainer = LinearLayout(ctx).apply {
@@ -1231,28 +1386,32 @@ class AlarmFragment : Fragment() {
             val poem = etPoemCount.text.toString().toIntOrNull()
             val word = etWordCount.text.toString().toIntOrNull()
             val cloze = etClozeCount.text.toString().toIntOrNull()
-            val customCount = etCustomCount.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: 3
+            val bankCounts = getTestCustomBankCounts()
+            for ((bId, count) in bankCounts) {
+                AlarmScheduler.setBankDefaultCount(ctx, bId, count)
+            }
+            val defCustomCount = (bankCounts.values).maxOrNull() ?: AlarmScheduler.getDefaultCustomCount(ctx)
 
             if (math != null && math > 0) AlarmScheduler.setDefaultMathCount(ctx, math)
             if (poem != null && poem > 0) AlarmScheduler.setDefaultPoemCount(ctx, poem)
             if (word != null && word > 0) AlarmScheduler.setDefaultWordCount(ctx, word)
             if (cloze != null && cloze > 0) AlarmScheduler.setDefaultClozeCount(ctx, cloze)
-            AlarmScheduler.setDefaultCustomCount(ctx, customCount)
+            AlarmScheduler.setDefaultCustomCount(ctx, defCustomCount)
 
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
             val mode = if (isTwoStage) AlarmScheduler.UnlockMode.TWO_STAGE else AlarmScheduler.UnlockMode.SINGLE
             val hasCameraNow = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-            val testS1BankIds = getTestS1CustomBanks()
-            val testS2BankIds = if (isTwoStage) getTestS2CustomBanks() else testS1BankIds
-            val testS1Banks = testS1BankIds.associateWith { customCount }
-            val testS2Banks = testS2BankIds.associateWith { customCount }
+            val testS1BankIds = testS1Result.getSelectedBankIds()
+            val testS2BankIds = if (isTwoStage) testS2Result.getSelectedBankIds() else testS1BankIds
+            val testS1Banks = testS1BankIds.associateWith { bankCounts[it] ?: defCustomCount }
+            val testS2Banks = testS2BankIds.associateWith { bankCounts[it] ?: defCustomCount }
 
             val s1Types = mutableSetOf<String>().apply {
                 if (cbS1Qr.isChecked && hasCameraNow) add("qr")
                 if (cbS1Math.isChecked) add("math")
                 if (cbS1Poem.isChecked) add("poem")
                 if (cbS1Word.isChecked) add("word")
-                if (cbS1Cloze?.isChecked == true) add("cloze")
+                if (testS1Result.isClozeChecked()) add("cloze")
                 if (testS1Banks.isNotEmpty()) add("custom")
             }
             val s2Types = mutableSetOf<String>().apply {
@@ -1260,7 +1419,7 @@ class AlarmFragment : Fragment() {
                 if (cbS2Math.isChecked) add("math")
                 if (cbS2Poem.isChecked) add("poem")
                 if (cbS2Word.isChecked) add("word")
-                if (cbS2Cloze?.isChecked == true) add("cloze")
+                if (testS2Result.isClozeChecked()) add("cloze")
                 if (testS2Banks.isNotEmpty()) add("custom")
             }
 
@@ -1297,18 +1456,22 @@ class AlarmFragment : Fragment() {
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
 
             val hasCameraNow = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-            val testCustomPerBank = etCustomCount?.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: 3
-            val testS1BankIds = getTestS1CustomBanks()
-            val testS2BankIds = if (isTwoStage) getTestS2CustomBanks() else testS1BankIds
-            val testS1Banks = testS1BankIds.associateWith { testCustomPerBank }
-            val testS2Banks = testS2BankIds.associateWith { testCustomPerBank }
+            val bankCounts = getTestCustomBankCounts()
+            for ((bId, count) in bankCounts) {
+                AlarmScheduler.setBankDefaultCount(ctx, bId, count)
+            }
+            val testCustomPerBank = (bankCounts.values).maxOrNull() ?: 3
+            val testS1BankIds = testS1Result.getSelectedBankIds()
+            val testS2BankIds = if (isTwoStage) testS2Result.getSelectedBankIds() else testS1BankIds
+            val testS1Banks = testS1BankIds.associateWith { bankCounts[it] ?: testCustomPerBank }
+            val testS2Banks = testS2BankIds.associateWith { bankCounts[it] ?: testCustomPerBank }
 
             val s1Types = mutableSetOf<String>()
             if (cbS1Qr.isChecked && hasCameraNow) s1Types.add("qr")
             if (cbS1Math.isChecked) s1Types.add("math")
             if (cbS1Poem.isChecked) s1Types.add("poem")
             if (cbS1Word.isChecked) s1Types.add("word")
-            if (cbS1Cloze?.isChecked == true) s1Types.add("cloze")
+            if (testS1Result.isClozeChecked()) s1Types.add("cloze")
             if (testS1Banks.isNotEmpty()) s1Types.add("custom")
 
             val s2Types = mutableSetOf<String>()
@@ -1317,7 +1480,7 @@ class AlarmFragment : Fragment() {
                 if (cbS2Math.isChecked) s2Types.add("math")
                 if (cbS2Poem.isChecked) s2Types.add("poem")
                 if (cbS2Word.isChecked) s2Types.add("word")
-                if (cbS2Cloze?.isChecked == true) s2Types.add("cloze")
+                if (testS2Result.isClozeChecked()) s2Types.add("cloze")
                 if (testS2Banks.isNotEmpty()) s2Types.add("custom")
             } else {
                 s2Types.addAll(s1Types)
