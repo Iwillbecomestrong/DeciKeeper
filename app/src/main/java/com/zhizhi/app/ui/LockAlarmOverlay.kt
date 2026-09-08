@@ -54,6 +54,7 @@ import com.zhizhi.app.data.SystemEventClock
 import com.zhizhi.app.manager.AlarmChallengeManager
 import com.zhizhi.app.manager.AlarmProtectionEventBridge
 import com.zhizhi.app.manager.AlarmScheduler
+import com.zhizhi.app.manager.statistics.AlarmWakeStatsRecorder
 import com.zhizhi.app.service.AlarmVibrationService
 import com.zhizhi.app.service.CoreService
 import java.util.concurrent.atomic.AtomicBoolean
@@ -1386,7 +1387,11 @@ internal object LockAlarmOverlayController {
             return
         }
 
-        // All done (single-stage, or two-stage all challenges complete)
+        // All done (single-stage, or two-stage all challenges complete).
+        // Commit before review/close so review time is not counted as wake time.
+        if (alarmId > 0) {
+            AlarmWakeStatsRecorder.completeSession(ctx, alarmId)
+        }
         view.clearFocus()
         // 隐藏挑战区域
         view.findViewById<View>(R.id.cv_alarm_qr)?.visibility = View.GONE

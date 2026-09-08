@@ -960,76 +960,117 @@ object StatisticsRepository {
         weekdayFilter: WeekdayFilter
     ): AlarmStatsSummary {
         val buckets = StatsDateRangeResolver.buildBuckets(range, resolvedRange, weekdayFilter, zoneId)
-        val allRecords = mutableListOf<AlarmWakeRecord>()
-
         val today = LocalDate.now(zoneId)
-        val nowMillis = System.currentTimeMillis()
-        val prefs = try { context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE) } catch (_: Exception) { null }
+        val prefs = try {
+            context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE)
+        } catch (_: Exception) {
+            null
+        }
+        val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+        val datedRecords = mutableListOf<Pair<LocalDate, AlarmWakeRecord>>()
 
-        val bucketDataList = buckets.map { b ->
-            val sDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(b.startMillis), zoneId).toLocalDate()
-            val isFuture = sDate.isAfter(today) || b.startMillis > nowMillis
+        if (prefs != null) {
+            val startDate = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(resolvedRange.startMillis), zoneId
+            ).toLocalDate()
+            val endDateExclusive = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(resolvedRange.endMillisExclusive), zoneId
+            ).toLocalDate()
 
-            if (isFuture || prefs == null) {
-                return@map AlarmBucketData(b, null, null, null, null)
-            }
+            var date = startDate
+            while (date.isBefore(endDateExclusive)) {
+                if (!date.isAfter(today) && weekdayFilter.isEnabled(date.dayOfWeek)) {
+                    val dateKey = date.format(dateFormatter)
+                    val wakeKey = "alarm_${dateKey}_wake_time"
+                    if (prefs.contains(wakeKey)) {
+                        val wakeMinute = prefs.getInt(wakeKey, 420).coerceIn(0, 1439)
+                        val alarmTimeMillis = date
+                            .atTime(wakeMinute / 60, wakeMinute % 60)
+                            .atZone(zoneId)
+                            .toInstant()
+                            .toEpochMilli()
 
-            val dateKey = sDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-            if (prefs.contains("alarm_${dateKey}_wake_time")) {
-                val wakeMinute = prefs.getInt("alarm_${dateKey}_wake_time", 420)
-                val stage1 = prefs.getInt("alarm_${dateKey}_stage1_duration", 5)
-                val total = prefs.getInt("alarm_${dateKey}_total_duration", 8)
-                val rec = AlarmWakeRecord(
-                    id = "alarm-$dateKey",
-                    dateLabel = sDate.format(shortDateFormatter),
-                    alarmMinuteOfDay = wakeMinute,
-                    firstStageCompletedMinute = wakeMinute + stage1,
-                    firstStageDurationMinutes = stage1,
-                    totalFlowDurationMinutes = total
-                )
-                allRecords.add(rec)
-                AlarmBucketData(
-                    bucket = b,
-                    alarmMinuteOfDay = wakeMinute.toFloat(),
-                    firstStageCompletedMinute = (wakeMinute + stage1).toFloat(),
-                    firstStageDurationMinutes = stage1.toFloat(),
-                    totalFlowDurationMinutes = total.toFloat()
-                )
-            } else {
-                AlarmBucketData(b, null, null, null, null)
+                        if (alarmTimeMillis >= resolvedRange.startMillis &&
+                            alarmTimeMillis < resolvedRange.endMillisExclusive
+                        ) {
+                            val stage1 = prefs.getInt("alarm_${dateKey}_stage1_duration", 5)
+                                .coerceAtLeast(0)
+                            val total = prefs.getInt("alarm_${dateKey}_total_duration", 8)
+                                .coerceAtLeast(stage1)
+                            val firstStageCompletedMinute = if (
+                                prefs.contains("alarm_${dateKey}_stage1_completed_minute")
+                            ) {
+                                prefs.getInt(
+                                    "alarm_${dateKey}_stage1_completed_minute",
+                                    (wakeMinute + stage1) % 1440
+                                ).coerceIn(0, 1439)
+                            } else {
+                                (wakeMinute + stage1) % 1440
+                            }
+
+                            datedRecords += date to AlarmWakeRecord(
+                                id = "alarm-$dateKey",
+                                dateLabel = date.format(shortDateFormatter),
+                                alarmMinuteOfDay = wakeMinute,
+                                firstStageCompletedMinute = firstStageCompletedMinute,
+                                firstStageDurationMinutes = stage1,
+                                totalFlowDurationMinutes = total
+                            )
+                        }
+                    }
+                }
+                date = date.plusDays(1)
             }
         }
 
-        val validRecords = allRecords
-        val medianAlarm = if (validRecords.isNotEmpty()) {
-            val sorted = validRecords.map { it.alarmMinuteOfDay }.sorted()
-            sorted[sorted.size / 2]
-        } else null
+        fun medianInt(values: List<Int>): Int? {
+            if (values.isEmpty()) return null
+            val sorted = values.sorted()
+            return sorted[sorted.size / 2]
+        }
 
-        val medianStage1 = if (validRecords.isNotEmpty()) {
-            val sorted = validRecords.map { it.firstStageDurationMinutes }.sorted()
-            sorted[sorted.size / 2]
-        } else null
+        val bucketDataList = buckets.map { bucket ->
+            val recordsInBucket = datedRecords.asSequence()
+                .filter { (date, record) ->
+                    val minute = record.alarmMinuteOfDay.coerceIn(0, 1439)
+                    val eventMillis = date
+                        .atTime(minute / 60, minute % 60)
+                        .atZone(zoneId)
+                        .toInstant()
+                        .toEpochMilli()
+                    eventMillis >= bucket.startMillis && eventMillis < bucket.endMillisExclusive
+                }
+                .map { it.second }
+                .toList()
 
-        val medianTotal = if (validRecords.isNotEmpty()) {
-            val sorted = validRecords.map { it.totalFlowDurationMinutes }.sorted()
-            sorted[sorted.size / 2]
-        } else null
+            if (recordsInBucket.isEmpty()) {
+                AlarmBucketData(bucket, null, null, null, null)
+            } else {
+                AlarmBucketData(
+                    bucket = bucket,
+                    alarmMinuteOfDay = medianInt(recordsInBucket.map { it.alarmMinuteOfDay })?.toFloat(),
+                    firstStageCompletedMinute = medianInt(recordsInBucket.map { it.firstStageCompletedMinute })?.toFloat(),
+                    firstStageDurationMinutes = medianInt(recordsInBucket.map { it.firstStageDurationMinutes })?.toFloat(),
+                    totalFlowDurationMinutes = medianInt(recordsInBucket.map { it.totalFlowDurationMinutes })?.toFloat()
+                )
+            }
+        }
 
-        val recent = validRecords.takeLast(5).reversed()
+        val validRecords = datedRecords.map { it.second }
+        val recent = datedRecords
+            .sortedByDescending { it.first }
+            .take(5)
+            .map { it.second }
 
         return AlarmStatsSummary(
-            medianAlarmMinuteOfDay = medianAlarm,
-            medianFirstStageDurationMinutes = medianStage1,
-            medianTotalFlowDurationMinutes = medianTotal,
+            medianAlarmMinuteOfDay = medianInt(validRecords.map { it.alarmMinuteOfDay }),
+            medianFirstStageDurationMinutes = medianInt(validRecords.map { it.firstStageDurationMinutes }),
+            medianTotalFlowDurationMinutes = medianInt(validRecords.map { it.totalFlowDurationMinutes }),
             recordedDaysCount = validRecords.size,
             buckets = bucketDataList,
             recentRecords = recent
         )
     }
-
-    // ==========================================
-    // 4. 规则保护统计 (真实 baseline/pending，无模拟)
     // ==========================================
     fun getRuleProtectionStats(
         context: Context,
