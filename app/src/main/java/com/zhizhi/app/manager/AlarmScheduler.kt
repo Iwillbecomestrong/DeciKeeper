@@ -189,7 +189,12 @@ object AlarmScheduler {
         val autoEscalate: Boolean = false,  // 5分钟后突破最大值继续渐进至10
         val scheduleToken: String = "",
         val stage1CustomBanks: Map<String, Int> = emptyMap(),
-        val stage2CustomBanks: Map<String, Int> = emptyMap()
+        val stage2CustomBanks: Map<String, Int> = emptyMap(),
+        val stage2UseIndependentAlertPolicy: Boolean = false,
+        val stage2AlarmMode: AlarmMode = AlarmMode.VIBRATE_AND_RING,
+        val stage2VibrationMode: VibrationMode = VibrationMode.PROGRESSIVE,
+        val stage2VibrationIntensity: Int = 7,
+        val stage2RingVolume: Int = 7
     )
 
     /** 生成一个不可复用的调度令牌 */
@@ -322,7 +327,12 @@ object AlarmScheduler {
         progressiveMaxRingVolume: Int = 10,
         autoEscalate: Boolean = false,
         stage1CustomBanks: Map<String, Int> = emptyMap(),
-        stage2CustomBanks: Map<String, Int> = emptyMap()
+        stage2CustomBanks: Map<String, Int> = emptyMap(),
+        stage2UseIndependentAlertPolicy: Boolean = false,
+        stage2AlarmMode: AlarmMode = AlarmMode.VIBRATE_AND_RING,
+        stage2VibrationMode: VibrationMode = VibrationMode.PROGRESSIVE,
+        stage2VibrationIntensity: Int = 7,
+        stage2RingVolume: Int = 7
     ): AlarmEntry {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val nextId = prefs.getInt(KEY_NEXT_ID, 1)
@@ -337,7 +347,12 @@ object AlarmScheduler {
             progressiveMinIntensity, progressiveMaxIntensity, progressiveMaxRingVolume,
             autoEscalate,
             stage1CustomBanks = stage1CustomBanks,
-            stage2CustomBanks = stage2CustomBanks
+            stage2CustomBanks = stage2CustomBanks,
+            stage2UseIndependentAlertPolicy = stage2UseIndependentAlertPolicy,
+            stage2AlarmMode = stage2AlarmMode,
+            stage2VibrationMode = stage2VibrationMode,
+            stage2VibrationIntensity = stage2VibrationIntensity,
+            stage2RingVolume = stage2RingVolume
         )
     }
 
@@ -1425,6 +1440,11 @@ object AlarmScheduler {
         val s2BanksObj = JSONObject()
         alarm.stage2CustomBanks.forEach { (k, v) -> s2BanksObj.put(k, v) }
         obj.put("stage2CustomBanks", s2BanksObj)
+        obj.put("stage2UseIndependentAlertPolicy", alarm.stage2UseIndependentAlertPolicy)
+        obj.put("stage2AlarmMode", alarm.stage2AlarmMode.name)
+        obj.put("stage2VibrationMode", alarm.stage2VibrationMode.name)
+        obj.put("stage2VibrationIntensity", alarm.stage2VibrationIntensity)
+        obj.put("stage2RingVolume", alarm.stage2RingVolume)
         return obj
     }
 
@@ -1498,6 +1518,15 @@ object AlarmScheduler {
         val progressiveMaxIntensity = obj.optInt("progressiveMaxIntensity", 10).coerceIn(1, 10)
         val progressiveMaxRingVolume = obj.optInt("progressiveMaxRingVolume", 10).coerceIn(1, 10)
         val autoEscalate = obj.optBoolean("autoEscalate", false)
+        val stage2UseIndependentAlertPolicy = obj.optBoolean("stage2UseIndependentAlertPolicy", false)
+        val stage2AlarmMode = runCatching {
+            AlarmMode.valueOf(obj.optString("stage2AlarmMode", alarmMode.name))
+        }.getOrElse { alarmMode }
+        val stage2VibrationMode = runCatching {
+            VibrationMode.valueOf(obj.optString("stage2VibrationMode", vibrationMode.name))
+        }.getOrElse { vibrationMode }
+        val stage2VibrationIntensity = obj.optInt("stage2VibrationIntensity", vibrationIntensity).coerceIn(1, 10)
+        val stage2RingVolume = obj.optInt("stage2RingVolume", ringVolume).coerceIn(1, 10)
 
         return AlarmEntry(
             id, hour, minute, enabled, days,
@@ -1511,7 +1540,12 @@ object AlarmScheduler {
             autoEscalate,
             scheduleToken,
             stage1CustomBanks = s1Banks,
-            stage2CustomBanks = s2Banks
+            stage2CustomBanks = s2Banks,
+            stage2UseIndependentAlertPolicy = stage2UseIndependentAlertPolicy,
+            stage2AlarmMode = stage2AlarmMode,
+            stage2VibrationMode = stage2VibrationMode,
+            stage2VibrationIntensity = stage2VibrationIntensity,
+            stage2RingVolume = stage2RingVolume
         )
     }
 
