@@ -195,7 +195,8 @@ internal object LockAlarmOverlayController {
 
         this.alarmId = alarmId
         this.alarmSnoozeMinutes = snoozeMinutes
-        this.alarmRemainingSnoozeCount = AlarmScheduler.getRemainingSnoozeCount(context, alarmId)
+        // 再响现在是每次真实闹钟 session 仅一次：只暂停声音/震动，不关闭挑战。
+        this.alarmRemainingSnoozeCount = if (alarmId > 0 && AlarmScheduler.getSnoozeUsedCount(context, alarmId) == 0) 1 else 0
         mAlarmController = controller
 
         val entry = AlarmScheduler.findAlarm(context, alarmId)
@@ -1227,7 +1228,10 @@ internal object LockAlarmOverlayController {
             return
         }
 
-        // All done (single-stage, or two-stage all challenges complete)
+        // All done (single-stage, or two-stage all challenges complete).
+        // If stage 1 was completed while a silent snooze timer was active, attenuate() cancels
+        // that restore timer so the old stage-1 alarm cannot suddenly resume during review.
+        AlarmVibrationService.attenuate(ctx)
         view.clearFocus()
         // 隐藏挑战区域
         view.findViewById<View>(R.id.cv_alarm_qr)?.visibility = View.GONE
@@ -2255,39 +2259,68 @@ internal object LockAlarmOverlayController {
         btnSnooze: Button?,
         forceHide: Boolean = false
     ) {
-        layoutActions?.visibility = if (forceHide) View.GONE else View.VISIBLE
+        // challenge 未完成时仍允许一次“再响”：只让声音/震动静默，挑战本身继续。
+        val canSnooze = forceHide && alarmRemainingSnoozeCount > 0
+        layoutActions?.visibility = if (!forceHide || canSnooze) View.VISIBLE else View.GONE
+        btnClose?.visibility = if (forceHide) View.GONE else View.VISIBLE
         btnClose?.isEnabled = !forceHide
-        btnSnooze?.isEnabled = !forceHide
-        btnSnooze?.text = if (forceHide) "..." else "暂停 ${alarmSnoozeMinutes} 分钟"
+        btnSnooze?.visibility = if (canSnooze) View.VISIBLE else View.GONE
+        btnSnooze?.isEnabled = canSnooze
+        btnSnooze?.text = if (canSnooze) "静音 ${alarmSnoozeMinutes} 分钟（挑战继续）" else "稍后再响 (0)"
     }
 
     private var alarmPassthroughRestoreRunnable: Runnable? = null
 
-    private fun handleAlarmAction(snooze: Boolean) {
-        if (snooze && alarmId > 0) {
-            val ctx = LockWindowManager.getAlarmContext() ?: return
-            val usedBefore = AlarmScheduler.getSnoozeUsedCount(ctx, alarmId)
-            AlarmScheduler.scheduleSnooze(ctx, alarmId, alarmSnoozeMinutes)
-            val usedAfter = AlarmScheduler.getSnoozeUsedCount(ctx, alarmId)
-            if (usedAfter > usedBefore) {
-                val snoozeIndex = usedAfter
-                val snoozeUntilMs = System.currentTimeMillis() + alarmSnoozeMinutes * 60_000L
-                alarmProtectionEventBridge.recordAlarmSnooze(
-                    alarmId = alarmId.toString(),
-                    snoozeIndex = snoozeIndex,
-                    snoozeUntilMs = snoozeUntilMs
-                )
-            }
-            dismissAlarmOverlay("已暂停 ${alarmSnoozeMinutes} 分钟", false)
-        } else {
-            if (alarmId > 0) {
-                alarmProtectionEventBridge.recordAlarmDismiss(
-                    alarmId = alarmId.toString(),
-                    method = "USER_ACTION"
-                )
-            }
-            dismissAlarmOverlay("闹钟已关闭", false)
+    internal fun requestSnoozeFromHardware(source: String = "HARDWARE"): Boolean = requestSnooze(source)
+
+    private fun requestSnooze(source: String): Boolean {
+        if (!isAlarmOverlayActive.get() || alarmId <= 0) return false
+        val ctx = LockWindowManager.getAlarmContext() ?: return false
+        val view = LockWindowManager.getAlarmView() ?: return false
+
+        // 再响只属于第一关尚未完成的阶段；进入第二关或最终回顾后都不能再使用。
+        if (isTwoStageUnlock && isAlarmFirstStagePassed) return false
+        val btnClose = view.findViewById<Button>(R.id.btn_alarm_close)
+        if (btnClose?.visibility == View.VISIBLE) return false
+        if (alarmRemainingSnoozeCount <= 0 || AlarmScheduler.getSnoozeUsedCount(ctx, alarmId) > 0) return false
+        if (!AlarmScheduler.recordSnoozeUsed(ctx, alarmId)) {
+            alarmRemainingSnoozeCount = 0
+            return false
         }
+
+        alarmRemainingSnoozeCount = 0
+        val durationMs = alarmSnoozeMinutes.coerceAtLeast(1) * 60_000L
+        val snoozeUntilMs = System.currentTimeMillis() + durationMs
+        AlarmVibrationService.silenceForSnooze(ctx, alarmId, durationMs)
+        alarmProtectionEventBridge.recordAlarmSnooze(
+            alarmId = alarmId.toString(),
+            snoozeIndex = 1,
+            snoozeUntilMs = snoozeUntilMs
+        )
+
+        showAlarmActionPanel(
+            view.findViewById(R.id.layout_alarm_actions),
+            btnClose,
+            view.findViewById(R.id.btn_alarm_snooze),
+            forceHide = true
+        )
+        Toast.makeText(ctx, "已静音 ${alarmSnoozeMinutes} 分钟，挑战仍可继续", Toast.LENGTH_SHORT).show()
+        Log.i(TAG, "snooze silence started: id=$alarmId source=$source minutes=$alarmSnoozeMinutes challengePreserved=true")
+        return true
+    }
+
+    private fun handleAlarmAction(snooze: Boolean) {
+        if (snooze) {
+            requestSnooze("BUTTON")
+            return
+        }
+        if (alarmId > 0) {
+            alarmProtectionEventBridge.recordAlarmDismiss(
+                alarmId = alarmId.toString(),
+                method = "USER_ACTION"
+            )
+        }
+        dismissAlarmOverlay("闹钟已关闭", false)
     }
 
     private fun getAlarmLayoutParams(): WindowManager.LayoutParams {

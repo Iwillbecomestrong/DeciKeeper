@@ -47,6 +47,7 @@ import com.zhizhi.app.data.SystemEventClock
 import com.zhizhi.app.manager.AlarmProtectionEventBridge
 import com.zhizhi.app.manager.AlarmScheduler
 import com.zhizhi.app.ui.AlarmActivity
+import com.zhizhi.app.ui.LockAlarmOverlayController
 import com.zhizhi.app.ui.LockWindowManager
 
 
@@ -108,6 +109,24 @@ class AlarmVibrationService : Service() {
         }
 
         const val ACTION_ATTENUATE = "com.zhizhi.app.service.ACTION_ATTENUATE"
+        const val ACTION_SNOOZE_SILENCE = "com.zhizhi.app.service.ACTION_SNOOZE_SILENCE"
+        private const val EXTRA_SNOOZE_DURATION_MS = "alarm_snooze_duration_ms"
+
+        @JvmStatic
+        fun silenceForSnooze(context: Context, alarmId: Int, durationMs: Long) {
+            if (alarmId <= 0 || durationMs <= 0L) return
+            try {
+                val intent = Intent(context, AlarmVibrationService::class.java).apply {
+                    action = ACTION_SNOOZE_SILENCE
+                    putExtra(EXTRA_ALARM_ID, alarmId)
+                    putExtra(EXTRA_SNOOZE_DURATION_MS, durationMs)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+                else context.startService(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to silence alarm for snooze: ${e.message}")
+            }
+        }
 
         @JvmStatic
         fun attenuate(context: Context) {
@@ -145,6 +164,8 @@ class AlarmVibrationService : Service() {
     // 铃声播放（使用 MediaPlayer + USAGE_MEDIA，音量完全由 app 控制）
     private var mediaPlayer: android.media.MediaPlayer? = null
     private var isAttenuated: Boolean = false
+    @Volatile private var isSnoozeSilenced: Boolean = false
+    private var snoozeRestoreRunnable: Runnable? = null
 
     private fun applyAttenuation() {
         isAttenuated = true
@@ -168,6 +189,33 @@ class AlarmVibrationService : Service() {
             vibrator?.vibrate(effect, audioAttributes)
         }
         Log.i(TAG, "Alarm attenuated: volume=0.02f, vibration=mild 20/255 pulse")
+    }
+
+    private fun applySnoozeSilence(targetAlarmId: Int, durationMs: Long) {
+        if (targetAlarmId <= 0 || targetAlarmId != alarmId || durationMs <= 0L) return
+        snoozeRestoreRunnable?.let { handler.removeCallbacks(it) }
+        isSnoozeSilenced = true
+        currentDisplayVolume = 0
+        currentDisplayIntensity = 0
+        currentVibrationMode = "snooze_silent"
+        mediaPlayer?.setVolume(0f, 0f)
+        vibrator?.cancel()
+
+        snoozeRestoreRunnable = Runnable {
+            snoozeRestoreRunnable = null
+            val sameSession = AlarmScheduler.isAlarmActive(this) && AlarmScheduler.getActiveAlarmId(this) == targetAlarmId
+            val stillStageOne = !AlarmScheduler.isFirstStagePassed(this)
+            if (isSnoozeSilenced && sameSession && stillStageOne) {
+                isSnoozeSilenced = false
+                Log.i(TAG, "Silent snooze expired; restoring alarm output for id=$targetAlarmId")
+                startVibrationImpl()
+            } else {
+                isSnoozeSilenced = false
+                Log.i(TAG, "Silent snooze restore skipped: sameSession=$sameSession stillStageOne=$stillStageOne")
+            }
+        }
+        handler.postDelayed(snoozeRestoreRunnable!!, durationMs)
+        Log.i(TAG, "Alarm output silenced for snooze: id=$targetAlarmId durationMs=$durationMs challengePreserved=true")
     }
 
     // Event-driven logging bridge (task-6). 震动服务对桥决策无权威——
@@ -197,10 +245,18 @@ class AlarmVibrationService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    Log.d(TAG, "Screen off detected, scheduling vibration retries")
-                    handler.postDelayed({ startVibrationImpl() }, 300)
-                    handler.postDelayed({ startVibrationImpl() }, 800)
-                    handler.postDelayed({ startVibrationImpl() }, 1500)
+                    // AlarmActivity keeps the screen on while the challenge is active, so a SCREEN_OFF here
+                    // is our best app-visible signal for a short power-key press. Use the same one-shot snooze
+                    // path as the UI/volume keys. If it cannot be consumed, keep the original OEM recovery.
+                    val snoozed = LockAlarmOverlayController.requestSnoozeFromHardware("POWER_KEY")
+                    if (snoozed) {
+                        Log.i(TAG, "Screen off consumed as one-shot silent snooze")
+                    } else {
+                        Log.d(TAG, "Screen off detected, scheduling vibration retries")
+                        handler.postDelayed({ startVibrationImpl() }, 300)
+                        handler.postDelayed({ startVibrationImpl() }, 800)
+                        handler.postDelayed({ startVibrationImpl() }, 1500)
+                    }
                 }
                 Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
                     if (alarmId >= 0) {
@@ -218,7 +274,7 @@ class AlarmVibrationService : Service() {
     // 不设超时——闹钟持续响铃直到用户完成挑战（扫码关闭）
     private val vibrationKeepAliveRunnable = object : Runnable {
         override fun run() {
-            if (vibrator != null) {
+            if (!isSnoozeSilenced && vibrator != null) {
                 Log.d(TAG, "Vibration keep-alive: re-triggering")
                 startVibrationImpl()
             }
@@ -278,8 +334,17 @@ class AlarmVibrationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_SNOOZE_SILENCE) {
+            val targetAlarmId = intent.getIntExtra(EXTRA_ALARM_ID, -1)
+            val durationMs = intent.getLongExtra(EXTRA_SNOOZE_DURATION_MS, 0L)
+            applySnoozeSilence(targetAlarmId, durationMs)
+            return START_STICKY
+        }
         if (intent?.action == ACTION_ATTENUATE) {
             Log.i(TAG, "Received ACTION_ATTENUATE in onStartCommand")
+            snoozeRestoreRunnable?.let { handler.removeCallbacks(it) }
+            snoozeRestoreRunnable = null
+            isSnoozeSilenced = false
             applyAttenuation()
             return START_STICKY
         }
@@ -344,6 +409,8 @@ class AlarmVibrationService : Service() {
         super.onDestroy()
         handler.removeCallbacks(vibrationKeepAliveRunnable)
         handler.removeCallbacks(ringDisplayUpdateRunnable)
+        snoozeRestoreRunnable?.let { handler.removeCallbacks(it) }
+        snoozeRestoreRunnable = null
         val activeAlarmId = AlarmScheduler.getActiveAlarmId(this)
         Log.i(
             TAG,
@@ -367,6 +434,13 @@ class AlarmVibrationService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun startVibrationImpl() {
+        if (isSnoozeSilenced) {
+            currentDisplayVolume = 0
+            currentDisplayIntensity = 0
+            mediaPlayer?.setVolume(0f, 0f)
+            vibrator?.cancel()
+            return
+        }
         if (isAttenuated) {
             currentDisplayIntensity = 1
             currentDisplayVolume = 1
@@ -486,6 +560,11 @@ class AlarmVibrationService : Service() {
 
     /** 更新铃声强度显示值 + 实际 MediaPlayer 音量（RING_ONLY 和 VIBRATE_AND_RING 都需要） */
     private fun updateRingVolumeDisplay(mode: AlarmScheduler.VibrationMode, elapsedSec: Int, stagePassed: Boolean) {
+        if (isSnoozeSilenced) {
+            currentDisplayVolume = 0
+            mediaPlayer?.setVolume(0f, 0f)
+            return
+        }
         if (isAttenuated) {
             currentDisplayVolume = 1
             val mpVol = 0.02f

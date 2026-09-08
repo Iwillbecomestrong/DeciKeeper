@@ -657,10 +657,16 @@ class AlarmFragment : Fragment() {
 
         // --- 3. 再响设置 ---
         addSectionLabel("再响设置")
-        val (etSnoozeMinutes, etSnoozeMaxCount) = addTwoFields(
-            "间隔", AlarmScheduler.getSnoozeMinutes(ctx).toString(), "分钟",
-            "最多", AlarmScheduler.getMaxSnoozeCount(ctx).toString(), "次"
+        val (etSnoozeMinutes, _) = addTwoFields(
+            "静音", AlarmScheduler.getSnoozeMinutes(ctx).toString(), "分钟",
+            null, null, null
         )
+        container.addView(TextView(ctx).apply {
+            text = "本次闹钟仅可使用 1 次；仅暂停声音和震动，挑战继续"
+            textSize = 12f
+            setTextColor(Color.GRAY)
+            layoutParams = LinearLayout.LayoutParams(MP, WC).apply { bottomMargin = dp(12) }
+        })
 
         // --- 4. 铃声与震动 ---
         addSectionLabel("铃声与震动")
@@ -846,11 +852,10 @@ class AlarmFragment : Fragment() {
             .setTitle("闹钟默认设置")
             .setView(scrollView)
             .setPositiveButton("保存") { _, _ ->
-                // 保存再响
+                // 保存再响：每次真实闹钟固定仅 1 次；这里只配置静音时长。
                 val snoozeMin = etSnoozeMinutes.text.toString().toIntOrNull() ?: 10
-                val snoozeMax = etSnoozeMaxCount?.text.toString().toIntOrNull() ?: 2
                 if (snoozeMin > 0) AlarmScheduler.setSnoozeMinutes(ctx, snoozeMin)
-                if (snoozeMax >= 0) AlarmScheduler.setMaxSnoozeCount(ctx, snoozeMax)
+                AlarmScheduler.setMaxSnoozeCount(ctx, 1)
 
                 // 保存震动
                 val defVibMode = if (rgVibModeDefault.checkedRadioButtonId == rbVibFixedDefault.id)
