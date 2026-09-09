@@ -64,7 +64,6 @@ class AppWindowFragment : Fragment() {
     private lateinit var cardPending: androidx.cardview.widget.CardView
     private lateinit var tvPendingChanges: TextView
     private lateinit var tvLockoutHint: TextView
-    private lateinit var btnUndo: Button
     private lateinit var btnAdd: Button
     private lateinit var btnBatchCycle: Button
     private var rulesWithStatus = mutableListOf<AppWindowManager.AppWindowRuleWithStatus>()
@@ -97,7 +96,6 @@ class AppWindowFragment : Fragment() {
         tvLockoutHint = view.findViewById(R.id.tv_lockout_hint)
 
 
-        btnUndo = view.findViewById(R.id.btn_undo)
         btnAdd = view.findViewById(R.id.btn_add)
         btnBatchCycle = view.findViewById(R.id.btn_batch_cycle)
         val btnPreview = view.findViewById<Button>(R.id.btnPreview)
@@ -130,10 +128,6 @@ class AppWindowFragment : Fragment() {
             showEditRuleDialog(null)
         }
         
-        btnUndo.setOnClickListener {
-            onUndoAll()
-        }
-        
         btnBatchCycle.setOnClickListener {
             showBatchRuleSelectionDialog()
         }
@@ -161,10 +155,8 @@ class AppWindowFragment : Fragment() {
         val alpha = if (locked) 0.5f else 1.0f
         btnAdd.isEnabled = !locked
         btnBatchCycle.isEnabled = !locked
-        btnUndo.isEnabled = !locked
         btnAdd.alpha = alpha
         btnBatchCycle.alpha = alpha
-        btnUndo.alpha = alpha
     }
 
     private fun isSettingsLocked(): Boolean {

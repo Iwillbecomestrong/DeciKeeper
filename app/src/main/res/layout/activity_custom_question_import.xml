@@ -152,13 +152,21 @@
                 android:id="@+id/et_bank_title"
                 android:layout_width="match_parent"
                 android:layout_height="46dp"
-                android:hint="例如：考研高频政治选择题"
+                android:hint="例如：考公、四级、高数"
                 android:textColorHint="?attr/zzSubtle"
                 android:textColor="?attr/zzText"
                 android:textSize="14sp"
                 android:background="?attr/zzSurface"
                 android:paddingHorizontal="12dp"
-                android:layout_marginBottom="14dp" />
+                android:layout_marginBottom="6dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:text="💡 建议命名为 2 个字（如：考公、四级），在闹钟挑战与界面中显示更美观整洁"
+                android:textColor="?attr/zzAccent"
+                android:textSize="11sp" />
 
             <!-- Input Controls Row -->
             <LinearLayout

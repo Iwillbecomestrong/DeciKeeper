@@ -136,7 +136,7 @@ class AlarmVibrationService : Service() {
 
         @JvmStatic
         fun silenceForSnooze(context: Context, alarmId: Int, durationMs: Long) {
-            if (alarmId <= 0 || durationMs <= 0L) return
+            if (alarmId < 0 || durationMs <= 0L) return
             try {
                 val intent = Intent(context, AlarmVibrationService::class.java).apply {
                     action = ACTION_SNOOZE_SILENCE
@@ -216,7 +216,7 @@ class AlarmVibrationService : Service() {
     }
 
     private fun applySnoozeSilence(targetAlarmId: Int, durationMs: Long) {
-        if (targetAlarmId <= 0 || targetAlarmId != alarmId || durationMs <= 0L) return
+        if (targetAlarmId < 0 || targetAlarmId != alarmId || durationMs <= 0L) return
         snoozeRestoreRunnable?.let { handler.removeCallbacks(it) }
         isSnoozeSilenced = true
         currentDisplayVolume = 0
@@ -227,7 +227,12 @@ class AlarmVibrationService : Service() {
 
         snoozeRestoreRunnable = Runnable {
             snoozeRestoreRunnable = null
-            val sameSession = AlarmScheduler.isAlarmActive(this) && AlarmScheduler.getActiveAlarmId(this) == targetAlarmId
+            val isTest = targetAlarmId <= 0
+            val sameSession = if (isTest) {
+                com.zhizhi.app.ui.LockWindowManager.isOverlayActive
+            } else {
+                AlarmScheduler.isAlarmActive(this) && AlarmScheduler.getActiveAlarmId(this) == targetAlarmId
+            }
             val stillStageOne = !AlarmScheduler.isFirstStagePassed(this)
             if (isSnoozeSilenced && sameSession && stillStageOne) {
                 isSnoozeSilenced = false

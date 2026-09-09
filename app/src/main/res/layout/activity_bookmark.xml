@@ -37,80 +37,39 @@
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="?attr/zzText" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/tab_bar"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:orientation="horizontal"
-        android:background="?attr/zzSurface"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="5dp">
 
         <Button
-            android:id="@+id/btn_tab_poems"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="诗词"
+            android:id="@+id/btn_manage_tabs"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:text="⚙️ 管理"
             android:textSize="12sp"
-            android:textAllCaps="false"
-            android:textColor="?attr/zzText"
+            android:textColor="?attr/zzAccentStrong"
             android:backgroundTint="?attr/zzAccentSoft"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
-            android:minWidth="0dp" />
-
-        <Button
-            android:id="@+id/btn_tab_words"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:text="单词"
-            android:textSize="12sp"
-            android:textAllCaps="false"
-            android:textColor="?attr/zzText"
-            android:backgroundTint="?attr/zzSurface2"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minHeight="0dp"
-            android:minWidth="0dp" />
-
-        <Button
-            android:id="@+id/btn_tab_clozes"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:text="选词"
-            android:textSize="12sp"
-            android:textAllCaps="false"
-            android:textColor="?attr/zzText"
-            android:backgroundTint="?attr/zzSurface2"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minHeight="0dp"
-            android:minWidth="0dp" />
-
-        <Button
-            android:id="@+id/btn_tab_custom"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:text="自定义题"
-            android:textSize="12sp"
-            android:textAllCaps="false"
-            android:textColor="?attr/zzText"
-            android:backgroundTint="?attr/zzSurface2"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minHeight="0dp"
-            android:minWidth="0dp" />
+            android:minWidth="0dp"
+            android:paddingHorizontal="10dp" />
     </LinearLayout>
+
+    <HorizontalScrollView
+        android:id="@+id/scroll_tab_bar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="?attr/zzSurface"
+        android:scrollbars="none"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/layout_dynamic_tabs"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="5dp" />
+    </HorizontalScrollView>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -136,6 +95,7 @@
             android:inputType="text" />
 
         <LinearLayout
+            android:id="@+id/layout_sort_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -185,6 +145,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/layout_range_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"

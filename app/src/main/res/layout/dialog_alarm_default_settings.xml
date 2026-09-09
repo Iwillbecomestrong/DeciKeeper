@@ -1,19 +1,19 @@
+
+
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp">
-
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
             <!-- 1. 解锁流程 -->
             <TextView
                 android:layout_width="wrap_content"
@@ -23,14 +23,12 @@
                 android:textStyle="bold"
                 android:textColor="?attr/zzText"
                 android:layout_marginBottom="4dp" />
-
             <RadioGroup
                 android:id="@+id/rg_unlock_mode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:layout_marginBottom="8dp">
-
                 <RadioButton
                     android:id="@+id/rb_unlock_single"
                     android:layout_width="wrap_content"
@@ -39,7 +37,6 @@
                     android:text="单次"
                     android:textSize="13sp"
                     android:textColor="?attr/zzText" />
-
                 <RadioButton
                     android:id="@+id/rb_unlock_two_stage"
                     android:layout_width="wrap_content"
@@ -48,7 +45,6 @@
                     android:textSize="13sp"
                     android:textColor="?attr/zzText" />
             </RadioGroup>
-
             <!-- 第一关 -->
             <LinearLayout
                 android:id="@+id/layout_stage1"
@@ -56,7 +52,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:layout_marginBottom="4dp">
-
                 <TextView
                     android:id="@+id/tv_stage1_label"
                     android:layout_width="wrap_content"
@@ -66,7 +61,6 @@
                     android:textStyle="bold"
                     android:textColor="?attr/zzText"
                     android:layout_marginBottom="4dp" />
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -78,7 +72,6 @@
                     <CheckBox android:id="@+id/cb_s1_poem" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="诗词" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                     <CheckBox android:id="@+id/cb_s1_word" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="单词" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                 </LinearLayout>
-
                 <!-- 第二行：选词填空 -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -89,7 +82,6 @@
                     <CheckBox android:id="@+id/cb_s1_cloze" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="选词填空" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                     <Space android:layout_width="0dp" android:layout_weight="3" android:layout_height="wrap_content" />
                 </LinearLayout>
-
                 <LinearLayout
                     android:id="@+id/layout_s1_custom_banks"
                     android:layout_width="match_parent"
@@ -100,7 +92,6 @@
                     android:paddingTop="4dp"
                     android:paddingBottom="4dp" />
             </LinearLayout>
-
             <!-- 第一关防回床倒计时缓冲（双阶段模式下可见） -->
             <LinearLayout
                 android:id="@+id/layout_stage1_cooldown"
@@ -112,7 +103,6 @@
                 android:visibility="gone"
                 android:layout_marginTop="4dp"
                 android:layout_marginBottom="4dp">
-
                 <TextView
                     android:id="@+id/tv_cooldown_title"
                     android:layout_width="wrap_content"
@@ -121,7 +111,6 @@
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:textColor="?attr/zzText" />
-
                 <TextView
                     android:id="@+id/tv_cooldown_desc"
                     android:layout_width="wrap_content"
@@ -131,13 +120,11 @@
                     android:textColor="?attr/zzMuted"
                     android:layout_marginTop="2dp"
                     android:layout_marginBottom="4dp" />
-
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
-
                     <EditText
                         android:id="@+id/et_stage_cooldown"
                         android:layout_width="60dp"
@@ -148,7 +135,6 @@
                         android:textSize="13sp"
                         android:textColor="?attr/zzText"
                         android:background="@drawable/bg_input_field" />
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -158,7 +144,6 @@
                         android:layout_marginStart="6dp" />
                 </LinearLayout>
             </LinearLayout>
-
             <!-- 第二关 -->
             <LinearLayout
                 android:id="@+id/layout_stage2"
@@ -167,7 +152,6 @@
                 android:orientation="vertical"
                 android:visibility="gone"
                 android:layout_marginTop="4dp">
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -176,7 +160,6 @@
                     android:textStyle="bold"
                     android:textColor="?attr/zzText"
                     android:layout_marginBottom="4dp" />
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -188,7 +171,6 @@
                     <CheckBox android:id="@+id/cb_s2_poem" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="诗词" android:checked="true" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                     <CheckBox android:id="@+id/cb_s2_word" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="单词" android:checked="true" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                 </LinearLayout>
-
                 <!-- 第二行：选词填空 -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -199,7 +181,6 @@
                     <CheckBox android:id="@+id/cb_s2_cloze" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="选词填空" android:textSize="12sp" android:textColor="?attr/zzText" android:gravity="center_vertical" android:includeFontPadding="false" />
                     <Space android:layout_width="0dp" android:layout_weight="3" android:layout_height="wrap_content" />
                 </LinearLayout>
-
                 <LinearLayout
                     android:id="@+id/layout_s2_custom_banks"
                     android:layout_width="match_parent"
@@ -210,7 +191,6 @@
                     android:paddingTop="4dp"
                     android:paddingBottom="4dp" />
             </LinearLayout>
-
             <!-- 2. 默认挑战数量 -->
             <TextView
                 android:layout_width="wrap_content"
@@ -221,7 +201,6 @@
                 android:textColor="?attr/zzText"
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="4dp" />
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -249,7 +228,6 @@
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 句" android:textSize="12sp" android:textColor="?attr/zzMuted" />
                 </LinearLayout>
             </LinearLayout>
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -277,7 +255,6 @@
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" 道" android:textSize="12sp" android:textColor="?attr/zzMuted" />
                 </LinearLayout>
             </LinearLayout>
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -295,7 +272,6 @@
                 </LinearLayout>
                 <Space android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp" />
             </LinearLayout>
-
             <!-- 3. 再响设置 -->
             <TextView
                 android:layout_width="wrap_content"
@@ -306,7 +282,6 @@
                 android:textColor="?attr/zzText"
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="4dp" />
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -336,7 +311,6 @@
                     android:textSize="12sp"
                     android:textColor="?attr/zzMuted" />
             </LinearLayout>
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -366,7 +340,6 @@
                     android:textSize="12sp"
                     android:textColor="?attr/zzMuted" />
             </LinearLayout>
-
             <!-- 4. 铃声与震动控制 -->
             <TextView
                 android:layout_width="wrap_content"
@@ -377,7 +350,6 @@
                 android:textColor="?attr/zzText"
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="4dp" />
-
             <RadioGroup
                 android:id="@+id/rg_ring_mode"
                 android:layout_width="match_parent"
@@ -407,7 +379,6 @@
                     android:textSize="13sp"
                     android:textColor="?attr/zzText" />
             </RadioGroup>
-
             <Button
                 android:id="@+id/btn_pick_ringtone"
                 android:layout_width="match_parent"
@@ -415,7 +386,6 @@
                 android:text="选择铃声（默认系统闹钟）"
                 android:textSize="12sp"
                 android:layout_marginBottom="8dp" />
-
             <RadioGroup
                 android:id="@+id/rg_vib_mode"
                 android:layout_width="match_parent"
@@ -438,7 +408,6 @@
                     android:textSize="13sp"
                     android:textColor="?attr/zzText" />
             </RadioGroup>
-
             <!-- 渐进模式提示 -->
             <TextView
                 android:id="@+id/tv_prog_hint"
@@ -449,7 +418,6 @@
                 android:textColor="?attr/zzMuted"
                 android:layout_marginTop="4dp"
                 android:layout_marginBottom="4dp" />
-
             <!-- 渐进模式震动最大强度 -->
             <LinearLayout
                 android:id="@+id/layout_prog_vib_max"
@@ -481,7 +449,6 @@
                     android:textColor="?attr/zzText"
                     android:paddingStart="8dp" />
             </LinearLayout>
-
             <!-- 自动突破渐进最大值 -->
             <CheckBox
                 android:id="@+id/cb_auto_escalate"
@@ -491,7 +458,6 @@
                 android:textSize="12sp"
                 android:textColor="?attr/zzMuted"
                 android:layout_marginBottom="4dp" />
-
             <!-- 渐进模式声音最大强度 -->
             <LinearLayout
                 android:id="@+id/layout_prog_vol_max"
@@ -523,7 +489,6 @@
                     android:textColor="?attr/zzText"
                     android:paddingStart="8dp" />
             </LinearLayout>
-
             <!-- 固定模式：震动强度 -->
             <LinearLayout
                 android:id="@+id/layout_vib_fixed"
@@ -556,7 +521,6 @@
                     android:textColor="?attr/zzText"
                     android:paddingStart="8dp" />
             </LinearLayout>
-
             <!-- 固定模式：声音大小 -->
             <LinearLayout
                 android:id="@+id/layout_ring_vol"
@@ -589,7 +553,6 @@
                     android:textColor="?attr/zzText"
                     android:paddingStart="8dp" />
             </LinearLayout>
-
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

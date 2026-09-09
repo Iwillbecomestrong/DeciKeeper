@@ -122,6 +122,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         } else {
             isLockedScreenMode = intent.getBooleanExtra("is_locked_screen", false)
             LockWindowManager.showAlarmOverlay(this, alarmId, snoozeMinutes, this, useInline = isLockedScreenMode)
+            AlarmChallengeEmergencyGuardService.start(this)
             LogExporter.logEvent("AlarmOverlay", "ACTIVITY_SHOW_OVERLAY_RETURNED id=$alarmId lockedMode=$isLockedScreenMode")
             if (intent.getBooleanExtra("request_camera_permission", false)) {
                 launchQrScan()
@@ -319,6 +320,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     }
 
     override fun onAlarmOverlayFinished() {
+        AlarmChallengeEmergencyGuardService.stop(this)
         AlarmWindowManager.dismiss()
         finishAndRemoveTask()
     }
@@ -345,7 +347,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         // 经由挑战页“应急使用”显式打开白名单 App 时必须放行，否则锁屏模式会立刻把自己拉回。
         if (!isLaunchingScanner &&
             !AlarmChallengeEmergencyGuardService.isEmergencyAccessInProgress() &&
-            AlarmScheduler.isAlarmActive(this)
+            (AlarmScheduler.isAlarmActive(this) || LockWindowManager.isOverlayActive)
         ) {
             val intent = Intent(this, AlarmActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)

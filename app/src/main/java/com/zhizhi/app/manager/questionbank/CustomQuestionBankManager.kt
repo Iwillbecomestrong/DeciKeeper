@@ -73,6 +73,30 @@ object CustomQuestionBankManager {
         saveBank(context, bank.copy(enabled = enabled))
     }
 
+    @Synchronized
+    fun renameBank(context: Context, bankId: String, newTitle: String): Boolean {
+        val cleanTitle = newTitle.trim()
+        if (cleanTitle.isEmpty()) return false
+        val bank = getBank(context, bankId) ?: return false
+        saveBank(context, bank.copy(title = cleanTitle, updatedAt = System.currentTimeMillis()))
+        return true
+    }
+
+    @Synchronized
+    fun setBankShowInBookmark(context: Context, bankId: String, show: Boolean) {
+        val bank = getBank(context, bankId) ?: return
+        saveBank(context, bank.copy(showInBookmark = show, updatedAt = System.currentTimeMillis()))
+    }
+
+    @Synchronized
+    fun getFavoritesByBank(context: Context, bankId: String): List<CustomQuestion> {
+        val bank = getBank(context, bankId) ?: return emptyList()
+        return bank.questions.filter { it.isFavorite }
+    }
+
+    fun getStoragePathDescription(context: Context): String =
+        getFile(context).absolutePath
+
     /**
      * 从启用的题库或指定的特定题库中随机抽取一道题目。
      * @param bankId 指定题库ID；为 null 时从所有启用的题库中抽题。
@@ -302,6 +326,7 @@ object CustomQuestionBankManager {
         obj.put("title", bank.title)
         obj.put("description", bank.description)
         obj.put("enabled", bank.enabled)
+        obj.put("showInBookmark", bank.showInBookmark)
         obj.put("createdAt", bank.createdAt)
         obj.put("updatedAt", bank.updatedAt)
 
@@ -361,6 +386,7 @@ object CustomQuestionBankManager {
             title = obj.optString("title", "未命名题库"),
             description = obj.optString("description", ""),
             enabled = obj.optBoolean("enabled", true),
+            showInBookmark = obj.optBoolean("showInBookmark", true),
             createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis()),
             questions = questions

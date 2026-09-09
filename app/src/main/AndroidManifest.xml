@@ -196,6 +196,11 @@
             android:label="统计筛选" />
 
         <activity
+            android:name=".ui.statistics.StatsHistoryActivity"
+            android:exported="false"
+            android:label="历史记录中心" />
+
+        <activity
             android:name=".ui.statistics.AppCategoryDetailActivity"
             android:exported="false"
             android:label="分类详情" />

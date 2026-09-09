@@ -46,6 +46,7 @@ data class CustomQuestionBank(
     val title: String,                      // 题库名称，如“考研政治近代史1000题”
     val description: String = "",           // 题库简介或备注
     val enabled: Boolean = true,            // 是否启用参与闹钟随机出题
+    val showInBookmark: Boolean = true,     // 是否在收藏夹中生成独立 Tab
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val questions: List<CustomQuestion> = emptyList()

@@ -10,6 +10,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -131,11 +132,12 @@ class CustomQuestionBankActivity : AppCompatActivity() {
         }
 
         val tvTitle = TextView(this).apply {
-            text = bank.title
+            text = "${bank.title} ✏️"
             textSize = 15f
             setTypeface(null, Typeface.BOLD)
             setTextColor(attrColor(R.attr.zzText))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener { showRenameDialog(bank) }
         }
         headerRow.addView(tvTitle)
 
@@ -156,9 +158,36 @@ class CustomQuestionBankActivity : AppCompatActivity() {
             text = "共 ${bank.questions.size} 道题目 · 错题 $mistakeCount 道"
             textSize = 12f
             setTextColor(attrColor(R.attr.zzMuted))
-            setPadding(0, dp(4), 0, dp(8))
+            setPadding(0, dp(4), 0, dp(6))
         }
         cardLayout.addView(tvStats)
+
+        // 2.5 收藏夹独立 Tab 展示开关
+        val rowBookmark = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(8) }
+        }
+        val tvBookmarkLabel = TextView(this).apply {
+            text = "在收藏夹作为独立题库展示"
+            textSize = 12f
+            setTextColor(attrColor(R.attr.zzMuted))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val switchBookmark = SwitchCompat(this).apply {
+            isChecked = bank.showInBookmark
+            setOnCheckedChangeListener { _, isChecked ->
+                CustomQuestionBankManager.setBankShowInBookmark(this@CustomQuestionBankActivity, bank.id, isChecked)
+                val statusStr = if (isChecked) "已开启在收藏夹中展示该题库" else "已在收藏夹中隐藏该题库"
+                Toast.makeText(this@CustomQuestionBankActivity, statusStr, Toast.LENGTH_SHORT).show()
+            }
+        }
+        rowBookmark.addView(tvBookmarkLabel)
+        rowBookmark.addView(switchBookmark)
+        cardLayout.addView(rowBookmark)
 
         // 3. Actions Row
         val actionsRow = LinearLayout(this).apply {
@@ -169,6 +198,24 @@ class CustomQuestionBankActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
+
+        val btnRename = Button(this).apply {
+            text = "✏️ 重命名"
+            textSize = 12f
+            setTextColor(attrColor(R.attr.zzText))
+            backgroundTintList = ColorStateList.valueOf(attrColor(R.attr.zzSurface2))
+            minHeight = 0
+            minWidth = 0
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = dp(8) }
+            setOnClickListener {
+                showRenameDialog(bank)
+            }
+        }
+        actionsRow.addView(btnRename)
 
         val btnReview = Button(this).apply {
             text = "📖 浏览题目"
@@ -209,6 +256,54 @@ class CustomQuestionBankActivity : AppCompatActivity() {
         cardLayout.addView(actionsRow)
         card.addView(cardLayout)
         return card
+    }
+
+    private fun showRenameDialog(bank: CustomQuestionBank) {
+        val dp = (resources.displayMetrics.density).toInt()
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = 18 * dp
+            setPadding(pad, pad / 2, pad, pad / 2)
+        }
+        val input = EditText(this).apply {
+            setText(bank.title)
+            setSelection(text.length)
+            hint = "请输入新题库名称"
+            textSize = 14f
+            setTextColor(attrColor(R.attr.zzText))
+            setBackgroundResource(R.drawable.bg_input_field)
+            val p = 10 * dp
+            setPadding(p, p, p, p)
+        }
+        val hintText = TextView(this).apply {
+            text = "💡 建议命名为 2 个字（如：考公、四级），在闹钟与提醒界面显示更美观整洁"
+            textSize = 11f
+            setTextColor(attrColor(R.attr.zzAccent))
+            setPadding(0, 6 * dp, 0, 0)
+        }
+        container.addView(input)
+        container.addView(hintText)
+
+        AlertDialog.Builder(this)
+            .setTitle("修改题库名称")
+            .setView(container)
+            .setPositiveButton("保存") { _, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isEmpty()) {
+                    Toast.makeText(this, "题库名称不能为空", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (newName == bank.title) return@setPositiveButton
+                val success = CustomQuestionBankManager.renameBank(this, bank.id, newName)
+                if (success) {
+                    refreshList()
+                    Toast.makeText(this, "已重命名为「$newName」", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "重命名失败", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun showDeleteConfirmDialog(bank: CustomQuestionBank) {

@@ -190,7 +190,79 @@ class HomeFragment : Fragment() {
         internal fun buildPrivilegeBoundaryLabel(windowEndHHmm: String): String {
             return "到 $windowEndHHmm 边界"
         }
+
+        internal fun resolveHomeStatusPillModel(
+            isResting: Boolean,
+            restRemainSeconds: Long,
+            tempAccessRemainSeconds: Long,
+            tempCooldownRemainSeconds: Long,
+            restCooldownRemainSeconds: Long,
+            isDndSegment: Boolean
+        ): HomeStatusPillModel {
+            if (isResting || restRemainSeconds > 0) {
+                return HomeStatusPillModel(
+                    statusType = HomeSystemStatusType.RESTING,
+                    isVisible = false,
+                    text = "",
+                    colorAttrId = R.attr.zzSuccess
+                )
+            }
+            if (tempAccessRemainSeconds > 0) {
+                val min = tempAccessRemainSeconds / 60
+                val sec = tempAccessRemainSeconds % 60
+                return HomeStatusPillModel(
+                    statusType = HomeSystemStatusType.TEMP_ACCESS_ACTIVE,
+                    isVisible = true,
+                    text = "🟡 临时解锁中 还剩 ${min}min ${sec}s",
+                    colorAttrId = R.attr.zzWarning
+                )
+            }
+            val maxCooldown = maxOf(tempCooldownRemainSeconds, restCooldownRemainSeconds)
+            if (maxCooldown > 0) {
+                val isTempCool = tempCooldownRemainSeconds >= restCooldownRemainSeconds && tempCooldownRemainSeconds > 0
+                val text = if (isTempCool) {
+                    "🔒 临时解锁冷却 还剩 ${maxCooldown}s"
+                } else {
+                    "⏳ 休息冷却中 还剩 ${maxCooldown}s"
+                }
+                return HomeStatusPillModel(
+                    statusType = HomeSystemStatusType.COOLDOWN,
+                    isVisible = true,
+                    text = text,
+                    colorAttrId = R.attr.zzWarning
+                )
+            }
+            if (isDndSegment) {
+                return HomeStatusPillModel(
+                    statusType = HomeSystemStatusType.DND_ACTIVE,
+                    isVisible = true,
+                    text = "🔒 勿扰中",
+                    colorAttrId = R.attr.zzMuted
+                )
+            }
+            return HomeStatusPillModel(
+                statusType = HomeSystemStatusType.GAP,
+                isVisible = true,
+                text = "🍃 空档期",
+                colorAttrId = R.attr.zzSuccess
+            )
+        }
     }
+
+    enum class HomeSystemStatusType {
+        RESTING,
+        TEMP_ACCESS_ACTIVE,
+        COOLDOWN,
+        DND_ACTIVE,
+        GAP
+    }
+
+    data class HomeStatusPillModel(
+        val statusType: HomeSystemStatusType,
+        val isVisible: Boolean,
+        val text: String,
+        val colorAttrId: Int
+    )
 
     /**
      * 特权时长自动截断结果。
@@ -201,12 +273,9 @@ class HomeFragment : Fragment() {
         val originalRequested: Int
     )
 
-    // Home 页控件
     private var cardPermissionStatus: CardView? = null
     private var tvStatus: TextView? = null
     private var tvProtectionStatus: TextView? = null
-    private var tvCountdown: TextView? = null
-    private var tvTempAccessStatus: TextView? = null
     
     // Dashboard Controls
     private var tvCurrentSegmentRange: TextView? = null
@@ -351,8 +420,6 @@ class HomeFragment : Fragment() {
         // [open-source] 原"长按运行自检套件"入口已移除（TestScenarioManager/TestScenarioRunner
         // 已迁入 test 源集，见 CONTRIBUTING.md 关键文件地图）。
         tvProtectionStatus = view.findViewById(R.id.tv_protection_status)
-        tvCountdown = view.findViewById(R.id.tv_countdown)
-        tvTempAccessStatus = view.findViewById(R.id.tv_temp_access_status)
         
         // Dashboard Views
         tvCurrentSegmentRange = view.findViewById(R.id.tv_current_segment_range)
@@ -513,7 +580,7 @@ class HomeFragment : Fragment() {
                         ctx.sendBroadcast(intent)
                         cardFreeTime?.visibility = View.GONE
                         freeTimeTimer?.cancel()
-                        tvCountdown?.text = "当前状态：勿扰锁定中"
+                        updateTimerText()
                         Toast.makeText(ctx, "已结束每周特权", Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton("取消", null)
@@ -543,7 +610,7 @@ class HomeFragment : Fragment() {
                         ctx.sendBroadcast(intent)
                         cardFreeTime?.visibility = View.GONE
                         freeTimeTimer?.cancel()
-                        tvCountdown?.text = "当前状态：勿扰锁定中"
+                        updateTimerText()
                         Toast.makeText(ctx, "已停止休息", Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton("取消", null)
@@ -910,7 +977,6 @@ class HomeFragment : Fragment() {
                 val effectiveCount = (nextCountLimit - penaltyCount).coerceAtLeast(0)
                 infoText += "\n实际生效：时长 ${formatMinutesForHome(effectiveMins)}min  |  次数 ${formatUsableCountHalfUnits(effectiveCount)}次"
             }
-
             tvNextSegmentInfo?.text = infoText
             tvNextSegmentInfo?.visibility = View.VISIBLE
         } else {
@@ -989,68 +1055,53 @@ class HomeFragment : Fragment() {
         val tempAccessRemainSeconds = tempSnapshot.accessRemainingSeconds
         val tempCooldownRemainSeconds = tempSnapshot.cooldownRemainingSeconds
 
-        // Line 1: Temporary access status
-        if (tempAccessRemainSeconds > 0) {
-            tvTempAccessStatus?.visibility = View.VISIBLE
-            val min = tempAccessRemainSeconds / 60
-            val sec = tempAccessRemainSeconds % 60
-            tvTempAccessStatus?.text = "\uD83D\uDFE1 临时解锁中 还剩 ${min}min ${sec}s"
-        } else if (tempCooldownRemainSeconds > 0) {
-            tvTempAccessStatus?.visibility = View.VISIBLE
-            tvTempAccessStatus?.text = "\uD83D\uDD12 临时解锁冷却 还剩 ${tempCooldownRemainSeconds}s"
-        } else {
-            tvTempAccessStatus?.visibility = View.GONE
-        }
-
-        // Line 2: Rest / DND status
-
         val endTime = CreditManager.getFreeTimeEnd(ctx)
+        val timeLeft = endTime - now
+        val restRemainSeconds = if (timeLeft > 0) (timeLeft + 999) / 1000 else 0L
 
         // Card rest countdown tick (every second)
-        if (now < endTime) {
+        if (timeLeft > 0) {
             tvRestCountdownInCard?.visibility = View.VISIBLE
-            val remainSec = ((endTime - now + 999) / 1000).toInt()
-            tvRestCountdownInCard?.text = "🟢 休息中 剩余 ${remainSec}s"
+            tvRestCountdownInCard?.text = "🟢 休息中 剩余 ${restRemainSeconds}s"
         } else {
             tvRestCountdownInCard?.visibility = View.GONE
         }
 
-        val timeLeft = endTime - System.currentTimeMillis()
         val isPrivilege = CreditManager.isPrivilegeMode(ctx)
 
         if (timeLeft > 0) {
             val seconds = timeLeft / 1000
             val min = seconds / 60
             val sec = seconds % 60
-            layoutCooldownPill?.visibility = View.GONE
             cardFreeTime?.visibility = View.VISIBLE
             btnStopFreeTime?.visibility = View.VISIBLE
             val label = if (isPrivilege) "🌟 特权中" else "🟢 休息中"
             tvFreeTimeCountdown?.text = "$label 还剩 ${min} min ${sec} s"
-            tvCountdown?.text = label
-            tvCountdown?.setTextColor(android.graphics.Color.parseColor("#00AA00"))
         } else {
             cardFreeTime?.visibility = View.GONE
-            // 检查冷却期（休息结束后的冷静期）
-            val coolDownEnd = CreditManager.getCoolDownEnd(ctx)
-            val coolLeft = coolDownEnd - System.currentTimeMillis()
-            if (coolLeft > 0) {
-                val coolSec = (coolLeft + 999) / 1000
-                layoutCooldownPill?.visibility = View.VISIBLE
-                tvCooldownPillText?.text = "⏳ 休息冷却中 还剩 ${coolSec}s"
-                tvCountdown?.text = "⏳ 冷静期"
-                tvCountdown?.setTextColor(android.graphics.Color.parseColor("#FF6600"))
-            } else {
-                layoutCooldownPill?.visibility = View.GONE
-                val isSegment = TimeRuleManager.getCurrentSegment(ctx) != null
-                if (!isSegment) {
-                    tvCountdown?.text = "🟢 当前状态：自由状态"
-                    tvCountdown?.setTextColor(android.graphics.Color.parseColor("#00AA00"))
-                } else {
-                    tvCountdown?.text = "🔒 当前状态：勿扰锁定中"
-                    tvCountdown?.setTextColor(android.graphics.Color.parseColor("#666666"))
-                }
-            }
+        }
+
+        val coolDownEnd = CreditManager.getCoolDownEnd(ctx)
+        val coolLeft = coolDownEnd - now
+        val restCooldownRemainSeconds = if (coolLeft > 0) (coolLeft + 999) / 1000 else 0L
+        val isDndSegment = TimeRuleManager.getCurrentSegment(ctx) != null
+
+        val pillModel = resolveHomeStatusPillModel(
+            isResting = timeLeft > 0,
+            restRemainSeconds = restRemainSeconds,
+            tempAccessRemainSeconds = tempAccessRemainSeconds,
+            tempCooldownRemainSeconds = tempCooldownRemainSeconds,
+            restCooldownRemainSeconds = restCooldownRemainSeconds,
+            isDndSegment = isDndSegment
+        )
+
+        if (pillModel.isVisible) {
+            layoutCooldownPill?.visibility = View.VISIBLE
+            tvCooldownPillText?.text = pillModel.text
+            val color = ThemeManager.getColorAttr(ctx, pillModel.colorAttrId)
+            tvCooldownPillText?.setTextColor(color)
+        } else {
+            layoutCooldownPill?.visibility = View.GONE
         }
     }
     

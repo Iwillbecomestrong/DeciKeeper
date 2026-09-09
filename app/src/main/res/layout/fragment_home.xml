@@ -145,8 +145,6 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <TextView android:id="@+id/tv_countdown" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" />
-        <TextView android:id="@+id/tv_temp_access_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/layout_quota_bubble"
@@ -228,29 +226,6 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 休息冷却紧凑精致胶囊条 -->
-        <LinearLayout
-            android:id="@+id/layout_cooldown_pill"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="12dp"
-            android:background="@drawable/bg_zz_badge"
-            android:gravity="center"
-            android:paddingHorizontal="14dp"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/tv_cooldown_pill_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:includeFontPadding="false"
-                android:text="⏳ 休息冷却中 还剩 --s"
-                android:textColor="?attr/zzWarning"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
         <androidx.cardview.widget.CardView
             android:id="@+id/card_free_time"
             android:layout_width="match_parent"
@@ -276,6 +251,30 @@
             android:textAllCaps="false"
             android:textColor="?attr/zzAccentStrong"
             android:textStyle="bold" />
+
+        <!-- 运行状态精致胶囊条（置于使用说明下方） -->
+        <LinearLayout
+            android:id="@+id/layout_cooldown_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="4dp"
+            android:background="@drawable/bg_zz_badge"
+            android:gravity="center"
+            android:paddingHorizontal="14dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_cooldown_pill_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:includeFontPadding="false"
+                android:text="⏳ 休息冷却中 还剩 --s"
+                android:textColor="?attr/zzWarning"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
     </LinearLayout>
 </ScrollView>

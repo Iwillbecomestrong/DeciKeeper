@@ -103,7 +103,9 @@ class AlarmChallengeEmergencyGuardService : Service() {
             try {
                 tick()
             } finally {
-                if (!restrictionReleased && AlarmScheduler.isAlarmActive(this@AlarmChallengeEmergencyGuardService)) {
+                val isRealActive = AlarmScheduler.isAlarmActive(this@AlarmChallengeEmergencyGuardService)
+                val isTestActive = LockWindowManager.isOverlayActive
+                if (!restrictionReleased && (isRealActive || isTestActive)) {
                     handler.postDelayed(this, POLL_MS)
                 }
             }
@@ -139,7 +141,9 @@ class AlarmChallengeEmergencyGuardService : Service() {
     }
 
     private fun tick() {
-        if (!AlarmScheduler.isAlarmActive(this)) {
+        val isRealActive = AlarmScheduler.isAlarmActive(this)
+        val isTestActive = LockWindowManager.isOverlayActive
+        if (!isRealActive && !isTestActive) {
             emergencyAccessInProgress = false
             removeChallengeSection()
             stopSelf()
@@ -161,8 +165,6 @@ class AlarmChallengeEmergencyGuardService : Service() {
             if (emergencyAccessInProgress) {
                 emergencyAccessInProgress = false
                 launchGraceUntil = 0L
-                // Non-inline mode temporarily detaches the overlay while the approved app is open.
-                // Reattach the same View instead of rebuilding it, preserving every answer/progress counter.
                 LockWindowManager.showAlarmOverlayIfHidden()
                 Log.i(TAG, "returned from emergency app to IronWill; challenge view restored")
             }
@@ -181,17 +183,24 @@ class AlarmChallengeEmergencyGuardService : Service() {
         }
 
         if (now - lastReenterAt < REENTER_THROTTLE_MS) return
-        val alarmId = AlarmScheduler.getActiveAlarmId(this)
-        if (alarmId < 0) return
+        val alarmId = if (isRealActive) AlarmScheduler.getActiveAlarmId(this) else AlarmScheduler.TEST_ALARM_ID
+        if (isRealActive && alarmId < 0) return
         lastReenterAt = now
         emergencyAccessInProgress = false
         launchGraceUntil = 0L
         Log.i(TAG, "non-whitelisted foreground=$top, restoring challenge id=$alarmId")
 
-        // Reattach first so AlarmWindowManager.reenterChallenge() can reuse the same in-memory
-        // challenge view rather than resetting questions after an emergency-app excursion.
         LockWindowManager.showAlarmOverlayIfHidden()
-        AlarmWindowManager.reenterChallenge(applicationContext, alarmId)
+        if (isRealActive) {
+            AlarmWindowManager.reenterChallenge(applicationContext, alarmId)
+        } else {
+            val ctx = applicationContext
+            val intent = Intent(ctx, com.zhizhi.app.ui.AlarmActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(AlarmScheduler.EXTRA_ALARM_ID, AlarmScheduler.TEST_ALARM_ID)
+            }
+            ctx.startActivity(intent)
+        }
     }
 
     /**
@@ -308,8 +317,8 @@ class AlarmChallengeEmergencyGuardService : Service() {
      */
     private fun hasChallengeJustCompleted(): Boolean {
         val alarmView = LockWindowManager.getAlarmView() ?: return false
-        val actionPanel = alarmView.findViewById<View>(R.id.layout_alarm_actions) ?: return false
-        if (actionPanel.visibility != View.VISIBLE) {
+        val btnClose = alarmView.findViewById<Button>(R.id.btn_alarm_close) ?: return false
+        if (btnClose.visibility != View.VISIBLE) {
             observedLockedChallengeState = true
             return false
         }

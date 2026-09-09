@@ -211,14 +211,29 @@
             </LinearLayout>
 
             <!-- List Header -->
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="题库列表"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="?attr/zzText"
-                android:layout_marginBottom="10dp" />
+                android:orientation="vertical"
+                android:layout_marginBottom="10dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="题库列表"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/zzText" />
+
+                <TextView
+                    android:id="@+id/tv_bank_storage_path"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="📁 存储位置：应用内部私有目录（custom_question_banks.json），建议在设置中备份"
+                    android:textSize="11sp"
+                    android:textColor="?attr/zzMuted" />
+            </LinearLayout>
 
             <!-- Empty Layout -->
             <LinearLayout

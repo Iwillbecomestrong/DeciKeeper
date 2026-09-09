@@ -55,6 +55,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
+import com.zhizhi.app.manager.statistics.RestStatsRecorder
 
 
 
@@ -1358,6 +1359,18 @@ object CreditManager {
         val untilStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(endMillis))
         val remainingQuota = getRemainingMinutes(context)
         LogExporter.i("Privilege", "💎 申请特权 | minutes=$effectiveMinutes | until=$untilStr | remainingQuota=${"%.0f".format(remainingQuota)}min")
+        RestStatsRecorder.record(
+            context = context,
+            type = "PRIVILEGE",
+            typeName = "周特权",
+            reason = "每周专属特权时段",
+            requestedMinutes = effectiveMinutes.toDouble(),
+            actualMinutes = effectiveMinutes.toDouble(),
+            costMinutes = effectiveMinutes.toDouble(),
+            costCount = 1,
+            balanceMinutes = remainingQuota,
+            balanceCount = getRemainingUsableCount(context)
+        )
         return true
     }
 
@@ -3494,6 +3507,18 @@ object CreditManager {
                 remainingCount = remainingCountFmt,
                 cooldownAddedSec = "0",
                 cooldownKind = "NONE"
+            )
+            RestStatsRecorder.record(
+                context = context,
+                type = "PENALTY",
+                typeName = "违规惩罚",
+                reason = "频繁触发防沉迷或多次锁屏扣减",
+                requestedMinutes = penaltySec / 60.0,
+                actualMinutes = 0.0,
+                costMinutes = (normalSec + borrowedCostSec) / 60.0,
+                costCount = 1,
+                balanceMinutes = getRemainingMinutes(context),
+                balanceCount = getRemainingUsableCount(context)
             )
         }
 

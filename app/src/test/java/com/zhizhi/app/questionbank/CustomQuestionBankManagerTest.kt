@@ -189,5 +189,54 @@ class CustomQuestionBankManagerTest {
         assertEquals(map1, retrieved1)
         assertEquals(map2, retrieved2)
     }
+
+    @Test
+    fun testRenameBank() {
+        val bank = CustomQuestionBank(id = "b_rename", title = "旧名称", enabled = true)
+        CustomQuestionBankManager.saveBank(context, bank)
+
+        // 空名称或纯空格拦截
+        assertFalse(CustomQuestionBankManager.renameBank(context, "b_rename", "   "))
+        assertEquals("旧名称", CustomQuestionBankManager.getBank(context, "b_rename")?.title)
+
+        // 不存在的题库拦截
+        assertFalse(CustomQuestionBankManager.renameBank(context, "b_non_exist", "新名称"))
+
+        // 正常重命名并自动 trim
+        assertTrue(CustomQuestionBankManager.renameBank(context, "b_rename", "  考公  "))
+        val reloaded = CustomQuestionBankManager.getBanks(context, forceReload = true).first { it.id == "b_rename" }
+        assertEquals("考公", reloaded.title)
+    }
+
+    @Test
+    fun testShowInBookmarkAndFavoritesByBank() {
+        val q1 = CustomQuestion(id = "q1", bankId = "b1", stem = "题1", options = listOf("A", "B"), answer = "A", isFavorite = true)
+        val q2 = CustomQuestion(id = "q2", bankId = "b1", stem = "题2", options = listOf("A", "B"), answer = "B", isFavorite = false)
+        val q3 = CustomQuestion(id = "q3", bankId = "b2", stem = "题3", options = listOf("A", "B"), answer = "A", isFavorite = true)
+
+        val bank1 = CustomQuestionBank(id = "b1", title = "题库1", questions = listOf(q1, q2), showInBookmark = true)
+        val bank2 = CustomQuestionBank(id = "b2", title = "题库2", questions = listOf(q3), showInBookmark = true)
+        CustomQuestionBankManager.saveBank(context, bank1)
+        CustomQuestionBankManager.saveBank(context, bank2)
+
+        // 题库1收藏项仅有 q1
+        val b1Favs = CustomQuestionBankManager.getFavoritesByBank(context, "b1")
+        assertEquals(1, b1Favs.size)
+        assertEquals("q1", b1Favs[0].id)
+
+        // 题库2收藏项仅有 q3
+        val b2Favs = CustomQuestionBankManager.getFavoritesByBank(context, "b2")
+        assertEquals(1, b2Favs.size)
+        assertEquals("q3", b2Favs[0].id)
+
+        // 修改收藏夹显隐开关
+        CustomQuestionBankManager.setBankShowInBookmark(context, "b1", false)
+        val reloadedBank1 = CustomQuestionBankManager.getBanks(context, forceReload = true).first { it.id == "b1" }
+        assertFalse(reloadedBank1.showInBookmark)
+
+        // 存储路径描述检查
+        val storagePath = CustomQuestionBankManager.getStoragePathDescription(context)
+        assertTrue(storagePath.endsWith("custom_question_banks.json"))
+    }
 }
 

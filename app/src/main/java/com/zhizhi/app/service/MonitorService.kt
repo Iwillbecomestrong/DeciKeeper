@@ -58,6 +58,7 @@ import com.zhizhi.app.data.NormalEventLogger
 import com.zhizhi.app.data.SegmentBlacklist
 import com.zhizhi.app.data.SystemEventClock
 import com.zhizhi.app.data.TimeSegment
+import com.zhizhi.app.manager.statistics.RestStatsRecorder
 import com.zhizhi.app.data.resolveAccessibilityFailureClass
 import com.zhizhi.app.manager.AppWindowManager
 import com.zhizhi.app.manager.CreditManager
@@ -1180,6 +1181,18 @@ class MonitorService : Service() {
                     if (!naturalFreedom) {
                         android.widget.Toast.makeText(this, "提前结束休息，已退还 ${refundStr} 分钟额度", android.widget.Toast.LENGTH_LONG).show()
                     }
+                    RestStatsRecorder.record(
+                        context = this,
+                        type = "REFUND",
+                        typeName = "提前退还",
+                        reason = "提前结束休息返还未用额度",
+                        requestedMinutes = mRestRequestedDurationMins,
+                        actualMinutes = usedMinutes,
+                        costMinutes = -roundedRefund,
+                        costCount = 0,
+                        balanceMinutes = CreditManager.getRemainingMinutes(this),
+                        balanceCount = CreditManager.getRemainingUsableCount(this)
+                    )
                 }
             }
             // Reset Session Data handled at end

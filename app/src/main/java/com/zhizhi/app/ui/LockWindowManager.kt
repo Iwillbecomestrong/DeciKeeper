@@ -27,6 +27,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -80,6 +81,7 @@ import com.zhizhi.app.manager.AppWindowManager
 import com.zhizhi.app.manager.CreditManager
 import com.zhizhi.app.manager.LockOverlayRestrictionMode
 import com.zhizhi.app.manager.TimeRuleManager
+import com.zhizhi.app.manager.statistics.RestStatsRecorder
 import com.zhizhi.app.manager.getEffectiveUsableCountLimit
 import com.zhizhi.app.manager.resolveAllowedWindowSummaryForDisplay
 import com.zhizhi.app.manager.resolveAutomaticRestrictionRelease
@@ -525,7 +527,9 @@ object LockWindowManager {
         val progressiveMaxRingVolume: Int = 10,
         val autoEscalate: Boolean = false,
         val stage1CustomBanks: Map<String, Int> = emptyMap(),
-        val stage2CustomBanks: Map<String, Int> = emptyMap()
+        val stage2CustomBanks: Map<String, Int> = emptyMap(),
+        val snoozeMinutes: Int = 10,
+        val snoozeMaxCount: Int = 2
     )
 
     // ── 闹钟覆盖层共享状态（保留在本对象，供 LockAlarmOverlayController 通过 internal getter 访问）──
@@ -3069,10 +3073,18 @@ object LockWindowManager {
 
         // 1. 每周特权按钮状态更新
         val weeklyPresentation = resolveWeeklyPrivilegePresentation(privilegeReason)
+        val isWeeklyEnabled = weeklyPresentation.enabled
         btnWeeklyPrivilege?.visibility = View.VISIBLE
         btnWeeklyPrivilege?.text = weeklyPresentation.label
-        btnWeeklyPrivilege?.isEnabled = weeklyPresentation.enabled
-        btnWeeklyPrivilege?.alpha = weeklyPresentation.alpha
+        btnWeeklyPrivilege?.isEnabled = isWeeklyEnabled
+        btnWeeklyPrivilege?.alpha = 1.0f
+        if (isWeeklyEnabled) {
+            btnWeeklyPrivilege?.backgroundTintList = ColorStateList.valueOf(ThemeManager.getColorAttr(context, R.attr.zzAltSoft))
+            btnWeeklyPrivilege?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzAlt))
+        } else {
+            btnWeeklyPrivilege?.backgroundTintList = ColorStateList.valueOf(ThemeManager.getColorAttr(context, R.attr.zzSurface2))
+            btnWeeklyPrivilege?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
+        }
 
         // 2. 场景专属主操作按钮更新 (时间窗->临时放行, 勿扰->申请休息)
         val emergencyPresentation = resolveEmergencyActionPresentation(
@@ -3083,10 +3095,21 @@ object LockWindowManager {
             coolingRemainingSeconds = tempCooldownRemain,
             isTemporaryAccessExhausted = tempExhausted
         )
+        val isEmergencyEnabled = emergencyPresentation.enabled
         btnEmergency?.visibility = View.VISIBLE
         btnEmergency?.text = emergencyPresentation.label
-        btnEmergency?.isEnabled = emergencyPresentation.enabled
-        btnEmergency?.alpha = emergencyPresentation.alpha
+        btnEmergency?.isEnabled = isEmergencyEnabled
+        btnEmergency?.alpha = 1.0f
+        if (isEmergencyEnabled) {
+            btnEmergency?.backgroundTintList = ColorStateList.valueOf(ThemeManager.getColorAttr(context, R.attr.zzAccent))
+            btnEmergency?.setTextColor(Color.WHITE)
+        } else {
+            btnEmergency?.backgroundTintList = ColorStateList.valueOf(ThemeManager.getColorAttr(context, R.attr.zzSurface2))
+            btnEmergency?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
+        }
+
+        // 🌟 防穿透：同一操作槽内 btnEmergency 可见时，底层的 btnTemporaryAccess 强制 GONE
+        btnTemporaryAccess?.visibility = View.GONE
     }
 
     // 🚀 [Performance] 轻量 tick：每秒由 REASSERT 触发，只更新变化的数字和按钮冷却
@@ -3654,6 +3677,18 @@ object LockWindowManager {
                  
                 if (currentSeg == null) {
                     mMonitorService?.grantFreeTime((requestedMins * 60 * 1000L).toLong(), requestedMins) // Gap Cost = 1x usually? Or just requestedMins.
+                    RestStatsRecorder.record(
+                        context = context,
+                        type = "NORMAL",
+                        typeName = "空档期休息",
+                        reason = "非规则时段空档期休息",
+                        requestedMinutes = requestedMins,
+                        actualMinutes = requestedMins,
+                        costMinutes = 0.0,
+                        costCount = 0,
+                        balanceMinutes = CreditManager.getRemainingMinutes(context),
+                        balanceCount = CreditManager.getRemainingUsableCount(context)
+                    )
                     dismissRestWindow()
                     resetConsecutiveNormalLockState("free_time_granted_gap")
                     totalSegmentBlacklistHits = 0
@@ -5834,6 +5869,19 @@ object LockWindowManager {
         val remainMins = CreditManager.getRemainingMinutes(context)
         val remainCount = CreditManager.getRemainingUsableCount(context)
         LogExporter.i("Rest", "休息: ${requestedMins}min | 扣费=${costMins}min/${countCost}次 | 截止=$untilTime | 剩余=${remainMins}min/${remainCount}次 | 借用=$isBorrowed")
+
+        RestStatsRecorder.record(
+            context = context,
+            type = if (isBorrowed) "BORROW" else "NORMAL",
+            typeName = if (isBorrowed) "借用休息" else "常规休息",
+            reason = if (isBorrowed) "预支未来时段额度" else "常规申请休息",
+            requestedMinutes = requestedMins,
+            actualMinutes = requestedMins,
+            costMinutes = costMins,
+            costCount = countCost,
+            balanceMinutes = remainMins,
+            balanceCount = remainCount
+        )
 
         val msg = if (isBorrowed) "预支成功！开启休息: $requestedMins 分钟" else "开启休息: $requestedMins 分钟"
         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()

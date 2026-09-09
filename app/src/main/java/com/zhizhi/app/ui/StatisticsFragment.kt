@@ -131,6 +131,12 @@ class StatisticsFragment : Fragment() {
     // 起床页专属列表
     private lateinit var layoutAlarmExtra: LinearLayout
     private lateinit var layoutAlarmRecentList: LinearLayout
+    private lateinit var btnViewAllAlarmRecords: TextView
+
+    // 休息页专属流水
+    private lateinit var layoutRestExtra: LinearLayout
+    private lateinit var layoutRestRecentList: LinearLayout
+    private lateinit var btnViewAllRestRecords: TextView
 
     // 规则保护页专属列表
     private lateinit var layoutRulesExtra: LinearLayout
@@ -233,6 +239,11 @@ class StatisticsFragment : Fragment() {
 
         layoutAlarmExtra = v.findViewById(R.id.layout_alarm_extra)
         layoutAlarmRecentList = v.findViewById(R.id.layout_alarm_recent_list)
+        btnViewAllAlarmRecords = v.findViewById(R.id.btn_view_all_alarm_records)
+
+        layoutRestExtra = v.findViewById(R.id.layout_rest_extra)
+        layoutRestRecentList = v.findViewById(R.id.layout_rest_recent_list)
+        btnViewAllRestRecords = v.findViewById(R.id.btn_view_all_rest_records)
 
         layoutRulesExtra = v.findViewById(R.id.layout_rules_extra)
         layoutRulesRecentList = v.findViewById(R.id.layout_rules_recent_list)
@@ -434,6 +445,42 @@ class StatisticsFragment : Fragment() {
         layoutAppsExtra.isVisible = false
         layoutAlarmExtra.isVisible = false
         layoutRulesExtra.isVisible = false
+        layoutRestExtra.isVisible = true
+
+        layoutRestRecentList.removeAllViews()
+        if (summary.recentRecords.isEmpty()) {
+            val tv = TextView(ctx)
+            tv.text = "暂无休息流水记录"
+            tv.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            tv.textSize = 12f
+            layoutRestRecentList.addView(tv)
+        } else {
+            summary.recentRecords.forEach { rec ->
+                val v = layoutInflater.inflate(R.layout.item_stats_rest_row, layoutRestRecentList, false)
+                val date = v.findViewById<TextView>(R.id.tv_rest_date)
+                val type = v.findViewById<TextView>(R.id.tv_rest_type)
+                val reason = v.findViewById<TextView>(R.id.tv_rest_reason)
+                val cost = v.findViewById<TextView>(R.id.tv_rest_cost)
+                val balance = v.findViewById<TextView>(R.id.tv_rest_balance)
+
+                val shortTime = if (rec.dateLabel.length >= 16) rec.dateLabel.substring(5) else rec.dateLabel
+                date.text = shortTime
+                type.text = rec.typeName
+                reason.text = if (rec.reason.isNotBlank()) rec.reason else "申请 ${rec.requestedMinutes}m"
+                val costSign = if (rec.costMinutes > 0) "-${rec.costMinutes}m" else if (rec.costMinutes < 0) "+${-rec.costMinutes}m" else "0m"
+                val countSign = if (rec.costCount > 0) " / -${rec.costCount}次" else if (rec.costCount < 0) " / +${-rec.costCount}次" else ""
+                cost.text = "$costSign$countSign"
+                balance.text = "余 ${rec.balanceMinutes.toInt()}m / ${rec.balanceCount}次"
+                layoutRestRecentList.addView(v)
+            }
+        }
+
+        btnViewAllRestRecords.setOnClickListener {
+            val intent = Intent(ctx, com.zhizhi.app.ui.statistics.StatsHistoryActivity::class.java).apply {
+                putExtra(com.zhizhi.app.ui.statistics.StatsHistoryActivity.EXTRA_TARGET_TAB, com.zhizhi.app.ui.statistics.StatsHistoryActivity.TAB_REST)
+            }
+            startActivity(intent)
+        }
 
         cardSecondary.isVisible = true
         tvSecondaryTitle.text = "冷却中再次申请"
@@ -524,6 +571,7 @@ class StatisticsFragment : Fragment() {
         layoutAppsExtra.isVisible = true
         layoutAlarmExtra.isVisible = false
         layoutRulesExtra.isVisible = false
+        layoutRestExtra.isVisible = false
 
         // 视图模式切换按钮样式
         val isCat = uiState.appViewMode == AppUsageViewMode.CATEGORIZED_GAMES
@@ -795,6 +843,7 @@ class StatisticsFragment : Fragment() {
         layoutAppsExtra.isVisible = false
         layoutAlarmExtra.isVisible = true
         layoutRulesExtra.isVisible = false
+        layoutRestExtra.isVisible = false
 
         layoutAlarmRecentList.removeAllViews()
         if (summary.recentRecords.isEmpty()) {
@@ -819,6 +868,13 @@ class StatisticsFragment : Fragment() {
                 total.text = "流程 ${rec.totalFlowDurationMinutes}m"
                 layoutAlarmRecentList.addView(v)
             }
+        }
+
+        btnViewAllAlarmRecords.setOnClickListener {
+            val intent = Intent(ctx, com.zhizhi.app.ui.statistics.StatsHistoryActivity::class.java).apply {
+                putExtra(com.zhizhi.app.ui.statistics.StatsHistoryActivity.EXTRA_TARGET_TAB, com.zhizhi.app.ui.statistics.StatsHistoryActivity.TAB_ALARM)
+            }
+            startActivity(intent)
         }
 
         cardSecondary.isVisible = true
@@ -888,6 +944,7 @@ class StatisticsFragment : Fragment() {
         layoutAppsExtra.isVisible = false
         layoutAlarmExtra.isVisible = false
         layoutRulesExtra.isVisible = true
+        layoutRestExtra.isVisible = false
 
         layoutRulesRecentList.removeAllViews()
         if (summary.recentChanges.isEmpty()) {

@@ -552,9 +552,19 @@ object StatisticsRepository {
             totalPrivilegeCount = sumPrivCount,
             totalPrivilegeMinutes = sumPrivMinutes,
             cooldownAttemptCount = sumCooldownAttempts,
-            buckets = bucketDataList
+            buckets = bucketDataList,
+            recentRecords = RestStatsRecorder.getRecentRecords(context, 5)
         )
     }
+
+    fun getAllRestRecords(context: Context): List<com.zhizhi.app.data.statistics.RestUsageRecord> =
+        RestStatsRecorder.getAllRecords(context)
+
+    fun deleteRestRecord(context: Context, id: String): Boolean =
+        RestStatsRecorder.deleteRecord(context, id)
+
+    fun updateRestRecord(context: Context, updated: com.zhizhi.app.data.statistics.RestUsageRecord): Boolean =
+        RestStatsRecorder.updateRecord(context, updated)
 
     // ==========================================
     // 2. 应用统计 (真机 UsageStatsManager + 游戏聚合)
@@ -967,9 +977,31 @@ object StatisticsRepository {
             null
         }
         val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+        val allRecords = AlarmWakeStatsRecorder.getAllRecords(context)
         val datedRecords = mutableListOf<Pair<LocalDate, AlarmWakeRecord>>()
 
-        if (prefs != null) {
+        if (allRecords.isNotEmpty()) {
+            allRecords.forEach { record ->
+                val date = try {
+                    LocalDate.parse(record.dateLabel)
+                } catch (_: Exception) {
+                    if (record.completedAt > 0L) {
+                        Instant.ofEpochMilli(record.completedAt).atZone(zoneId).toLocalDate()
+                    } else null
+                }
+                if (date != null && !date.isAfter(today) && weekdayFilter.isEnabled(date.dayOfWeek)) {
+                    val minute = record.alarmMinuteOfDay.coerceIn(0, 1439)
+                    val alarmTimeMillis = date
+                        .atTime(minute / 60, minute % 60)
+                        .atZone(zoneId)
+                        .toInstant()
+                        .toEpochMilli()
+                    if (alarmTimeMillis >= resolvedRange.startMillis && alarmTimeMillis < resolvedRange.endMillisExclusive) {
+                        datedRecords += date to record
+                    }
+                }
+            }
+        } else if (prefs != null) {
             val startDate = LocalDateTime.ofInstant(
                 Instant.ofEpochMilli(resolvedRange.startMillis), zoneId
             ).toLocalDate()
@@ -1030,47 +1062,66 @@ object StatisticsRepository {
         }
 
         val bucketDataList = buckets.map { bucket ->
-            val recordsInBucket = datedRecords.asSequence()
-                .filter { (date, record) ->
-                    val minute = record.alarmMinuteOfDay.coerceIn(0, 1439)
-                    val eventMillis = date
-                        .atTime(minute / 60, minute % 60)
-                        .atZone(zoneId)
-                        .toInstant()
-                        .toEpochMilli()
-                    eventMillis >= bucket.startMillis && eventMillis < bucket.endMillisExclusive
-                }
-                .map { it.second }
-                .toList()
+            val pairsInBucket = datedRecords.filter { (date, record) ->
+                val minute = record.alarmMinuteOfDay.coerceIn(0, 1439)
+                val eventMillis = date
+                    .atTime(minute / 60, minute % 60)
+                    .atZone(zoneId)
+                    .toInstant()
+                    .toEpochMilli()
+                eventMillis >= bucket.startMillis && eventMillis < bucket.endMillisExclusive
+            }
 
-            if (recordsInBucket.isEmpty()) {
+            // 同一天若有多次闹钟，日均统计优先采用当天「最早的一次」主闹钟
+            val dailyRepresentativeRecords = pairsInBucket
+                .groupBy { it.first }
+                .values
+                .map { dayList -> dayList.minByOrNull { it.second.alarmMinuteOfDay }!!.second }
+
+            if (dailyRepresentativeRecords.isEmpty()) {
                 AlarmBucketData(bucket, null, null, null, null)
             } else {
                 AlarmBucketData(
                     bucket = bucket,
-                    alarmMinuteOfDay = medianInt(recordsInBucket.map { it.alarmMinuteOfDay })?.toFloat(),
-                    firstStageCompletedMinute = medianInt(recordsInBucket.map { it.firstStageCompletedMinute })?.toFloat(),
-                    firstStageDurationMinutes = medianInt(recordsInBucket.map { it.firstStageDurationMinutes })?.toFloat(),
-                    totalFlowDurationMinutes = medianInt(recordsInBucket.map { it.totalFlowDurationMinutes })?.toFloat()
+                    alarmMinuteOfDay = medianInt(dailyRepresentativeRecords.map { it.alarmMinuteOfDay })?.toFloat(),
+                    firstStageCompletedMinute = medianInt(dailyRepresentativeRecords.map { it.firstStageCompletedMinute })?.toFloat(),
+                    firstStageDurationMinutes = medianInt(dailyRepresentativeRecords.map { it.firstStageDurationMinutes })?.toFloat(),
+                    totalFlowDurationMinutes = medianInt(dailyRepresentativeRecords.map { it.totalFlowDurationMinutes })?.toFloat()
                 )
             }
         }
 
-        val validRecords = datedRecords.map { it.second }
+        // 全量有效记录与最近 5 条记录展示
+        val dailyReps = datedRecords
+            .groupBy { it.first }
+            .values
+            .map { dayList -> dayList.minByOrNull { it.second.alarmMinuteOfDay }!!.second }
+
         val recent = datedRecords
-            .sortedByDescending { it.first }
-            .take(5)
+            .sortedWith(compareByDescending<Pair<LocalDate, AlarmWakeRecord>> { it.second.completedAt }.thenByDescending { it.first })
             .map { it.second }
+            .distinctBy { it.id }
+            .take(5)
 
         return AlarmStatsSummary(
-            medianAlarmMinuteOfDay = medianInt(validRecords.map { it.alarmMinuteOfDay }),
-            medianFirstStageDurationMinutes = medianInt(validRecords.map { it.firstStageDurationMinutes }),
-            medianTotalFlowDurationMinutes = medianInt(validRecords.map { it.totalFlowDurationMinutes }),
-            recordedDaysCount = validRecords.size,
+            medianAlarmMinuteOfDay = medianInt(dailyReps.map { it.alarmMinuteOfDay }),
+            medianFirstStageDurationMinutes = medianInt(dailyReps.map { it.firstStageDurationMinutes }),
+            medianTotalFlowDurationMinutes = medianInt(dailyReps.map { it.totalFlowDurationMinutes }),
+            recordedDaysCount = dailyReps.size,
             buckets = bucketDataList,
             recentRecords = recent
         )
     }
+
+    fun getAllWakeRecords(context: Context): List<AlarmWakeRecord> =
+        AlarmWakeStatsRecorder.getAllRecords(context)
+
+    fun deleteWakeRecord(context: Context, id: String): Boolean =
+        AlarmWakeStatsRecorder.deleteRecord(context, id)
+
+    fun updateWakeRecord(context: Context, updated: AlarmWakeRecord): Boolean =
+        AlarmWakeStatsRecorder.updateRecord(context, updated)
+
     // ==========================================
     fun getRuleProtectionStats(
         context: Context,

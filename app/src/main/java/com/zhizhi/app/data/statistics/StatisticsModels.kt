@@ -178,7 +178,26 @@ data class ExitStatsSummary(
     val totalPrivilegeCount: Int,
     val totalPrivilegeMinutes: Long,
     val cooldownAttemptCount: Int,
-    val buckets: List<ExitBucketData>
+    val buckets: List<ExitBucketData>,
+    val recentRecords: List<RestUsageRecord> = emptyList()
+)
+
+/**
+ * 休息额度与使用流水记录
+ */
+data class RestUsageRecord(
+    val id: String,
+    val timestamp: Long,
+    val dateLabel: String,                 // 格式如 "2026-09-09 11:30"
+    val type: String,                      // "NORMAL", "BORROW", "PRIVILEGE", "PENALTY", "REFUND"
+    val typeName: String,                  // "常规休息", "借用休息", "周特权", "惩罚扣除", "提前退还"
+    val reason: String = "",               // 具体原因描述
+    val requestedMinutes: Double = 0.0,    // 申请/设定时长（分钟）
+    val actualMinutes: Double = 0.0,       // 实际使用时长（分钟）
+    val costMinutes: Double = 0.0,         // 扣减/变动时长（分钟，正数表示扣减，负数表示退还）
+    val costCount: Int = 0,                // 扣减次数（1次/2次，正数表示消耗，负数表示返还）
+    val balanceMinutes: Double = 0.0,      // 变动后剩余时长（分钟）
+    val balanceCount: Int = 0              // 变动后剩余次数
 )
 
 /**
@@ -255,7 +274,9 @@ data class AlarmWakeRecord(
     val alarmMinuteOfDay: Int,          // 计划响铃时间（0~1439）
     val firstStageCompletedMinute: Int, // 第一阶段完成时间（0~1439）
     val firstStageDurationMinutes: Int, // 第一阶段耗时（分钟）
-    val totalFlowDurationMinutes: Int   // 完整流程耗时（分钟）
+    val totalFlowDurationMinutes: Int,  // 完整流程耗时（分钟）
+    val completedAt: Long = 0L,
+    val alarmId: Int = 0
 )
 
 data class AlarmBucketData(

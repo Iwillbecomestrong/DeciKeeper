@@ -197,14 +197,17 @@ internal object LockAlarmOverlayController {
         }
 
         this.alarmId = alarmId
-        this.alarmSnoozeMinutes = snoozeMinutes
-        this.alarmRemainingSnoozeCount = if (alarmId > 0) AlarmScheduler.getRemainingSnoozeCount(context, alarmId) else 0
+        val isTest = alarmId <= 0
+        val testCfg = if (isTest) consumeTestConfig() else null
+        this.alarmSnoozeMinutes = if (isTest) (testCfg?.snoozeMinutes ?: snoozeMinutes) else snoozeMinutes
+        this.alarmRemainingSnoozeCount = if (isTest) {
+            testCfg?.snoozeMaxCount ?: 2
+        } else {
+            AlarmScheduler.getRemainingSnoozeCount(context, alarmId)
+        }
         mAlarmController = controller
 
         val entry = AlarmScheduler.findAlarm(context, alarmId)
-        // 如果是测试闹钟 (alarmId <= 0)，读取测试配置，不强制启用全部选项
-        val isTest = alarmId <= 0
-        val testCfg = if (isTest) consumeTestConfig() else null
 
         // [Fix: 禁止默认配置回退] 正式闹钟触发时，entry 为 null 或 unlockMode 解析失败表示记录已被删除或配置损坏，
         // 此时必须拒绝响铃而不是回退到默认 SINGLE 模式。
@@ -2679,7 +2682,8 @@ internal object LockAlarmOverlayController {
     internal fun requestSnoozeFromHardware(source: String = "HARDWARE"): Boolean = requestSnooze(source)
 
     private fun requestSnooze(source: String): Boolean {
-        if (!isAlarmOverlayActive.get() || alarmId <= 0) return false
+        if (!isAlarmOverlayActive.get()) return false
+        val isTest = alarmId <= 0
         val ctx = LockWindowManager.getAlarmContext() ?: return false
         val view = LockWindowManager.getAlarmView() ?: return false
 
@@ -2687,21 +2691,29 @@ internal object LockAlarmOverlayController {
         if (isTwoStageUnlock && isAlarmFirstStagePassed) return false
         val btnClose = view.findViewById<Button>(R.id.btn_alarm_close)
         if (btnClose?.visibility == View.VISIBLE) return false
-        if (alarmRemainingSnoozeCount <= 0 || AlarmScheduler.getRemainingSnoozeCount(ctx, alarmId) <= 0) return false
-        if (!AlarmScheduler.recordSnoozeUsed(ctx, alarmId)) {
-            alarmRemainingSnoozeCount = 0
-            return false
+        if (alarmRemainingSnoozeCount <= 0) return false
+
+        if (!isTest) {
+            if (AlarmScheduler.getRemainingSnoozeCount(ctx, alarmId) <= 0) return false
+            if (!AlarmScheduler.recordSnoozeUsed(ctx, alarmId)) {
+                alarmRemainingSnoozeCount = 0
+                return false
+            }
+            alarmRemainingSnoozeCount = AlarmScheduler.getRemainingSnoozeCount(ctx, alarmId)
+        } else {
+            alarmRemainingSnoozeCount = (alarmRemainingSnoozeCount - 1).coerceAtLeast(0)
         }
 
-        alarmRemainingSnoozeCount = AlarmScheduler.getRemainingSnoozeCount(ctx, alarmId)
         val durationMs = alarmSnoozeMinutes.coerceAtLeast(1) * 60_000L
         val snoozeUntilMs = System.currentTimeMillis() + durationMs
         AlarmVibrationService.silenceForSnooze(ctx, alarmId, durationMs)
-        alarmProtectionEventBridge.recordAlarmSnooze(
-            alarmId = alarmId.toString(),
-            snoozeIndex = AlarmScheduler.getSnoozeUsedCount(ctx, alarmId),
-            snoozeUntilMs = snoozeUntilMs
-        )
+        if (!isTest) {
+            alarmProtectionEventBridge.recordAlarmSnooze(
+                alarmId = alarmId.toString(),
+                snoozeIndex = AlarmScheduler.getSnoozeUsedCount(ctx, alarmId),
+                snoozeUntilMs = snoozeUntilMs
+            )
+        }
 
         showAlarmActionPanel(
             view.findViewById(R.id.layout_alarm_actions),

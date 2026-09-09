@@ -520,8 +520,7 @@ class AlarmFragment : Fragment() {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 text = bank.title
                 textSize = 12f
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
+                maxLines = 2
                 includeFontPadding = false
                 setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
                 isChecked = selectedBankMap.containsKey(bank.id)
@@ -530,9 +529,13 @@ class AlarmFragment : Fragment() {
             allItems.add(bankCb)
         }
 
-        // 自适应列数：若题库名称均为短名称（<=3字），统一采用标准 4 列与上一行（扫码/数学/诗词/单词）对齐；若有较长名称则自适应为 2 列
+        // 自适应列数：若题库名称均为短名称（<=3字），统一采用标准 4 列与上一行（扫码/数学/诗词/单词）对齐；若在 4-5 字自适应为 2 列；若 >5 字长名称自适应为 1 列整行展开
         val maxTitleLen = (listOf("选词") + allBanks.map { it.title }).maxOfOrNull { it.length } ?: 2
-        val numCols = if (maxTitleLen <= 3) 4 else 2
+        val numCols = when {
+            maxTitleLen <= 3 -> 4
+            maxTitleLen <= 5 -> 2
+            else -> 1
+        }
 
         val chunks = allItems.chunked(numCols)
         for (chunk in chunks) {
@@ -582,9 +585,31 @@ class AlarmFragment : Fragment() {
         container.visibility = View.VISIBLE
 
         val countMap = mutableMapOf<String, EditText>()
-        val chunks = allBanks.chunked(2)
 
-        for (chunk in chunks) {
+        // 按名称长度智能排布：短名称（<=3字）可两两并排为双列；长名称（>3字）独占一行，弹性撑满防截断
+        val rows = mutableListOf<List<com.zhizhi.app.data.questionbank.CustomQuestionBank>>()
+        val shortBuffer = mutableListOf<com.zhizhi.app.data.questionbank.CustomQuestionBank>()
+        for (bank in allBanks) {
+            if (bank.title.length > 3) {
+                if (shortBuffer.isNotEmpty()) {
+                    rows.add(shortBuffer.toList())
+                    shortBuffer.clear()
+                }
+                rows.add(listOf(bank))
+            } else {
+                shortBuffer.add(bank)
+                if (shortBuffer.size == 2) {
+                    rows.add(shortBuffer.toList())
+                    shortBuffer.clear()
+                }
+            }
+        }
+        if (shortBuffer.isNotEmpty()) {
+            rows.add(shortBuffer.toList())
+        }
+
+        for (chunk in rows) {
+            val isSingleLongRow = chunk.size == 1 && chunk[0].title.length > 3
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(
@@ -596,29 +621,17 @@ class AlarmFragment : Fragment() {
                 gravity = Gravity.CENTER_VERTICAL
             }
 
-            for ((index, bank) in chunk.withIndex()) {
-                val col = LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL
+            if (isSingleLongRow) {
+                val bank = chunk[0]
+                val tvTitle = TextView(context).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         0,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         1f
-                    ).apply {
-                        if (index > 0) marginStart = dp(8)
-                    }
-                    gravity = Gravity.CENTER_VERTICAL
-                }
-
-                val tvTitle = TextView(context).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    )
-                    maxWidth = dp(68)
+                    ).apply { marginEnd = dp(8) }
                     text = "${bank.title} "
                     textSize = 13f
-                    maxLines = 1
-                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    maxLines = 2
                     setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
                 }
 
@@ -644,23 +657,76 @@ class AlarmFragment : Fragment() {
                     setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
                 }
 
-                col.addView(tvTitle)
-                col.addView(etCount)
-                col.addView(tvUnit)
-                row.addView(col)
-            }
-
-            if (chunk.size == 1) {
-                val space = Space(context).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        0,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        1f
-                    ).apply {
-                        marginStart = dp(8)
+                row.addView(tvTitle)
+                row.addView(etCount)
+                row.addView(tvUnit)
+            } else {
+                for ((index, bank) in chunk.withIndex()) {
+                    val col = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        layoutParams = LinearLayout.LayoutParams(
+                            0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            1f
+                        ).apply {
+                            if (index > 0) marginStart = dp(8)
+                        }
+                        gravity = Gravity.CENTER_VERTICAL
                     }
+
+                    val tvTitle = TextView(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            1f
+                        ).apply { marginEnd = dp(4) }
+                        text = "${bank.title} "
+                        textSize = 13f
+                        maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                        setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
+                    }
+
+                    val etCount = EditText(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(dp(52), dp(38))
+                        inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                        gravity = Gravity.CENTER
+                        textSize = 13f
+                        setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
+                        setBackgroundResource(R.drawable.bg_input_field)
+                        val initialVal = savedCounts[bank.id] ?: AlarmScheduler.getBankDefaultCount(context, bank.id, defaultCount)
+                        setText(initialVal.toString())
+                    }
+                    countMap[bank.id] = etCount
+
+                    val tvUnit = TextView(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        text = " 道"
+                        textSize = 12f
+                        setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
+                    }
+
+                    col.addView(tvTitle)
+                    col.addView(etCount)
+                    col.addView(tvUnit)
+                    row.addView(col)
                 }
-                row.addView(space)
+
+                if (chunk.size == 1) {
+                    val space = Space(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            1f
+                        ).apply {
+                            marginStart = dp(8)
+                        }
+                    }
+                    row.addView(space)
+                }
             }
 
             container.addView(row)
@@ -734,6 +800,11 @@ class AlarmFragment : Fragment() {
         val layoutStage1Cooldown = dialogView.findViewById<View>(R.id.layout_stage1_cooldown)
         val etEditCooldown = dialogView.findViewById<EditText>(R.id.et_stage_cooldown) ?: EditText(requireContext())
         etEditCooldown.setText((existing?.stageCooldownSeconds ?: AlarmScheduler.getDefaultStageCooldownSeconds(requireContext())).toString())
+
+        val etSnoozeMinutes = dialogView.findViewById<EditText>(R.id.et_snooze_minutes)
+        val etSnoozeMaxCount = dialogView.findViewById<EditText>(R.id.et_snooze_max_count)
+        etSnoozeMinutes?.setText(AlarmScheduler.getSnoozeMinutes(requireContext()).toString())
+        etSnoozeMaxCount?.setText(AlarmScheduler.getMaxSnoozeCount(requireContext()).toString())
 
         val layoutS1CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s1_custom_banks)
         val layoutS2CustomBanks = dialogView.findViewById<LinearLayout>(R.id.layout_s2_custom_banks)
@@ -1101,6 +1172,10 @@ class AlarmFragment : Fragment() {
             val ringVolume = editSbRingVol.progress + 1
             val unlockMode = if (isTwoStage) AlarmScheduler.UnlockMode.TWO_STAGE else AlarmScheduler.UnlockMode.SINGLE
             val stageCooldownSec = etEditCooldown.text.toString().toIntOrNull()?.coerceIn(0, 3600) ?: 0
+            val snoozeMin = etSnoozeMinutes?.text?.toString()?.toIntOrNull() ?: 10
+            if (snoozeMin > 0) AlarmScheduler.setSnoozeMinutes(requireContext(), snoozeMin)
+            val snoozeMax = etSnoozeMaxCount?.text?.toString()?.toIntOrNull() ?: 2
+            if (snoozeMax >= 0) AlarmScheduler.setMaxSnoozeCount(requireContext(), snoozeMax)
             val editAlarmModeVal = when (editRgRingMode.checkedRadioButtonId) {
                 editRbRingOnly.id -> AlarmScheduler.AlarmMode.RING_ONLY
                 editRbVibOnly.id -> AlarmScheduler.AlarmMode.VIBRATE_ONLY
@@ -1368,7 +1443,7 @@ class AlarmFragment : Fragment() {
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
             layoutStage2.visibility = if (isTwoStage) View.VISIBLE else View.GONE
             tvStage1Label.text = if (isTwoStage) "第一关解锁方式（通过其一即可）" else "解锁方式配置（可并联多选）"
-            layoutTestStage1Cooldown?.visibility = if (isTwoStage) View.VISIBLE else View.GONE
+            layoutTestStage1Cooldown?.visibility = View.VISIBLE
         }
         rgUnlockMode.setOnCheckedChangeListener { _, _ -> updateStage2Visibility(); updateTestRingtoneVisibility() }
         updateStage2Visibility()
@@ -1563,7 +1638,9 @@ class AlarmFragment : Fragment() {
                 progressiveMaxIntensity = progMax,
                 progressiveMaxRingVolume = progVolMax,
                 stage1CustomBanks = testS1Banks,
-                stage2CustomBanks = testS2Banks
+                stage2CustomBanks = testS2Banks,
+                snoozeMinutes = etSnoozeMinutes?.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: AlarmScheduler.getSnoozeMinutes(ctx),
+                snoozeMaxCount = etSnoozeMaxCount?.text.toString().toIntOrNull()?.coerceAtLeast(0) ?: AlarmScheduler.getMaxSnoozeCount(ctx)
             )
             LockWindowManager.setTestAlarmConfig(config)
 
