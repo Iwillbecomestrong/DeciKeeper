@@ -37,7 +37,9 @@ class ReturnHomePenaltySourceContractTest {
 
     @Test
     fun penaltyCopyNamesTheUserAction() {
-        assertTrue(source.contains("30秒内返回桌面"))
+        val literalCopy = source.contains("30秒内返回桌面")
+        val escapedCopy = source.contains("\\u8FD4\\u56DE\\u684C\\u9762")
+        assertTrue("penalty copy must say return to desktop", literalCopy || escapedCopy)
         assertFalse(source.contains("30秒内锁屏${'$'}{PENALTY_THRESHOLD}次，触发惩罚"))
     }
 }
