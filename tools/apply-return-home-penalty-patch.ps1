@@ -3,31 +3,19 @@ $ErrorActionPreference = 'Stop'
 $path = 'app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt'
 $text = Get-Content -Raw -Encoding UTF8 $path
 
-function Require-Contains([string]$haystack, [string]$needle, [string]$label) {
-    if (-not $haystack.Contains($needle)) {
-        throw "Patch anchor not found: $label"
-    }
-}
-
-# 1) A successful overlay attach is a system action, not a user penalty hit.
-$attachBlock = @'
-                // Boundary 2 — real-display hit authority. This is the ONLY
-                // place where penalty hit counting + transaction commit fires.
-                // Deferred / cancelled / reasserted / blocked attaches bail
-                // before reaching this line, so they can never increment.
-                recordSuccessfulPenaltyEligibleDisplay(
-                    context = context,
-                    reason = reason,
-                    isBlacklist = isBlacklist,
-                    isScreenOnRedetection = isScreenOnRedetection
-                )
-'@
-$attachReplacement = @'
-                // Repeated-return-home penalty is user-action driven.
-                // A successful overlay attach/re-attach is a system action and never increments it.
-'@
-Require-Contains $text $attachBlock 'addView penalty call'
-$text = $text.Replace($attachBlock, $attachReplacement)
+# 1) Remove the old addView-success penalty authority. Use ASCII anchors only so
+# Windows PowerShell 5 does not depend on the script file's Unicode decoding.
+$callStart = $text.IndexOf('                recordSuccessfulPenaltyEligibleDisplay(')
+if ($callStart -lt 0) { throw 'Patch anchor not found: addView penalty call' }
+$commentStart = $text.LastIndexOf('                // Boundary 2', $callStart)
+if ($commentStart -lt 0) { $commentStart = $callStart }
+$callClose = $text.IndexOf('                )', $callStart)
+if ($callClose -lt 0) { throw 'Patch anchor not found: addView penalty call close' }
+$callEnd = $text.IndexOf("`n", $callClose)
+if ($callEnd -lt 0) { $callEnd = $callClose + '                )'.Length } else { $callEnd += 1 }
+$attachReplacement = "                // Repeated-return-home penalty is user-action driven.`n" +
+                     "                // Overlay attach/re-attach is a system action and never increments it.`n"
+$text = $text.Substring(0, $commentStart) + $attachReplacement + $text.Substring($callEnd)
 
 # 2) Replace the old addView-authority counter with the explicit RETURN_HOME authority.
 $functionStart = $text.IndexOf('    private fun recordSuccessfulPenaltyEligibleDisplay(')
@@ -39,7 +27,7 @@ $newFunction = @'
     /**
      * Repeated-return-home penalty authority.
      *
-     * Only the explicit “回到桌面” button calls this method. Foreground detection,
+     * Only the explicit RETURN_HOME button calls this method. Foreground detection,
      * overlay attach/re-attach, Accessibility replay and OEM launcher noise have no
      * authority to increment the counter.
      */
@@ -79,30 +67,36 @@ $newFunction = @'
 '@
 $text = $text.Substring(0, $functionStart) + $newFunction + $text.Substring($nextFunction)
 
-# 3) The deterministic user action is the single authority that records a hit.
-$homeAnchor = @'
-            recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
-            clearBlacklistHitDebounceForUserAction()
-            Log.i(
-'@
-$homeReplacement = @'
-            recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
-            clearBlacklistHitDebounceForUserAction()
-            recordReturnHomePenaltyHit(context, now, "RETURN_HOME_BUTTON")
-            Log.i(
-'@
-Require-Contains $text $homeAnchor 'return-home button handler'
+# 3) Wire the deterministic user action as the single hit authority.
+$homeAnchor = "            recordPendingReturnDesktopExit(lastBlockedPackageName ?: \"unknown\")`n            clearBlacklistHitDebounceForUserAction()`n"
+$homeIndex = $text.IndexOf($homeAnchor)
+if ($homeIndex -lt 0) { throw 'Patch anchor not found: return-home button handler' }
+$homeReplacement = $homeAnchor + "            recordReturnHomePenaltyHit(context, now, \"RETURN_HOME_BUTTON\")`n"
 $text = $text.Replace($homeAnchor, $homeReplacement)
 
-# 4) Product copy must describe the action actually being counted.
-$text = $text.Replace('append("⚠️ 30秒内锁屏${PENALTY_THRESHOLD}次，触发惩罚")', 'append("⚠️ 30秒内返回桌面${PENALTY_THRESHOLD}次，触发惩罚")')
-$text = $text.Replace('tvPenaltyHitCount?.text = "⚠️ 30秒内锁屏 ${mPenaltyHitCount}/${PENALTY_THRESHOLD} 次"', 'tvPenaltyHitCount?.text = "⚠️ 30秒内返回桌面 ${mPenaltyHitCount}/${PENALTY_THRESHOLD} 次"')
-$text = $text.Replace('// --- 频繁锁屏惩罚 ---', '// --- 频繁返回桌面惩罚 ---')
-$text = $text.Replace('private var mPenaltyHitCount = 0               // 当前窗口内锁屏出现次数', 'private var mPenaltyHitCount = 0               // 当前窗口内“回到桌面”按钮点击次数')
+# 4) Update user-visible copy using ASCII Kotlin unicode escapes.
+$receiptAnchor = '        mPendingPenaltyMessage = buildString {'
+$receiptStart = $text.IndexOf($receiptAnchor)
+if ($receiptStart -lt 0) { throw 'Patch anchor not found: penalty receipt builder' }
+$receiptLineStart = $text.IndexOf('            append("', $receiptStart)
+$receiptLineEnd = $text.IndexOf("`n", $receiptLineStart)
+if ($receiptLineStart -lt 0 -or $receiptLineEnd -lt 0) { throw 'Patch anchor not found: penalty receipt line' }
+$receiptLine = '            append("\u26A0\uFE0F 30\u79D2\u5185\u8FD4\u56DE\u684C\u9762${PENALTY_THRESHOLD}\u6B21\uFF0C\u89E6\u53D1\u60E9\u7F5A")'
+$text = $text.Substring(0, $receiptLineStart) + $receiptLine + $text.Substring($receiptLineEnd)
 
-Set-Content -Path $path -Value $text -Encoding UTF8 -NoNewline
+$uiAnchor = '        tvPenaltyHitCount?.text = "'
+$uiStart = $text.IndexOf($uiAnchor)
+if ($uiStart -lt 0) { throw 'Patch anchor not found: penalty hit UI line' }
+$uiEnd = $text.IndexOf("`n", $uiStart)
+if ($uiEnd -lt 0) { throw 'Patch anchor not found: penalty hit UI line end' }
+$uiLine = '        tvPenaltyHitCount?.text = "\u26A0\uFE0F 30\u79D2\u5185\u8FD4\u56DE\u684C\u9762 ${mPenaltyHitCount}/${PENALTY_THRESHOLD} \u6B21"'
+$text = $text.Substring(0, $uiStart) + $uiLine + $text.Substring($uiEnd)
 
-# Fail loudly if any old authority/copy survived the targeted migration.
+# Write Kotlin as UTF-8 without BOM.
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText((Resolve-Path $path), $text, $utf8NoBom)
+
+# Verify the authority migration with ASCII anchors only.
 $verify = Get-Content -Raw -Encoding UTF8 $path
 if ($verify.Contains('recordSuccessfulPenaltyEligibleDisplay(')) {
     throw 'Old addView penalty authority still exists after patch'
@@ -110,18 +104,16 @@ if ($verify.Contains('recordSuccessfulPenaltyEligibleDisplay(')) {
 if (-not $verify.Contains('recordReturnHomePenaltyHit(context, now, "RETURN_HOME_BUTTON")')) {
     throw 'Return-home penalty hook missing after patch'
 }
-if (-not $verify.Contains('30秒内返回桌面')) {
+if (-not $verify.Contains('\u8FD4\u56DE\u684C\u9762')) {
     throw 'Return-home penalty UI copy missing after patch'
 }
 
-# CI-only normalization for a pre-existing dev-branch resource issue: this XML currently
-# starts with blank lines before the XML declaration, which Android's resource compiler rejects.
-# Do NOT git-add this file in this task; it is only normalized in the verification workspace.
+# CI-only normalization for a pre-existing dev-branch resource issue. The XML currently
+# starts with blank lines before the XML declaration, which Android rejects. Do not add
+# this resource to the task commit; normalize it only in the verification workspace.
 $xmlPath = 'app/src/main/res/layout/dialog_alarm_default_settings.xml'
 $xml = Get-Content -Raw -Encoding UTF8 $xmlPath
 $normalizedXml = $xml.TrimStart([char[]]@("`r", "`n", " ", "`t"))
-$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText((Resolve-Path $xmlPath), $normalizedXml, $utf8NoBom)
-Write-Host 'Normalized pre-existing leading whitespace in dialog_alarm_default_settings.xml for CI verification only.'
 
 Write-Host 'Return-home penalty patch applied successfully.'
