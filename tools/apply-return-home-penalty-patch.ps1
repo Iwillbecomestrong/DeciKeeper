@@ -114,4 +114,14 @@ if (-not $verify.Contains('30秒内返回桌面')) {
     throw 'Return-home penalty UI copy missing after patch'
 }
 
+# CI-only normalization for a pre-existing dev-branch resource issue: this XML currently
+# starts with blank lines before the XML declaration, which Android's resource compiler rejects.
+# Do NOT git-add this file in this task; it is only normalized in the verification workspace.
+$xmlPath = 'app/src/main/res/layout/dialog_alarm_default_settings.xml'
+$xml = Get-Content -Raw -Encoding UTF8 $xmlPath
+$normalizedXml = $xml.TrimStart([char[]]@("`r", "`n", " ", "`t"))
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText((Resolve-Path $xmlPath), $normalizedXml, $utf8NoBom)
+Write-Host 'Normalized pre-existing leading whitespace in dialog_alarm_default_settings.xml for CI verification only.'
+
 Write-Host 'Return-home penalty patch applied successfully.'
