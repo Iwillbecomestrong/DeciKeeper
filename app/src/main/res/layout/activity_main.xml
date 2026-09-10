@@ -13,8 +13,8 @@
         app:itemPaddingTop="10dp"
         app:itemPaddingBottom="10dp"
         app:itemRippleColor="@android:color/transparent"
-        app:itemTextAppearanceActive="@style/TextAppearance.ZhiZhi.BottomNav.Active"
-        app:itemTextAppearanceInactive="@style/TextAppearance.ZhiZhi.BottomNav.Inactive"
+        app:itemTextAppearanceActive="@style/TextAppearance.DeciKeeper.BottomNav.Active"
+        app:itemTextAppearanceInactive="@style/TextAppearance.DeciKeeper.BottomNav.Inactive"
         app:itemTextColor="@color/nav_item_color"
         app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav_menu" />

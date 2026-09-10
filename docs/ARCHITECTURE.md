@@ -1,6 +1,6 @@
 # 架构说明 (ARCHITECTURE)
 
-> 本文描述「知止 (ZhiZhi)」的目标架构与依赖方向。现有代码正在按此逐步重构（refactor/open-source 系列提交），
+> 本文描述「决定守护 (DeciKeeper)」的目标架构与依赖方向。现有代码正在按此逐步重构（refactor/open-source 系列提交），
 > 新代码必须遵守，旧代码在改动时顺手迁移。
 
 ## 1. 分层与依赖方向
@@ -58,9 +58,9 @@ MonitorService 收到前台证据
 
 | prefs 文件 | 含义 |
 |-----------|------|
-| iron_will_rules | 当前生效（Active） |
-| iron_will_rules_baseline | 法定基准（08:00 快照） |
-| iron_will_rules_pending | 待次日生效变更 |
+| decikeeper_rules | 当前生效（Active） |
+| decikeeper_rules_baseline | 法定基准（08:00 快照） |
+| decikeeper_rules_pending | 待次日生效变更 |
 
 - 变更性质一律与 **baseline** 比对：加严（有利）立即生效，放松（不利）次日生效。
 - 时段名单（listApps）变更走同一套分类：`null`=跟随全局（继承态），非空=独立名单（脱钩态）。

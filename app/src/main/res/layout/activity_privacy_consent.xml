@@ -8,11 +8,11 @@
     android:padding="24dp">
 
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="36dp" android:text="止" android:textColor="?attr/zzAccentStrong" android:textSize="32sp" android:textStyle="bold" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="欢迎使用知止" android:textColor="?attr/zzText" android:textSize="22sp" android:textStyle="bold" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="欢迎使用决定守护" android:textColor="?attr/zzText" android:textSize="22sp" android:textStyle="bold" />
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:background="@drawable/bg_zz_card" android:backgroundTint="?attr/zzSurface" android:orientation="vertical" android:padding="18dp">
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="在继续之前，请了解知止为什么需要无障碍、使用情况访问等系统能力。" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:lineSpacingExtra="5dp" android:text="我们重视你的数据边界。知止会使用必要系统权限完成应用限制、规则执行、闹钟挑战和状态核验。具体范围以隐私政策与用户协议为准。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="在继续之前，请了解决定守护为什么需要无障碍、使用情况访问等系统能力。" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:lineSpacingExtra="5dp" android:text="我们重视你的数据边界。决定守护会使用必要系统权限完成应用限制、规则执行、闹钟挑战和状态核验。具体范围以隐私政策与用户协议为准。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
@@ -22,7 +22,7 @@
 
     <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
 
-    <Button android:id="@+id/btn_consent_accept" android:layout_width="match_parent" android:layout_height="56dp" android:backgroundTint="?attr/zzAccent" android:text="同意并进入知止" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="16sp" android:textStyle="bold" />
+    <Button android:id="@+id/btn_consent_accept" android:layout_width="match_parent" android:layout_height="56dp" android:backgroundTint="?attr/zzAccent" android:text="同意并进入决定守护" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="16sp" android:textStyle="bold" />
     <Button android:id="@+id/btn_consent_decline" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp" android:backgroundTint="?attr/zzSurface2" android:text="暂不同意并退出" android:textAllCaps="false" android:textColor="?attr/zzMuted" android:textSize="13sp" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginTop="10dp" android:text="权限说明可在进入知止后逐项查看。" android:textColor="?attr/zzSubtle" android:textSize="10sp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginTop="10dp" android:text="权限说明可在进入决定守护后逐项查看。" android:textColor="?attr/zzSubtle" android:textSize="10sp" />
 </LinearLayout>

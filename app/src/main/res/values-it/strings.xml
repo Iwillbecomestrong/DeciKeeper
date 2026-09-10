@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">ZhiZhi</string>
-    <string name="accessibility_description">Servizio principale ZhiZhi. Protegge il tuo stato di autodisciplina e impedisce la disinstallazione accidentale. Si prega di mantenere abilitato per garantire la protezione.</string>
+    <string name="app_name">DeciKeeper</string>
+    <string name="accessibility_description">Servizio principale DeciKeeper. Protegge il tuo stato di autodisciplina e impedisce la disinstallazione accidentale. Si prega di mantenere abilitato per garantire la protezione.</string>
 
     <string name="anti_uninstall_title">🛡️ Protezione Antidisinstallazione</string>
-    <string name="anti_uninstall_message">Rilevato tentativo di disinstallare, arrestare ZhiZhi o disattivare il servizio di accessibilità. Azione bloccata.\n\nPer procedere, disabilita prima la Protezione Antidisinstallazione all\'interno dell\'app.</string>
+    <string name="anti_uninstall_message">Rilevato tentativo di disinstallare, arrestare DeciKeeper o disattivare il servizio di accessibilità. Azione bloccata.\n\nPer procedere, disabilita prima la Protezione Antidisinstallazione all\'interno dell\'app.</string>
     <string name="btn_got_it">Capito</string>
     <string name="btn_back">Indietro</string>
 </resources>

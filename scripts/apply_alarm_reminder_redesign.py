@@ -16,7 +16,7 @@ def replace_once(path: str, old: str, new: str) -> bool:
     return True
 
 
-scheduler = "app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt"
+scheduler = "app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt"
 
 replace_once(
     scheduler,

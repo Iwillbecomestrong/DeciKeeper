@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">ZhiZhi</string>
-    <string name="accessibility_description">សេវាកម្មស្នូល ZhiZhi ។ ការពារស្ថានភាពវិន័យខ្លួនឯងរបស់អ្នក និងការពារការលុបកម្មវិធីដោយចៃដន្យ។ សូមបើកដំណើរការដើម្បីធានាការការពារ។</string>
+    <string name="app_name">DeciKeeper</string>
+    <string name="accessibility_description">សេវាកម្មស្នូល DeciKeeper ។ ការពារស្ថានភាពវិន័យខ្លួនឯងរបស់អ្នក និងការពារការលុបកម្មវិធីដោយចៃដន្យ។ សូមបើកដំណើរការដើម្បីធានាការការពារ។</string>
 
     <string name="anti_uninstall_title">🛡️ ការការពារការលុបកម្មវិធី</string>
-    <string name="anti_uninstall_message">បានរកឃើញការព្យាយាមលុប, បញ្ឈប់ ZhiZhi ឬបិទសេវាកម្មជំនួយ។ សកម្មភាពត្រូវបានទប់ស្កាត់។\n\nដើម្បីបន្ត សូមបិទការការពារការលុបកម្មវិធីនៅក្នុងកម្មវិធីជាមុនសិន។</string>
+    <string name="anti_uninstall_message">បានរកឃើញការព្យាយាមលុប, បញ្ឈប់ DeciKeeper ឬបិទសេវាកម្មជំនួយ។ សកម្មភាពត្រូវបានទប់ស្កាត់។\n\nដើម្បីបន្ត សូមបិទការការពារការលុបកម្មវិធីនៅក្នុងកម្មវិធីជាមុនសិន។</string>
     <string name="btn_got_it">បានយល់</string>
     <string name="btn_back">ត្រឡប់ក្រោយ</string>
 </resources>

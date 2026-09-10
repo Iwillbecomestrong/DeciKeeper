@@ -5,10 +5,10 @@ ROOT = Path(__file__).resolve().parents[1]
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
-overlay = read("app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt")
-service = read("app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt")
-activity = read("app/src/main/java/com/zhizhi/app/ui/AlarmActivity.kt")
-fragment = read("app/src/main/java/com/zhizhi/app/ui/AlarmFragment.kt")
+overlay = read("app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt")
+service = read("app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt")
+activity = read("app/src/main/java/com/decikeeper/app/ui/AlarmActivity.kt")
+fragment = read("app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
 default_xml = read("app/src/main/res/layout/dialog_alarm_default_settings.xml")
 
 handle = overlay.split("private fun handleAlarmAction(snooze: Boolean)", 1)[1].split("private fun getAlarmLayoutParams()", 1)[0]

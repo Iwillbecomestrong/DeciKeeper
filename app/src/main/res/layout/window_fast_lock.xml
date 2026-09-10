@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="知止"
+        android:text="决定守护"
         android:textSize="32sp"
         android:textStyle="bold"
         android:textColor="?attr/zzAccentStrong"
@@ -18,7 +18,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="知止防卸载功能正在初始化..."
+        android:text="决定守护防卸载功能正在初始化..."
         android:textSize="16sp"
         android:textColor="?attr/zzText"/>
 

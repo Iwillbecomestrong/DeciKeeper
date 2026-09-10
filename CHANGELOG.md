@@ -7,6 +7,10 @@
 ## [Unreleased] - 开发中
 
 ### 核心改进 (Changed / Improved)
+- **全面更名「决定守护 (DeciKeeper)」**：
+  - 中文名正式定名为「决定守护」，英文代号「DeciKeeper」。
+  - Android 底层包名与 Application ID 彻底重构为 `com.decikeeper.app`，源码目录全面平移；`iron_will_*` 系列 prefs 键名统一迁移为 `decikeeper_*`。
+  - 数据备份三重兼容：`SettingsBackupManager` 原生支持解析并导入 `decikeeper_settings_backup`、旧版 `zhizhi_settings_backup` 与更早 `ironwill_settings_backup` 规则文件，导入时自动将旧键名映射为新键名；`AutoBackupManager` 回退查找旧公共目录 `Documents/ZhiZhi/` 与旧快照，老用户换新包名后一键无损迁移。
 - **全面更名「知止 (ZhiZhi)」**：
   - 中文名正式定名为「知止」，英文代号「ZhiZhi」，寓意《道德经》*「知足不辱，知止不殆；知止而后有定。知道什么时候停止。不是禁止一切娱乐，而是在适当的时候停下来」*。
   - Android 底层包名与 Application ID 彻底重构为 `com.zhizhi.app`，源码目录全面平移。

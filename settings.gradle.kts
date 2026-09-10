@@ -33,5 +33,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ZhiZhi"
+rootProject.name = "DeciKeeper"
 include(":app")

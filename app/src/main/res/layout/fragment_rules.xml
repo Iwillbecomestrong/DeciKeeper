@@ -53,7 +53,7 @@
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="主题" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="四季视觉系统" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                 </LinearLayout>
-                <com.zhizhi.app.ui.ThemeSummaryView android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="?attr/zzAccentStrong" android:textSize="13sp" />
+                <com.decikeeper.app.ui.ThemeSummaryView android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="?attr/zzAccentStrong" android:textSize="13sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
@@ -158,7 +158,7 @@
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="6dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="隐藏知止在多任务界面" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="隐藏决定守护在多任务界面" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="减少误划掉多进程的风险" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
                     <TextView android:id="@+id/btn_hide_in_recent_tasks_help" android:layout_width="24dp" android:layout_height="24dp" android:gravity="center" android:layout_marginEnd="6dp" android:background="@drawable/bg_zz_pill" android:backgroundTint="?attr/zzSurface2" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />

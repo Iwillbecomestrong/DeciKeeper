@@ -136,7 +136,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:gravity="center"
-            android:text="知止将根据此设置自动执行勿扰计划"
+            android:text="决定守护将根据此设置自动执行勿扰计划"
             android:textColor="?attr/zzSubtle"
             android:textSize="10sp" />
     </LinearLayout>

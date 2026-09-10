@@ -100,7 +100,7 @@
               <span class="font-bold text-[#E65100]">1 / 2 次</span>
             </div>
             <p class="text-xs text-[#E65100] bg-[#FFF3E0] p-3 rounded-xl border border-[#FFE0B2]">
-              ⚠️ 警告：特权一旦激活，在这 120 分钟内知止将完全放行所有操作，请三思而后行。
+              ⚠️ 警告：特权一旦激活，在这 120 分钟内决定守护将完全放行所有操作，请三思而后行。
             </p>
           </div>
           <div class="flex p-4 gap-3 bg-[#f8fbf9]">
@@ -155,7 +155,7 @@
         <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative">
           <button onclick="this.closest('.fixed').remove()" class="absolute top-4 right-4 text-[#999] text-xl">&times;</button>
           <h3 class="text-lg font-bold text-[#163027] mb-2">⚖️ 加权计算规则</h3>
-          <p class="text-sm text-[#5c736a] mb-4">知止系统旨在培养长期自律，因此对“冲动行为”有惩罚性的加权。</p>
+          <p class="text-sm text-[#5c736a] mb-4">决定守护系统旨在培养长期自律，因此对“冲动行为”有惩罚性的加权。</p>
           <div class="space-y-2 text-xs">
             <div class="flex justify-between items-center p-3 bg-[#f4f8f6] rounded-xl">
               <span class="font-bold text-[#163027]">正常申请</span>
@@ -342,7 +342,7 @@
               <!-- 底部说明 -->
               <div class="flex justify-between items-center px-1 text-[11px] text-[#5c736a] pt-1">
                 <span>当前状态：监管中</span>
-                <span onclick="showModalWithMessage('知止哲学', '我们想要的不是更少的自由，而是更确定的自由。')" class="text-[#1b5c45] font-semibold cursor-pointer">📘 使用说明</span>
+                <span onclick="showModalWithMessage('决定守护哲学', '我们想要的不是更少的自由，而是更确定的自由。')" class="text-[#1b5c45] font-semibold cursor-pointer">📘 使用说明</span>
               </div>
             </div>
           `;
@@ -642,10 +642,10 @@
                     </div>
                   </div>
 
-                  <!-- 6. 在多任务界面中隐藏知止 -->
+                  <!-- 6. 在多任务界面中隐藏决定守护 -->
                   <div class="flex justify-between items-center py-1 border-t border-[#edf3f0]">
                     <div>
-                      <div class="font-semibold text-[#163027]">在多任务界面中隐藏知止</div>
+                      <div class="font-semibold text-[#163027]">在多任务界面中隐藏决定守护</div>
                       <div class="text-[10px] text-[#5c736a]">Recents 最近任务列表防滑除</div>
                     </div>
                     <div onclick="toggleHideInRecentTasks()" class="w-11 h-6 ${appState.hideInRecentTasks ? 'bg-[#1a3830]' : 'bg-[#c2d1cc]'} rounded-full p-0.5 flex items-center ${appState.hideInRecentTasks ? 'justify-end' : 'justify-start'} cursor-pointer transition-all">
@@ -676,7 +676,7 @@
                   <div class="font-bold text-[#163027]">🧾 日志诊断</div>
                   <div class="text-[10px] text-[#738a82]">一键导出发送日志</div>
                 </button>
-                <button onclick="showToast('💾 备份已保存至 Download/ZhiZhi 目录')" class="p-2.5 bg-white border border-[#dce8e2] rounded-2xl text-left shadow-2xs">
+                <button onclick="showToast('💾 备份已保存至 Download/DeciKeeper 目录')" class="p-2.5 bg-white border border-[#dce8e2] rounded-2xl text-left shadow-2xs">
                   <div class="font-bold text-[#163027]">💾 设置备份</div>
                   <div class="text-[10px] text-[#738a82]">导出 / 导入配置</div>
                 </button>
@@ -1578,7 +1578,7 @@
           <div class="text-center">
             <h3 class="font-bold text-sm text-[#163027]">${title}</h3>
             <p class="text-[11px] text-[#8c531b] mt-1 leading-relaxed">
-              “知止防的不是解除，是那一瞬间想放弃自律的冲动。你今天说想走，明天就能走。”
+              “决定守护防的不是解除，是那一瞬间想放弃自律的冲动。你今天说想走，明天就能走。”
             </p>
           </div>
 
@@ -1899,10 +1899,10 @@
       renderCurrentScreen();
     }
 
-    // 6. 在多任务界面中隐藏知止开关
+    // 6. 在多任务界面中隐藏决定守护开关
     function toggleHideInRecentTasks() {
       appState.hideInRecentTasks = !appState.hideInRecentTasks;
-      showToast(appState.hideInRecentTasks ? '已在多任务界面中隐藏知止' : '已恢复在多任务界面中显示知止');
+      showToast(appState.hideInRecentTasks ? '已在多任务界面中隐藏决定守护' : '已恢复在多任务界面中显示决定守护');
       renderCurrentScreen();
     }
 
@@ -1960,7 +1960,7 @@
           sub: "对应 fragment_rules.xml 真实约束大框",
           points: [
             "全量还原 5 大无障碍核心约束开关（无障碍、防卸载、防关权限、隐私空间、闹钟防关机）及多任务隐藏。",
-            "每个开关均支持真实交互：尝试关闭均会弹出知止著名的「次日 08:00 解除」防冲动冷静期契约弹窗！",
+            "每个开关均支持真实交互：尝试关闭均会弹出决定守护著名的「次日 08:00 解除」防冲动冷静期契约弹窗！",
             "保留每周特权卡片、关于我们（7项法务协议）及日志诊断（LogExporter）备份入口。"
           ]
         },

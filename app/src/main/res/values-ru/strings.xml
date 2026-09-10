@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">ZhiZhi</string>
-    <string name="accessibility_description">Основная служба ZhiZhi. Защищает ваш статус самодисциплины и предотвращает случайное удаление. Пожалуйста, оставьте включенным для обеспечения защиты.</string>
+    <string name="app_name">DeciKeeper</string>
+    <string name="accessibility_description">Основная служба DeciKeeper. Защищает ваш статус самодисциплины и предотвращает случайное удаление. Пожалуйста, оставьте включенным для обеспечения защиты.</string>
 
     <string name="anti_uninstall_title">🛡️ Защита от удаления</string>
-    <string name="anti_uninstall_message">Обнаружена попытка удаления, остановки ZhiZhi или отключения службы специальных возможностей. Действие заблокировано.\n\nЧтобы продолжить, сначала отключите Защиту от удаления в приложении.</string>
+    <string name="anti_uninstall_message">Обнаружена попытка удаления, остановки DeciKeeper или отключения службы специальных возможностей. Действие заблокировано.\n\nЧтобы продолжить, сначала отключите Защиту от удаления в приложении.</string>
     <string name="btn_got_it">Понятно</string>
     <string name="btn_back">Назад</string>
 </resources>

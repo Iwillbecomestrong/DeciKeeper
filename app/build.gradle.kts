@@ -11,7 +11,7 @@ val syncUserGuideAsset by tasks.registering(Copy::class) {
 
 
 android {
-    namespace = "com.zhizhi.app"
+    namespace = "com.decikeeper.app"
     compileSdk {
         version = release(36)
     }
@@ -26,7 +26,7 @@ android {
 
 
     defaultConfig {
-        applicationId = "com.zhizhi.app"
+        applicationId = "com.decikeeper.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

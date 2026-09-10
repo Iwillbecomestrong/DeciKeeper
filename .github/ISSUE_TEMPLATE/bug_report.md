@@ -1,6 +1,6 @@
 ---
 name: Bug 反馈 (Bug report)
-about: 报告 IronWill 在运行过程中的异常、漏锁、误锁或崩溃
+about: 报告决定守护在运行过程中的异常、漏锁、误锁或崩溃
 title: "[BUG] 简要描述问题"
 labels: ["bug"]
 assignees: ''
@@ -10,7 +10,7 @@ assignees: ''
 ## 📱 设备与运行环境
 - **设备型号**：（例如：Vivo X100, 小米 14, 华为 Mate 60 等）
 - **系统版本**：（例如：OriginOS 4 / Android 14, HyperOS 1.0 等）
-- **IronWill 版本 / Git Commit**：（例如：v1.0.0-open-source 或 commit sha）
+- **决定守护版本 / Git Commit**：（例如：v1.0.0-open-source 或 commit sha）
 - **无障碍服务是否常驻**：[是 / 否]
 - **设备管理器权限是否激活**：[是 / 否]
 

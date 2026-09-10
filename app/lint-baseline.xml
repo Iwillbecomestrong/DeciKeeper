@@ -5198,7 +5198,7 @@
     <issue
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="            context.getSharedPreferences(&quot;iron_will_probation&quot;, Context.MODE_PRIVATE)"
+        errorLine1="            context.getSharedPreferences(&quot;decikeeper_probation&quot;, Context.MODE_PRIVATE)"
         errorLine2="            ^">
         <location
             file="src/main/java/com/ironwill/app/TestScenarioManager.kt"
@@ -5330,7 +5330,7 @@
     <issue
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="            context.getSharedPreferences(&quot;iron_will_rules_pending&quot;, Context.MODE_PRIVATE)"
+        errorLine1="            context.getSharedPreferences(&quot;decikeeper_rules_pending&quot;, Context.MODE_PRIVATE)"
         errorLine2="            ^">
         <location
             file="src/main/java/com/ironwill/app/TestScenarioManager.kt"
@@ -5341,7 +5341,7 @@
     <issue
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="            context.getSharedPreferences(&quot;iron_will_rules_pending&quot;, Context.MODE_PRIVATE)"
+        errorLine1="            context.getSharedPreferences(&quot;decikeeper_rules_pending&quot;, Context.MODE_PRIVATE)"
         errorLine2="            ^">
         <location
             file="src/main/java/com/ironwill/app/TestScenarioManager.kt"

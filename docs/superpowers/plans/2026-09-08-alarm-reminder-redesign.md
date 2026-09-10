@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将知止闹钟收敛为“第一关 + 可选完成后延迟 + 可选第二关”的统一流程，并统一固定/渐进提醒、再响静音恢复与第二关独立提醒策略。
+**Goal:** 将决定守护闹钟收敛为“第一关 + 可选完成后延迟 + 可选第二关”的统一流程，并统一固定/渐进提醒、再响静音恢复与第二关独立提醒策略。
 
 **Architecture:** 新增纯 Kotlin `AlarmAlertPolicy` 作为提醒强度与阶段继承的单一计算源；`AlarmScheduler.AlarmEntry` 只负责持久化配置，`AlarmVibrationService` 负责当前提醒周期与 Android 声音/震动执行，`LockAlarmOverlay` 负责挑战阶段切换，`AlarmFragment` 只负责展示与保存配置。保留现有 OEM 恢复、防关机、覆盖层重挂载代码，不以重构为由删除已有防御逻辑。
 
@@ -26,8 +26,8 @@
 ### Task 1: 建立纯 Kotlin 提醒策略 seam
 
 **Files:**
-- Create: `app/src/main/java/com/zhizhi/app/manager/AlarmAlertPolicy.kt`
-- Create: `app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt`
+- Create: `app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt`
+- Create: `app/src/test/java/com/decikeeper/app/AlarmAlertPolicyTest.kt`
 
 **Interfaces:**
 - Produces: `AlarmAlertPolicy.progressiveLevel(elapsedMs: Long): Int`
@@ -58,7 +58,7 @@ assertEquals(independent, AlarmAlertPolicy.resolveStagePolicy(stage1, true, inde
 Run in GitHub CI:
 
 ```text
-./gradlew :app:testDebugUnitTest --tests com.zhizhi.app.AlarmAlertPolicyTest
+./gradlew :app:testDebugUnitTest --tests com.decikeeper.app.AlarmAlertPolicyTest
 ```
 
 Expected: FAIL because `AlarmAlertPolicy` does not exist yet.
@@ -82,9 +82,9 @@ feat(alarm): add unified alert policy
 ### Task 2: 持久化第二关独立提醒与兼容旧数据
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt`
-- Test: `app/src/test/java/com/zhizhi/app/AlarmProductionMigrationTest.kt`
-- Test: `app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt`
+- Test: `app/src/test/java/com/decikeeper/app/AlarmProductionMigrationTest.kt`
+- Test: `app/src/test/java/com/decikeeper/app/AlarmAlertPolicyTest.kt`
 
 **Interfaces:**
 - `AlarmEntry.stage2UseIndependentAlertPolicy: Boolean = false`
@@ -118,9 +118,9 @@ feat(alarm): persist stage two alert overrides
 ### Task 3: 统一提醒周期与渐进算法
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt`
-- Modify: `app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt`
-- Test: `app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt`
+- Test: `app/src/test/java/com/decikeeper/app/AlarmAlertPolicyTest.kt`
 - Test: existing alarm service/source contract tests as applicable
 
 **Interfaces:**
@@ -169,8 +169,8 @@ refactor(alarm): unify alert cycles and progressive ramp
 ### Task 4: 修正再响为配置驱动的静音窗口
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt`
-- Modify: `app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt`
 - Modify: `scripts/test_alarm_snooze_contract.py`
 - Test: existing alarm snooze/unit tests
 
@@ -207,9 +207,9 @@ fix(alarm): make silent snooze configuration driven
 ### Task 5: 完成后延迟与第二关开始语义
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt`
-- Modify: `app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt`
-- Test: `app/src/test/java/com/zhizhi/app/AlarmChallengeTwoStageFlowTest.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt`
+- Test: `app/src/test/java/com/decikeeper/app/AlarmChallengeTwoStageFlowTest.kt`
 - Test: add focused source/behavior contract if Android UI state is not directly JVM-testable
 
 **Interfaces:**
@@ -242,11 +242,11 @@ feat(alarm): unify completion delay and stage two transition
 ### Task 6: 设置 UI 收敛
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/ui/AlarmFragment.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt`
 - Modify: `app/src/main/res/layout/dialog_alarm_default_settings.xml`
 - Modify: `app/src/main/res/layout/dialog_alarm_edit.xml`
 - Modify: test dialog only where needed for fast verification
-- Test: source/UI contract tests under `app/src/test/java/com/zhizhi/app/`
+- Test: source/UI contract tests under `app/src/test/java/com/decikeeper/app/`
 
 **Interfaces:**
 - Progressive copy: `从最低强度开始，每 30 秒提高 1 级，直到最高强度`

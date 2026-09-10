@@ -1,7 +1,7 @@
-# 知止 (ZhiZhi) UI 规范统一与交互收敛交接文档
+# 决定守护 (DeciKeeper) UI 规范统一与交互收敛交接文档
 
 > **文档性质**：跨会话 / 跨智能体协作与架构交接文档  
-> **归属工程**：`g:\IronWIl0329\IronWill-OpenSource` (知止 / ZhiZhi)  
+> **归属工程**：`g:\IronWIl0329\IronWill-OpenSource` (决定守护 / DeciKeeper)  
 > **建立时间**：2026-09-05  
 > **核心原则**：**一切以真实代码为准，严禁无中生有；统一散装视觉，绝不颠覆既有业务结构**
 
@@ -10,7 +10,7 @@
 ## 一、 项目背景与任务真实边界
 
 ### 1.1 项目性质与软件定位
-- **软件名称**：知止 (ZhiZhi) / 原工程名 IronWill。
+- **软件名称**：决定守护 (DeciKeeper) / 原工程名 IronWill。
 - **软件核心定位**：基于 Android 原生**无障碍服务 (AccessibilityService)**、**窗口悬浮锁 (WindowManager Overlay)** 与 **使用情况统计 (UsageStats)** 的强约束、防冲动自律管理系统。
 - **与普通 App 的根本区别**：
   - 它不是番茄钟或打卡便签，用户一旦设置了专注规则，系统会进行强制锁机与阻断；
@@ -38,10 +38,10 @@
 | 序号 | 错误做法 | 事实真相与源码依据 | 纠正方案 |
 | :--- | :--- | :--- | :--- |
 | **1** | **主观臆断并甩锅用户**：在注释和界面写“已彻底砍掉用户质疑的‘本段15/30、结余10/20’明细”。 | 用户仅在探讨“为什么要显示结存多少缓存呢有必要显示吗”，讨论的是滚存概念。**用户从未质疑过“本段/结余”明细**！AI 擅自将明细暴力删除，还将此锅强扣给用户。 | **必须保留双轨额度账本**（本段额度 + 滚存结余额度）。视觉上做到大字突出“当前总剩余”，次级清晰呈现“本段”与“结余”来源，数据真实严谨。 |
-| **2** | **凭空捏造伪统计**：“日均休息 38 分钟 · 履约率 91.4%”。 | 知止是通过无障碍强制拦截的硬核约束工具，**规则生效期内强制阻断，根本不存在“违约/履约”的概念**！`fragment_statistics.xml` 只有休息时长与勿扰时长（原名自律时长）的柱状/折线统计。 | **彻底删除“履约率”等一切凭空捏造的指标**。统计只展示真实的：周期切换（周/月/年）、柱状/折线图、加权复选框、换算表、总计/日均休息时长。 |
+| **2** | **凭空捏造伪统计**：“日均休息 38 分钟 · 履约率 91.4%”。 | 决定守护是通过无障碍强制拦截的硬核约束工具，**规则生效期内强制阻断，根本不存在“违约/履约”的概念**！`fragment_statistics.xml` 只有休息时长与勿扰时长（原名自律时长）的柱状/折线统计。 | **彻底删除“履约率”等一切凭空捏造的指标**。统计只展示真实的：周期切换（周/月/年）、柱状/折线图、加权复选框、换算表、总计/日均休息时长。 |
 | **3** | **在勿扰列表中加假卡片**：在勿扰列表里塞入“午休空档 (Gap 期) 12:00—14:00 · 生产力放行”。 | `TimeRuleManager.kt` 与 `fragment_time_config.xml` 中，**用户只配置“勿扰时段”**（如 08:00-12:00, 14:00-18:00）。两个时段之间的空隙自然就是不受限的 Gap 自由期，列表中绝无此卡片！ | **列表中仅保留真实的勿扰时段**。Gap 期是时间轴上的自然间隔，严禁将其渲染为一个可增删改的时段项。 |
 | **4** | **遗漏闹钟关键功能**：忽视闹钟界面的 3 个收藏夹入口和测试闹钟。 | `fragment_alarm.xml` 明确包含：`btn_bookmarked_poems` (📜收藏的诗词)、`btn_bookmarked_words` (📖收藏的单词)、`btn_bookmarked_clozes` (📚收藏的选词填空) 和 `btn_test_alarm` (测试闹钟)。 | **闹钟页面必须完整保留收藏本入口**，并支持点进高保定的 `BookmarkActivity`（含 Tab 切换、按跳过次数/时间排序、搜索、近7/30/90天过滤）。 |
-| **5** | **阉割设置页的无障碍约束体系**：只简写了无障碍和防卸载两个开关。 | `fragment_rules.xml` 中的“加强约束功能”大框包含完整的无障碍依赖体系（防卸载、防关权限、隐私空间拦截、闹钟防关机、多任务隐藏），且全部有延时生效逻辑。 | **完整还原 5 个核心依赖开关与 1 个多任务隐藏开关**，点击关闭必须真实展示知止著名的“次日 08:00 解除”冷静期契约弹窗。 |
+| **5** | **阉割设置页的无障碍约束体系**：只简写了无障碍和防卸载两个开关。 | `fragment_rules.xml` 中的“加强约束功能”大框包含完整的无障碍依赖体系（防卸载、防关权限、隐私空间拦截、闹钟防关机、多任务隐藏），且全部有延时生效逻辑。 | **完整还原 5 个核心依赖开关与 1 个多任务隐藏开关**，点击关闭必须真实展示决定守护著名的“次日 08:00 解除”冷静期契约弹窗。 |
 | **6** | **臆造“四分钟防回马枪”功能**：在闹钟里强加 4 分钟固定机制。 | `AlarmScheduler.kt` 源码中根本没有 4 分钟的概念，只有 `UnlockMode.SINGLE`（单次）与 `UnlockMode.TWO_STAGE`（两阶段解锁）。两阶段解锁依赖可配置的 `stageCooldownSeconds`（冷却期，如 0-300s）。“4分钟”只是旧文档里打的一个文学比方。 | **废弃“四分钟防回马枪”伪概念，正名为“两阶段解锁”**，并提供其背后真实的冷却期逻辑。 |
 | **7** | **主界面展示“额度已滚存”伪标签**：在当前进行中的时段旁打上“额度已滚存”标签。 | `CreditManager.captureSurplusCarrySnapshot` 表明，结余额度（Surplus）是由**当天之前的时段**未用完而转入当前时段的，当前时段还没结束不可能产生滚存给别人的额度。 | **改为“含前段结余转入”**，真实反映账本的数据流向。 |
 | **8** | **错误呈现“借用”状态**：在额度充足（如剩 25 分钟）时同时展示“已借用 5 分钟”。 | `LockWindowManager.kt` 源码（L4436 等）明确显示，`borrowFromNext` **仅在当前额度不足**（`remainingMins < effectiveMinutes`）时才会触发。借用是一个“负债账单”，绝不会在余额充足时并发发生。 | **借用提示框仅在真实触发透支时才出现**，不可与充足的余额同时并存。 |
@@ -137,8 +137,8 @@
    - `switch_accessibility`（🛡️ **防关权限保护**）：拦截关闭无障碍与使用统计权限。
    - `switch_privacy_space_guard`（🔒 **隐私空间拦截**）：拦截系统分身、双开、隐私空间入口。
    - `switch_alarm_power_off_protection`（⏰ **闹钟防关机保护**）：响铃期间拦截系统电源长按弹窗。
-   - `switch_hide_in_recent_tasks`（在多任务界面中隐藏知止）：防在任务管理中被滑除。
-   - **交互机制**：上述开关若处于激活状态，用户尝试关闭时，均弹出知止标准的**“次日 08:00 生效契约确认框”**，绝不允许即刻关闭。
+   - `switch_hide_in_recent_tasks`（在多任务界面中隐藏决定守护）：防在任务管理中被滑除。
+   - **交互机制**：上述开关若处于激活状态，用户尝试关闭时，均弹出决定守护标准的**“次日 08:00 生效契约确认框”**，绝不允许即刻关闭。
 4. **💎 每周特权 (`card_weekly_privilege`)**：独立卡片，设置与查看每周特权可用额度。
 5. **ℹ️ 关于我们 (`btn_open_about`)**：7 项法务协议与合规清单入口。
 6. **第 4 行：诊断与备份**：
@@ -191,34 +191,34 @@
 为了消除“散装感”，未来落地到 XML 时应抽取的标准色彩规范：
 
 ```xml
-<!-- 推荐提取至 res/values/colors_zhizhi_theme.xml -->
+<!-- 推荐提取至 res/values/colors_decikeeper_theme.xml -->
 <resources>
     <!-- 背景与结构 -->
-    <color name="zhizhi_bg_canvas">#EFF5F2</color>          <!-- 柔和薄荷底纸 -->
-    <color name="zhizhi_card_surface">#FFFFFF</color>       <!-- 纯白卡片底色 -->
-    <color name="zhizhi_card_stroke">#DCE8E2</color>        <!-- 卡片微弱灰绿边框 -->
-    <color name="zhizhi_divider">#EDF3F0</color>            <!-- 分隔浅线 -->
+    <color name="decikeeper_bg_canvas">#EFF5F2</color>          <!-- 柔和薄荷底纸 -->
+    <color name="decikeeper_card_surface">#FFFFFF</color>       <!-- 纯白卡片底色 -->
+    <color name="decikeeper_card_stroke">#DCE8E2</color>        <!-- 卡片微弱灰绿边框 -->
+    <color name="decikeeper_divider">#EDF3F0</color>            <!-- 分隔浅线 -->
 
     <!-- 文字层级 -->
-    <color name="zhizhi_text_primary">#163027</color>       <!-- 深郁林绿主文字 -->
-    <color name="zhizhi_text_secondary">#526A61</color>     <!-- 柔和次级说明 -->
-    <color name="zhizhi_text_muted">#7A9188</color>         <!-- 辅助/次要信息 -->
+    <color name="decikeeper_text_primary">#163027</color>       <!-- 深郁林绿主文字 -->
+    <color name="decikeeper_text_secondary">#526A61</color>     <!-- 柔和次级说明 -->
+    <color name="decikeeper_text_muted">#7A9188</color>         <!-- 辅助/次要信息 -->
 
     <!-- 交互动作 -->
-    <color name="zhizhi_btn_primary_bg">#1A3830</color>     <!-- 深墨绿主按键 -->
-    <color name="zhizhi_btn_primary_text">#FFFFFF</color>
-    <color name="zhizhi_btn_secondary_bg">#FFFFFF</color>   <!-- 次按键白底 -->
-    <color name="zhizhi_btn_secondary_stroke">#D0DFD8</color>
-    <color name="zhizhi_btn_secondary_text">#1A2D26</color>
+    <color name="decikeeper_btn_primary_bg">#1A3830</color>     <!-- 深墨绿主按键 -->
+    <color name="decikeeper_btn_primary_text">#FFFFFF</color>
+    <color name="decikeeper_btn_secondary_bg">#FFFFFF</color>   <!-- 次按键白底 -->
+    <color name="decikeeper_btn_secondary_stroke">#D0DFD8</color>
+    <color name="decikeeper_btn_secondary_text">#1A2D26</color>
 
     <!-- 警示、借用、延迟生效专用 (暖杏色系) -->
-    <color name="zhizhi_warm_box_bg">#FEF4E8</color>        <!-- 暖杏底色 -->
-    <color name="zhizhi_warm_box_stroke">#FAE5CC</color>    <!-- 暖杏边框 -->
-    <color name="zhizhi_warm_box_text">#8C531B</color>      <!-- 暖褐警示字 -->
+    <color name="decikeeper_warm_box_bg">#FEF4E8</color>        <!-- 暖杏底色 -->
+    <color name="decikeeper_warm_box_stroke">#FAE5CC</color>    <!-- 暖杏边框 -->
+    <color name="decikeeper_warm_box_text">#8C531B</color>      <!-- 暖褐警示字 -->
 
     <!-- 品牌与状态 -->
-    <color name="zhizhi_brand_active">#1B5C45</color>       <!-- 运行正常绿色 -->
-    <color name="zhizhi_danger">#C62828</color>             <!-- 危险/未受保护 -->
+    <color name="decikeeper_brand_active">#1B5C45</color>       <!-- 运行正常绿色 -->
+    <color name="decikeeper_danger">#C62828</color>             <!-- 危险/未受保护 -->
 </resources>
 ```
 
@@ -227,7 +227,7 @@
 ## 六、 接手执行准则（Step-by-Step）
 
 1. **原型验收对齐**：
-   - 检查 `zhizhi_ui_showcase.html`，确认所有界面逻辑均符合本文档的真实源码对照。
+   - 检查 `decikeeper_ui_showcase.html`，确认所有界面逻辑均符合本文档的真实源码对照。
    - 确认无“履约率”伪数据、无“Gap 期”卡片、保留完整收藏夹与 5 大无障碍约束体系。
 2. **用户授权前禁止动代码**：
    - 保持只读态。不私自执行 `git commit` 修改 Kotlin 代码，不尝试引入第三方 UI 巨型库。
@@ -250,14 +250,14 @@
 3. **主页权限卡片交互正名**：
    - 将原歧义的“设置 >”按钮正名为“权限配置 >”，明确其职责为进入底层系统权限诊断页 (`PermissionActivity` / 无障碍与电池优化保活)，与底部全局规则配置 Tab 彻底解耦。
 4. **四大真实弹窗链路打通**：
-   - `zhizhi_ui_showcase.html` 原型已将关键 Mock 全面升级为带业务逻辑的高保真真实弹窗：
+   - `decikeeper_ui_showcase.html` 原型已将关键 Mock 全面升级为带业务逻辑的高保真真实弹窗：
      - **申请休息弹窗**：带余额读取与自动透支双倍扣减逻辑；
      - **跨日防呆拦截弹窗**：输入跨越 08:00 的时段（如 07:30-09:00），直接触发底层 `strict-crossing check` 报警并阻止保存；
      - **基础权限向导弹窗**：展示核心无障碍与忽略电池优化诊断；
      - **两阶段解锁 Stage 2 弹窗**：答对首题冷却期过后，弹出温和的“离床复核框”，打断滑手机惯性。
 5. **用户关于 UI 落地阶段的最新指令**：
    - **用户拍板**：“可以只改这一小部分，UI方案的修改比较复杂，还不算完全满意，UI后面再单独修”。
-   - **因此执行策略明确**：**UI（Android XML/View）改动暂缓，原型保留在 `zhizhi_ui_showcase.html` 中供后续继续雕琢**。
+   - **因此执行策略明确**：**UI（Android XML/View）改动暂缓，原型保留在 `decikeeper_ui_showcase.html` 中供后续继续雕琢**。
 
 ---
 
@@ -266,7 +266,7 @@
 根据用户提出的教学心理学核心需求：
 > **“答对的晚一点再出现，尽量遍历到每一个题目，跳过的题目出现的概率会多一点。不过每十个题目必有一个是以前做对的题目，防止一直过不了”**
 
-已对 `app/src/main/java/com/zhizhi/app/manager/AlarmChallengeManager.kt` 完成全量重构，并经 `gradlew assembleDebug` 验证构建通过：
+已对 `app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt` 完成全量重构，并经 `gradlew assembleDebug` 验证构建通过：
 
 1. **三池调度架构**：
    - **Pool A (艾宾浩斯复习池)**：错题/跳过题目。按 SM-2 遗忘曲线算法计算 `nextReviewMs`，到期错题优先推送复习；
@@ -302,7 +302,7 @@
    - 使用 `adb install -r -t -d appuild\outputspk\debugpp-debug.apk`，并提示用户在手机上按返回键退出应用商店、点击“继续安装”。
 2. **若恢复 UI 视觉改造**：
    - 用户明确要求“UI后面再单独修，方案要打磨到完全满意”；
-   - 切勿盲目大改 XML，以 `zhizhi_ui_showcase.html` 作为讨论媒介，继续与用户对齐细节；
+   - 切勿盲目大改 XML，以 `decikeeper_ui_showcase.html` 作为讨论媒介，继续与用户对齐细节；
    - 满意后再参考本文档“第五章 Design Tokens”和“第六章 接手执行准则”分阶段落地。
 3. **若对接出题业务**：
    - 在 `LockAlarmOverlay.kt` 的答题成功（`onAnyChallengePassed`）及跳过逻辑处，调用 `AlarmChallengeManager.submitChallengeResult(...)`，使 UI 与底层算法完全贯通。

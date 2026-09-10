@@ -1,4 +1,4 @@
-# 知止 (ZhiZhi) 实施计划与演进路线 (PLAN)
+# 决定守护 (DeciKeeper) 实施计划与演进路线 (PLAN)
 
 > **定位**：本文件只记录当前执行路线、下一步和中长期工程方向。  
 > 产品意图由 [`SPEC.md`](SPEC.md) 与 [`docs/specs/`](docs/specs/) 定义；当前实现事实以代码和测试为证据；已发生的决策与排查进入 `HISTORY.md` / `docs/history/` / Git 历史。

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Apply the approved ZhiZhi HTML master direction to the current `dev` Android UI without shrinking functionality or changing core lock/alarm behavior.
+**Goal:** Apply the approved DeciKeeper HTML master direction to the current `dev` Android UI without shrinking functionality or changing core lock/alarm behavior.
 
 **Architecture:** Keep Kotlin business logic and existing view IDs stable wherever possible. Implement this pass as layout/resource work: first lock screen + rest request, then app selection, then alarm edit/list presentation. Add a source-level XML contract unit test so future visual refactors cannot silently remove the required controls or collapse the two-stage alarm/app-selection structure.
 
@@ -26,7 +26,7 @@
 ### Task 1: Add UI layout contract tests
 
 **Files:**
-- Create: `app/src/test/java/com/zhizhi/app/UiMasterLayoutContractTest.kt`
+- Create: `app/src/test/java/com/decikeeper/app/UiMasterLayoutContractTest.kt`
 
 **Interfaces:**
 - Consumes: Android XML layout source files under `app/src/main/res/layout`.

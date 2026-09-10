@@ -32,9 +32,9 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x gradlew
       - name: Run alert policy test
-        run: ./gradlew :app:testDebugUnitTest --tests com.zhizhi.app.AlarmAlertPolicyTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --tests com.decikeeper.app.AlarmAlertPolicyTest --stacktrace
       - name: Run stage two persistence test
-        run: ./gradlew :app:testDebugUnitTest --tests com.zhizhi.app.AlarmStage2AlertPolicyPersistenceTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --tests com.decikeeper.app.AlarmStage2AlertPolicyPersistenceTest --stacktrace
       - name: Run full unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
       - name: Build debug APK
@@ -42,6 +42,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: zhizhi-alarm-reminder-redesign-debug
+          name: decikeeper-alarm-reminder-redesign-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

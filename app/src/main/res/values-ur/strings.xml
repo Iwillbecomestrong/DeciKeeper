@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">ZhiZhi</string>
+    <string name="app_name">DeciKeeper</string>
     <string name="accessibility_description">آئرن ول کور سروس۔ آپ کی خود نظم و ضبط کی حیثیت کی حفاظت کرتی ہے اور حادثاتی ان انسٹالیشن کو روکتی ہے۔ براہ کرم تحفظ کو یقینی بنانے کے لیے فعال رکھیں۔</string>
 
     <string name="anti_uninstall_title">🛡️ ان انسٹالیشن کے خلاف تحفظ</string>
-    <string name="anti_uninstall_message">ان انسٹال کرنے، ZhiZhi کو روکنے، یا ایکسیسبیلٹی سروس کو بند کرنے کی کوشش کا پتہ چلا۔ کارروائی روک دی گئی۔\n\nجاری رکھنے کے لیے، براہ کرم پہلے ایپ کے اندر اینٹی ان انسٹال پروٹیکشن کو بند کریں۔</string>
+    <string name="anti_uninstall_message">ان انسٹال کرنے، DeciKeeper کو روکنے، یا ایکسیسبیلٹی سروس کو بند کرنے کی کوشش کا پتہ چلا۔ کارروائی روک دی گئی۔\n\nجاری رکھنے کے لیے، براہ کرم پہلے ایپ کے اندر اینٹی ان انسٹال پروٹیکشن کو بند کریں۔</string>
     <string name="btn_got_it">سمجھ گیا</string>
     <string name="btn_back">واپس</string>
 </resources>

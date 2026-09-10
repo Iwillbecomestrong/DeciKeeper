@@ -1,5 +1,5 @@
 <resources>
-    <style name="Base.Theme.ZhiZhi" parent="Theme.Material3.Light.NoActionBar">
+    <style name="Base.Theme.DeciKeeper" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:statusBarColor">?attr/zzPageBg</item>
@@ -11,5 +11,5 @@
         <item name="colorOnSurface">?attr/zzText</item>
         <item name="colorOutline">?attr/zzLine</item>
     </style>
-    <style name="Base.Theme.IronWill" parent="Base.Theme.ZhiZhi" />
+    <style name="Base.Theme.IronWill" parent="Base.Theme.DeciKeeper" />
 </resources>

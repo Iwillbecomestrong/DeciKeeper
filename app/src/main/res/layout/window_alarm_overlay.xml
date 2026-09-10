@@ -390,7 +390,7 @@
                             android:layout_marginBottom="6dp" />
 
                         <!-- Req-1: 长按题目中任意英文单词可查词+收藏 → 自定义 TextView -->
-                        <com.zhizhi.app.WordLookupTextView
+                        <com.decikeeper.app.WordLookupTextView
                             android:id="@+id/tv_cloze_passage"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"

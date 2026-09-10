@@ -1,6 +1,6 @@
-# 知止 (ZhiZhi) Android 应用模块 (app)
+# 决定守护 (DeciKeeper) Android 应用模块 (app)
 
-> **定位**：本模块是「知止」的 Android 客户端主程序源码集，负责 UI 交互呈现、前台检测、无障碍防护、勿扰时段与应用时间窗判定。
+> **定位**：本模块是「决定守护」的 Android 客户端主程序源码集，负责 UI 交互呈现、前台检测、无障碍防护、勿扰时段与应用时间窗判定。
 > 本文件同时作为开发人员与 AI 助手进入本模块的 **Local README Gate**。
 
 ---
@@ -25,10 +25,10 @@ adb install -r -d app/build/outputs/apk/debug/app-debug.apk
 
 ## 2. 代码包结构与职责划分
 
-源码根路径位于 `app/src/main/java/com/zhizhi/app/`。新代码应继续朝清晰的单向职责收敛：
+源码根路径位于 `app/src/main/java/com/decikeeper/app/`。新代码应继续朝清晰的单向职责收敛：
 
 ```text
-com.zhizhi.app
+com.decikeeper.app
 ├── manager/     # 业务规则管理器（CreditManager, TimeRuleManager, AppWindowManager 等）
 │   ├── questionbank/ # 自定义题库管理器与解析器（CustomQuestionBankManager, CustomQuestionBankParser）
 │   └── statistics/ # 统计数据分桶与仓储层（StatisticsRepository, StatsDateRangeResolver）

@@ -37,7 +37,7 @@
         <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" app:cardBackgroundColor="?attr/zzAccentSofter" app:cardCornerRadius="18dp" app:cardElevation="0dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="生效原则" android:textColor="?attr/zzAccentStrong" android:textSize="15sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:lineSpacingExtra="4dp" android:text="知止允许你休息，也允许你反悔，但不会让一次冲动立刻接管此前做出的决定。默认“宽严有别”：更严格的调整可以立即生效，放宽约束的调整按对应规则延迟生效。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:lineSpacingExtra="4dp" android:text="决定守护允许你休息，也允许你反悔，但不会让一次冲动立刻接管此前做出的决定。默认“宽严有别”：更严格的调整可以立即生效，放宽约束的调整按对应规则延迟生效。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

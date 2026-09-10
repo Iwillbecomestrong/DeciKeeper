@@ -1,4 +1,4 @@
-# 知止 (ZhiZhi) 分发与双推指南 (PUBLISHING)
+# 决定守护 (DeciKeeper) 分发与双推指南 (PUBLISHING)
 
 > **定位**：本文档是 Gitee / GitHub 双仓库初始化、构建产物分发与 Release 发布的
 > **唯一可执行清单**。
@@ -27,7 +27,7 @@
 
 访问 <https://gitee.com/projects/new>，按以下填写：
 
-- 仓库名称：`ZhiZhi`（或 `IronWill`）
+- 仓库名称：`DeciKeeper`（或 `IronWill`）
 - 归属：`my_room_welcome_you`
 - 是否开源：**公开**
 - 开发语言：`Kotlin`
@@ -43,7 +43,7 @@
 cd /g/IronWIl0329/IronWill-OpenSource
 
 # 用独立 remote，不要合并进 origin（原因见下方说明）
-git remote add gitee git@gitee.com:my_room_welcome_you/ZhiZhi.git
+git remote add gitee git@gitee.com:my_room_welcome_you/DeciKeeper.git
 ```
 
 **为什么不用 `git remote set-url --add origin <gitee>`？**

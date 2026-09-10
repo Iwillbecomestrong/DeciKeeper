@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-policy_path = ROOT / "app/src/main/java/com/zhizhi/app/manager/AlarmAlertPolicy.kt"
+policy_path = ROOT / "app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt"
 
 failures = []
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-service = (ROOT / "app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt").read_text(encoding="utf-8")
+service = (ROOT / "app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt").read_text(encoding="utf-8")
 
 required = [
     "AlarmAlertPolicy",

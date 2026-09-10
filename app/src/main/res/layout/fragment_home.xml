@@ -204,7 +204,7 @@
             app:cardElevation="0dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="15dp" android:paddingBottom="6dp">
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="16dp" android:text="今日规则" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                <com.zhizhi.app.ui.TodayRulesView android:layout_width="match_parent" android:layout_height="142dp" />
+                <com.decikeeper.app.ui.TodayRulesView android:layout_width="match_parent" android:layout_height="142dp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

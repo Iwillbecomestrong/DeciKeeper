@@ -15,7 +15,7 @@
 | **厂商系统 UI 插件** | `com.vivo.systemuiplugin` (OriginOS 顶部控制中心与状态栏插件) |
 | **厂商系统导航手势** | `com.vivo.upslide` (OriginOS 底部/侧边系统级手势上滑载体) |
 | **测试应用** | `com.tencent.mm` (微信 v8.0.48) |
-| **应用包名 / 版本** | `com.zhizhi.app` (versionCode=1, versionName=0.2.0) |
+| **应用包名 / 版本** | `com.decikeeper.app` (versionCode=1, versionName=0.2.0) |
 | **测试时钟时区** | 2026-09-06 14:30:00 ~ 14:35:00 CST (UTC+8, Asia/Shanghai) |
 | **BASE_COMMIT** | `18bf8ac53e5047134cc67d189c230220480d3d6e` |
 | **TESTED_COMMIT** | `318ca0d0f323d82abb1564b0a60f44d317036686`（验证分支 `dev`，已完成不可变扣费快照与次数统一下落认证） |

@@ -1,6 +1,6 @@
-# 知止 (ZhiZhi) 架构决策与经验档案 (HISTORY)
+# 决定守护 (DeciKeeper) 架构决策与经验档案 (HISTORY)
 
-> **定位**：本文件是「知止」项目的**历史决策真相（Historical Decision Truth）**，沉淀核心架构演进决策、高价值教训与防回归红线。
+> **定位**：本文件是「决定守护」项目的**历史决策真相（Historical Decision Truth）**，沉淀核心架构演进决策、高价值教训与防回归红线。
 > 开源前完整的问题追踪与历史排查记录详见 [docs/history/issue_tracker.md](docs/history/issue_tracker.md)。
 
 ---
@@ -137,9 +137,9 @@
      - 春：嫩芽草木金绿与生机浅底，春樱暮红；
      - 夏：潮汐青金与清凉浅碧海青底，浅海珊瑚红；
      - 秋：陶土焦糖金橙与温润暖杏底，晚秋枫叶砖赭红；
-# 知止 (ZhiZhi) 架构决策与经验档案 (HISTORY)
+# 决定守护 (DeciKeeper) 架构决策与经验档案 (HISTORY)
 
-> **定位**：本文件是「知止」项目的**历史决策真相（Historical Decision Truth）**，沉淀核心架构演进决策、高价值教训与防回归红线。
+> **定位**：本文件是「决定守护」项目的**历史决策真相（Historical Decision Truth）**，沉淀核心架构演进决策、高价值教训与防回归红线。
 > 开源前完整的问题追踪与历史排查记录详见 [docs/history/issue_tracker.md](docs/history/issue_tracker.md)。
 
 ---
@@ -473,3 +473,7 @@
      - 新增 `AutoBackupManager`，在关键变更（打点、时段、时间窗、题库）发生时 30 秒防抖自动落盘；
      - 采用双快照轮转机制（`zhizhi_auto_backup.json` + `_prev.json`），并在公共文档目录 `Documents/ZhiZhi/` 与内部私有目录双写；
      - 在 `MyApplication.onCreate()` 检测空白全新安装或重装，静默自动恢复外部快照并弹出轻量 Toast 提示，实现重装数据免删跨代留存。
+### [DECISION-24] 全面更名「决定守护 (DeciKeeper)」与包名重构 (com.decikeeper.app)
+- **背景**：开源首发更名「知止 (ZhiZhi)」后，品牌进一步收敛为更直白的自律语义；「知止」与既有名称意象仍易混淆，且需要与决策守护的产品定位（决定守护每一次自控）对齐。
+- **决策**：彻底更名为「决定守护」(DeciKeeper)，Android 包名全面平移至 `com.decikeeper.app`，源码目录与全部 prefs 键名（`iron_will_*` → `decikeeper_*`）统一迁移。`SettingsBackupManager` 实现三协议解析（`decikeeper_settings_backup` / `zhizhi_settings_backup` / `ironwill_settings_backup`），导入旧备份时自动将 `iron_will_*` 键名映射为 `decikeeper_*`，实现旧版数据无缝迁移；`AutoBackupManager` 保留对旧公共目录 `Documents/ZhiZhi/` 与旧快照文件名 `zhizhi_auto_backup*.json` 的回退查找。
+- **防坑警告**：包名变更后为全新独立应用，不可覆盖安装旧版，需通过导出/导入备份完成规则迁移；通知渠道、`Theme.*` 样式与 `Theme.IronWill` 兼容别名保留以支撑旧布局与旧渠道清理。

@@ -7,16 +7,16 @@
 常规联系与问题反馈
 ==============================================
 
-  如你对知止（ZhiZhi）有任何意见、建议、Bug 反馈或一般咨询，可通过以下方式联系：
+  如你对决定守护（DeciKeeper）有任何意见、建议、Bug 反馈或一般咨询，可通过以下方式联系：
 
   - 联系邮箱：cyz200303@163.com
-  - 官方网站（海外 / GitHub）：https://github.com/Iwillbecomestrong/ZhiZhi
-  - 官方网站（国内 / Gitee）：https://gitee.com/my_room_welcome_you/zhizhi
+  - 官方网站（海外 / GitHub）：https://github.com/Iwillbecomestrong/DeciKeeper
+  - 官方网站（国内 / Gitee）：https://gitee.com/my_room_welcome_you/decikeeper
 
   【首选反馈渠道（推荐）】：
   为方便问题追踪、避免重复提报并沉淀社区经验，建议优先在开源仓库提交 Issue：
-  - GitHub Issues：https://github.com/Iwillbecomestrong/ZhiZhi/issues
-  - Gitee Issues：https://gitee.com/my_room_welcome_you/zhizhi/issues
+  - GitHub Issues：https://github.com/Iwillbecomestrong/DeciKeeper/issues
+  - Gitee Issues：https://gitee.com/my_room_welcome_you/decikeeper/issues
 
   【应用内日志取证导出】：
   遇到应用异常、漏锁、误锁或闪退时，可通过「设置 → 🧾 日志诊断 → 发送日志」导出本地运行日志，并附带于 Issue 或邮件中反馈。
@@ -28,7 +28,7 @@
   为便于开发者快速复现并定位问题，提报 Issue 或发送反馈邮件时，请遵循以下范式：
 
   1. 运行环境：手机型号（如 Xiaomi 14 / Vivo X100 等）+ 系统/ROM 版本（如 HyperOS 1.0 / OriginOS 4 等）+ Android 系统版本。
-  2. 应用版本：知止版本号或 Git Commit SHA（例如：v1.0.0-open-source 或 commit sha）。
+  2. 应用版本：决定守护版本号或 Git Commit SHA（例如：v1.0.0-open-source 或 commit sha）。
   3. 现象与复现：
      - 发生时间（大致时刻，便于对齐日志）；
      - 操作步骤（做了什么动作）；

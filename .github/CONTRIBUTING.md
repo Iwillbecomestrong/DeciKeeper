@@ -1,10 +1,10 @@
 # 贡献指南 (CONTRIBUTING)
 
-感谢你关注 **知止（ZhiZhi）**。本文件是所有 Pull Request 的基础协作规范。
+感谢你关注 **决定守护（DeciKeeper）**。本文件是所有 Pull Request 的基础协作规范。
 
 ## 1. 项目是什么
 
-知止是一款开源 Android 数字自律工具：用户提前定义时间边界、应用限制和起床流程，软件在需要执行时降低被下一刻冲动立刻推翻的概率。
+决定守护是一款开源 Android 数字自律工具：用户提前定义时间边界、应用限制和起床流程，软件在需要执行时降低被下一刻冲动立刻推翻的概率。
 
 完整产品规则先读：
 
@@ -42,7 +42,7 @@ gradlew :app:assembleDebug
 当前官方包名为：
 
 ```text
-com.zhizhi.app
+com.decikeeper.app
 ├── manager/     # 业务规则对象与 UseCase
 ├── ui/          # Activity / Fragment / View / Adapter
 ├── protection/  # 无障碍、防卸载、系统入口保护

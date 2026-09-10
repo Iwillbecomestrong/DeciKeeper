@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将知止闹钟收敛为“第一关 + 可选完成后延迟 + 可选第二关”的统一流程，并让固定/渐进提醒、第二关继承/独立设置、再响恢复都共享同一套提醒策略。
+**Goal:** 将决定守护闹钟收敛为“第一关 + 可选完成后延迟 + 可选第二关”的统一流程，并让固定/渐进提醒、第二关继承/独立设置、再响恢复都共享同一套提醒策略。
 
 **Architecture:** 新增纯 Kotlin `AlarmAlertPolicy` 作为提醒强度与配置继承的单一规则源；`AlarmScheduler` 负责持久化和配置解析；`AlarmVibrationService` 只执行当前提醒周期；`LockAlarmOverlay` 负责挑战/延迟/第二关状态推进；`AlarmFragment` 负责设置 UI。渐进计时从整次 service 运行时间中拆出独立 `alertCycleStartTime`，每次“第一次响 / 再响结束 / 第二关开始”都新建提醒周期。
 
@@ -29,20 +29,20 @@
 ## File Map
 
 **Create**
-- `app/src/main/java/com/zhizhi/app/manager/AlarmAlertPolicy.kt` — 纯 Kotlin 提醒强度、第二关继承、再响覆盖解析。
-- `app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt` — 30 秒阶梯、固定模式、继承/独立、再响覆盖的纯 JVM 测试。
+- `app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt` — 纯 Kotlin 提醒强度、第二关继承、再响覆盖解析。
+- `app/src/test/java/com/decikeeper/app/AlarmAlertPolicyTest.kt` — 30 秒阶梯、固定模式、继承/独立、再响覆盖的纯 JVM 测试。
 
 **Modify**
-- `app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt` — AlarmEntry 新字段、默认值、JSON 兼容、再响覆盖、alert-cycle 持久化。
-- `app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt` — 按 alert cycle 执行固定/渐进提醒；移除 5 分钟突破行为；第二关策略切换。
-- `app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt` — 统一第一关完成、完成后延迟、第二关启动、再响次数与新周期恢复。
-- `app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt` — 测试闹钟配置扩展，暴露当前阶段测试提醒策略。
-- `app/src/main/java/com/zhizhi/app/ui/AlarmFragment.kt` — 默认/单闹钟/测试配置 UI；第二关独立提醒设置；再响覆盖；移除突破设置。
+- `app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt` — AlarmEntry 新字段、默认值、JSON 兼容、再响覆盖、alert-cycle 持久化。
+- `app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt` — 按 alert cycle 执行固定/渐进提醒；移除 5 分钟突破行为；第二关策略切换。
+- `app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt` — 统一第一关完成、完成后延迟、第二关启动、再响次数与新周期恢复。
+- `app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt` — 测试闹钟配置扩展，暴露当前阶段测试提醒策略。
+- `app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt` — 默认/单闹钟/测试配置 UI；第二关独立提醒设置；再响覆盖；移除突破设置。
 - `app/src/main/res/layout/dialog_alarm_default_settings.xml` — 默认配置文案与第二关独立设置控件。
 - `app/src/main/res/layout/dialog_alarm_edit.xml` — 完成后延迟与单闹钟再响覆盖入口。
 - `app/src/main/res/layout/dialog_test_alarm.xml` — 测试闹钟与真实配置保持一致。
-- `app/src/test/java/com/zhizhi/app/AlarmChallengeTwoStageFlowTest.kt` — 完成后延迟与第二关入口回归。
-- `app/src/test/java/com/zhizhi/app/AlarmProductionMigrationTest.kt` — 旧 JSON / 旧渐进字段兼容回归。
+- `app/src/test/java/com/decikeeper/app/AlarmChallengeTwoStageFlowTest.kt` — 完成后延迟与第二关入口回归。
+- `app/src/test/java/com/decikeeper/app/AlarmProductionMigrationTest.kt` — 旧 JSON / 旧渐进字段兼容回归。
 - `scripts/test_alarm_snooze_contract.py` — 从“强制一次”改为“按解析配置”；增加再响结束重置提醒周期契约。
 - `.github/workflows/alarm-snooze-contract.yml` — 泛化为 `ai/alarm-*` 分支的闹钟契约 + JVM + APK 验证。
 - `README.md` — 宿舍起点、再响、完成后延迟、可选第二关的用户级说明。
@@ -55,8 +55,8 @@
 ### Task 1: Add a Pure Alarm Alert Policy Seam
 
 **Files:**
-- Create: `app/src/main/java/com/zhizhi/app/manager/AlarmAlertPolicy.kt`
-- Create: `app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt`
+- Create: `app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt`
+- Create: `app/src/test/java/com/decikeeper/app/AlarmAlertPolicyTest.kt`
 
 **Interfaces:**
 - Produces:
@@ -100,7 +100,7 @@ Add focused tests for stage-2 inheritance/independent override and field-by-fiel
 - [ ] **Step 2: Run the focused test and verify RED**
 
 ```bash
-./gradlew :app:testDebugUnitTest --tests "com.zhizhi.app.AlarmAlertPolicyTest" --stacktrace
+./gradlew :app:testDebugUnitTest --tests "com.decikeeper.app.AlarmAlertPolicyTest" --stacktrace
 ```
 
 Expected: FAIL because `AlarmAlertPolicy` / config types do not exist.
@@ -162,8 +162,8 @@ Run the same Gradle test command. Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/src/main/java/com/zhizhi/app/manager/AlarmAlertPolicy.kt \
-        app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt
+git add app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt \
+        app/src/test/java/com/decikeeper/app/AlarmAlertPolicyTest.kt
 git commit -m "feat(alarm): add unified alert policy"
 ```
 
@@ -172,8 +172,8 @@ git commit -m "feat(alarm): add unified alert policy"
 ### Task 2: Persist Stage-2 Alert Overrides, Snooze Overrides, and Alert-Cycle Time
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt`
-- Modify: `app/src/test/java/com/zhizhi/app/AlarmProductionMigrationTest.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt`
+- Modify: `app/src/test/java/com/decikeeper/app/AlarmProductionMigrationTest.kt`
 
 **Interfaces:**
 - Consumes: `AlarmAlertConfig`, `AlarmSnoozeConfig`, `AlarmAlertPolicy.resolveStage2`, `AlarmAlertPolicy.resolveSnooze`.
@@ -194,7 +194,7 @@ Cover: old JSON with no new fields, legacy `autoEscalate=true`, stage-2 override
 - [ ] **Step 2: Run migration tests and verify RED**
 
 ```bash
-./gradlew :app:testDebugUnitTest --tests "com.zhizhi.app.AlarmProductionMigrationTest" --stacktrace
+./gradlew :app:testDebugUnitTest --tests "com.decikeeper.app.AlarmProductionMigrationTest" --stacktrace
 ```
 
 - [ ] **Step 3: Extend `AlarmEntry` without destructive migration**
@@ -223,15 +223,15 @@ Add a key distinct from `KEY_VIBRATION_START_TIME`; clear it in `clearAlarmActiv
 - [ ] **Step 6: Run migration and scheduler tests**
 
 ```bash
-./gradlew :app:testDebugUnitTest --tests "com.zhizhi.app.AlarmProductionMigrationTest" --stacktrace
-./gradlew :app:testDebugUnitTest --tests "com.zhizhi.app.AlarmScheduler*" --stacktrace
+./gradlew :app:testDebugUnitTest --tests "com.decikeeper.app.AlarmProductionMigrationTest" --stacktrace
+./gradlew :app:testDebugUnitTest --tests "com.decikeeper.app.AlarmScheduler*" --stacktrace
 ```
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt \
-        app/src/test/java/com/zhizhi/app/AlarmProductionMigrationTest.kt
+git add app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt \
+        app/src/test/java/com/decikeeper/app/AlarmProductionMigrationTest.kt
 git commit -m "feat(alarm): persist alert and snooze overrides"
 ```
 
@@ -240,8 +240,8 @@ git commit -m "feat(alarm): persist alert and snooze overrides"
 ### Task 3: Replace Service-Time Escalation with Alert-Cycle Escalation
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt`
-- Modify: `app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt`
+- Modify: `app/src/test/java/com/decikeeper/app/AlarmAlertPolicyTest.kt`
 
 **Interfaces:**
 - Consumes: `AlarmScheduler.resolveStageAlertConfig`, `AlarmAlertPolicy.level`, persisted alert-cycle time.
@@ -298,14 +298,14 @@ When the same first-stage session is still active: clear silent state, `beginAle
 - [ ] **Step 8: Verify focused tests**
 
 ```bash
-./gradlew :app:testDebugUnitTest --tests "com.zhizhi.app.AlarmAlertPolicyTest" --stacktrace
+./gradlew :app:testDebugUnitTest --tests "com.decikeeper.app.AlarmAlertPolicyTest" --stacktrace
 ```
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt \
-        app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt
+git add app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt \
+        app/src/test/java/com/decikeeper/app/AlarmAlertPolicyTest.kt
 git commit -m "refactor(alarm): reset progressive alerts per cycle"
 ```
 
@@ -314,8 +314,8 @@ git commit -m "refactor(alarm): reset progressive alerts per cycle"
 ### Task 4: Unify Stage-1 Completion, Post-Stage Delay, and Stage-2 Start
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt`
-- Modify: `app/src/test/java/com/zhizhi/app/AlarmChallengeTwoStageFlowTest.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt`
+- Modify: `app/src/test/java/com/decikeeper/app/AlarmChallengeTwoStageFlowTest.kt`
 
 **Interfaces:**
 - Consumes: `AlarmVibrationService.attenuate`, `AlarmVibrationService.restartAlertCycle`.
@@ -355,14 +355,14 @@ AlarmVibrationService.restartAlertCycle(ctx, alarmId)
 - [ ] **Step 5: Run focused tests**
 
 ```bash
-./gradlew :app:testDebugUnitTest --tests "com.zhizhi.app.AlarmChallengeTwoStageFlowTest" --stacktrace
+./gradlew :app:testDebugUnitTest --tests "com.decikeeper.app.AlarmChallengeTwoStageFlowTest" --stacktrace
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt \
-        app/src/test/java/com/zhizhi/app/AlarmChallengeTwoStageFlowTest.kt
+git add app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt \
+        app/src/test/java/com/decikeeper/app/AlarmChallengeTwoStageFlowTest.kt
 git commit -m "feat(alarm): unify delay and optional second stage"
 ```
 
@@ -371,8 +371,8 @@ git commit -m "feat(alarm): unify delay and optional second stage"
 ### Task 5: Make Snooze Configuration-Driven Instead of Hard-Coded One-Shot
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt`
-- Modify: `app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt`
 - Modify: `scripts/test_alarm_snooze_contract.py`
 
 **Interfaces:**
@@ -415,8 +415,8 @@ python3 scripts/test_alarm_snooze_contract.py
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt \
-        app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt \
+git add app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt \
+        app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt \
         scripts/test_alarm_snooze_contract.py
 git commit -m "fix(alarm): honor configured snooze limits"
 ```
@@ -426,8 +426,8 @@ git commit -m "fix(alarm): honor configured snooze limits"
 ### Task 6: Update Default, Per-Alarm, and Test Configuration UI
 
 **Files:**
-- Modify: `app/src/main/java/com/zhizhi/app/ui/AlarmFragment.kt`
-- Modify: `app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt`
+- Modify: `app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt`
 - Modify: `app/src/main/res/layout/dialog_alarm_default_settings.xml`
 - Modify: `app/src/main/res/layout/dialog_alarm_edit.xml`
 - Modify: `app/src/main/res/layout/dialog_test_alarm.xml`
@@ -476,18 +476,18 @@ Test alarms can exercise stage-1 policy, delay, optional stage 2, and stage-2 in
 - [ ] **Step 7: Run alarm tests**
 
 ```bash
-./gradlew :app:testDebugUnitTest --tests "com.zhizhi.app.Alarm*" --stacktrace
+./gradlew :app:testDebugUnitTest --tests "com.decikeeper.app.Alarm*" --stacktrace
 ```
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add app/src/main/java/com/zhizhi/app/ui/AlarmFragment.kt \
-        app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt \
+git add app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt \
+        app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt \
         app/src/main/res/layout/dialog_alarm_default_settings.xml \
         app/src/main/res/layout/dialog_alarm_edit.xml \
         app/src/main/res/layout/dialog_test_alarm.xml \
-        app/src/test/java/com/zhizhi/app
+        app/src/test/java/com/decikeeper/app
 git commit -m "feat(alarm): expose unified stage alert settings"
 ```
 
@@ -529,7 +529,7 @@ Explain hostel QR + snooze, delay `0` vs 20/30 minutes, optional second-stage ex
 
 ```bash
 python3 scripts/test_alarm_snooze_contract.py
-./gradlew :app:testDebugUnitTest --tests "com.zhizhi.app.Alarm*" --stacktrace
+./gradlew :app:testDebugUnitTest --tests "com.decikeeper.app.Alarm*" --stacktrace
 ```
 
 - [ ] **Step 7: Commit**
