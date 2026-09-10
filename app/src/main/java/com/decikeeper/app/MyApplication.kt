@@ -24,6 +24,7 @@ import android.content.Context
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.UserManager
 import android.util.Log
 import com.decikeeper.app.data.CrashRecorder
 import com.decikeeper.app.data.LogExporter
@@ -56,6 +57,9 @@ class MyApplication : Application() {
         lateinit var instance: MyApplication
             private set
 
+        /** Test seam for the locked onCreate recovery path. */
+        internal var directBootRecoveryStarter: ((android.content.Intent) -> Unit)? = null
+
         fun shouldStartFastLock(
             isInSegment: Boolean,
             isAdaptation: Boolean,
@@ -75,6 +79,12 @@ class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+
+        // Direct Boot 进程的 Application 也会先执行；此时禁止任何 CE 初始化。
+        if (isUserLockedForDirectBoot()) {
+            checkAndResumeAlarmIfNeeded(directBoot = true)
+            return
+        }
 
         // 🔖 版本指纹 + 新装心跳
         printVersionFingerprint()
@@ -194,23 +204,35 @@ class MyApplication : Application() {
      * 检测是否在闹钟震动期间被强制重启，若是则立即启动震动服务。
      * 放在 Application.onCreate() 而非 Receiver 中，确保在进程创建的最早时刻执行。
      */
-    private fun checkAndResumeAlarmIfNeeded() {
+    private fun checkAndResumeAlarmIfNeeded(directBoot: Boolean = false) {
         try {
             if (AlarmScheduler.isAlarmActive(this)) {
                 val alarmId = AlarmScheduler.getActiveAlarmId(this)
                 Log.i("DeciKeeper", "MyApplication: Alarm was active at shutdown (id=$alarmId), starting vibration service NOW")
                 val vibrateIntent = android.content.Intent(this, AlarmVibrationService::class.java).apply {
                     putExtra(AlarmVibrationService.EXTRA_ALARM_ID, alarmId)
+                    putExtra(AlarmVibrationService.EXTRA_DIRECT_BOOT, directBoot)
+                    if (directBoot) {
+                        putExtra(AlarmScheduler.EXTRA_SCHEDULE_TOKEN, AlarmScheduler.getActiveScheduleToken(this@MyApplication))
+                    }
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(vibrateIntent)
-                } else {
-                    startService(vibrateIntent)
+                directBootRecoveryStarter?.invoke(vibrateIntent) ?: run {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(vibrateIntent)
+                    } else {
+                        startService(vibrateIntent)
+                    }
                 }
             }
         } catch (e: Exception) {
             Log.e("DeciKeeper", "MyApplication: Failed to resume alarm vibration", e)
         }
+    }
+
+    private fun isUserLockedForDirectBoot(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
+        val userManager = getSystemService(UserManager::class.java) ?: return false
+        return !userManager.isUserUnlocked
     }
 
     private fun finishApplicationInit() {

@@ -34,6 +34,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.UserManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
@@ -70,7 +71,8 @@ class AlarmVibrationService : Service() {
         private const val CHANNEL_ID = "alarm_channel_v3"
         internal const val OVERLAY_RESTORE_DELAY_MS = 300L
         const val EXTRA_ALARM_ID = "alarm_vibration_alarm_id"
-    const val EXTRA_PRE_WARM = "alarm_vibration_pre_warm"
+        const val EXTRA_PRE_WARM = "alarm_vibration_pre_warm"
+        const val EXTRA_DIRECT_BOOT = "alarm_vibration_direct_boot"
 
         /** 当前有效震动强度（1-10），供 UI 层读取显示 */
         @Volatile
@@ -179,6 +181,7 @@ class AlarmVibrationService : Service() {
     private var alarmId: Int = -1
     private var ringtoneUri: String? = null
     private var alarmMode: AlarmScheduler.AlarmMode = AlarmScheduler.AlarmMode.VIBRATE_AND_RING
+    private var directBootSession = false
     private var ringVolume: Int = 7
     var alertCycleStartTime: Long = 0L
     private var serviceStartTime: Long = 0L
@@ -308,6 +311,17 @@ class AlarmVibrationService : Service() {
     }
 
     private fun resolveCurrentStagePolicy(): StageAlertPolicy {
+        if (directBootSession) {
+            // Credential-protected alarm configuration is unavailable before first unlock.
+            // Use a conservative device-independent vibration policy until USER_PRESENT
+            // restores the normal alarm UI/configuration path.
+            return StageAlertPolicy(
+                alarmMode = AlarmScheduler.AlarmMode.VIBRATE_ONLY,
+                vibrationMode = AlarmScheduler.VibrationMode.FIXED,
+                fixedVibrationIntensity = 7,
+                fixedRingVolume = 1
+            )
+        }
         val entry = if (alarmId > 0) AlarmScheduler.findAlarm(this, alarmId) else null
         val stage1 = StageAlertPolicy(
             alarmMode = LockWindowManager.testAlarmMode ?: entry?.alarmMode ?: AlarmScheduler.getDefaultAlarmMode(this),
@@ -358,6 +372,7 @@ class AlarmVibrationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        directBootSession = isUserLockedForDirectBoot()
         // 从 SharedPreferences 恢复 alertCycleStartTime
         val savedStartTime = AlarmScheduler.getVibrationStartTime(this)
         alertCycleStartTime = if (savedStartTime > 0) savedStartTime else System.currentTimeMillis()
@@ -371,7 +386,11 @@ class AlarmVibrationService : Service() {
         isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
         try {
             createNotificationChannel()
-            startForeground(NOTIFICATION_ID, buildNotification())
+            if (directBootSession) {
+                startForegroundWithMinimalNotification()
+            } else {
+                startForeground(NOTIFICATION_ID, buildNotification())
+            }
         } catch (e: Exception) {
             // Direct Boot 模式下通知可能不可用，不影响核心震动功能
             Log.w(TAG, "Failed to start foreground, but vibration will continue: ${e.message}")
@@ -419,13 +438,37 @@ class AlarmVibrationService : Service() {
             applyAttenuation()
             return START_STICKY
         }
-        val newAlarmId = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: -1
+        val requestedAlarmId = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: -1
+        val directBoot = intent?.getBooleanExtra(EXTRA_DIRECT_BOOT, false) == true ||
+            isUserLockedForDirectBoot()
+        val newAlarmId = if (requestedAlarmId > 0 || !directBoot) {
+            requestedAlarmId
+        } else {
+            AlarmScheduler.getActiveAlarmId(this)
+        }
+        val directBootToken = intent?.getStringExtra(AlarmScheduler.EXTRA_SCHEDULE_TOKEN).orEmpty()
+            .ifBlank { if (directBoot) AlarmScheduler.getActiveScheduleToken(this) else "" }
+        directBootSession = directBoot
+        val activateAlarm = {
+            if (directBoot && directBootToken.isNotBlank()) {
+                AlarmScheduler.setAlarmActiveFromDirectBoot(this, newAlarmId, directBootToken)
+            } else if (!directBoot) {
+                AlarmScheduler.setAlarmActive(this, newAlarmId)
+            }
+        }
 
-        // 读取铃声设置
-        val entry = if (newAlarmId > 0) AlarmScheduler.findAlarm(this, newAlarmId) else null
-        ringtoneUri = LockWindowManager.testRingtoneUri ?: entry?.ringtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(this)
-        alarmMode = LockWindowManager.testAlarmMode ?: entry?.alarmMode ?: AlarmScheduler.getDefaultAlarmMode(this)
-        ringVolume = LockWindowManager.testRingVolume ?: entry?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(this)
+        // Direct Boot 阶段不能读取凭据保护存储；先使用仅依赖设备保护状态的保守震动策略。
+        // USER_PRESENT 后后续启动路径会重新读取完整闹钟配置。
+        if (directBootSession) {
+            ringtoneUri = null
+            alarmMode = AlarmScheduler.AlarmMode.VIBRATE_ONLY
+            ringVolume = 1
+        } else {
+            val entry = if (newAlarmId > 0) AlarmScheduler.findAlarm(this, newAlarmId) else null
+            ringtoneUri = LockWindowManager.testRingtoneUri ?: entry?.ringtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(this)
+            alarmMode = LockWindowManager.testAlarmMode ?: entry?.alarmMode ?: AlarmScheduler.getDefaultAlarmMode(this)
+            ringVolume = LockWindowManager.testRingVolume ?: entry?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(this)
+        }
         currentAlarmMode = alarmMode.name
         Log.d(TAG, "[RING-DIAG] onStartCommand: newAlarmId=$newAlarmId, alarmMode=$alarmMode, ringtoneUri=$ringtoneUri, ringVolume=$ringVolume, testMode=${LockWindowManager.testAlarmMode}, testUri=${LockWindowManager.testRingtoneUri}")
 
@@ -447,9 +490,9 @@ class AlarmVibrationService : Service() {
         if (vibrator != null && this.alarmId >= 0) {
             Log.i(TAG, "Service already running, updating alarmId: ${this.alarmId} -> $newAlarmId")
             this.alarmId = newAlarmId
-            AlarmScheduler.setAlarmActive(this, alarmId)
+            activateAlarm()
             isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
-            updateForegroundNotification()
+            if (directBootSession) startForegroundWithMinimalNotification() else updateForegroundNotification()
             // [Fix: scan-screen-off] 服务已运行时仍需重新触发震动。
             // 扫码模式下熄屏后系统可能取消震动，亮屏时 AlarmActivity.onResume()
             // 再次调用 start()，此时 vibrator 对象还在但震动已停止，必须显式重启。
@@ -461,9 +504,9 @@ class AlarmVibrationService : Service() {
         }
 
         this.alarmId = newAlarmId
-        AlarmScheduler.setAlarmActive(this, alarmId)
+        activateAlarm()
         isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
-        updateForegroundNotification()
+        if (directBootSession) startForegroundWithMinimalNotification() else updateForegroundNotification()
         fixedAmplitude = 0
         // [Fix: process restart] 不从 SharedPreferences 恢复的 lockedFinalIntensity，
         // 已在 onCreate() 中恢复。此处不清零以维持进程重启后的正确锁定强度。
@@ -504,6 +547,12 @@ class AlarmVibrationService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun isUserLockedForDirectBoot(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
+        val userManager = getSystemService(UserManager::class.java) ?: return false
+        return !userManager.isUserUnlocked
+    }
 
     @SuppressLint("MissingPermission")
     private fun startVibrationImpl() {

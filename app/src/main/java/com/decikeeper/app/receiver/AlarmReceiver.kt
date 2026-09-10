@@ -3,6 +3,7 @@ package com.decikeeper.app.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.UserManager
 import android.util.Log
 import com.decikeeper.app.data.AndroidLogcatNormalEventSink
 import com.decikeeper.app.data.DefaultLogDebugConfig
@@ -11,6 +12,7 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
+import com.decikeeper.app.manager.AlarmBootstrapStorage
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmWindowManager
 import com.decikeeper.app.service.AlarmVibrationService
@@ -82,6 +84,18 @@ class AlarmReceiver : BroadcastReceiver() {
             "[ALARM_RECEIVED] action=$action id=$receivedAlarmId kind=$receivedKind token=${receivedToken.take(8)} scheduledAt=$receivedScheduledAt receivedAt=$receivedAt"
         )
 
+        // Direct Boot 下不能读取 credential-protected alarms_json；只接受 DPS bootstrap
+        // 中对应的未来主闹钟，并先建立 active 状态再启动 directBootAware 震动服务。
+        val userLocked = isUserLocked(context)
+        if (action == AlarmScheduler.ACTION_ALARM_TRIGGER && userLocked) {
+            handleDirectBootTrigger(context, receivedAlarmId, receivedToken, receivedScheduledAt)
+            return
+        }
+        if (userLocked && action == AlarmScheduler.ACTION_ALARM_PRE_WARM) {
+            Log.i("AlarmReceiver", "Direct Boot pre-warm ignored; only MAIN trigger is supported")
+            return
+        }
+
         // ----- 预热闹钟：提前唤醒进程，确保主闹钟到达时 App 已在内存中 -----
         if (action == AlarmScheduler.ACTION_ALARM_PRE_WARM) {
             val alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
@@ -136,24 +150,31 @@ class AlarmReceiver : BroadcastReceiver() {
                 return
             }
 
-            val recoveryCount = AlarmScheduler.getRecoveryCount(context, alarmId)
+            val directBoot = isUserLocked(context)
+            val recoveryCount = if (directBoot) {
+                AlarmScheduler.getRecoveryCountFromDirectBoot(context, alarmId)
+            } else {
+                AlarmScheduler.getRecoveryCount(context, alarmId)
+            }
             if (recoveryCount >= AlarmScheduler.MAX_RECOVERY_COUNT) {
                 Log.w("AlarmReceiver", "Recovery alarm: max recovery count reached ($recoveryCount), skipping (alarmId=$alarmId)")
                 AlarmScheduler.cancelRecoveryAlarm(context)
-                AlarmScheduler.resetRecoveryCount(context, alarmId)
+                if (!directBoot) AlarmScheduler.resetRecoveryCount(context, alarmId)
                 return
             }
             if (AlarmScheduler.isAlarmActive(context) && AlarmScheduler.getActiveAlarmId(context) == alarmId) {
                 Log.i("AlarmReceiver", "Recovery alarm: matching alarm active, starting vibration (alarmId=$alarmId)")
-                val vibrateIntent = Intent(context, AlarmVibrationService::class.java).apply {
-                    putExtra(AlarmVibrationService.EXTRA_ALARM_ID, alarmId)
-                }
-                context.startForegroundService(vibrateIntent)
-                if (AlarmVibrationService.isRunning) {
+                startVibrationService(
+                    context = context,
+                    alarmId = alarmId,
+                    directBoot = directBoot,
+                    scheduleToken = if (directBoot) AlarmScheduler.getActiveScheduleToken(context) else ""
+                )
+                if (!directBoot && AlarmVibrationService.isRunning) {
                     Log.i("AlarmReceiver", "Recovery alarm: service confirmed running, cancelling recovery (insurance done)")
                     AlarmScheduler.cancelRecoveryAlarm(context)
                     AlarmScheduler.resetRecoveryCount(context, alarmId)
-                } else {
+                } else if (!directBoot) {
                     AlarmScheduler.scheduleRecoveryAlarm(context, alarmId)
                 }
             } else {
@@ -176,10 +197,12 @@ class AlarmReceiver : BroadcastReceiver() {
             val activeAlarmId = AlarmScheduler.getActiveAlarmId(context)
             if (AlarmScheduler.isAlarmActive(context) && activeAlarmId == alarmId) {
                 Log.i("AlarmReceiver", "RebootSafetyNet: matching alarm active, starting vibration (alarmId=$alarmId)")
-                val vibrateIntent = Intent(context, AlarmVibrationService::class.java).apply {
-                    putExtra(AlarmVibrationService.EXTRA_ALARM_ID, alarmId)
-                }
-                context.startForegroundService(vibrateIntent)
+                startVibrationService(
+                    context = context,
+                    alarmId = alarmId,
+                    directBoot = isUserLocked(context),
+                    scheduleToken = if (isUserLocked(context)) AlarmScheduler.getActiveScheduleToken(context) else ""
+                )
             } else {
                 Log.i(
                     "AlarmReceiver",
@@ -364,6 +387,75 @@ class AlarmReceiver : BroadcastReceiver() {
             "AlarmRecovery",
             "STALE_TRIGGER_IGNORED id=$alarmId reason=$reason active=$activeAlarmId"
         )
+    }
+
+    private fun handleDirectBootTrigger(
+        context: Context,
+        alarmId: Int,
+        receivedToken: String,
+        receivedScheduledAt: Long
+    ) {
+        val bootstrap = AlarmBootstrapStorage.find(context, alarmId)
+        val now = System.currentTimeMillis()
+        if (bootstrap == null) {
+            Log.w("AlarmReceiver", "Direct Boot trigger rejected: bootstrap mismatch id=$alarmId")
+            LogExporter.logEvent("AlarmRecovery", "DIRECT_BOOT_TRIGGER_REJECTED id=$alarmId reason=BOOTSTRAP_MISMATCH")
+            return
+        }
+        val validation = AlarmScheduler.validateDirectBootTrigger(
+            entry = bootstrap,
+            receivedToken = receivedToken,
+            receivedScheduledAt = receivedScheduledAt,
+            now = now
+        )
+        if (!validation.accepted) {
+            Log.w("AlarmReceiver", "Direct Boot trigger rejected: id=$alarmId reason=${validation.reason}")
+            LogExporter.logEvent(
+                "AlarmRecovery",
+                "DIRECT_BOOT_TRIGGER_REJECTED id=$alarmId reason=${validation.reason}"
+            )
+            return
+        }
+
+        AlarmScheduler.advanceDirectBootSchedule(context, bootstrap)
+        if (!AlarmScheduler.setAlarmActiveFromDirectBoot(context, alarmId, receivedToken)) {
+            Log.i("AlarmReceiver", "Direct Boot trigger already consumed: alarmId=$alarmId")
+            return
+        }
+        val vibrateIntent = Intent(context, AlarmVibrationService::class.java).apply {
+            putExtra(AlarmVibrationService.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmVibrationService.EXTRA_DIRECT_BOOT, true)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULE_TOKEN, receivedToken)
+        }
+        context.startForegroundService(vibrateIntent)
+        Log.i("AlarmReceiver", "Direct Boot trigger accepted: alarmId=$alarmId")
+        LogExporter.logEvent("AlarmRecovery", "DIRECT_BOOT_TRIGGER_ACCEPTED id=$alarmId")
+    }
+
+    private fun startVibrationService(
+        context: Context,
+        alarmId: Int,
+        directBoot: Boolean,
+        scheduleToken: String
+    ) {
+        val vibrateIntent = Intent(context, AlarmVibrationService::class.java).apply {
+            putExtra(AlarmVibrationService.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmVibrationService.EXTRA_DIRECT_BOOT, directBoot)
+            if (directBoot && scheduleToken.isNotBlank()) {
+                putExtra(AlarmScheduler.EXTRA_SCHEDULE_TOKEN, scheduleToken)
+            }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            context.startForegroundService(vibrateIntent)
+        } else {
+            context.startService(vibrateIntent)
+        }
+    }
+
+    private fun isUserLocked(context: Context): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) return false
+        val userManager = context.getSystemService(UserManager::class.java) ?: return false
+        return !userManager.isUserUnlocked
     }
 
     private data class ValidateResult(

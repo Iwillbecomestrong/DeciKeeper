@@ -271,7 +271,8 @@
 
         <receiver
             android:name=".receiver.AlarmReceiver"
-            android:exported="false" />
+            android:exported="false"
+            android:directBootAware="true" />
 
         <!-- 💓 AlarmManager 高频心跳接收器（拉起 Guardian 进程并调度下次） -->
         <receiver
