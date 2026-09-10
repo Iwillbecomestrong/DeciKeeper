@@ -12,6 +12,8 @@ import com.decikeeper.app.manager.AlarmBootstrapStorage
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.service.CoreService
 import com.decikeeper.app.service.AlarmVibrationService
+import com.decikeeper.app.manager.PrivacyConsentManager
+import com.decikeeper.app.service.MonitorService
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -138,6 +140,19 @@ class AlarmDirectBootRecoveryTest {
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         assertEquals(1, Shadows.shadowOf(alarmManager).scheduledAlarms.size)
+    }
+
+    @Test
+    fun `standard boot recovery does not launch the main activity`() {
+        PrivacyConsentManager.markConsented(context, "test")
+        val recordingContext = RecordingContext(context)
+
+        BootReceiver().onReceive(recordingContext, Intent(Intent.ACTION_BOOT_COMPLETED))
+
+        assertTrue(recordingContext.activityIntents.isEmpty())
+        assertTrue(recordingContext.foregroundServiceIntents.any {
+            it.component?.className == MonitorService::class.java.name
+        })
     }
 
     @Test
@@ -475,7 +490,12 @@ class AlarmDirectBootRecoveryTest {
         }
 
     private class RecordingContext(base: Context) : ContextWrapper(base) {
+        val activityIntents = mutableListOf<Intent>()
         val foregroundServiceIntents = mutableListOf<Intent>()
+
+        override fun startActivity(intent: Intent) {
+            activityIntents += Intent(intent)
+        }
 
         override fun startForegroundService(service: Intent): ComponentName? {
             foregroundServiceIntents += Intent(service)
