@@ -183,6 +183,7 @@ class AlarmGuardianService : Service() {
     // ----- 实例状态 -----
     private var alarmId: Int = -1
     private var nextAlarmTime: Long = 0L
+    private var nextAlarmScheduleToken: String = ""
     private var guardianMode: Mode = Mode.LIGHT
     private var wakeLock: PowerManager.WakeLock? = null
     private var lastTriggerTime: Long = 0L
@@ -356,9 +357,14 @@ class AlarmGuardianService : Service() {
             recoveryAction = "GUARDIAN_TRIGGER"
         )
 
-        // 标记闹钟活跃
-        AlarmScheduler.setAlarmActive(this, alarmId)
-        LogExporter.logEvent("AlarmRecovery", "Guardian setAlarmActive(id=$alarmId)")
+        // Receiver 与 Guardian 可能同时观察到同一次 occurrence；仅在调度令牌变化时
+        // 创建新 session，避免第二个触发源清空当前题目/完成后延迟。
+        // 使用 Guardian 锁定目标时保存的 occurrence token；不能在 Receiver 已经
+        // 调度下一次后重新读取 AlarmEntry，否则同一次响铃会被误判成新 session。
+        val scheduleToken = nextAlarmScheduleToken
+        val newSession = !AlarmScheduler.isSameActiveOccurrence(this, alarmId, scheduleToken)
+        AlarmScheduler.setAlarmActive(this, alarmId, newSession = newSession)
+        LogExporter.logEvent("AlarmRecovery", "Guardian setAlarmActive(id=$alarmId, newSession=$newSession)")
 
         // 取消现有 Recovery 闹钟（Guardian 已在值守）
         AlarmScheduler.cancelRecoveryAlarm(this)
@@ -367,7 +373,7 @@ class AlarmGuardianService : Service() {
         AlarmVibrationService.start(this, alarmId)
 
         // 显示闹钟悬浮窗
-        AlarmWindowManager.show(this, alarmId)
+        AlarmWindowManager.show(this, alarmId, newSession = newSession)
 
         // 调度下一次（循环闹钟的明天）
         val alarm = AlarmScheduler.findAlarm(this, alarmId)
@@ -399,6 +405,7 @@ class AlarmGuardianService : Service() {
         if (alarms.isEmpty()) {
             alarmId = -1
             nextAlarmTime = 0L
+            nextAlarmScheduleToken = ""
             cancelVigilantEntry()
             cancelAllHeartbeats()
             Log.d(TAG, "refreshNextAlarm: no enabled alarms")
@@ -407,11 +414,13 @@ class AlarmGuardianService : Service() {
 
         var bestId = -1
         var bestTime = Long.MAX_VALUE
+        var bestToken = ""
         for (alarm in alarms) {
             val triggerTime = AlarmScheduler.getNextTriggerTime(alarm)
             if (triggerTime in 1 until bestTime) {
                 bestTime = triggerTime
                 bestId = alarm.id
+                bestToken = alarm.scheduleToken
             }
         }
 
@@ -422,6 +431,7 @@ class AlarmGuardianService : Service() {
             }
             alarmId = bestId
             nextAlarmTime = bestTime
+            nextAlarmScheduleToken = bestToken
             Log.i(TAG, "refreshNextAlarm: alarmId=$alarmId at ${formatTime(nextAlarmTime)}")
             LogExporter.logEvent("AlarmGuardian", "TARGET_SET alarmId=$alarmId at ${formatTime(nextAlarmTime)}")
             // 重新调度警戒入口 alarm
@@ -432,6 +442,7 @@ class AlarmGuardianService : Service() {
         } else {
             alarmId = -1
             nextAlarmTime = 0L
+            nextAlarmScheduleToken = ""
             cancelVigilantEntry()
             cancelAllHeartbeats()
             Log.w(TAG, "refreshNextAlarm: no upcoming trigger found")

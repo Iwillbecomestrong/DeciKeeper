@@ -51,8 +51,11 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     private var isLaunchingScanner = false
     private var isScanMode = false
     private var isLockedScreenMode = false
+    private var newAlarmSession = false
     private var barcodeView: DecoratedBarcodeView? = null
     private var torchOn = false
+    private var scanGeneration = 0L
+    private var scanSessionToken = ""
 
     private val alarmProtectionNormalEventLogger by lazy {
         NormalEventLogger(
@@ -87,6 +90,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         super.onCreate(savedInstanceState)
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
         snoozeMinutes = AlarmScheduler.getSnoozeMinutes(this)
+        newAlarmSession = intent.getBooleanExtra("new_alarm_session", false)
         setupWindow()
         window.decorView.setBackgroundColor(ThemeManager.getColorAttr(this, R.attr.zzPageBg))
 
@@ -121,7 +125,8 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             }
         } else {
             isLockedScreenMode = intent.getBooleanExtra("is_locked_screen", false)
-            LockWindowManager.showAlarmOverlay(this, alarmId, snoozeMinutes, this, useInline = isLockedScreenMode)
+            LockWindowManager.showAlarmOverlay(this, alarmId, snoozeMinutes, this, useInline = isLockedScreenMode, newSession = newAlarmSession)
+            newAlarmSession = false
             AlarmChallengeEmergencyGuardService.start(this)
             LogExporter.logEvent("AlarmOverlay", "ACTIVITY_SHOW_OVERLAY_RETURNED id=$alarmId lockedMode=$isLockedScreenMode")
             if (intent.getBooleanExtra("request_camera_permission", false)) {
@@ -133,6 +138,8 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     private fun startBarcodeScanner() {
         LockWindowManager.setAlarmOverlayPassthrough(true)
         barcodeView?.let { view ->
+            scanSessionToken = AlarmScheduler.getActiveScheduleToken(this)
+            val callbackGeneration = ++scanGeneration
             view.setCameraSettings(CameraSettings().apply {
                 focusMode = CameraSettings.FocusMode.CONTINUOUS
             })
@@ -148,6 +155,16 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             view.resume()
             view.decodeContinuous { result ->
                 if (result != null) {
+                    val activeToken = AlarmScheduler.getActiveScheduleToken(this@AlarmActivity)
+                    val sessionStillCurrent = callbackGeneration == scanGeneration &&
+                        (alarmId <= 0 || (AlarmScheduler.isAlarmActive(this@AlarmActivity) &&
+                            AlarmScheduler.getActiveAlarmId(this@AlarmActivity) == alarmId &&
+                            (scanSessionToken.isBlank() || activeToken == scanSessionToken)))
+                    if (!sessionStillCurrent) {
+                        android.util.Log.w("AlarmActivity", "Ignoring stale QR callback: id=$alarmId generation=$callbackGeneration currentGeneration=$scanGeneration")
+                        view.pause()
+                        return@decodeContinuous
+                    }
                     view.pause()
                     isScanMode = false
                     android.util.Log.i("AlarmActivity", "Scan success, updating alarm challenge stage")
@@ -364,6 +381,13 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         super.onNewIntent(intent)
         android.util.Log.d("AlarmActivity", "onNewIntent called, alarmId=$alarmId, startScan=${intent.getBooleanExtra("start_scan", false)}")
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
+        val requestedNewSession = intent.getBooleanExtra("new_alarm_session", false)
+
+        if (requestedNewSession) {
+            barcodeView?.pause()
+            scanGeneration++
+            scanSessionToken = AlarmScheduler.getActiveScheduleToken(this)
+        }
 
         if (intent.getBooleanExtra("start_scan", false)) {
             // SINGLE_TOP 下收到扫码请求：直接进入扫码模式
@@ -372,6 +396,20 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         }
         if (intent.getBooleanExtra("request_camera_permission", false)) {
             launchQrScan()
+            return
+        }
+
+        if (requestedNewSession) {
+            newAlarmSession = true
+            LockWindowManager.showAlarmOverlay(
+                this,
+                alarmId,
+                snoozeMinutes,
+                this,
+                useInline = isLockedScreenMode,
+                newSession = true
+            )
+            newAlarmSession = false
             return
         }
 
@@ -407,6 +445,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     override fun onDestroy() {
         super.onDestroy()
+        scanGeneration++
         barcodeView?.pause()
         barcodeView = null
         if (isScanMode) {

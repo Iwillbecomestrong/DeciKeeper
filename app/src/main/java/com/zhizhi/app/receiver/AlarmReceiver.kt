@@ -107,14 +107,16 @@ class AlarmReceiver : BroadcastReceiver() {
                 return
             }
             Log.w("AlarmReceiver", "Backup alarm: main alarm NOT active, triggering backup (alarmId=$alarmId)")
-            AlarmScheduler.setAlarmActive(context, alarmId)
+            // 主闹钟与备份闹钟属于同一 occurrence，但 backup 只有在 active=false
+            // 时才会走到这里，因此它是该 occurrence 的首次接管，必须开启新 session。
+            AlarmScheduler.setAlarmActive(context, alarmId, newSession = true)
             LogExporter.logEvent("AlarmRecovery", "Backup alarm triggered (id=$alarmId)")
             alarmProtectionEventBridge.recordAlarmRecovery(
                 alarmId = alarmId.toString(),
                 recoveryAction = "BACKUP_TRIGGER"
             )
             AlarmVibrationService.start(context, alarmId)
-            AlarmWindowManager.show(context, alarmId)
+            AlarmWindowManager.show(context, alarmId, newSession = true)
             return
         }
 
@@ -237,8 +239,9 @@ class AlarmReceiver : BroadcastReceiver() {
             Log.i("AlarmReceiver", "Alarm triggered: alarmId=$alarmId, scheduled=$triggerTimeStr, actual=$actualTimeStr, delayMs=$delayMs")
         }
 
-        AlarmScheduler.setAlarmActive(context, alarmId)
-        LogExporter.logEvent("AlarmRecovery", "setAlarmActive(id=$alarmId) from AlarmReceiver trigger")
+        val newSession = !AlarmScheduler.isSameActiveOccurrence(context, alarmId, receivedToken)
+        AlarmScheduler.setAlarmActive(context, alarmId, newSession = newSession)
+        LogExporter.logEvent("AlarmRecovery", "setAlarmActive(id=$alarmId, newSession=$newSession) from AlarmReceiver trigger")
         AlarmVibrationService.start(context, alarmId)
         AlarmScheduler.cancelRecoveryAlarm(context)
         AlarmScheduler.resetRecoveryCount(context, alarmId)
@@ -252,7 +255,7 @@ class AlarmReceiver : BroadcastReceiver() {
         alarmProtectionEventBridge.recordAlarmRingStart(alarmId = alarmId.toString()) // ALARM_RING_START
 
         LogExporter.logEvent("AlarmOverlay", "RECEIVER_SHOW_REQUEST action=$action id=$alarmId")
-        AlarmWindowManager.show(context, alarmId)
+        AlarmWindowManager.show(context, alarmId, newSession = newSession)
 
         if (alarm != null && alarm.enabled) {
             AlarmScheduler.scheduleNext(context, alarm)
@@ -273,9 +276,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val receivedToken = intent.getStringExtra(AlarmScheduler.EXTRA_SCHEDULE_TOKEN) ?: ""
         val receivedScheduledAt = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_AT_MILLIS, 0L)
         val intentKind = intent.getStringExtra(AlarmScheduler.EXTRA_INTENT_KIND) ?: "UNKNOWN"
-        val isBackup = intentKind == AlarmScheduler.AlarmIntentKind.BACKUP.name ||
-            intentKind == AlarmScheduler.AlarmIntentKind.BACKUP2.name
-
         Log.i("AlarmReceiver", "validateAlarmTrigger: alarmId=$alarmId, kind=$intentKind, receivedToken=${receivedToken.take(8)}, receivedScheduledAt=$receivedScheduledAt, now=$now")
 
         // 1. 数据库记录是否存在
@@ -298,9 +298,8 @@ class AlarmReceiver : BroadcastReceiver() {
             )
         }
 
-        // 3. scheduleToken 校验。
-        // 正式 MAIN 仍严格拒绝过期 token；BACKUP/BACKUP2 允许在时间窗校验通过的前提下继续，
-        // 因为 scheduleNext() 可能已把数据库 token 更新，而 OEM 仍投递此前创建的兜底 PendingIntent。
+        // 3. scheduleToken 校验。主闹钟与所有兜底 PendingIntent 绑定同一 occurrence
+        // token；旧 token 不能在 active 已清除后复活一轮旧闹钟。
         val dbToken = alarm.scheduleToken
         if (receivedToken.isBlank()) {
             return ValidateResult(
@@ -311,21 +310,11 @@ class AlarmReceiver : BroadcastReceiver() {
             )
         }
         if (dbToken.isNotBlank() && receivedToken != dbToken) {
-            if (!isBackup) {
-                return ValidateResult(
-                    accepted = false,
-                    reason = "STALE_TOKEN",
-                    detail = "alarmId=$alarmId receivedToken=${receivedToken.take(8)} dbToken=${dbToken.take(8)}",
-                    alarmEntry = alarm
-                )
-            }
-            Log.w(
-                "AlarmReceiver",
-                "Backup stale token tolerated pending time validation: alarmId=$alarmId kind=$intentKind received=${receivedToken.take(8)} db=${dbToken.take(8)}"
-            )
-            LogExporter.logEvent(
-                "AlarmReceiver",
-                "[ALARM_BACKUP_STALE_TOKEN_TOLERATED] id=$alarmId kind=$intentKind received=${receivedToken.take(8)} db=${dbToken.take(8)}"
+            return ValidateResult(
+                accepted = false,
+                reason = "STALE_TOKEN",
+                detail = "alarmId=$alarmId kind=$intentKind receivedToken=${receivedToken.take(8)} dbToken=${dbToken.take(8)}",
+                alarmEntry = alarm
             )
         }
 

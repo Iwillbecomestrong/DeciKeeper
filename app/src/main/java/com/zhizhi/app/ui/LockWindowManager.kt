@@ -1017,9 +1017,10 @@ object LockWindowManager {
         alarmId: Int,
         snoozeMinutes: Int,
         controller: AlarmOverlayController,
-        useInline: Boolean = false
+        useInline: Boolean = false,
+        newSession: Boolean = false
     ) {
-        LockAlarmOverlayController.showAlarmOverlay(context, alarmId, snoozeMinutes, controller, useInline)
+        LockAlarmOverlayController.showAlarmOverlay(context, alarmId, snoozeMinutes, controller, useInline, newSession)
     }
 
     fun showAlarmOverlayIfHidden() {
@@ -1956,15 +1957,16 @@ object LockWindowManager {
             Log.d(TAG, "[Penalty] quota exhausted (no borrow headroom), skipping penalty | reason=$reason")
             return
         }
-        val diagBorrowedBefore = CreditManager.getBorrowedMinutesFromNext(context)
-        // 在扣费前记录当前段剩余，用于构建扣费明细
-        val remainingSecBeforePenalty = (CreditManager.getCurrentSegmentRemainingMinutes(context) * 60).toInt()
-        CreditManager.consumePenaltySeconds(context, PENALTY_DEDUCT_SECS)
-        val diagRemainingAfter = CreditManager.getRemainingMinutes(context)
-        val diagBorrowedAfter = CreditManager.getBorrowedMinutesFromNext(context)
-
         val inCooling = CreditManager.isCooling(context)
         val inTempCooling = getTemporaryReuseCooldownRemainingSeconds() > 0L
+        val isAnyCooling = inCooling || inTempCooling
+        val transactionId = "PENALTY-${now}-${mPenaltyHitCount}"
+        val chargeResult = CreditManager.consumePenaltySeconds(
+            context = context,
+            penaltySec = PENALTY_DEDUCT_SECS,
+            transactionId = transactionId,
+            isCooling = isAnyCooling
+        )
         if (inCooling) {
             val coolEnd = CreditManager.getCoolDownEnd(context)
             val newEnd = coolEnd + PENALTY_EXTEND_COOL_MS
@@ -1977,30 +1979,30 @@ object LockWindowManager {
 
         // 惩罚事件日志（合并扣费+冷却延长）
         val coolExtendSec = PENALTY_EXTEND_COOL_MS / 1000
-        val normalSec = minOf(remainingSecBeforePenalty, PENALTY_DEDUCT_SECS)
-        val borrowedSec = (PENALTY_DEDUCT_SECS - normalSec).coerceAtLeast(0)
-        val borrowedCostSec = borrowedSec * 2
-        val totalQuotaSec = normalSec + borrowedCostSec
         // Boundary 4 (T4) — payload-equivalence GREEN 后的退场：
         // 删除 LogExporter 中文 Penalty 调用；retainedEvidence 由 PENALTY payload
         // （11 字段，per REQ-010）取代 — 见 docs/ai/LOG_EVENT_MIGRATION.md row 71
         // `══════ 每日状态播报 ══════` 行的 retainedEvidence 字段。
 
-        // Boundary 2 — single receipt per cycle. The transactionId is stable
-        // for this cycle so the overlay can correlate receipt <-> commit.
-        val transactionId = "PENALTY-${now}-${mPenaltyHitCount}"
         mPendingPenaltyMessage = buildString {
-            append("⚠️ 30秒内锁屏${PENALTY_THRESHOLD}次，触发惩罚")
-            append(" (tx=$transactionId)\n\n")
-            append("• 扣除时长: ${PENALTY_DEDUCT_SECS}s\n")
-            if (normalSec > 0 && borrowedSec > 0) {
-                append("• 当前额度: ${normalSec}s(×1)\n")
-                append("• 借用额度: ${borrowedSec}s(×2) → 扣${borrowedCostSec}s\n")
-                append("• 合计消耗额度: ${totalQuotaSec}s\n")
-            } else if (borrowedSec > 0) {
-                append("• 全部为借用额度: ${borrowedSec}s(×2) → 扣${borrowedCostSec}s\n")
+            append("⚠️ 30秒内锁屏${PENALTY_THRESHOLD}次，触发惩罚\n\n")
+            append("• 扣除时长: ${chargeResult.timeDeductSec}s\n")
+            if (chargeResult.borrowedTimeSec > 0) {
+                if (chargeResult.normalTimeSec > 0) {
+                    append("• 当前额度: ${chargeResult.normalTimeSec}s(×1)\n")
+                }
+                append("• 借用额度: ${chargeResult.borrowedTimeSec}s(×2) → 扣${chargeResult.borrowedTimeCostSec}s\n")
+                append("• 合计消耗额度: ${chargeResult.totalTimeQuotaSec}s\n")
             } else {
-                append("• 当前额度: ${normalSec}s\n")
+                append("• 当前额度: ${chargeResult.normalTimeSec}s\n")
+            }
+            if (chargeResult.borrowedCountPrincipalHalfUnits > 0) {
+                append("• 扣除次数: 当前扣除 ${formatUsableCountHalfUnits(chargeResult.currentCountCostHalfUnits)}次\n")
+                append("• 借用下一段次数: ${formatUsableCountHalfUnits(chargeResult.nextCountCostHalfUnits)}次(×2)\n")
+            } else {
+                append("• 扣除次数: ${formatUsableCountHalfUnits(chargeResult.currentCountCostHalfUnits)}次")
+                if (isAnyCooling) append(" (冷却中翻倍)")
+                append("\n")
             }
             if (inCooling) {
                 append("\n• 休息冷却期延长: +${coolExtendSec}s\n")
@@ -3685,7 +3687,7 @@ object LockWindowManager {
                         requestedMinutes = requestedMins,
                         actualMinutes = requestedMins,
                         costMinutes = 0.0,
-                        costCount = 0,
+                        costCount = 0.0,
                         balanceMinutes = CreditManager.getRemainingMinutes(context),
                         balanceCount = CreditManager.getRemainingUsableCount(context)
                     )
@@ -5878,7 +5880,7 @@ object LockWindowManager {
             requestedMinutes = requestedMins,
             actualMinutes = requestedMins,
             costMinutes = costMins,
-            costCount = countCost,
+            costCount = countCost.toDouble(),
             balanceMinutes = remainMins,
             balanceCount = remainCount
         )

@@ -64,18 +64,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- 阶段冷却倒计时 -->
-                <TextView
-                    android:id="@+id/tv_stage_cooldown"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="16sp"
-                    android:textColor="?attr/zzWarning"
-                    android:gravity="center"
-                    android:padding="12dp"
-                    android:layout_marginBottom="12dp"
-                    android:visibility="gone" />
-
                 <!-- 数学题模块 -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/cv_alarm_math"
@@ -797,18 +785,6 @@
                 android:textColor="?attr/zzText"
                 android:layout_marginBottom="0dp" />
 
-            <!-- 防刷手机倒计时（复习回顾显示时展示） -->
-            <TextView
-                android:id="@+id/tv_review_cooldown"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="15sp"
-                android:textColor="#FF9800"
-                android:gravity="center"
-                android:padding="8dp"
-                android:layout_marginBottom="8dp"
-                android:visibility="gone" />
-
             <!-- Tab 切换按钮（仅诗词和单词都有数据时显示） -->
             <LinearLayout
                 android:id="@+id/layout_review_tabs"
@@ -978,6 +954,19 @@
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
+
+        <!-- 完成后/阶段间延迟：固定在挑战列表和复习区域之外，避免单阶段无复习内容时不可见 -->
+        <TextView
+            android:id="@+id/tv_stage_cooldown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="?attr/zzWarning"
+            android:gravity="center"
+            android:padding="12dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone" />
 
         <LinearLayout
             android:id="@+id/layout_alarm_actions"

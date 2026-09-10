@@ -83,6 +83,10 @@ object AlarmScheduler {
     private const val KEY_ACTIVE_ALARM_ID = "active_alarm_id"
     private const val KEY_ACTIVE_FIRST_STAGE_PASSED = "active_first_stage_passed"
     private const val KEY_FIRST_STAGE_PASSED_AT = "first_stage_passed_at"
+    private const val KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL = "active_completion_cooldown_until"
+    private const val KEY_ACTIVE_CHALLENGE_COMPLETED = "active_challenge_completed"
+    private const val KEY_ACTIVE_ALARM_ATTENUATED = "active_alarm_attenuated"
+    private const val KEY_ACTIVE_REVIEW_DATA = "active_review_data"
     private const val KEY_VIBRATION_LOCKED_INTENSITY = "vibration_locked_intensity"
     private const val KEY_VIBRATION_START_TIME = "vibration_start_time"
     private const val KEY_ACTIVE_SCHEDULE_TOKEN = "active_schedule_token"
@@ -802,9 +806,9 @@ object AlarmScheduler {
             LogExporter.i("Alarm", "📅 调度 | id=${alarm.id} | next=$nextDate | showIntent=${if (showIntent != null) "有效" else "无效"} | batteryOpt=$batteryOptStr | token=${token.take(8)}")
 
             // 分层备份策略（4层）
-            schedulePreWarm(context, alarm, triggerAt)
-            scheduleBackup(context, alarm, triggerAt)
-            scheduleWorkManagerBackup(context, alarm, triggerAt)
+            schedulePreWarm(context, updatedAlarm, triggerAt)
+            scheduleBackup(context, updatedAlarm, triggerAt)
+            scheduleWorkManagerBackup(context, updatedAlarm, triggerAt)
 
             // 💓 远距心跳保活
             AlarmHeartbeatWorker.schedule(context, alarm.id, triggerAt)
@@ -940,9 +944,9 @@ object AlarmScheduler {
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    fun setAlarmActive(context: Context, alarmId: Int) {
+    fun setAlarmActive(context: Context, alarmId: Int, newSession: Boolean = false) {
         val devicePrefs = getAlarmPrefs(context)
-        val wasSameActiveAlarm = devicePrefs.getBoolean(KEY_ALARM_ACTIVE, false) &&
+        val wasSameActiveAlarm = !newSession && devicePrefs.getBoolean(KEY_ALARM_ACTIVE, false) &&
             devicePrefs.getInt(KEY_ACTIVE_ALARM_ID, -1) == alarmId
         val firstStagePassed = if (wasSameActiveAlarm) {
             devicePrefs.getBoolean(KEY_ACTIVE_FIRST_STAGE_PASSED, false)
@@ -971,6 +975,15 @@ object AlarmScheduler {
                 .putInt(KEY_ACTIVE_ALARM_ID, alarmId)
                 .putBoolean(KEY_ACTIVE_FIRST_STAGE_PASSED, firstStagePassed)
                 .putString(KEY_ACTIVE_SCHEDULE_TOKEN, currentToken)
+                .apply {
+                    if (newSession || !wasSameActiveAlarm) {
+                        remove(KEY_FIRST_STAGE_PASSED_AT)
+                        remove(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL)
+                        putBoolean(KEY_ACTIVE_CHALLENGE_COMPLETED, false)
+                        remove(KEY_ACTIVE_ALARM_ATTENUATED)
+                        remove(KEY_ACTIVE_REVIEW_DATA)
+                    }
+                }
                 .commit()
         } catch (e: IllegalStateException) {
             android.util.Log.w("AlarmScheduler", "setAlarmActive: CE storage unavailable (Direct Boot), writing DPC only")
@@ -981,6 +994,15 @@ object AlarmScheduler {
             .putInt(KEY_ACTIVE_ALARM_ID, alarmId)
             .putBoolean(KEY_ACTIVE_FIRST_STAGE_PASSED, firstStagePassed)
             .putString(KEY_ACTIVE_SCHEDULE_TOKEN, currentToken)
+            .apply {
+                if (newSession || !wasSameActiveAlarm) {
+                    remove(KEY_FIRST_STAGE_PASSED_AT)
+                    remove(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL)
+                    putBoolean(KEY_ACTIVE_CHALLENGE_COMPLETED, false)
+                    remove(KEY_ACTIVE_ALARM_ATTENUATED)
+                    remove(KEY_ACTIVE_REVIEW_DATA)
+                }
+            }
             .commit()
 
         if (!wasSameActiveAlarm || getRecoveryCountSafe(context, alarmId) == 0) {
@@ -988,7 +1010,7 @@ object AlarmScheduler {
             scheduleRebootSafetyNetAlarm(context, alarmId)
         }
 
-        android.util.Log.i("AlarmScheduler", "setAlarmActive: alarmId=$alarmId (sameActive=$wasSameActiveAlarm, firstStagePassed=$firstStagePassed, token=${currentToken.take(8)})")
+        android.util.Log.i("AlarmScheduler", "setAlarmActive: alarmId=$alarmId (newSession=$newSession, sameActive=$wasSameActiveAlarm, firstStagePassed=$firstStagePassed, token=${currentToken.take(8)})")
     }
 
     /** 读取 active 状态的 scheduleToken（用于 Receiver 校验） */
@@ -996,6 +1018,43 @@ object AlarmScheduler {
         val prefs = getAlarmPrefs(context)
         return prefs.getString(KEY_ACTIVE_SCHEDULE_TOKEN, "") ?: ""
     }
+
+    /**
+     * 判断广播是否属于已经活跃的同一调度 occurrence。
+     * Receiver 与 Guardian 可能同时观察到同一次响铃；只有 scheduleToken 变化
+     * 才允许开启新 session，避免第二个触发源清空当前题目/完成后延迟。
+     */
+    fun isSameActiveOccurrence(context: Context, alarmId: Int, scheduleToken: String): Boolean {
+        if (!isAlarmActive(context) || getActiveAlarmId(context) != alarmId) return false
+        val activeToken = getActiveScheduleToken(context)
+        return scheduleToken.isNotBlank() && activeToken.isNotBlank() && activeToken == scheduleToken
+    }
+
+    /**
+     * 写入完成状态与完成后延迟截止时间。两者必须在同一个 Editor 中提交，
+     * 否则进程可能在两次写入之间被杀死，恢复时会看到“已完成”但没有延迟。
+     */
+    fun markChallengeCompleted(context: Context, completed: Boolean, cooldownUntilMs: Long = 0L) {
+        fun android.content.SharedPreferences.Editor.applyCompletionState() = apply {
+            putBoolean(KEY_ACTIVE_CHALLENGE_COMPLETED, completed)
+            if (cooldownUntilMs > 0L) {
+                putLong(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL, cooldownUntilMs)
+            } else {
+                remove(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL)
+            }
+        }
+
+        try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().applyCompletionState().commit()
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("AlarmScheduler", "markChallengeCompleted: CE unavailable")
+        }
+        getAlarmPrefs(context).edit().applyCompletionState().commit()
+    }
+
+    fun isChallengeCompleted(context: Context): Boolean =
+        getAlarmPrefs(context).getBoolean(KEY_ACTIVE_CHALLENGE_COMPLETED, false)
 
     fun markFirstStagePassed(context: Context, passed: Boolean) {
         if (passed) {
@@ -1025,6 +1084,56 @@ object AlarmScheduler {
     fun getFirstStagePassedAt(context: Context): Long {
         return getAlarmPrefs(context).getLong(KEY_FIRST_STAGE_PASSED_AT, 0L)
     }
+
+    fun setCompletionCooldownUntil(context: Context, untilMs: Long) {
+        try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putLong(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL, untilMs).commit()
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("AlarmScheduler", "setCompletionCooldownUntil: CE unavailable")
+        }
+        getAlarmPrefs(context).edit().putLong(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL, untilMs).commit()
+    }
+
+    fun getCompletionCooldownUntil(context: Context): Long {
+        return getAlarmPrefs(context).getLong(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL, 0L)
+    }
+
+    fun clearCompletionCooldown(context: Context) {
+        try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().remove(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL).commit()
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("AlarmScheduler", "clearCompletionCooldown: CE unavailable")
+        }
+        getAlarmPrefs(context).edit().remove(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL).commit()
+    }
+
+    fun setAlarmAttenuated(context: Context, attenuated: Boolean) {
+        try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putBoolean(KEY_ACTIVE_ALARM_ATTENUATED, attenuated).commit()
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("AlarmScheduler", "setAlarmAttenuated: CE unavailable")
+        }
+        getAlarmPrefs(context).edit().putBoolean(KEY_ACTIVE_ALARM_ATTENUATED, attenuated).commit()
+    }
+
+    fun isAlarmAttenuated(context: Context): Boolean =
+        getAlarmPrefs(context).getBoolean(KEY_ACTIVE_ALARM_ATTENUATED, false)
+
+    fun setCompletedReviewData(context: Context, json: String) {
+        try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_ACTIVE_REVIEW_DATA, json).commit()
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("AlarmScheduler", "setCompletedReviewData: CE unavailable")
+        }
+        getAlarmPrefs(context).edit().putString(KEY_ACTIVE_REVIEW_DATA, json).commit()
+    }
+
+    fun getCompletedReviewData(context: Context): String =
+        getAlarmPrefs(context).getString(KEY_ACTIVE_REVIEW_DATA, "") ?: ""
 
     fun saveVibrationLockedIntensity(context: Context, intensity: Int) {
         try {
@@ -1063,6 +1172,11 @@ object AlarmScheduler {
                 .putBoolean(KEY_ALARM_ACTIVE, false)
                 .remove(KEY_ACTIVE_ALARM_ID)
                 .remove(KEY_ACTIVE_FIRST_STAGE_PASSED)
+                .remove(KEY_FIRST_STAGE_PASSED_AT)
+                .remove(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL)
+                .remove(KEY_ACTIVE_CHALLENGE_COMPLETED)
+                .remove(KEY_ACTIVE_ALARM_ATTENUATED)
+                .remove(KEY_ACTIVE_REVIEW_DATA)
                 .remove(KEY_VIBRATION_LOCKED_INTENSITY)
                 .remove(KEY_VIBRATION_START_TIME)
                 .remove(KEY_ACTIVE_SCHEDULE_TOKEN)
@@ -1076,6 +1190,11 @@ object AlarmScheduler {
             .putBoolean(KEY_ALARM_ACTIVE, false)
             .remove(KEY_ACTIVE_ALARM_ID)
             .remove(KEY_ACTIVE_FIRST_STAGE_PASSED)
+            .remove(KEY_FIRST_STAGE_PASSED_AT)
+            .remove(KEY_ACTIVE_COMPLETION_COOLDOWN_UNTIL)
+            .remove(KEY_ACTIVE_CHALLENGE_COMPLETED)
+            .remove(KEY_ACTIVE_ALARM_ATTENUATED)
+            .remove(KEY_ACTIVE_REVIEW_DATA)
             .remove(KEY_VIBRATION_LOCKED_INTENSITY)
             .remove(KEY_VIBRATION_START_TIME)
             .remove(KEY_ACTIVE_SCHEDULE_TOKEN)
@@ -1363,7 +1482,13 @@ object AlarmScheduler {
             if (delay <= 0) return
             val workRequest = androidx.work.OneTimeWorkRequestBuilder<AlarmWorker>()
                 .setInitialDelay(delay, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .setInputData(androidx.work.workDataOf(AlarmWorker.KEY_ALARM_ID to alarm.id))
+                .setInputData(
+                    androidx.work.workDataOf(
+                        AlarmWorker.KEY_ALARM_ID to alarm.id,
+                        AlarmWorker.KEY_SCHEDULE_TOKEN to alarm.scheduleToken,
+                        AlarmWorker.KEY_SCHEDULED_AT to triggerAt
+                    )
+                )
                 .addTag("alarm_backup_${alarm.id}")
                 .build()
             androidx.work.WorkManager.getInstance(context)
@@ -1379,12 +1504,19 @@ object AlarmScheduler {
         }
     }
 
-    fun triggerAlarmFromWorkManager(context: Context, alarmId: Int) {
+    fun triggerAlarmFromWorkManager(
+        context: Context,
+        alarmId: Int,
+        scheduleToken: String = "",
+        scheduledAt: Long = 0L
+    ) {
         Log.w("AlarmScheduler", "triggerAlarmFromWorkManager: manually triggering alarm $alarmId")
         try {
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 action = ACTION_ALARM_TRIGGER
                 putExtra(EXTRA_ALARM_ID, alarmId)
+                putExtra(EXTRA_SCHEDULE_TOKEN, scheduleToken)
+                putExtra(EXTRA_SCHEDULED_AT_MILLIS, scheduledAt)
             }
             context.sendBroadcast(intent)
         } catch (e: Exception) {
@@ -1397,13 +1529,13 @@ object AlarmScheduler {
             val WATCHDOG_ADVANCE_MS = 2 * 60 * 1000L
             val startAt = triggerAt - WATCHDOG_ADVANCE_MS
             if (startAt <= System.currentTimeMillis()) {
-                AlarmWatchdogService.start(context, alarm.id, triggerAt)
+                AlarmWatchdogService.start(context, alarm.id, triggerAt, alarm.scheduleToken)
                 Log.i("AlarmScheduler", "scheduleWatchdogService: starting immediately for alarmId=${alarm.id}")
                 return
             }
             val delay = startAt - System.currentTimeMillis()
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                AlarmWatchdogService.start(context, alarm.id, triggerAt)
+                AlarmWatchdogService.start(context, alarm.id, triggerAt, alarm.scheduleToken)
                 val triggerDate = java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date(triggerAt))
                 Log.i("AlarmScheduler", "scheduleWatchdogService: started for alarmId=${alarm.id}, triggerAt=$triggerDate")
             }, delay)

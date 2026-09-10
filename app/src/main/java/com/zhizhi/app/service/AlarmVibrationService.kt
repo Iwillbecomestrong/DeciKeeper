@@ -367,6 +367,8 @@ class AlarmVibrationService : Service() {
         serviceStartTime = alertCycleStartTime
         // 恢复锁定强度（第一关通过后的半强度值）
         lockedFinalIntensity = AlarmScheduler.getVibrationLockedIntensity(this)
+        // 恢复完成后延迟/第一关通过后的最低强度状态，避免服务或进程重启后重新高强度响铃。
+        isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
         try {
             createNotificationChannel()
             startForeground(NOTIFICATION_ID, buildNotification())
@@ -396,6 +398,7 @@ class AlarmVibrationService : Service() {
             if (targetAlarmId > 0) this.alarmId = targetAlarmId
             activeChallengeStage = 2
             isAttenuated = false
+            AlarmScheduler.setAlarmAttenuated(this, false)
             isSnoozeSilenced = false
             resetAlertCycle()
             startVibrationImpl()
@@ -412,6 +415,7 @@ class AlarmVibrationService : Service() {
             snoozeRestoreRunnable?.let { handler.removeCallbacks(it) }
             snoozeRestoreRunnable = null
             isSnoozeSilenced = false
+            AlarmScheduler.setAlarmAttenuated(this, true)
             applyAttenuation()
             return START_STICKY
         }
@@ -444,6 +448,7 @@ class AlarmVibrationService : Service() {
             Log.i(TAG, "Service already running, updating alarmId: ${this.alarmId} -> $newAlarmId")
             this.alarmId = newAlarmId
             AlarmScheduler.setAlarmActive(this, alarmId)
+            isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
             updateForegroundNotification()
             // [Fix: scan-screen-off] 服务已运行时仍需重新触发震动。
             // 扫码模式下熄屏后系统可能取消震动，亮屏时 AlarmActivity.onResume()
@@ -457,6 +462,7 @@ class AlarmVibrationService : Service() {
 
         this.alarmId = newAlarmId
         AlarmScheduler.setAlarmActive(this, alarmId)
+        isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
         updateForegroundNotification()
         fixedAmplitude = 0
         // [Fix: process restart] 不从 SharedPreferences 恢复的 lockedFinalIntensity，

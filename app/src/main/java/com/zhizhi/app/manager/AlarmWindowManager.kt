@@ -99,9 +99,9 @@ object AlarmWindowManager {
      * Expected Output: 点亮屏幕 + 显示悬浮窗挑战界面；如果已有悬浮窗则更新内容。
      *                  无悬浮窗权限或悬浮窗显示失败时，降级启动 AlarmActivity。
      */
-    fun show(context: Context, alarmId: Int) {
-        Log.i(TAG, "show: alarmId=$alarmId")
-        LogExporter.logEvent("AlarmOverlay", "AlarmWindowManager.show id=$alarmId")
+    fun show(context: Context, alarmId: Int, newSession: Boolean = false) {
+        Log.i(TAG, "show: alarmId=$alarmId newSession=$newSession")
+        LogExporter.logEvent("AlarmOverlay", "AlarmWindowManager.show id=$alarmId newSession=$newSession")
 
         ensureScreenOffRecoveryRegistered(context)
         AlarmChallengeEmergencyGuardService.start(context.applicationContext)
@@ -118,7 +118,7 @@ object AlarmWindowManager {
         if (isLocked) {
             Log.i(TAG, "show: keyguard locked, launching AlarmActivity to overlay lock screen")
             LogExporter.logEvent("AlarmOverlay", "KEYGUARD_LOCKED_FALLBACK_ACTIVITY id=$alarmId")
-            fallbackToActivity(context, alarmId)
+            fallbackToActivity(context, alarmId, newSession)
             if (activeOverlayAlarmId != alarmId) {
                 activeOverlayAlarmId = alarmId
                 alarmProtectionEventBridge.recordAlarmOverlayShow(alarmId.toString())
@@ -132,7 +132,7 @@ object AlarmWindowManager {
         if (!android.provider.Settings.canDrawOverlays(context)) {
             Log.w(TAG, "show: no overlay permission, falling back to AlarmActivity")
             LogExporter.logEvent("AlarmOverlay", "NO_OVERLAY_PERMISSION_FALLBACK_ACTIVITY id=$alarmId")
-            fallbackToActivity(context, alarmId)
+            fallbackToActivity(context, alarmId, newSession)
             if (activeOverlayAlarmId != alarmId) {
                 activeOverlayAlarmId = alarmId
                 alarmProtectionEventBridge.recordAlarmOverlayShow(alarmId.toString())
@@ -142,7 +142,7 @@ object AlarmWindowManager {
 
         // 3. 通过 LockWindowManager 显示悬浮窗，失败时降级到 AlarmActivity
         try {
-            LockWindowManager.showAlarmOverlay(context, alarmId, snoozeMinutes, NoActivityAlarmController)
+            LockWindowManager.showAlarmOverlay(context, alarmId, snoozeMinutes, NoActivityAlarmController, newSession = newSession)
             LockWindowManager.showAlarmOverlayIfHidden()
             LogExporter.logEvent("AlarmOverlay", "WINDOW_MANAGER_SHOW_CALLED id=$alarmId")
             if (activeOverlayAlarmId != alarmId) {
@@ -152,7 +152,7 @@ object AlarmWindowManager {
         } catch (e: Exception) {
             Log.e(TAG, "show: overlay failed, falling back to AlarmActivity", e)
             LogExporter.logEvent("AlarmOverlay", "WINDOW_MANAGER_SHOW_FAILED id=$alarmId error=${e.javaClass.simpleName}:${e.message}")
-            fallbackToActivity(context, alarmId)
+            fallbackToActivity(context, alarmId, newSession)
             if (activeOverlayAlarmId != alarmId) {
                 activeOverlayAlarmId = alarmId
                 alarmProtectionEventBridge.recordAlarmOverlayShow(alarmId.toString())
@@ -201,12 +201,13 @@ object AlarmWindowManager {
         LogExporter.logEvent("AlarmOverlay", "SCREEN_KEEP_ALIVE_REFRESH reason=$reason")
     }
 
-    private fun fallbackToActivity(context: Context, alarmId: Int) {
+    private fun fallbackToActivity(context: Context, alarmId: Int, newSession: Boolean = false) {
         val appCtx = context.applicationContext
         val intent = Intent(appCtx, AlarmActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
             putExtra("is_locked_screen", true)
+            putExtra("new_alarm_session", newSession)
         }
         try {
             appCtx.startActivity(intent)

@@ -56,11 +56,16 @@ class AlarmWatchdogService : Service() {
 
         const val EXTRA_ALARM_ID = "alarm_id"
         const val EXTRA_TRIGGER_AT = "trigger_at"
+        const val EXTRA_SCHEDULE_TOKEN = "schedule_token"
 
-        fun start(context: Context, alarmId: Int, triggerAt: Long) {
+        fun start(context: Context, alarmId: Int, triggerAt: Long, scheduleToken: String = "") {
             val intent = Intent(context, AlarmWatchdogService::class.java).apply {
                 putExtra(EXTRA_ALARM_ID, alarmId)
                 putExtra(EXTRA_TRIGGER_AT, triggerAt)
+                putExtra(
+                    EXTRA_SCHEDULE_TOKEN,
+                    scheduleToken.ifBlank { AlarmScheduler.findAlarm(context, alarmId)?.scheduleToken.orEmpty() }
+                )
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -77,6 +82,7 @@ class AlarmWatchdogService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var alarmId = -1
     private var triggerAt = 0L
+    private var scheduleToken = ""
     private var hasTriggered = false
 
     private val checkRunnable = object : Runnable {
@@ -110,6 +116,7 @@ class AlarmWatchdogService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         alarmId = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: -1
         triggerAt = intent?.getLongExtra(EXTRA_TRIGGER_AT, 0L) ?: 0L
+        scheduleToken = intent?.getStringExtra(EXTRA_SCHEDULE_TOKEN).orEmpty()
 
         if (alarmId <= 0 || triggerAt <= 0) {
             Log.w(TAG, "Invalid params: alarmId=$alarmId, triggerAt=$triggerAt")
@@ -154,7 +161,12 @@ class AlarmWatchdogService : Service() {
             alarmId = alarmId.toString(),
             recoveryAction = "WATCHDOG_MANUAL"
         )
-        AlarmScheduler.triggerAlarmFromWorkManager(this, alarmId)
+        AlarmScheduler.triggerAlarmFromWorkManager(
+            this,
+            alarmId,
+            scheduleToken,
+            triggerAt
+        )
         stopSelf()
     }
 

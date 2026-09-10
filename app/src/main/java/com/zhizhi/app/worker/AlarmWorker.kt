@@ -15,6 +15,8 @@ class AlarmWorker(
     companion object {
         private const val TAG = "AlarmWorker"
         const val KEY_ALARM_ID = "alarm_id"
+        const val KEY_SCHEDULE_TOKEN = "schedule_token"
+        const val KEY_SCHEDULED_AT = "scheduled_at"
     }
 
     override fun doWork(): Result {
@@ -35,7 +37,12 @@ class AlarmWorker(
         }
 
         Log.w(TAG, "Alarm $alarmId should be active but is not! Triggering manually via WorkManager")
-        AlarmScheduler.triggerAlarmFromWorkManager(applicationContext, alarmId)
+        AlarmScheduler.triggerAlarmFromWorkManager(
+            applicationContext,
+            alarmId,
+            inputData.getString(KEY_SCHEDULE_TOKEN).orEmpty(),
+            inputData.getLong(KEY_SCHEDULED_AT, 0L)
+        )
 
         return Result.success()
     }

@@ -59,6 +59,8 @@ import com.zhizhi.app.manager.statistics.AlarmWakeStatsRecorder
 import com.zhizhi.app.service.AlarmVibrationService
 import com.zhizhi.app.service.CoreService
 import java.util.concurrent.atomic.AtomicBoolean
+import org.json.JSONArray
+import org.json.JSONObject
 
 
 
@@ -140,10 +142,16 @@ internal object LockAlarmOverlayController {
         alarmId: Int,
         snoozeMinutes: Int,
         controller: LockWindowManager.AlarmOverlayController,
-        useInline: Boolean = false
+        useInline: Boolean = false,
+        newSession: Boolean = false
     ) {
         LockWindowManager.init(context)
         AlarmChallengeManager.init(context)
+
+        if (newSession && isAlarmOverlayActive.get()) {
+            Log.i(TAG, "showAlarmOverlay: starting new scheduled session, resetting existing overlay")
+            forceResetAlarmOverlay()
+        }
 
         // [DIAG] 记录进入 showAlarmOverlay 时的完整状态
         val layoutParamsType = LockWindowManager.getAlarmView()?.layoutParams?.let { it.javaClass.simpleName } ?: "null"
@@ -280,15 +288,20 @@ internal object LockAlarmOverlayController {
                 mAlarmActiveWindowManager = a11yWm ?: ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             }
 
-            resetAlarmQuestions()
-            LockWindowManager.getSessionPoems().clear()
-            LockWindowManager.getSessionWords().clear()
-            LockWindowManager.getSessionClozes().clear()
-            LockWindowManager.getSessionCustomQuestions().clear()
-            currentPoem = null
-            currentWord = null
-            currentCloze = null
-            currentCustomQuestion = null
+            val preserveSessionState = !newSession && alarmId > 0 &&
+                AlarmScheduler.isAlarmActive(ctx) &&
+                AlarmScheduler.getActiveAlarmId(ctx) == alarmId
+            if (!preserveSessionState) {
+                resetAlarmQuestions()
+                LockWindowManager.getSessionPoems().clear()
+                LockWindowManager.getSessionWords().clear()
+                LockWindowManager.getSessionClozes().clear()
+                LockWindowManager.getSessionCustomQuestions().clear()
+                currentPoem = null
+                currentWord = null
+                currentCloze = null
+                currentCustomQuestion = null
+            }
             initAlarmUI()
             syncChallengeUiByStage()
 
@@ -387,6 +400,11 @@ internal object LockAlarmOverlayController {
         isAlarmOverlayAttached = false
         isAlarmOverlayActive.set(false)
         mAlarmController = null
+        alarmSessionGeneration++
+        stageCooldownHandler?.removeCallbacksAndMessages(null)
+        stageCooldownHandler = null
+        stageCooldownRemainingSeconds = 0
+        singleStageCooldownUntilMs = 0L
         Log.i(TAG, "forceResetAlarmOverlay: stale overlay state cleared")
         LogExporter.logEvent("AlarmOverlay", "FORCE_RESET_DONE")
     }
@@ -435,6 +453,7 @@ internal object LockAlarmOverlayController {
     private var stageCooldownHandler: android.os.Handler? = null
     private var stageCooldownRemainingSeconds: Int = 0
     private var singleStageCooldownUntilMs: Long = 0L
+    private var alarmSessionGeneration: Long = 0L
     private var isTwoStageUnlock = false
 
     // Test alarm overrides (consumed by AlarmVibrationService)
@@ -541,6 +560,7 @@ internal object LockAlarmOverlayController {
         val poem = currentPoem ?: return
         if (currentPoemAnswer.isEmpty()) return
         LockWindowManager.getSessionPoems().add(LockWindowManager.SessionPoemEntry(poem, status, userAnswer))
+        persistSessionReviewData()
         Log.i(TAG, "settleCurrentPoem: status=$status, total=${LockWindowManager.getSessionPoems().size}, answer=${poem.down.take(10)}...")
         // 清空当前题目标记，防止重复结算
         currentPoem = null
@@ -552,6 +572,7 @@ internal object LockAlarmOverlayController {
         val word = currentWord ?: return
         if (currentWordAnswer.isEmpty()) return
         LockWindowManager.getSessionWords().add(LockWindowManager.SessionWordEntry(word, status, userAnswer))
+        persistSessionReviewData()
         Log.i(TAG, "settleCurrentWord: status=$status, total=${LockWindowManager.getSessionWords().size}, word=${word.text}")
         currentWord = null
         currentWordAnswer = ""
@@ -561,6 +582,7 @@ internal object LockAlarmOverlayController {
     private fun settleCurrentCloze(status: String, userAnswer: String? = null) {
         val cloze = currentCloze ?: return
         LockWindowManager.getSessionClozes().add(LockWindowManager.SessionClozeEntry(cloze, status, userAnswer))
+        persistSessionReviewData()
         Log.i(TAG, "settleCurrentCloze: status=$status, total=${LockWindowManager.getSessionClozes().size}, answer=${cloze.answer}")
         currentCloze = null
     }
@@ -568,8 +590,174 @@ internal object LockAlarmOverlayController {
     private fun settleCurrentCustom(status: String, userAnswer: String? = null) {
         val q = currentCustomQuestion ?: return
         LockWindowManager.getSessionCustomQuestions().add(LockWindowManager.SessionCustomQuestionEntry(q, status, userAnswer))
+        persistSessionReviewData()
         Log.i(TAG, "settleCurrentCustom: status=$status, total=${LockWindowManager.getSessionCustomQuestions().size}, answer=${q.answer}")
         currentCustomQuestion = null
+    }
+
+    private fun persistSessionReviewData() {
+        val ctx = LockWindowManager.getAlarmContext() ?: return
+        try {
+            val root = JSONObject()
+            root.put("poems", JSONArray().also { array ->
+                LockWindowManager.getSessionPoems().forEach { entry ->
+                    array.put(JSONObject().apply {
+                        put("up", entry.poem.up)
+                        put("down", entry.poem.down)
+                        put("status", entry.status)
+                        put("userAnswer", entry.userAnswer ?: JSONObject.NULL)
+                    })
+                }
+            })
+            root.put("words", JSONArray().also { array ->
+                LockWindowManager.getSessionWords().forEach { entry ->
+                    array.put(JSONObject().apply {
+                        put("text", entry.word.text)
+                        put("uk", entry.word.uk)
+                        put("us", entry.word.us)
+                        put("translation", entry.word.translation)
+                        put("shortTranslation", entry.word.shortTranslation)
+                        put("status", entry.status)
+                        put("userAnswer", entry.userAnswer ?: JSONObject.NULL)
+                    })
+                }
+            })
+            root.put("clozes", JSONArray().also { array ->
+                LockWindowManager.getSessionClozes().forEach { entry ->
+                    array.put(JSONObject().apply {
+                        put("sentence", entry.cloze.sentence)
+                        put("answer", entry.cloze.answer)
+                        put("options", JSONArray(entry.cloze.options))
+                        put("optionMeanings", JSONArray(entry.cloze.optionMeanings))
+                        put("hint", entry.cloze.hint)
+                        put("passageTranslation", entry.cloze.passageTranslation)
+                        put("answerTranslation", entry.cloze.answerTranslation)
+                        put("grammarExplanation", entry.cloze.grammarExplanation)
+                        put("sourceYear", entry.cloze.sourceYear)
+                        put("sourceQuestionNo", entry.cloze.sourceQuestionNo)
+                        put("fullPassage", entry.cloze.fullPassage)
+                        put("sourceRepo", entry.cloze.sourceRepo)
+                        put("status", entry.status)
+                        put("userAnswer", entry.userAnswer ?: JSONObject.NULL)
+                    })
+                }
+            })
+            root.put("custom", JSONArray().also { array ->
+                LockWindowManager.getSessionCustomQuestions().forEach { entry ->
+                    array.put(JSONObject().apply {
+                        put("id", entry.question.id)
+                        put("bankId", entry.question.bankId)
+                        put("stem", entry.question.stem)
+                        put("options", JSONArray(entry.question.options))
+                        put("answer", entry.question.answer)
+                        put("explanation", entry.question.explanation)
+                        put("hint", entry.question.hint)
+                        put("wrongCount", entry.question.wrongCount)
+                        put("lastAttemptStatus", entry.question.lastAttemptStatus ?: JSONObject.NULL)
+                        put("lastAttemptAt", entry.question.lastAttemptAt)
+                        put("isFavorite", entry.question.isFavorite)
+                        put("status", entry.status)
+                        put("userAnswer", entry.userAnswer ?: JSONObject.NULL)
+                    })
+                }
+            })
+            AlarmScheduler.setCompletedReviewData(ctx, root.toString())
+        } catch (e: Exception) {
+            Log.w(TAG, "persistSessionReviewData: failed", e)
+        }
+    }
+
+    private fun restoreSessionReviewData(ctx: Context) {
+        if (LockWindowManager.getSessionPoems().isNotEmpty() ||
+            LockWindowManager.getSessionWords().isNotEmpty() ||
+            LockWindowManager.getSessionClozes().isNotEmpty() ||
+            LockWindowManager.getSessionCustomQuestions().isNotEmpty()
+        ) return
+
+        val raw = AlarmScheduler.getCompletedReviewData(ctx)
+        if (raw.isBlank()) return
+        try {
+            val root = JSONObject(raw)
+            val poems = root.optJSONArray("poems") ?: JSONArray()
+            for (i in 0 until poems.length()) {
+                val item = poems.optJSONObject(i) ?: continue
+                LockWindowManager.getSessionPoems().add(
+                    LockWindowManager.SessionPoemEntry(
+                        AlarmChallengeManager.Poem(item.optString("up"), item.optString("down")),
+                        item.optString("status"),
+                        item.optString("userAnswer").takeUnless { item.isNull("userAnswer") }
+                    )
+                )
+            }
+            val words = root.optJSONArray("words") ?: JSONArray()
+            for (i in 0 until words.length()) {
+                val item = words.optJSONObject(i) ?: continue
+                LockWindowManager.getSessionWords().add(
+                    LockWindowManager.SessionWordEntry(
+                        AlarmChallengeManager.Word(
+                            item.optString("text"), item.optString("uk"), item.optString("us"),
+                            item.optString("translation"), item.optString("shortTranslation")
+                        ),
+                        item.optString("status"),
+                        item.optString("userAnswer").takeUnless { item.isNull("userAnswer") }
+                    )
+                )
+            }
+            val clozes = root.optJSONArray("clozes") ?: JSONArray()
+            for (i in 0 until clozes.length()) {
+                val item = clozes.optJSONObject(i) ?: continue
+                LockWindowManager.getSessionClozes().add(
+                    LockWindowManager.SessionClozeEntry(
+                        AlarmChallengeManager.ClozeQuestion(
+                            sentence = item.optString("sentence"),
+                            answer = item.optString("answer"),
+                            options = readStringArray(item.optJSONArray("options")),
+                            optionMeanings = readStringArray(item.optJSONArray("optionMeanings")),
+                            hint = item.optString("hint"),
+                            passageTranslation = item.optString("passageTranslation"),
+                            answerTranslation = item.optString("answerTranslation"),
+                            grammarExplanation = item.optString("grammarExplanation"),
+                            sourceYear = item.optInt("sourceYear"),
+                            sourceQuestionNo = item.optInt("sourceQuestionNo"),
+                            fullPassage = item.optString("fullPassage"),
+                            sourceRepo = item.optString("sourceRepo")
+                        ),
+                        item.optString("status"),
+                        item.optString("userAnswer").takeUnless { item.isNull("userAnswer") }
+                    )
+                )
+            }
+            val customs = root.optJSONArray("custom") ?: JSONArray()
+            for (i in 0 until customs.length()) {
+                val item = customs.optJSONObject(i) ?: continue
+                LockWindowManager.getSessionCustomQuestions().add(
+                    LockWindowManager.SessionCustomQuestionEntry(
+                        com.zhizhi.app.data.questionbank.CustomQuestion(
+                            id = item.optString("id"),
+                            bankId = item.optString("bankId"),
+                            stem = item.optString("stem"),
+                            options = readStringArray(item.optJSONArray("options")),
+                            answer = item.optString("answer"),
+                            explanation = item.optString("explanation"),
+                            hint = item.optString("hint"),
+                            wrongCount = item.optInt("wrongCount"),
+                            lastAttemptStatus = item.optString("lastAttemptStatus").takeUnless { item.isNull("lastAttemptStatus") },
+                            lastAttemptAt = item.optLong("lastAttemptAt"),
+                            isFavorite = item.optBoolean("isFavorite")
+                        ),
+                        item.optString("status"),
+                        item.optString("userAnswer").takeUnless { item.isNull("userAnswer") }
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "restoreSessionReviewData: failed", e)
+        }
+    }
+
+    private fun readStringArray(array: JSONArray?): List<String> {
+        if (array == null) return emptyList()
+        return buildList(array.length()) { for (i in 0 until array.length()) add(array.optString(i)) }
     }
 
     fun applyThemeToAlarmView(view: View, ctx: Context) {
@@ -1419,9 +1607,70 @@ internal object LockAlarmOverlayController {
         editText.isLongClickable = false
     }
 
+    private fun hideAlarmChallengeCards(view: View) {
+        listOf(
+            R.id.cv_alarm_qr,
+            R.id.cv_alarm_math,
+            R.id.cv_alarm_poem,
+            R.id.cv_alarm_word,
+            R.id.cv_alarm_cloze,
+            R.id.cv_alarm_custom
+        ).forEach { view.findViewById<View>(it)?.visibility = View.GONE }
+    }
+
+    /**
+     * 恢复“挑战已完成、延迟已结束”的最终状态。
+     * 覆盖层重建时不能再次调用 onAnyChallengePassed()，否则会重新写入完成后延迟。
+     */
+    private fun showCompletedChallengeState(view: View) {
+        hideAlarmChallengeCards(view)
+        view.findViewById<View>(R.id.sv_alarm_challenges)?.visibility = View.GONE
+        restoreSessionReviewData(view.context)
+
+        val hasReview = LockWindowManager.getSessionPoems().isNotEmpty() ||
+            LockWindowManager.getSessionWords().isNotEmpty() ||
+            LockWindowManager.getSessionClozes().isNotEmpty() ||
+            LockWindowManager.getSessionCustomQuestions().isNotEmpty()
+        if (hasReview) {
+            val reviewLayout = view.findViewById<View>(R.id.layout_alarm_review)
+            if (reviewLayout?.visibility != View.VISIBLE) {
+                buildReviewCards(view)
+            }
+            reviewLayout?.visibility = View.VISIBLE
+        }
+
+        showAlarmActionPanel(
+            view.findViewById(R.id.layout_alarm_actions),
+            view.findViewById(R.id.btn_alarm_close),
+            view.findViewById(R.id.btn_alarm_snooze),
+            forceHide = false
+        )
+    }
+
+    private fun isStageCooldownActive(ctx: Context): Boolean {
+        val now = System.currentTimeMillis()
+        if (!isTwoStageUnlock) {
+            return maxOf(singleStageCooldownUntilMs, AlarmScheduler.getCompletionCooldownUntil(ctx)) > now
+        }
+        if (!isAlarmFirstStagePassed || alarmStageCooldownSeconds <= 0) return false
+        val passedAt = AlarmScheduler.getFirstStagePassedAt(ctx)
+        return passedAt > 0L && now < passedAt + alarmStageCooldownSeconds * 1000L
+    }
+
     internal fun onAnyChallengePassed() {
         val view = LockWindowManager.getAlarmView() ?: return
         val ctx = LockWindowManager.getAlarmContext() ?: return
+
+        if (isStageCooldownActive(ctx)) {
+            syncChallengeUiByStage()
+            return
+        }
+
+        // 已完成会话的迟到扫码/题目回调不能再次开启一轮完成后延迟。
+        if (AlarmScheduler.isChallengeCompleted(ctx)) {
+            showCompletedChallengeState(view)
+            return
+        }
 
         if (isTwoStageUnlock && !isAlarmFirstStagePassed) {
             // Stage 1 cleared — advance to stage 2 (reset counters for fresh Stage 2 challenges)
@@ -1460,35 +1709,17 @@ internal object LockAlarmOverlayController {
         if (alarmId > 0) {
             AlarmWakeStatsRecorder.completeSession(ctx, alarmId)
         }
+        val completionCooldownUntil = if (!isTwoStageUnlock && alarmStageCooldownSeconds > 0) {
+            System.currentTimeMillis() + alarmStageCooldownSeconds * 1000L
+        } else {
+            0L
+        }
+        AlarmScheduler.markChallengeCompleted(ctx, true, completionCooldownUntil)
         // If stage 1 was completed while a silent snooze timer was active, attenuate() cancels
         // that restore timer so the old stage-1 alarm cannot suddenly resume during review.
         AlarmVibrationService.attenuate(ctx)
         view.clearFocus()
-        // 隐藏挑战区域
-        view.findViewById<View>(R.id.cv_alarm_qr)?.visibility = View.GONE
-        view.findViewById<View>(R.id.cv_alarm_math)?.visibility = View.GONE
-        view.findViewById<View>(R.id.cv_alarm_poem)?.visibility = View.GONE
-        view.findViewById<View>(R.id.cv_alarm_word)?.visibility = View.GONE
-        view.findViewById<View>(R.id.cv_alarm_cloze)?.visibility = View.GONE
-        view.findViewById<View>(R.id.cv_alarm_custom)?.visibility = View.GONE
-
-        // 构建复习回顾卡片
-        val hasReview = LockWindowManager.getSessionPoems().isNotEmpty() ||
-            LockWindowManager.getSessionWords().isNotEmpty() ||
-            LockWindowManager.getSessionClozes().isNotEmpty() ||
-            LockWindowManager.getSessionCustomQuestions().isNotEmpty()
-        Log.i(TAG, "onAnyChallengePassed: final stage done, hasReview=$hasReview, poems=${LockWindowManager.getSessionPoems().size}, words=${LockWindowManager.getSessionWords().size}, clozes=${LockWindowManager.getSessionClozes().size}, customs=${LockWindowManager.getSessionCustomQuestions().size}")
-        if (hasReview) {
-            // 隐藏挑战 ScrollView，显示固定头部的复习区域
-            view.findViewById<View>(R.id.sv_alarm_challenges)?.visibility = View.GONE
-            val reviewLayout = view.findViewById<View>(R.id.layout_alarm_review)
-            // v3.1.4 fix: 仅在首次完成时构建, 避免重复设置 ViewPager2 adapter 导致 IllegalStateException
-            if (reviewLayout?.visibility != View.VISIBLE) {
-                buildReviewCards(view)
-            }
-            // 确保二次通过(如扫码)后 review 区域仍然可见
-            reviewLayout?.visibility = View.VISIBLE
-        }
+        showCompletedChallengeState(view)
 
         val layoutActions = view.findViewById<View>(R.id.layout_alarm_actions)
         val btnClose = view.findViewById<Button>(R.id.btn_alarm_close)
@@ -1496,7 +1727,7 @@ internal object LockAlarmOverlayController {
 
         if (!isTwoStageUnlock && alarmStageCooldownSeconds > 0) {
             stageCooldownRemainingSeconds = alarmStageCooldownSeconds
-            singleStageCooldownUntilMs = System.currentTimeMillis() + alarmStageCooldownSeconds * 1000L
+            singleStageCooldownUntilMs = completionCooldownUntil
             showAlarmActionPanel(layoutActions, btnClose, btnSnooze, forceHide = true)
             startStageCooldown(ctx)
             Toast.makeText(ctx, "挑战完成！完成后延迟中，稍后方可关闭", Toast.LENGTH_SHORT).show()
@@ -2220,10 +2451,22 @@ internal object LockAlarmOverlayController {
     private fun startStageCooldown(ctx: Context) {
         stageCooldownHandler?.removeCallbacksAndMessages(null)
         stageCooldownHandler = stageCooldownHandler ?: android.os.Handler(android.os.Looper.getMainLooper())
+        val cooldownUntilMs = if (isTwoStageUnlock) {
+            val passedAt = AlarmScheduler.getFirstStagePassedAt(ctx)
+            if (passedAt > 0L) {
+                passedAt + alarmStageCooldownSeconds * 1000L
+            } else {
+                System.currentTimeMillis() + stageCooldownRemainingSeconds * 1000L
+            }
+        } else {
+            maxOf(singleStageCooldownUntilMs, AlarmScheduler.getCompletionCooldownUntil(ctx))
+        }
 
         val runnable = object : Runnable {
             override fun run() {
-                stageCooldownRemainingSeconds--
+                stageCooldownRemainingSeconds = ((cooldownUntilMs - System.currentTimeMillis() + 999L) / 1000L)
+                    .toInt()
+                    .coerceAtLeast(0)
                 if (stageCooldownRemainingSeconds > 0) {
                     // 更新倒计时 UI
                     updateCooldownDisplay(ctx)
@@ -2247,8 +2490,11 @@ internal object LockAlarmOverlayController {
                     } else {
                         // 单次模式：完成后延迟结束，解除按钮隐藏
                         singleStageCooldownUntilMs = 0L
+                        stageCooldownRemainingSeconds = 0
+                        AlarmScheduler.clearCompletionCooldown(ctx)
                         val v = LockWindowManager.getAlarmView()
                         if (v != null) {
+                            showCompletedChallengeState(v)
                             val layoutActions = v.findViewById<View>(R.id.layout_alarm_actions)
                             val btnClose = v.findViewById<Button>(R.id.btn_alarm_close)
                             val btnSnooze = v.findViewById<Button>(R.id.btn_alarm_snooze)
@@ -2266,7 +2512,6 @@ internal object LockAlarmOverlayController {
     private fun updateCooldownDisplay(ctx: Context) {
         val view = LockWindowManager.getAlarmView() ?: return
         val tvCooldown = view.findViewById<TextView>(R.id.tv_stage_cooldown)
-        val tvReviewCooldown = view.findViewById<TextView>(R.id.tv_review_cooldown)
         if (stageCooldownRemainingSeconds > 0) {
             val cooldownText = if (isTwoStageUnlock) {
                 "⏳ 第二关延迟中... ${stageCooldownRemainingSeconds} 秒后开放\n可以先去刷牙、洗脸，挑战界面不会关闭"
@@ -2277,13 +2522,8 @@ internal object LockAlarmOverlayController {
                 visibility = View.VISIBLE
                 text = cooldownText
             }
-            tvReviewCooldown?.apply {
-                visibility = View.VISIBLE
-                text = cooldownText
-            }
         } else {
             tvCooldown?.visibility = View.GONE
-            tvReviewCooldown?.visibility = View.GONE
         }
     }
 
@@ -2329,20 +2569,46 @@ internal object LockAlarmOverlayController {
 
         if (!isTwoStageUnlock) {
             // 单次模式：检查防刷手机倒计时恢复
-            if (singleStageCooldownUntilMs > 0L) {
-                val remaining = ((singleStageCooldownUntilMs - System.currentTimeMillis()) / 1000L).toInt()
+            val alarmContext = LockWindowManager.getAlarmContext() ?: view.context
+            val persistedUntil = AlarmScheduler.getCompletionCooldownUntil(alarmContext)
+            val completed = AlarmScheduler.isChallengeCompleted(alarmContext)
+            val cooldownUntil = maxOf(singleStageCooldownUntilMs, persistedUntil)
+            if (cooldownUntil > System.currentTimeMillis()) {
+                singleStageCooldownUntilMs = cooldownUntil
+                val remaining = ((cooldownUntil - System.currentTimeMillis() + 999L) / 1000L).toInt()
                 if (remaining > 0) {
                     stageCooldownRemainingSeconds = remaining
+                    hideAlarmChallengeCards(view)
                     val ctx = LockWindowManager.getAlarmContext()
                     if (ctx != null) {
+                        showCompletedChallengeState(view)
                         startStageCooldown(ctx)
                         showAlarmActionPanel(view.findViewById(R.id.layout_alarm_actions), view.findViewById(R.id.btn_alarm_close), view.findViewById(R.id.btn_alarm_snooze), forceHide = true)
                     }
                 } else {
                     singleStageCooldownUntilMs = 0L
                     stageCooldownRemainingSeconds = 0
+                    AlarmScheduler.clearCompletionCooldown(view.context)
                 }
+            } else if (persistedUntil > 0L || singleStageCooldownUntilMs > 0L) {
+                singleStageCooldownUntilMs = 0L
+                stageCooldownRemainingSeconds = 0
+                AlarmScheduler.clearCompletionCooldown(alarmContext)
+                // 延迟可能已在覆盖层重建前到期。此时必须恢复完成态，不能让
+                // initAlarmUI() 重新显示题卡后再由用户提交一次来“续期”。
+                showCompletedChallengeState(view)
+            } else if (completed) {
+                // 倒计时已经正常结束并清除了 deadline；completed 标记仍保证
+                // Activity/Overlay 重建不会把题卡重新当成未完成状态。
+                showCompletedChallengeState(view)
             }
+            return
+        }
+
+        val alarmContext = LockWindowManager.getAlarmContext() ?: view.context
+        if (isTwoStageUnlock && AlarmScheduler.isChallengeCompleted(alarmContext)) {
+            // 两阶段最终完成后重建时，不能把第二阶段题卡重新显示出来。
+            showCompletedChallengeState(view)
             return
         }
 
@@ -2809,8 +3075,13 @@ internal object LockAlarmOverlayController {
         // Barcode scanner auto-starts based on layout visibility
         val barcodeView = view.findViewById<com.journeyapps.barcodescanner.DecoratedBarcodeView>(R.id.barcode_alarm_scanner)
         barcodeView?.resume()
+        val callbackGeneration = alarmSessionGeneration
         barcodeView?.decodeContinuous { result ->
             if (result != null) {
+                if (!isAlarmOverlayActive.get() || callbackGeneration != alarmSessionGeneration) {
+                    barcodeView.pause()
+                    return@decodeContinuous
+                }
                 barcodeView.pause()
                 onAlarmScanResult(true)
             }
