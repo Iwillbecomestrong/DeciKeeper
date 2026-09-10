@@ -7,7 +7,7 @@
     android:orientation="vertical"
     android:padding="24dp">
 
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="36dp" android:text="止" android:textColor="?attr/zzAccentStrong" android:textSize="32sp" android:textStyle="bold" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="36dp" android:text="决定守护" android:textColor="?attr/zzAccentStrong" android:textSize="32sp" android:textStyle="bold" />
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="欢迎使用决定守护" android:textColor="?attr/zzText" android:textSize="22sp" android:textStyle="bold" />
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:background="@drawable/bg_zz_card" android:backgroundTint="?attr/zzSurface" android:orientation="vertical" android:padding="18dp">
