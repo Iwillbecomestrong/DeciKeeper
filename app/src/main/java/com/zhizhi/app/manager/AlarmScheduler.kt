@@ -98,6 +98,11 @@ object AlarmScheduler {
     private const val BACKUP2_REQUEST_OFFSET = 6_000_000
     private const val REBOOT_SAFETY_NET_OFFSET = 7_000_000
 
+    /** Direct Boot 广播允许的时间窗口，与普通 Receiver 的校验口径一致。 */
+    const val DIRECT_BOOT_EARLY_TOLERANCE_MS = 5 * 60 * 1000L
+    const val DIRECT_BOOT_LATE_TOLERANCE_MS = 60 * 60 * 1000L
+    private const val DIRECT_BOOT_SCHEDULE_MATCH_TOLERANCE_MS = 1_000L
+
     const val ACTION_ALARM_TRIGGER = "com.zhizhi.app.ACTION_ALARM_TRIGGER"
     const val ACTION_ALARM_SNOOZE = "com.zhizhi.app.ACTION_ALARM_SNOOZE"
     const val ACTION_ALARM_RECOVERY = "com.zhizhi.app.ACTION_ALARM_RECOVERY"
@@ -197,6 +202,11 @@ object AlarmScheduler {
         val stage2RingVolume: Int = 7
     )
 
+    data class DirectBootValidationResult(
+        val accepted: Boolean,
+        val reason: String
+    )
+
     /** 生成一个不可复用的调度令牌 */
     internal fun generateScheduleToken(): String = UUID.randomUUID().toString()
 
@@ -212,14 +222,17 @@ object AlarmScheduler {
         return list
     }
 
-    fun saveAlarms(context: Context, alarms: List<AlarmEntry>) {
+    fun saveAlarms(context: Context, alarms: List<AlarmEntry>): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         // 1. 取消所有旧 PendingIntent(包括 0~nextId-1 的孤儿,以及 id=0 的测试残留)
         // 范围从 0 开始(原来是 1),确保 id=0 也能被清理
         val oldNextId = prefs.getInt(KEY_NEXT_ID, 1)
         for (id in 0 until oldNextId) {
-            cancelAlarm(context, id)
+            if (!cancelAlarm(context, id)) {
+                Log.w("AlarmScheduler", "saveAlarms: cancellation not committed for alarmId=$id; keeping existing schedule")
+                return false
+            }
         }
 
         // 2. 重排 id(保持列表顺序,只改 id 编号为 1..N)
@@ -238,7 +251,7 @@ object AlarmScheduler {
             .apply()
 
         // 5. 重新调度(clean 状态,scheduleAll 内的 cancelAll 不会误删)
-        scheduleAll(context)
+        return scheduleAll(context)
     }
 
     /**
@@ -721,16 +734,144 @@ object AlarmScheduler {
         return true
     }
 
-    fun scheduleAll(context: Context) {
-        cancelAll(context)
+    fun scheduleAll(context: Context): Boolean {
+        if (!cancelAll(context)) {
+            Log.w("AlarmScheduler", "scheduleAll: cancellation not committed; existing schedules retained")
+            return false
+        }
         val alarms = getAlarms(context)
-        alarms.filter { it.enabled }.forEach { scheduleNext(context, it) }
+        val allScheduled = alarms.filter { it.enabled }.map { scheduleNext(context, it) }.all { it }
 
         // 启动/刷新 AlarmGuardian 前台守护（替代 AlarmManager 精准触发）
         AlarmGuardianService.startIfNeeded(context)
+        return allScheduled
     }
 
-    fun scheduleNext(context: Context, alarm: AlarmEntry) {
+    fun validateDirectBootTrigger(
+        entry: AlarmBootstrapStorage.Entry,
+        receivedToken: String,
+        receivedScheduledAt: Long,
+        now: Long = System.currentTimeMillis()
+    ): DirectBootValidationResult {
+        if (!entry.enabled) return DirectBootValidationResult(false, "DISABLED")
+        if (receivedToken.isBlank() || receivedToken != entry.scheduleToken) {
+            return DirectBootValidationResult(false, "STALE_TOKEN")
+        }
+        if (receivedScheduledAt <= 0L) {
+            return DirectBootValidationResult(false, "NO_SCHEDULED_TIME")
+        }
+        if (kotlin.math.abs(receivedScheduledAt - entry.nextTriggerAtMillis) >= DIRECT_BOOT_SCHEDULE_MATCH_TOLERANCE_MS) {
+            return DirectBootValidationResult(false, "BOOTSTRAP_TIME_MISMATCH")
+        }
+        val deltaMs = now - receivedScheduledAt
+        if (deltaMs < -DIRECT_BOOT_EARLY_TOLERANCE_MS) {
+            return DirectBootValidationResult(false, "TOO_EARLY")
+        }
+        if (deltaMs > DIRECT_BOOT_LATE_TOLERANCE_MS) {
+            return DirectBootValidationResult(false, "TOO_LATE")
+        }
+        return DirectBootValidationResult(true, "OK")
+    }
+
+    /** Direct Boot 阶段只读取设备保护存储中的最小调度状态。 */
+    fun scheduleAllForDirectBoot(context: Context) {
+        val now = System.currentTimeMillis()
+        AlarmBootstrapStorage.read(context)
+            .filter { it.enabled && it.nextTriggerAtMillis > now }
+            .forEach { entry ->
+                try {
+                    registerDirectBootTrigger(context, entry)
+                    Log.i("AlarmScheduler", "Direct Boot bootstrap scheduled: alarmId=${entry.alarmId} at ${entry.nextTriggerAtMillis}")
+                } catch (e: Exception) {
+                    Log.w("AlarmScheduler", "Direct Boot bootstrap schedule failed for alarmId=${entry.alarmId}: ${e.message}")
+                }
+            }
+    }
+
+    /** Direct Boot 触发后，为可重复闹钟推进下一次触发；不读取 CE 配置。 */
+    fun advanceDirectBootSchedule(context: Context, entry: AlarmBootstrapStorage.Entry): Boolean {
+        return advanceDirectBootSchedule(context, entry, System.currentTimeMillis())
+    }
+
+    /** 可注入当前时间的周期推进 seam，便于 JVM 测试验证跨日选择。 */
+    fun advanceDirectBootSchedule(
+        context: Context,
+        entry: AlarmBootstrapStorage.Entry,
+        now: Long
+    ): Boolean {
+        if (entry.hour !in 0..23 || entry.minute !in 0..59 || entry.daysMask == 0) return false
+        val nextTrigger = (1..7).asSequence().mapNotNull { offset ->
+            Calendar.getInstance().apply {
+                timeInMillis = now
+                add(Calendar.DAY_OF_YEAR, offset)
+                set(Calendar.HOUR_OF_DAY, entry.hour)
+                set(Calendar.MINUTE, entry.minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.let { candidate ->
+                val dayIndex = calendarDayToIndex(candidate.get(Calendar.DAY_OF_WEEK))
+                if (entry.daysMask and (1 shl dayIndex) != 0 && candidate.timeInMillis > now) {
+                    candidate.timeInMillis
+                } else null
+            }
+        }.firstOrNull() ?: return false
+
+        val nextEntry = entry.copy(
+            nextTriggerAtMillis = nextTrigger,
+            scheduleToken = generateScheduleToken()
+        )
+        if (!AlarmBootstrapStorage.upsert(context, nextEntry)) {
+            Log.w("AlarmScheduler", "Direct Boot recurring alarm not registered: DPS bootstrap commit failed")
+            return false
+        }
+        return try {
+            registerDirectBootTrigger(context, nextEntry)
+            Log.i("AlarmScheduler", "Direct Boot recurring alarm advanced: alarmId=${entry.alarmId} at $nextTrigger")
+            true
+        } catch (e: Exception) {
+            Log.w("AlarmScheduler", "Direct Boot recurring alarm advance failed: ${e.message}")
+            false
+        }
+    }
+
+    private fun registerDirectBootTrigger(context: Context, entry: AlarmBootstrapStorage.Entry) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val operation = buildPendingIntent(
+            context,
+            entry.alarmId,
+            ACTION_ALARM_TRIGGER,
+            AlarmIntentKind.MAIN,
+            entry.scheduleToken,
+            entry.nextTriggerAtMillis
+        )
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setAlarmClock(
+                    AlarmManager.AlarmClockInfo(entry.nextTriggerAtMillis, null),
+                    operation
+                )
+            } else {
+                setDirectBootInexactAlarm(alarmManager, entry.nextTriggerAtMillis, operation)
+            }
+        } catch (e: SecurityException) {
+            Log.w("AlarmScheduler", "Direct Boot exact alarm unavailable; using inexact fallback: ${e.message}")
+            setDirectBootInexactAlarm(alarmManager, entry.nextTriggerAtMillis, operation)
+        }
+    }
+
+    private fun setDirectBootInexactAlarm(
+        alarmManager: AlarmManager,
+        triggerAtMillis: Long,
+        operation: PendingIntent
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, operation)
+        } else {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, operation)
+        }
+    }
+
+    fun scheduleNext(context: Context, alarm: AlarmEntry): Boolean {
         // 生成新的调度令牌，写入 alarm record
         val token = generateScheduleToken()
         val updatedAlarm = alarm.copy(scheduleToken = token)
@@ -741,8 +882,12 @@ object AlarmScheduler {
             alarms[idx] = updatedAlarm
             val json = JSONArray()
             alarms.forEach { json.put(toJson(it)) }
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit().putString(KEY_ALARMS_JSON, json.toString()).apply()
+            val committed = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_ALARMS_JSON, json.toString()).commit()
+            if (!committed) {
+                Log.w("AlarmScheduler", "scheduleNext: failed to commit CE schedule token; AlarmManager not touched")
+                return false
+            }
         }
 
         // [OEM兼容] 检查电池优化状态，提醒用户关闭
@@ -768,14 +913,23 @@ object AlarmScheduler {
                 if (!alarmManager.canScheduleExactAlarms()) {
                     Log.w("AlarmScheduler", "scheduleNext: canScheduleExactAlarms=false, falling back!")
                     LogExporter.logEvent("AlarmScheduler", "SCHEDULE_EXACT_ALARM_REVOKED — alarm precision degraded")
-                    scheduleNextFallback(context, updatedAlarm)
-                    return
+                    return scheduleNextFallback(context, updatedAlarm)
                 }
             }
 
             val operation = buildPendingIntent(context, alarm.id, ACTION_ALARM_TRIGGER, AlarmIntentKind.MAIN, token, triggerAt)
             val showIntent = buildShowIntent(context, alarm.id)
             val alarmInfo = AlarmManager.AlarmClockInfo(triggerAt, showIntent)
+            if (!AlarmBootstrapStorage.upsert(
+                context,
+                AlarmBootstrapStorage.Entry(
+                    alarm.id, triggerAt, alarm.enabled, token,
+                    alarm.hour, alarm.minute, daysToMask(alarm.days)
+                )
+            )) {
+                Log.w("AlarmScheduler", "scheduleNext: DPS bootstrap commit failed; AlarmManager not touched")
+                return false
+            }
             alarmManager.setAlarmClock(alarmInfo, operation)
             val triggerDate = java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date(triggerAt))
             Log.i("AlarmScheduler", "scheduleNext: alarmId=${alarm.id} at $triggerAt ($triggerDate) - setAlarmClock (showIntent=${showIntent != null}) [token=${token.take(8)}]")
@@ -811,12 +965,14 @@ object AlarmScheduler {
 
             // 刷新 Guardian
             AlarmGuardianService.startIfNeeded(context)
+            return true
         } catch (e: SecurityException) {
             Log.w("AlarmScheduler", "scheduleNext: setAlarmClock failed (no SCHEDULE_EXACT_ALARM): ${e.message}")
             Log.w("AlarmScheduler", "WARN: Falling back to setExactAndAllowWhileIdle due to missing SCHEDULE_EXACT_ALARM permission")
-            scheduleNextFallback(context, updatedAlarm)
+            return scheduleNextFallback(context, updatedAlarm)
         } catch (e: Exception) {
             Log.e("AlarmScheduler", "scheduleNext failed: ${e.message}")
+            return false
         }
     }
 
@@ -868,14 +1024,24 @@ object AlarmScheduler {
     /**
      * [防御性代码] 当 setAlarmClock 因缺少权限失败时的降级方案。
      */
-    private fun scheduleNextFallback(context: Context, alarm: AlarmEntry) {
+    private fun scheduleNextFallback(context: Context, alarm: AlarmEntry): Boolean {
         try {
             val triggerAt = calculateNextTrigger(alarm)
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val token = alarm.scheduleToken.ifBlank { generateScheduleToken() }
             val operation = buildPendingIntent(context, alarm.id, ACTION_ALARM_TRIGGER, AlarmIntentKind.MAIN, token, triggerAt)
+            if (!AlarmBootstrapStorage.upsert(
+                context,
+                AlarmBootstrapStorage.Entry(
+                    alarm.id, triggerAt, alarm.enabled, token,
+                    alarm.hour, alarm.minute, daysToMask(alarm.days)
+                )
+            )) {
+                Log.w("AlarmScheduler", "scheduleNextFallback: DPS bootstrap commit failed; AlarmManager not touched")
+                return false
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation)
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation)
             } else {
                 alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, operation)
             }
@@ -883,8 +1049,10 @@ object AlarmScheduler {
             Log.i("AlarmScheduler", "scheduleNextFallback: alarmId=${alarm.id} at $triggerAt ($triggerDate) - fallback method with reduced precision")
             scheduleBackup(context, alarm, triggerAt)
             scheduleWorkManagerBackup(context, alarm, triggerAt)
+            return true
         } catch (e: Exception) {
             Log.e("AlarmScheduler", "scheduleNextFallback failed: ${e.message}")
+            return false
         }
     }
 
@@ -896,22 +1064,29 @@ object AlarmScheduler {
         alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation)
     }
 
-    fun cancelAll(context: Context) {
+    fun cancelAll(context: Context): Boolean {
         val alarms = getAlarms(context)
-        val existingIds = alarms.map { it.id }.toSet()
-        alarms.forEach { cancelAlarm(context, it.id) }
-
         val nextId = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt(KEY_NEXT_ID, 1)
-        for (id in 0 until nextId) {
-            if (id !in existingIds) {
-                cancelAlarm(context, id)
-            }
+        val alarmIds = (alarms.map { it.id } + (0 until nextId)).toSet()
+        if (!AlarmBootstrapStorage.removeAll(context, alarmIds)) {
+            Log.w("AlarmScheduler", "cancelAll: DPS batch removal failed; AlarmManager not touched")
+            return false
         }
-
+        alarmIds.forEach { cancelAlarmManagerAndHeartbeats(context, it) }
         AlarmGuardianService.stopIfNoAlarms(context)
+        return true
     }
 
-    fun cancelAlarm(context: Context, alarmId: Int) {
+    fun cancelAlarm(context: Context, alarmId: Int): Boolean {
+        if (!AlarmBootstrapStorage.remove(context, alarmId)) {
+            Log.w("AlarmScheduler", "cancelAlarm: DPS bootstrap removal failed for alarmId=$alarmId; AlarmManager not touched")
+            return false
+        }
+        cancelAlarmManagerAndHeartbeats(context, alarmId)
+        return true
+    }
+
+    private fun cancelAlarmManagerAndHeartbeats(context: Context, alarmId: Int) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         listOf(
             Pair(ACTION_ALARM_TRIGGER, AlarmIntentKind.MAIN),
@@ -919,11 +1094,15 @@ object AlarmScheduler {
             Pair(ACTION_ALARM_PRE_WARM, AlarmIntentKind.PREWARM),
             Pair(ACTION_ALARM_BACKUP, AlarmIntentKind.BACKUP),
             Pair(ACTION_ALARM_BACKUP2, AlarmIntentKind.BACKUP2)
-        ).forEach { (action, _) ->
-            // 取消时使用旧的 buildPendingIntent（不传 token，因为取消只依赖 identity）
-            val operation = buildPendingIntent(context, alarmId, action, null, "", null)
+        ).forEach { (action, kind) ->
+            // 新版调度使用 kind/data URI，取消必须复用同一 PendingIntent identity。
+            val operation = buildPendingIntent(context, alarmId, action, kind, null, null)
             alarmManager.cancel(operation)
             operation.cancel()
+            // 兼容旧版本未带 kind/data URI 的 PendingIntent。
+            val legacyOperation = buildPendingIntent(context, alarmId, action, null, null, null)
+            alarmManager.cancel(legacyOperation)
+            legacyOperation.cancel()
         }
         AlarmHeartbeatScheduler.cancel(context, alarmId)
         AlarmHeartbeatWorker.cancel(context, alarmId)
@@ -989,6 +1168,29 @@ object AlarmScheduler {
         }
 
         android.util.Log.i("AlarmScheduler", "setAlarmActive: alarmId=$alarmId (sameActive=$wasSameActiveAlarm, firstStagePassed=$firstStagePassed, token=${currentToken.take(8)})")
+    }
+
+    /** Direct Boot 触发时只写 DPS；完整配置与恢复计数等操作延后到解锁后。 */
+    fun setAlarmActiveFromDirectBoot(context: Context, alarmId: Int, scheduleToken: String): Boolean {
+        val devicePrefs = getAlarmPrefs(context)
+        val wasSameActiveAlarm = devicePrefs.getBoolean(KEY_ALARM_ACTIVE, false) &&
+            devicePrefs.getInt(KEY_ACTIVE_ALARM_ID, -1) == alarmId
+        if (wasSameActiveAlarm && devicePrefs.getString(KEY_ACTIVE_SCHEDULE_TOKEN, "") == scheduleToken) {
+            return false
+        }
+        val firstStagePassed = if (wasSameActiveAlarm) {
+            devicePrefs.getBoolean(KEY_ACTIVE_FIRST_STAGE_PASSED, false)
+        } else {
+            false
+        }
+        devicePrefs.edit()
+            .putBoolean(KEY_ALARM_ACTIVE, true)
+            .putInt(KEY_ACTIVE_ALARM_ID, alarmId)
+            .putBoolean(KEY_ACTIVE_FIRST_STAGE_PASSED, firstStagePassed)
+            .putString(KEY_ACTIVE_SCHEDULE_TOKEN, scheduleToken)
+            .commit()
+        android.util.Log.i("AlarmScheduler", "setAlarmActiveFromDirectBoot: alarmId=$alarmId token=${scheduleToken.take(8)}")
+        return true
     }
 
     /** 读取 active 状态的 scheduleToken（用于 Receiver 校验） */
@@ -1094,6 +1296,10 @@ object AlarmScheduler {
         return prefs.getInt("${PREF_RECOVERY_PREFIX}$alarmId", 0)
     }
 
+    fun getRecoveryCountFromDirectBoot(context: Context, alarmId: Int): Int {
+        return getAlarmPrefs(context).getInt("${PREF_RECOVERY_PREFIX}$alarmId", 0)
+    }
+
     private fun getRecoveryCountSafe(context: Context, alarmId: Int): Int {
         return try {
             getRecoveryCount(context, alarmId)
@@ -1106,11 +1312,13 @@ object AlarmScheduler {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val count = getRecoveryCount(context, alarmId) + 1
         prefs.edit().putInt("${PREF_RECOVERY_PREFIX}$alarmId", count).apply()
+        getAlarmPrefs(context).edit().putInt("${PREF_RECOVERY_PREFIX}$alarmId", count).apply()
     }
 
     fun resetRecoveryCount(context: Context, alarmId: Int) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().remove("${PREF_RECOVERY_PREFIX}$alarmId").apply()
+        getAlarmPrefs(context).edit().remove("${PREF_RECOVERY_PREFIX}$alarmId").apply()
     }
 
     fun scheduleRecoveryAlarm(context: Context, alarmId: Int) {
@@ -1354,6 +1562,13 @@ object AlarmScheduler {
             Calendar.SATURDAY -> 5
             Calendar.SUNDAY -> 6
             else -> 0
+        }
+    }
+
+    private fun daysToMask(days: BooleanArray): Int {
+        val normalized = normalizeDays(days)
+        return normalized.withIndex().fold(0) { mask, (index, enabled) ->
+            if (enabled) mask or (1 shl index) else mask
         }
     }
 

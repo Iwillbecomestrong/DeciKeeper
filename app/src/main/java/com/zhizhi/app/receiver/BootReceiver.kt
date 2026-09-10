@@ -24,6 +24,7 @@ import android.content.Intent
 import android.util.Log
 import com.zhizhi.app.data.LogExporter
 import com.zhizhi.app.manager.AlarmScheduler
+import com.zhizhi.app.manager.AlarmWindowManager
 import com.zhizhi.app.manager.PermissionManager
 import com.zhizhi.app.manager.StartupA11yCache
 import com.zhizhi.app.manager.StartupProtectionManager
@@ -46,6 +47,11 @@ import com.zhizhi.app.ui.MainActivityEntry
 
 
 class BootReceiver : BroadcastReceiver() {
+    companion object {
+        /** Test seam: observes USER_PRESENT overlay restoration without opening a real window. */
+        internal var userPresentOverlayRestorer: ((Context, Int) -> Unit)? = null
+    }
+
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action
         Log.d("IronWill", "BootReceiver received action: $action")
@@ -81,6 +87,13 @@ class BootReceiver : BroadcastReceiver() {
         if (action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
             Log.i("IronWill", "BootReceiver: In Direct Boot mode. MonitorService/MainActivity deferred until unlock.")
 
+            // 完整 alarms_json 尚不可读，只用 DPS bootstrap 重注册未来触发器。
+            try {
+                AlarmScheduler.scheduleAllForDirectBoot(context)
+            } catch (e: Exception) {
+                Log.e("IronWill", "BootReceiver: Failed to schedule future alarms in Direct Boot", e)
+            }
+
             // ⏰ 即使手机未解锁，也要检查闹钟是否在震动期间被强制重启
             // 若是，直接启动震动服务（无需 Activity），让用户不解锁也能被闹钟震动唤醒
             try {
@@ -90,6 +103,11 @@ class BootReceiver : BroadcastReceiver() {
                     LogExporter.logEvent("AlarmRecovery", "DirectBoot: starting vibration service (alarmId=$alarmId)")
                     val vibrateIntent = Intent(context, AlarmVibrationService::class.java).apply {
                         putExtra(AlarmVibrationService.EXTRA_ALARM_ID, alarmId)
+                        putExtra(AlarmVibrationService.EXTRA_DIRECT_BOOT, true)
+                        putExtra(
+                            AlarmScheduler.EXTRA_SCHEDULE_TOKEN,
+                            AlarmScheduler.getActiveScheduleToken(context)
+                        )
                     }
                     context.startForegroundService(vibrateIntent)
                 }
@@ -132,6 +150,21 @@ class BootReceiver : BroadcastReceiver() {
             // 恢复闹钟调度（可能在省电模式期间被清除）
             try {
                 AlarmScheduler.scheduleAll(context)
+                if (AlarmScheduler.isAlarmActive(context)) {
+                    val activeAlarmId = AlarmScheduler.getActiveAlarmId(context)
+                    if (activeAlarmId > 0) {
+                        val vibrateIntent = Intent(context, AlarmVibrationService::class.java).apply {
+                            putExtra(AlarmVibrationService.EXTRA_ALARM_ID, activeAlarmId)
+                        }
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            context.startForegroundService(vibrateIntent)
+                        } else {
+                            context.startService(vibrateIntent)
+                        }
+                        userPresentOverlayRestorer?.invoke(context, activeAlarmId)
+                            ?: AlarmWindowManager.show(context, activeAlarmId)
+                    }
+                }
             } catch (e: Exception) {
                 Log.w("IronWill", "BootReceiver: Failed to schedule alarm on USER_PRESENT", e)
             }
@@ -195,4 +228,4 @@ class BootReceiver : BroadcastReceiver() {
         }
 
     }
-} 
+}
