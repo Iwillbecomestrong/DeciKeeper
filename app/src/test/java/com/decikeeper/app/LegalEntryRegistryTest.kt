@@ -3,11 +3,11 @@
  * [Context Header]
  * * @file: LegalEntryRegistryTest.kt
  * * @role: Test
- * * @description: LegalDocumentRepository 7 个法务入口的契约测试。
+ * * @description: LegalDocumentRepository About 页公开入口的契约测试。
  * * @responsibilities:
- * 1. 锁死 ABOUT_ENTRIES 的数量 = 7，顺序 = 入参顺序。
+ * 1. 锁死 About 页公开入口的数量与顺序。
  * 2. 锁死每个入口的 id、title 与 raw 资源 id（防止后续误改）。
- * 3. 锁死首屏同意使用的《用户协议》《隐私政策》指向同一 raw 资源。
+ * 3. 确认首屏同意文档与 About 页的内测信息说明彼此独立。
  * * @constraints (必读):
  * 1. 不依赖 Android Context / Resources，纯 JVM 测试。
  * 2. rawRes 是编译期常量，由 R.raw.* 在 JVM 单测下也可用（androidTest 不依赖）。
@@ -28,10 +28,10 @@ import org.junit.Test
 class LegalEntryRegistryTest {
 
     @Test
-    fun aboutEntriesCountIsSeven() {
+    fun aboutEntriesCountIsThree() {
         assertEquals(
-            "关于我们 入口数必须等于 7 (用户协议/隐私政策/第三方SDK/已收集个人信息/共享/账号注销/联系投诉)",
-            7,
+            "关于决定守护公开入口应为隐私说明/开源许可/反馈邮箱",
+            3,
             LegalDocumentRepository.ABOUT_ENTRIES.size
         )
     }
@@ -48,15 +48,11 @@ class LegalEntryRegistryTest {
 
     @Test
     fun aboutEntriesOrderIsLocked() {
-        // 锁死顺序：与"ACC-006 + REQ-5b"7 入口顺序一致
+        // 锁死顺序：先隐私说明，再开源许可，最后反馈邮箱。
         val expected = listOf(
-            "about_user_agreement",
-            "about_privacy_policy",
-            "about_third_party_sdk_list",
-            "about_personal_info_list",
-            "about_sharing_list",
-            "about_account_deletion",
-            "about_contact_and_complaint"
+            "about_privacy_notice",
+            "about_open_source_licenses",
+            "about_feedback_email"
         )
         val actual = LegalDocumentRepository.ABOUT_ENTRIES.map { it.id }
         assertEquals(expected, actual)
@@ -65,13 +61,9 @@ class LegalEntryRegistryTest {
     @Test
     fun aboutEntriesTitlesAreLocked() {
         val expected = listOf(
-            "用户协议",
-            "隐私政策",
-            "第三方 SDK 清单",
-            "已收集个人信息清单",
-            "与第三方共享信息清单",
-            "账号注销入口",
-            "联系和投诉方式"
+            "隐私说明及权限说明",
+            "开源许可",
+            "反馈邮箱"
         )
         val actual = LegalDocumentRepository.ABOUT_ENTRIES.map { it.title }
         assertEquals(expected, actual)
@@ -83,34 +75,38 @@ class LegalEntryRegistryTest {
         // rawRes 来自 R.raw.*，编译期常量必定 > 0
         assertTrue("所有 raw 资源 id 必须 > 0", rawResIds.all { it != 0 })
         assertEquals(
-            "raw 资源去重后应等于 7 (无重复)",
-            7,
+            "raw 资源去重后应等于 3 (无重复)",
+            3,
             rawResIds.toSet().size
         )
     }
 
     @Test
-    fun aboutPrivacyPolicyRawMatchesConsentPageRaw() {
+    fun aboutPrivacyNoticeUsesSeparateRawFromConsentPage() {
         val consent = LegalDocumentRepository.PRIVACY_POLICY
         val about = LegalDocumentRepository.ABOUT_ENTRIES
-            .first { it.id == "about_privacy_policy" }
-        assertEquals(
-            "首屏同意页的《隐私政策》与「关于我们」的《隐私政策》必须指向同一 raw 资源",
-            consent.rawRes,
-            about.rawRes
-        )
+            .first { it.id == "about_privacy_notice" }
+        assertNotEquals("内测版隐私说明不得复用首屏正式同意文档", consent.rawRes, about.rawRes)
     }
 
     @Test
-    fun aboutUserAgreementRawMatchesConsentPageRaw() {
-        val consent = LegalDocumentRepository.USER_AGREEMENT
-        val about = LegalDocumentRepository.ABOUT_ENTRIES
-            .first { it.id == "about_user_agreement" }
+    fun hiddenLegacyAboutRoutesRemainAvailableButAreNotShown() {
         assertEquals(
-            "首屏同意页的《用户协议》与「关于我们」的《用户协议》必须指向同一 raw 资源",
-            consent.rawRes,
-            about.rawRes
+            LegalDocumentRepository.USER_AGREEMENT.rawRes,
+            LegalDocumentRepository.findById("about_user_agreement")?.rawRes
         )
+        assertEquals(
+            LegalDocumentRepository.PRIVACY_POLICY.rawRes,
+            LegalDocumentRepository.findById("about_privacy_policy")?.rawRes
+        )
+        val visibleIds = LegalDocumentRepository.ABOUT_ENTRIES.map { it.id }.toSet()
+        assertTrue("旧法务入口不得出现在 About 页公开列表", visibleIds.none { it in setOf(
+            "about_third_party_sdk_list",
+            "about_personal_info_list",
+            "about_sharing_list",
+            "about_account_deletion",
+            "about_contact_and_complaint"
+        ) })
     }
 
     @Test
@@ -198,7 +194,7 @@ class LegalEntryRegistryTest {
             LegalDocumentRepository.USER_AGREEMENT.id
         )
         val aboutIds = LegalDocumentRepository.ABOUT_ENTRIES.map { it.id }.toSet()
-        // 关于我们 的 7 个 id 集合不应与同意页 id 冲突（首屏用简写，关于用前缀）
+        // About 页公开 id 集合不应与同意页 id 冲突。
         assertNotEquals(consentIds, aboutIds)
         // 任何 about entry id 都不应与 consent 简写 id 重复
         for (id in aboutIds) {
@@ -210,14 +206,13 @@ class LegalEntryRegistryTest {
     }
 
     @Test
-    fun consentAndAboutPrivacyPolicyPointToSameContent() {
+    fun consentAndAboutPrivacyNoticePointToDifferentContent() {
         val consent = LegalDocumentRepository.PRIVACY_POLICY
         val about = LegalDocumentRepository.ABOUT_ENTRIES
-            .first { it.id == "about_privacy_policy" }
+            .first { it.id == "about_privacy_notice" }
         assertNotNull(consent)
         assertEquals(consent.id, "privacy_policy")
-        assertEquals(about.id, "about_privacy_policy")
-        // raw 资源一致（单测 7 已经测过，这里再冗余一次作 sanity check）
-        assertEquals(consent.rawRes, about.rawRes)
+        assertEquals(about.id, "about_privacy_notice")
+        assertNotEquals(consent.rawRes, about.rawRes)
     }
 }

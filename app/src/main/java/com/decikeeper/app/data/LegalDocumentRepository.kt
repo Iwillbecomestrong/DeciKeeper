@@ -5,15 +5,15 @@
  * * @role: Domain Skill
  * * @description: 法务文档注册表与内容提供。
  * * @responsibilities:
- * 1. 集中管理"设置→关于我们"下 7 个法务入口与对应 raw 资源。
+ * 1. 集中管理"设置→关于决定守护"下当前内测版公开的信息入口与对应 raw 资源。
  * 2. 集中管理首屏同意弹窗所需的《用户协议》《隐私政策》内容。
  * 3. 提供隐私政策 client-side 版本号（与 PrivacyConsentManager 写入的版本号对齐）。
  * * @context:
  * - 上游: AboutActivity, LegalDocumentActivity, PrivacyConsentActivity
  * * @constraints (必读):
- * 1. 排序与展示名是合规契约，不能乱序。
+ * 1. 排序与展示名是 UI 契约，不能乱序。
  * 2. raw 资源 ID 在编译期固定，不允许运行时动态改。
- * 3. 新增法务入口必须同步更新：仓库 + raw 资源 + 7 入口测试。
+ * 3. 首屏同意所需的用户协议 / 隐私政策与 About 页公开信息入口分开维护。
  * =================================================================================
  */
 package com.decikeeper.app.data
@@ -38,7 +38,7 @@ data class LegalDocument(
 /**
  * 法务/合规文档注册表。
  *
- * 7 个"关于我们"入口 + 2 个"首屏同意"专用入口。
+ * 当前 About 页 3 个文档入口 + 2 个"首屏同意"专用入口。
  * 顺序就是用户看到的顺序，**单测会锁死顺序**。
  */
 object LegalDocumentRepository {
@@ -83,43 +83,34 @@ object LegalDocumentRepository {
         rawRes = R.raw.privacy_policy
     )
 
-    // ── "关于我们" 7 个长期入口（顺序固定，详见单测） ────────────────
+    // ── About 页公开入口（顺序固定；旧合规入口保留但不展示） ────────
     val ABOUT_ENTRIES: List<LegalDocument> = listOf(
         LegalDocument(
-            id = "about_user_agreement",
-            title = "用户协议",
-            rawRes = R.raw.user_agreement
+            id = "about_privacy_notice",
+            title = "隐私说明及权限说明",
+            rawRes = R.raw.privacy_notice
         ),
         LegalDocument(
-            id = "about_privacy_policy",
-            title = "隐私政策",
-            rawRes = R.raw.privacy_policy
+            id = "about_open_source_licenses",
+            title = "开源许可",
+            rawRes = R.raw.open_source_licenses
         ),
         LegalDocument(
-            id = "about_third_party_sdk_list",
-            title = "第三方 SDK 清单",
-            rawRes = R.raw.third_party_sdk_list
-        ),
-        LegalDocument(
-            id = "about_personal_info_list",
-            title = "已收集个人信息清单",
-            rawRes = R.raw.personal_info_list
-        ),
-        LegalDocument(
-            id = "about_sharing_list",
-            title = "与第三方共享信息清单",
-            rawRes = R.raw.sharing_list
-        ),
-        LegalDocument(
-            id = "about_account_deletion",
-            title = "账号注销入口",
-            rawRes = R.raw.account_deletion
-        ),
-        LegalDocument(
-            id = "about_contact_and_complaint",
-            title = "联系和投诉方式",
-            rawRes = R.raw.contact_and_complaint
+            id = "about_feedback_email",
+            title = "反馈邮箱",
+            rawRes = R.raw.feedback_email
         )
+    )
+
+    /** 旧版 About 页入口仅保留路由兼容，不再加入 [ABOUT_ENTRIES]，避免误导内测用户。 */
+    private val HIDDEN_LEGACY_ABOUT_ENTRIES: List<LegalDocument> = listOf(
+        LegalDocument("about_user_agreement", "用户协议", R.raw.user_agreement),
+        LegalDocument("about_privacy_policy", "隐私政策", R.raw.privacy_policy),
+        LegalDocument("about_third_party_sdk_list", "第三方 SDK 清单", R.raw.third_party_sdk_list),
+        LegalDocument("about_personal_info_list", "已收集个人信息清单", R.raw.personal_info_list),
+        LegalDocument("about_sharing_list", "与第三方共享信息清单", R.raw.sharing_list),
+        LegalDocument("about_account_deletion", "账号注销入口", R.raw.account_deletion),
+        LegalDocument("about_contact_and_complaint", "联系和投诉方式", R.raw.contact_and_complaint)
     )
 
     /** 通过 id 查找文档；找不到返回 null。 */
@@ -127,6 +118,6 @@ object LegalDocumentRepository {
         if (id == null) return null
         if (id == USER_AGREEMENT.id) return USER_AGREEMENT
         if (id == PRIVACY_POLICY.id) return PRIVACY_POLICY
-        return ABOUT_ENTRIES.firstOrNull { it.id == id }
+        return (ABOUT_ENTRIES + HIDDEN_LEGACY_ABOUT_ENTRIES).firstOrNull { it.id == id }
     }
 }

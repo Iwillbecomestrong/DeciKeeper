@@ -35,13 +35,8 @@
     <string name="privacy_consent_accept">同意</string>
     <string name="privacy_consent_decline">不同意/退出</string>
     <string name="privacy_consent_disclaimer">占位合规文本，待法务 review</string>
-    <string name="about_section_title">关于我们</string>
-    <string name="about_section_subtitle">合规与法律文档</string>
-    <string name="about_entry_user_agreement">用户协议</string>
-    <string name="about_entry_privacy_policy">隐私政策</string>
-    <string name="about_entry_third_party_sdk">第三方 SDK 清单</string>
-    <string name="about_entry_personal_info">已收集个人信息清单</string>
-    <string name="about_entry_sharing">与第三方共享信息清单</string>
-    <string name="about_entry_account_deletion">账号注销入口</string>
-    <string name="about_entry_contact">联系和投诉方式</string>
+    <string name="about_section_title">关于决定守护</string>
+    <string name="about_entry_privacy_notice">隐私说明及权限说明</string>
+    <string name="about_entry_open_source">开源许可</string>
+    <string name="about_entry_feedback">反馈邮箱</string>
 </resources>

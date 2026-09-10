@@ -7,6 +7,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.decikeeper.app.R
 import com.decikeeper.app.data.LegalDocumentRepository
+import io.noties.markwon.Markwon
+import io.noties.markwon.ext.tables.TablePlugin
 
 class LegalDocumentActivity : AppCompatActivity() {
     companion object {
@@ -29,13 +31,19 @@ class LegalDocumentActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tv_legal_version).text = when (doc.id) {
             LegalDocumentRepository.PRIVACY_POLICY.id, "about_privacy_policy" -> "隐私政策 ${LegalDocumentRepository.PRIVACY_POLICY_VERSION}"
             LegalDocumentRepository.USER_AGREEMENT.id, "about_user_agreement" -> "用户协议 ${LegalDocumentRepository.USER_AGREEMENT_VERSION}"
+            "about_privacy_notice", "about_open_source_licenses", "about_feedback_email" ->
+                "决定守护 v0.2.0 单机内测版"
             else -> "占位合规文本，待法务 review"
         }
-        findViewById<TextView>(R.id.tv_legal_body).text = try {
+        val body = try {
             resources.openRawResource(doc.rawRes).bufferedReader(Charsets.UTF_8).use { it.readText() }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to read raw resource id=${doc.rawRes}", e)
             "（文档内容加载失败）"
         }
+        Markwon.builder(this)
+            .usePlugin(TablePlugin.create(this))
+            .build()
+            .setMarkdown(findViewById(R.id.tv_legal_body), body)
     }
 }

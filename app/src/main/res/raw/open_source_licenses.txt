@@ -1,0 +1,15 @@
+开源许可
+
+本应用使用部分开源组件。
+
+具体许可信息请查看：
+
+开源许可列表
+
+AndroidX 基础组件：Apache License 2.0
+Material Components：Apache License 2.0
+MPAndroidChart：Apache License 2.0
+ZXing Android Embedded：Apache License 2.0
+Markwon：Apache License 2.0
+
+组件版本和完整版权声明随项目一并发布。

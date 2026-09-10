@@ -21,11 +21,11 @@ import com.decikeeper.app.data.LegalDocument
 import com.decikeeper.app.data.LegalDocumentRepository
 
 class AboutActivity : AppCompatActivity() {
-    private val clozeSourceTitle = "选词填空真题来源"
-    private val clozeSourceDesc = "本应用的选词填空题目来自以下开源仓库："
+    private val clozeSourceTitle = "KaoYan-English"
+    private val clozeSourceDesc = "部分挑战题目来源于公开开源项目。"
     private val clozeSourceUrl = "https://github.com/m2kar/KaoYan-English"
     private val clozeSourceAuthor = "m2kar"
-    private val clozeSourceLicense = "仓库自带 license（具体见仓库 LICENSE 文件）"
+    private val clozeSourceLicense = "MIT License（以仓库 LICENSE 文件为准）"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.apply(this)
@@ -36,10 +36,12 @@ class AboutActivity : AppCompatActivity() {
         val density = resources.displayMetrics.density
         LegalDocumentRepository.ABOUT_ENTRIES.forEach { container.addView(buildEntryView(it, density)) }
         addClozeSourceSection(container, density)
-        findViewById<TextView>(R.id.tv_about_app_version).text = try {
+        val versionName = try {
             val info = packageManager.getPackageInfo(packageName, 0)
-            "决定守护 v${info.versionName ?: "?"} (build ${readLongVersionCodeCompat(info)})"
-        } catch (_: Exception) { "决定守护" }
+            info.versionName ?: "?"
+        } catch (_: Exception) { "?" }
+        findViewById<TextView>(R.id.tv_about_version_value).text = "v$versionName"
+        findViewById<TextView>(R.id.tv_about_app_version).text = "决定守护 v$versionName"
     }
 
     private fun attrColor(attr: Int): Int {
@@ -54,7 +56,7 @@ class AboutActivity : AppCompatActivity() {
             setPadding((4 * density).toInt(), (20 * density).toInt(), (4 * density).toInt(), (8 * density).toInt())
         }
         section.addView(TextView(this).apply {
-            text = "数据来源"
+            text = "内容来源"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTextColor(attrColor(R.attr.zzMuted))
             setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt())
@@ -84,7 +86,7 @@ class AboutActivity : AppCompatActivity() {
             setOnLongClickListener { copyClozeSourceUrl(); true }
         })
         section.addView(TextView(this).apply {
-            text = "作者：$clozeSourceAuthor  ·  $clozeSourceLicense"
+            text = "作者：$clozeSourceAuthor\n许可证：$clozeSourceLicense"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
             setTextColor(attrColor(R.attr.zzSubtle))
             setPadding((4 * density).toInt(), (7 * density).toInt(), 0, 0)
