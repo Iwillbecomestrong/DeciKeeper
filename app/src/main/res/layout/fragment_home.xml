@@ -18,6 +18,22 @@
         android:paddingBottom="96dp">
 
         <androidx.cardview.widget.CardView
+            android:id="@+id/card_adaptation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:layout_marginBottom="14dp"
+            app:cardBackgroundColor="?attr/zzInfoSoft"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="当前处于适应期" android:textColor="?attr/zzInfo" android:textSize="15sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="设置将立即生效，适应期结束后进入严格模式。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
+                <Button android:id="@+id/btn_end_adaptation" android:layout_width="wrap_content" android:layout_height="40dp" android:layout_gravity="end" android:layout_marginTop="8dp" android:backgroundTint="?attr/zzInfo" android:text="结束适应期" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="12sp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
             android:id="@+id/card_setup_guide"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -110,22 +126,6 @@
                     </LinearLayout>
                     <TextView android:id="@+id/btn_setup_go_dnd" android:layout_width="wrap_content" android:layout_height="wrap_content" android:padding="8dp" android:text="去添加" android:textColor="?attr/zzAccentStrong" android:textSize="12sp" android:textStyle="bold" />
                 </LinearLayout>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <androidx.cardview.widget.CardView
-            android:id="@+id/card_adaptation"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:layout_marginBottom="14dp"
-            app:cardBackgroundColor="?attr/zzInfoSoft"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="0dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="当前处于适应期" android:textColor="?attr/zzInfo" android:textSize="15sp" android:textStyle="bold" />
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="设置将立即生效，适应期结束后进入严格模式。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
-                <Button android:id="@+id/btn_end_adaptation" android:layout_width="wrap_content" android:layout_height="40dp" android:layout_gravity="end" android:layout_marginTop="8dp" android:backgroundTint="?attr/zzInfo" android:text="结束适应期" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="12sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
