@@ -32,8 +32,6 @@ import com.decikeeper.app.service.AlarmVibrationService
 import com.decikeeper.app.service.CoreService
 import com.decikeeper.app.service.MonitorService
 import com.decikeeper.app.ui.AlarmActivity
-import com.decikeeper.app.ui.MainActivity
-import com.decikeeper.app.ui.MainActivityEntry
 
 
 
@@ -82,10 +80,10 @@ class BootReceiver : BroadcastReceiver() {
             Log.d("DeciKeeper", "BootReceiver: FastLock already handled by MyApplication, skipping.")
         }
 
-        // 2. Only start MonitorService and MainActivity if User is Unlocked
+        // 2. Only start MonitorService if User is Unlocked
         // LOCKED_BOOT_COMPLETED means credential encrypted storage is not available yet.
         if (action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
-            Log.i("DeciKeeper", "BootReceiver: In Direct Boot mode. MonitorService/MainActivity deferred until unlock.")
+            Log.i("DeciKeeper", "BootReceiver: In Direct Boot mode. MonitorService deferred until unlock.")
 
             // 完整 alarms_json 尚不可读，只用 DPS bootstrap 重注册未来触发器。
             try {
@@ -173,7 +171,7 @@ class BootReceiver : BroadcastReceiver() {
         }
 
         // Standard BOOT_COMPLETED or QuickBoot
-        Log.d("DeciKeeper", "BootReceiver: User unlocked (or full boot). Launching full services.")
+        Log.d("DeciKeeper", "BootReceiver: User unlocked (or full boot). Starting full services silently.")
         
         // ⏰ [P0] Alarm recovery FIRST, before MonitorService starts
         try {
@@ -214,18 +212,7 @@ class BootReceiver : BroadcastReceiver() {
             Log.e("DeciKeeper", "BootReceiver: Failed to start MonitorService", e)
         }
 
-        // 🚀 [STEP 3] Launch MainActivity
-        // REQ-5: 走 MainActivityEntry 系统级入口。未同意 → 静默拒绝（不在开机路径弹 UI）
-        try {
-            val launchIntent = Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                putExtra("from_boot", true)
-            }
-            MainActivityEntry.startFromSystem(context, launchIntent)
-        } catch (e: Exception) {
-            Log.e("DeciKeeper", "BootReceiver: Failed to launch MainActivity", e)
-        }
+        Log.i("ZhiZhiBoot", "Boot recovery completed silently, UI launch skipped")
 
     }
 }
