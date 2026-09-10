@@ -25,10 +25,30 @@
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="勿扰时段设置" android:textColor="?attr/zzText" android:textSize="24sp" android:textStyle="bold" />
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="配置早、中、晚与睡眠的分段隔离计划。" android:textColor="?attr/zzMuted" android:textSize="12sp" />
             </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btn_global_blacklist"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:backgroundTint="?attr/zzAccent"
+                android:text="全局黑名单"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
             <Button
                 android:id="@+id/btn_header_preview"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
                 android:backgroundTint="?attr/zzAccentSofter"
                 android:text="预览"
                 android:textAllCaps="false"

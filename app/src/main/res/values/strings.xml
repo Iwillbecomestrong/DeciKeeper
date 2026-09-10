@@ -23,6 +23,18 @@
     <string name="privacy_space_guard_toast_need_a11y">⚠️ 请先开启无障碍服务</string>
     <string name="a11y_service_not_ready_toast">⚠️ 无障碍服务待关闭或未开启，请先开启无障碍服务</string>
 
+    <!-- Settings protection help -->
+    <string name="settings_help_accessibility_title">无障碍服务说明</string>
+    <string name="settings_help_accessibility_message">这是下方增强功能的前置服务。关闭无障碍服务时，需先处理防卸载增强的关闭流程。</string>
+    <string name="settings_help_permission_title">小窗可见性识别与防关权限保护说明</string>
+    <string name="settings_help_permission_message">开启后，决定守护会增强小窗可见性识别，并在已识别的系统页面保护关键权限不被立即关闭。不同设备的小窗呈现方式不同，效果会随系统版本变化。</string>
+    <string name="settings_help_privacy_title">隐私空间保护说明</string>
+    <string name="settings_help_privacy_message">部分设备存在独立空间的添加应用入口，可能让保护链失效。此项是兼容性保护，只覆盖当前已适配的可见入口。</string>
+    <string name="settings_help_anti_uninstall_title">防卸载增强说明</string>
+    <string name="settings_help_anti_uninstall_message">用于降低从系统入口直接卸载、强行停止或关闭关键服务的即时绕过概率。语言切换或服务重连时，可能短暂显示初始化/预热界面。</string>
+    <string name="settings_help_alarm_power_off_title">闹钟防关机保护说明</string>
+    <string name="settings_help_alarm_power_off_message">仅在闹钟挑战期间工作。开启前需要无障碍、悬浮窗、通知和锁屏显示等前置条件。</string>
+
     <!-- Lock Penalty Dialog -->
     <string name="penalty_dialog_title">决定守护强制干预</string>
     <string name="penalty_reason_consecutive">非休息/空档期内，黑名单或非时间窗应用连续触发达到3次要进行一次强制锁机了</string>

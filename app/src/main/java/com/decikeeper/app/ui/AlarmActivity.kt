@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
@@ -25,6 +26,7 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
+import com.decikeeper.app.manager.AlarmOverlayRequirement
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmWindowManager
 import com.decikeeper.app.service.AlarmChallengeEmergencyGuardService
@@ -32,6 +34,12 @@ import com.decikeeper.app.service.AlarmVibrationService
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
 import com.journeyapps.barcodescanner.DefaultDecoderFactory
 import com.journeyapps.barcodescanner.camera.CameraSettings
+
+internal fun shouldFinishExternalAlarmHost(
+    isScanMode: Boolean,
+    isLockedScreenMode: Boolean,
+    isLaunchingScanner: Boolean
+): Boolean = !isScanMode && !isLockedScreenMode && !isLaunchingScanner
 
 
 
@@ -96,6 +104,16 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
         android.util.Log.i("AlarmActivity", "onCreate: alarmId=$alarmId, is_locked_screen=${intent.getBooleanExtra("is_locked_screen", false)}, start_scan=${intent.getBooleanExtra("start_scan", false)}, request_camera=${intent.getBooleanExtra("request_camera_permission", false)}")
         LogExporter.logEvent("AlarmOverlay", "ACTIVITY_ON_CREATE id=$alarmId locked=${intent.getBooleanExtra("is_locked_screen", false)} startScan=${intent.getBooleanExtra("start_scan", false)} requestCamera=${intent.getBooleanExtra("request_camera_permission", false)}")
+
+        // AlarmActivity 的所有进入路径都必须经过悬浮窗前置条件；没有权限时直接结束，
+        // 不能让页面版挑战继续走到 TYPE_APPLICATION_OVERLAY 的 addView 崩溃点。
+        if (!AlarmOverlayRequirement.isGranted(this)) {
+            Log.w("AlarmActivity", "onCreate: overlay permission missing, refusing page challenge")
+            LogExporter.logEvent("AlarmOverlay", "ACTIVITY_REFUSED_NO_OVERLAY id=$alarmId")
+            Toast.makeText(this, AlarmOverlayRequirement.MISSING_RUNTIME_MESSAGE, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
 
         if (intent.getBooleanExtra("start_scan", false)) {
             isScanMode = true
@@ -380,6 +398,12 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         android.util.Log.d("AlarmActivity", "onNewIntent called, alarmId=$alarmId, startScan=${intent.getBooleanExtra("start_scan", false)}")
+        if (!AlarmOverlayRequirement.isGranted(this)) {
+            Log.w("AlarmActivity", "onNewIntent: overlay permission missing, refusing page challenge")
+            Toast.makeText(this, AlarmOverlayRequirement.MISSING_RUNTIME_MESSAGE, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
         val requestedNewSession = intent.getBooleanExtra("new_alarm_session", false)
 
@@ -410,11 +434,13 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                 newSession = true
             )
             newAlarmSession = false
+            finishExternalOverlayHostIfNeeded()
             return
         }
 
         LockWindowManager.reattachAlarmController(this)
         LockWindowManager.showAlarmOverlayIfHidden()
+        if (finishExternalOverlayHostIfNeeded()) return
         // [Fix: scan-vibration-guard] 扫码模式下也需要确保振动服务运行
         if (alarmId >= 0 && AlarmScheduler.isAlarmActive(this)) {
             AlarmVibrationService.start(this, alarmId)
@@ -423,6 +449,13 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     override fun onResume() {
         super.onResume()
+        if (!AlarmOverlayRequirement.isGranted(this)) {
+            Log.w("AlarmActivity", "onResume: overlay permission missing, refusing page challenge")
+            Toast.makeText(this, AlarmOverlayRequirement.MISSING_RUNTIME_MESSAGE, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+        if (finishExternalOverlayHostIfNeeded()) return
         LockWindowManager.reattachAlarmController(this)
         if (!isScanMode) {
             LockWindowManager.showAlarmOverlayIfHidden()
@@ -434,6 +467,16 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         if (alarmId >= 0 && AlarmScheduler.isAlarmActive(this)) {
             AlarmVibrationService.start(this, alarmId)
         }
+    }
+
+    private fun finishExternalOverlayHostIfNeeded(): Boolean {
+        if (!shouldFinishExternalAlarmHost(isScanMode, isLockedScreenMode, isLaunchingScanner)) {
+            return false
+        }
+        Log.i("AlarmActivity", "finishExternalOverlayHostIfNeeded: external overlay owns the UI")
+        LogExporter.logEvent("AlarmOverlay", "ACTIVITY_FINISH_EXTERNAL_HOST")
+        finishAndRemoveTask()
+        return true
     }
 
     override fun onPause() {

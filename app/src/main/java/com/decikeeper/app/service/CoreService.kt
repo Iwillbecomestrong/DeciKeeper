@@ -44,6 +44,7 @@ import com.decikeeper.app.manager.A11ySelfDisableAuthorization
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.AppWindowManager
+import com.decikeeper.app.manager.AccessibilityDependencyManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.ProbationManager
 import com.decikeeper.app.manager.PwaBypassManager
@@ -773,6 +774,15 @@ class CoreService : AccessibilityService() {
         Log.w(TAG, "onConfigurationChanged: Locale changed from $mLastLocale to $currentLocale. Triggering protection.")
         mLastLocale = currentLocale
 
+        // 初始化界面只属于防卸载增强。关闭增强后，配置变化不得再制造初始化保护窗口；
+        // PENDING 仍然保留保护，因此这里统一使用 ACTIVE/PENDING 判定。
+        val antiUninstallState = AntiUninstallManager.getProtectionState(this)
+        if (!AntiUninstallManager.shouldShowInitialization(antiUninstallState)) {
+            Log.i(TAG, "ConfigChange: anti-uninstall initialization is disabled, skip protection overlay")
+            ProtectionManager.resetCache(this)
+            return
+        }
+
         // 馃殌 [Config Change] 鐩戝惉鍒扮郴缁熼厤缃彉鍖栵紙濡傝瑷€鍒囨崲锛夛紝浣跨敤鈥滅郴缁熷垵濮嬪寲閿佲€?
         // 1. Start FastLockService (System Initialization Style Lock)
         val canDrawOverlays = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -1383,6 +1393,10 @@ class CoreService : AccessibilityService() {
         stateInitialized = false
         emitServiceStateIfChanged("STOPPED", "ON_UNBIND")
         emitProtectionStateChangeIfChanged("accessibility", "OK", "REVOKED", "ON_UNBIND")
+        AccessibilityDependencyManager.reconcile(
+            this,
+            systemAccessibilityEnabled = com.decikeeper.app.manager.PermissionManager.isAccessibilityEnabled(this)
+        )
         // [Diagnostics-only] clear lifecycle flag for ForegroundDiagnosticCycle
         diagnosticsServiceConnected = false
         mHandler.removeCallbacks(mReminderRunnable)
@@ -1443,5 +1457,3 @@ class CoreService : AccessibilityService() {
         }
     }
 }
-
-

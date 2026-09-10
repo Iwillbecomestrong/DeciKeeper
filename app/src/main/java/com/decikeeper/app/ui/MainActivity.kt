@@ -3,6 +3,7 @@ package com.decikeeper.app.ui
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +14,8 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.decikeeper.app.R
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.PrivacyConsentManager
+import com.decikeeper.app.manager.PermissionManager
+import com.decikeeper.app.manager.TimeRulesAccessGate
 import com.decikeeper.app.service.A11yGuardService
 import com.decikeeper.app.service.MonitorService
 
@@ -97,7 +100,7 @@ class MainActivity : AppCompatActivity() {
         bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_home -> { switchFragment(homeFragment); true }
-                R.id.nav_time_config -> { switchFragment(focusRulesFragment); true }
+                R.id.nav_time_config -> selectTimeRules()
                 R.id.nav_statistics -> { switchFragment(statisticsFragment); true }
                 R.id.nav_alarm -> { switchFragment(alarmFragment); true }
                 R.id.nav_rules -> { switchFragment(rulesFragment); true }
@@ -110,6 +113,30 @@ class MainActivity : AppCompatActivity() {
         if (activeFragment === targetFragment) return
         supportFragmentManager.beginTransaction().hide(activeFragment).show(targetFragment).commit()
         activeFragment = targetFragment
+    }
+
+    private fun selectTimeRules(): Boolean {
+        if (!TimeRulesAccessGate.shouldEnter(PermissionManager.hasUsageStatsPermission(this))) {
+            showUsageAccessRequiredDialog()
+            return false
+        }
+        switchFragment(focusRulesFragment)
+        return true
+    }
+
+    private fun showUsageAccessRequiredDialog() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("需要使用情况访问")
+            .setMessage("时间规则需要使用情况访问来识别当前前台应用并执行黑名单、勿扰时段规则。请先在系统设置中开启，返回后再次进入时间规则。")
+            .setPositiveButton("去开启") { _, _ ->
+                try {
+                    startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                } catch (e: Exception) {
+                    Log.w("MainActivity", "Failed to open usage access settings", e)
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     fun showFocusRules(tabIndex: Int) { bottomNav.selectedItemId = R.id.nav_time_config; focusRulesFragment.selectTab(tabIndex) }

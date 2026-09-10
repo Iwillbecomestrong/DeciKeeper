@@ -1,0 +1,6 @@
+# AOCI MCP server (aoci-code v0.1.0-rc10)
+# 由 aoci init --agent codex 的等价项目级配置手动写入（init 在 v1 认知下拒绝重跑）
+[mcp_servers.aoci]
+command = "G:/IronWIl0329/aoci/aoci.exe"
+args = ["--repo", "G:/IronWIl0329/IronWill-OpenSource", "mcp"]
+startup_timeout_sec = 60

@@ -19,6 +19,7 @@ class FocusRulesFragment : Fragment() {
     companion object {
         const val TAB_TIME = 0
         const val TAB_APP_WINDOW = 1
+        const val TAB_GLOBAL_PARAMS = 2
     }
 
     private var pendingTabIndex: Int? = null
@@ -40,24 +41,32 @@ class FocusRulesFragment : Fragment() {
         tabLayout.removeAllTabs()
         val timeTab = tabLayout.newTab().setText("勿扰时段")
         val appTab = tabLayout.newTab().setText("应用时间窗")
+        val globalParamsTab = tabLayout.newTab().setText("全局参数")
         tabLayout.addTab(timeTab)
         tabLayout.addTab(appTab)
+        tabLayout.addTab(globalParamsTab)
 
         val containerTime = view.findViewById<View>(R.id.container_time_config)
         val containerAppWindow = view.findViewById<View>(R.id.container_app_window)
+        val containerGlobalParams = view.findViewById<View>(R.id.container_global_params)
+        val cardEffectivePolicy = view.findViewById<View>(R.id.card_effective_policy)
 
         if (childFragmentManager.findFragmentByTag("time_config") == null) {
             childFragmentManager.beginTransaction()
                 .replace(R.id.container_time_config, TimeConfigFragment(), "time_config")
                 .replace(R.id.container_app_window, AppWindowFragment(), "app_window")
+                .replace(R.id.container_global_params, GlobalParamsFragment(), "global_params")
                 .commitNow()
         }
 
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 val isTime = (tab?.position == TAB_TIME)
+                val isGlobal = (tab?.position == TAB_GLOBAL_PARAMS)
                 containerTime.visibility = if (isTime) View.VISIBLE else View.GONE
-                containerAppWindow.visibility = if (isTime) View.GONE else View.VISIBLE
+                containerAppWindow.visibility = if (!isTime && !isGlobal) View.VISIBLE else View.GONE
+                containerGlobalParams.visibility = if (isGlobal) View.VISIBLE else View.GONE
+                cardEffectivePolicy.visibility = if (isGlobal) View.GONE else View.VISIBLE
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
@@ -89,6 +98,7 @@ class FocusRulesFragment : Fragment() {
                 when (fragment) {
                     is TimeConfigFragment -> fragment.reloadData()
                     is AppWindowFragment -> fragment.refreshList()
+                    is GlobalParamsFragment -> fragment.reloadData()
                 }
             }
             updateEffectivePolicyUI()

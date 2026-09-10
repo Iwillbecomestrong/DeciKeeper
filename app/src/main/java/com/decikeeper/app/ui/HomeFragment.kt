@@ -329,7 +329,6 @@ class HomeFragment : Fragment() {
     private val MANUAL_PERMISSION_ASK_COOLDOWN_MS = 15 * 60 * 1000L
     private val PERMISSION_PREFS_NAME = "decikeeper_permissions"
     private val KEY_OVERLAY_PROMPT_PRIMED = "overlay_permission_prompt_primed"
-    private val KEY_USAGE_STATS_PROMPT_PRIMED = "usage_stats_permission_prompt_primed"
 
     // 🚀 [Fix] Receiver to update UI when rules change (e.g. Privilege started from LockScreen)
     private val updateReceiver = object : android.content.BroadcastReceiver() {
@@ -640,7 +639,7 @@ class HomeFragment : Fragment() {
 
         // ✈️ [NEW] Setup Guide Click Listeners
         btnGoPerm?.setOnClickListener { showProtectionDialog() }
-        btnGoBlacklist?.setOnClickListener { (activity as? MainActivity)?.findViewById<BottomNavigationView>(R.id.bottom_navigation)?.selectedItemId = R.id.nav_rules }
+        btnGoBlacklist?.setOnClickListener { (activity as? MainActivity)?.showFocusRules(FocusRulesFragment.TAB_TIME) }
         btnGoDnd?.setOnClickListener { (activity as? MainActivity)?.showFocusRules(FocusRulesFragment.TAB_TIME) }
     }
 
@@ -1114,24 +1113,14 @@ class HomeFragment : Fragment() {
         val ctx = context ?: return
         val sb = StringBuilder()
         
-        val hasUsageStats = hasUsageStatsPermission(ctx)
-        sb.append(if (hasUsageStats) "✅ 使用访问权限：已开启\n" else "❌ 使用访问权限：未开启\n")
-        
         val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
         sb.append(if (hasOverlay) "✅ 悬浮窗权限：已开启\n" else "❌ 悬浮窗权限：未开启\n")
 
         val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+        val hasBgBattery = !isChineseRomDevice() || isBgBatteryPermissionSatisfied(ctx)
+        sb.append(if (hasBgBattery) "✅ 后台耗电管理：已开启\n" else "⚠️ 后台耗电管理：待设置\n")
         val hasAutoStart = isShortTimeConfirmed(prefs, "auto_start_confirmed")
         sb.append(if (hasAutoStart) "✅ 自启动权限：已确认" else "⚠️ 自启动权限：待确认")
-
-        val needBgPopup = isChineseRomDevice()
-        val hasBgPopup = isShortTimeConfirmed(prefs, "bg_popup_confirmed")
-        if (needBgPopup) {
-            sb.append("\n")
-            sb.append(if (hasBgPopup) "✅ 后台弹出界面权限：已确认" else "⚠️ 后台弹出界面权限：待确认")
-        }
-
-        // 根据需求：主页不再展示「允许后台耗电 / 关联启动 / 电池优化豁免」状态
     
         tvProtectionStatus?.text = sb.toString()
 
@@ -1154,16 +1143,6 @@ class HomeFragment : Fragment() {
             btnPermission?.isEnabled = true
             btnPermission?.alpha = 1.0f
         }
-    }
-
-    private fun hasUsageStatsPermission(context: Context): Boolean {
-        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
-        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            appOps.unsafeCheckOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName)
-        } else {
-            appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName)
-        }
-        return mode == android.app.AppOpsManager.MODE_ALLOWED
     }
 
     private fun checkOverlayPermission() {
@@ -1194,36 +1173,6 @@ class HomeFragment : Fragment() {
                 .setCancelable(false)
                 .show()
         }
-    }
-
-    private fun checkUsageStatsPermission() {
-        val ctx = context ?: return
-        if (hasUsageStatsPermission(ctx)) return
-
-        val prefs = ctx.getSharedPreferences(PERMISSION_PREFS_NAME, Context.MODE_PRIVATE)
-        val hasBeenPrimed = prefs.getBoolean(KEY_USAGE_STATS_PROMPT_PRIMED, false)
-        if (shouldSuppressFirstMissingPermissionPrompt(true, hasBeenPrimed)) {
-            prefs.edit().putBoolean(KEY_USAGE_STATS_PROMPT_PRIMED, true).apply()
-            return
-        }
-        val lastAskTime = prefs.getLong("last_usage_stats_permission_ask", 0L)
-        val now = System.currentTimeMillis()
-        if (now - lastAskTime < 24 * 60 * 60 * 1000L) return
-        prefs.edit().putLong("last_usage_stats_permission_ask", now).apply()
-
-        activePermissionDialog = AlertDialog.Builder(ctx)
-            .setTitle("缺少使用情况访问权限")
-            .setMessage("决定守护需要「使用情况访问」权限来识别前台应用并执行拦截。")
-            .setPositiveButton("去开启") { _, _ ->
-                try {
-                    startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                } catch (_: Exception) {
-                    Toast.makeText(ctx, "无法打开设置页面", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("稍后", null)
-            .setCancelable(false)
-            .show()
     }
 
     internal fun checkAccessibilityPermission() {
@@ -1732,21 +1681,6 @@ class HomeFragment : Fragment() {
             layout.addView(row)
         }
 
-        val hasUsageStats = hasUsageStatsPermission(ctx)
-        addItem("使用情况访问权限", hasUsageStats) {
-            try {
-                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    intent.data = android.net.Uri.parse("package:${ctx.packageName}")
-                }
-                startActivity(intent)
-            } catch (e: Exception) {
-                try { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } catch (e2: Exception) {
-                    Log.w("HomeFragment", "Failed to open usage access settings", e2)
-                }
-            }
-        }
-
         val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
         addItem("悬浮窗权限", hasOverlay) {
             try {
@@ -1765,11 +1699,14 @@ class HomeFragment : Fragment() {
             }
         }
 
+        addItem("后台耗电管理", !isChineseRomDevice() || isBgBatteryPermissionSatisfied(ctx)) {
+            openBgBatterySettings(ctx)
+        }
+
         addUndetectablePermissionItem(
             name = "自启动权限",
             key = "auto_start_confirmed",
-            hint = "请在权限详情页开启自启动、悬浮窗、后台弹出界面等开关",
-            linkedPendingKeys = if (isChineseRomDevice()) listOf("bg_popup_confirmed") else emptyList(),
+            hint = "请在权限详情页开启自启动等开关",
             onLongClick = {
                 prefs.edit().remove("auto_start_confirmed").remove("auto_start_confirmed_at").apply()
                 updateProtectionStatus()
@@ -1777,22 +1714,6 @@ class HomeFragment : Fragment() {
                 Toast.makeText(ctx, "已清除自启动缓存，请重新检测", Toast.LENGTH_SHORT).show()
             }
         )
-
-        if (isChineseRomDevice()) {
-            addUndetectablePermissionItem(
-                name = "后台弹出界面权限",
-                key = "bg_popup_confirmed",
-                hint = "请在权限详情页开启后台弹出界面权限",
-                onLongClick = {
-                    prefs.edit().remove("bg_popup_confirmed").remove("bg_popup_confirmed_at").apply()
-                    updateProtectionStatus()
-                    updateSetupGuide()
-                    Toast.makeText(ctx, "已清除后台弹出权限缓存", Toast.LENGTH_SHORT).show()
-                }
-            )
-        }
-
-        // 根据需求：主页权限弹窗不再提供「允许后台耗电 / 关联启动 / 电池优化豁免」入口
 
         AlertDialog.Builder(ctx)
             .setTitle("🛡️ 权限设置")
@@ -1834,25 +1755,46 @@ class HomeFragment : Fragment() {
     )
 
     private fun getHomePermissionState(ctx: Context): HomePermissionState {
-        val hasUsageStats = hasUsageStatsPermission(ctx)
         val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
         val hasNotification = if (Build.VERSION.SDK_INT >= 33) {
             ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else true
         val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+        val hasBgBattery = !isChineseRomDevice() || isBgBatteryPermissionSatisfied(ctx)
         val hasAutoStart = isShortTimeConfirmed(prefs, "auto_start_confirmed")
-        val needBgPopup = isChineseRomDevice()
-        val hasBgPopup = isShortTimeConfirmed(prefs, "bg_popup_confirmed")
 
         val missing = mutableListOf<String>()
-        if (!hasUsageStats) missing.add("使用情况访问")
         if (!hasOverlay) missing.add("悬浮窗")
         if (!hasNotification) missing.add("通知权限")
+        if (!hasBgBattery) missing.add("后台耗电管理")
         if (!hasAutoStart) missing.add("自启动")
-        if (needBgPopup && !hasBgPopup) missing.add("后台弹出界面")
 
         val allGranted = missing.isEmpty()
         return HomePermissionState(allGranted = allGranted, missingLabels = missing)
+    }
+
+    private fun isBgBatteryPermissionSatisfied(ctx: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        val powerManager = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+            ?: return false
+        return powerManager.isIgnoringBatteryOptimizations(ctx.packageName) ||
+            ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean("bg_battery_confirmed", false)
+    }
+
+    private fun openBgBatterySettings(ctx: Context) {
+        val intents = listOf(
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}"))
+        )
+        for (intent in intents) {
+            try {
+                startActivity(intent)
+                return
+            } catch (e: Exception) {
+                Log.w("HomeFragment", "Failed to open battery settings", e)
+            }
+        }
     }
 
     private fun isChineseRomDevice(): Boolean {

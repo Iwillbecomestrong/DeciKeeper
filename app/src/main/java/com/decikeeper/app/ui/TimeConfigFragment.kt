@@ -217,6 +217,9 @@ class TimeConfigFragment : Fragment() {
     }
 
     private fun setupClickEvents(view: View) {
+        view.findViewById<Button>(R.id.btn_global_blacklist).setOnClickListener {
+            startActivity(Intent(requireContext(), AppSelectionActivity::class.java))
+        }
         view.findViewById<Button>(R.id.btn_header_preview).setOnClickListener {
             startActivity(Intent(requireContext(), SchedulePreviewActivity::class.java))
         }

@@ -30,6 +30,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
+import android.widget.Toast
 import com.decikeeper.app.MyApplication
 import com.decikeeper.app.data.AndroidLogcatNormalEventSink
 import com.decikeeper.app.data.DefaultLogDebugConfig
@@ -97,11 +98,18 @@ object AlarmWindowManager {
      *
      * Expected Input: 闹钟触发，需要显示挑战界面。
      * Expected Output: 点亮屏幕 + 显示悬浮窗挑战界面；如果已有悬浮窗则更新内容。
-     *                  无悬浮窗权限或悬浮窗显示失败时，降级启动 AlarmActivity。
+     *                  无悬浮窗权限时提示用户并结束本次无法展示的响铃会话，不能降级到页面版挑战。
      */
     fun show(context: Context, alarmId: Int, newSession: Boolean = false) {
         Log.i(TAG, "show: alarmId=$alarmId newSession=$newSession")
         LogExporter.logEvent("AlarmOverlay", "AlarmWindowManager.show id=$alarmId newSession=$newSession")
+
+        // 闹钟挑战的承载方式只有悬浮窗。必须在任何 Activity fallback 或窗口操作前拦截，
+        // 防止页面版 AlarmActivity 继续尝试添加 TYPE_APPLICATION_OVERLAY 而崩溃。
+        if (!AlarmOverlayRequirement.isGranted(context)) {
+            handleMissingOverlayPermission(context, alarmId)
+            return
+        }
 
         ensureScreenOffRecoveryRegistered(context)
         AlarmChallengeEmergencyGuardService.start(context.applicationContext)
@@ -128,18 +136,6 @@ object AlarmWindowManager {
 
         val snoozeMinutes = AlarmScheduler.getSnoozeMinutes(context)
 
-        // 2. 检查悬浮窗权限，无权限时降级到 AlarmActivity
-        if (!android.provider.Settings.canDrawOverlays(context)) {
-            Log.w(TAG, "show: no overlay permission, falling back to AlarmActivity")
-            LogExporter.logEvent("AlarmOverlay", "NO_OVERLAY_PERMISSION_FALLBACK_ACTIVITY id=$alarmId")
-            fallbackToActivity(context, alarmId, newSession)
-            if (activeOverlayAlarmId != alarmId) {
-                activeOverlayAlarmId = alarmId
-                alarmProtectionEventBridge.recordAlarmOverlayShow(alarmId.toString())
-            }
-            return
-        }
-
         // 3. 通过 LockWindowManager 显示悬浮窗，失败时降级到 AlarmActivity
         try {
             LockWindowManager.showAlarmOverlay(context, alarmId, snoozeMinutes, NoActivityAlarmController, newSession = newSession)
@@ -158,6 +154,19 @@ object AlarmWindowManager {
                 alarmProtectionEventBridge.recordAlarmOverlayShow(alarmId.toString())
             }
         }
+    }
+
+    private fun handleMissingOverlayPermission(context: Context, alarmId: Int) {
+        val appCtx = context.applicationContext
+        Log.w(TAG, "show: no overlay permission, refusing page challenge")
+        LogExporter.logEvent("AlarmOverlay", "NO_OVERLAY_PERMISSION_ABORT id=$alarmId")
+        Toast.makeText(appCtx, AlarmOverlayRequirement.MISSING_RUNTIME_MESSAGE, Toast.LENGTH_LONG).show()
+
+        // AlarmReceiver 已先启动震动服务并建立 active 状态；清理这次无法展示的会话，
+        // 避免只剩下持续响铃却没有可操作挑战界面的死状态。
+        AlarmVibrationService.stop(appCtx)
+        AlarmScheduler.clearAlarmActive(appCtx)
+        dismiss()
     }
 
     /**

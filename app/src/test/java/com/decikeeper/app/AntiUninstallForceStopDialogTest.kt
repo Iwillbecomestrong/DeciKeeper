@@ -24,6 +24,7 @@ package com.decikeeper.app
 import android.content.Context
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.PrivacyProtectionManager
 import com.decikeeper.app.protection.AntiUninstallProtection
 import java.lang.reflect.Field
@@ -63,6 +64,7 @@ class AntiUninstallForceStopDialogTest {
             .edit().clear().commit()
         context.getSharedPreferences(PrivacyProtectionManager.PREFS_NAME, Context.MODE_PRIVATE)
             .edit().clear().commit()
+        AntiUninstallManager.setProtectionEnabled(context, true)
     }
 
     @After
@@ -168,6 +170,24 @@ class AntiUninstallForceStopDialogTest {
         assertTrue(
             "force-stop 必须走 handleDetection (以 arm hot window 为证据)",
             hotWindowArmed
+        )
+    }
+
+    @Test
+    fun check_skipsForceStopWhenAntiUninstallIsDisabled() {
+        AntiUninstallManager.setProtectionEnabled(context, false)
+        val protection = AntiUninstallProtection(context)
+
+        protection.check(
+            buildService(),
+            buildForceStopEvent(),
+            buildForceStopRootNode(includeIronWillText = false)
+        )
+
+        assertEquals(
+            "防卸载关闭时，强行停止不应继续拦截",
+            0L,
+            readPrivateLong(protection, "mUninstallHotWindowUntil")
         )
     }
 

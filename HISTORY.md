@@ -7,6 +7,15 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-25] v0.2.0 单机内测版 About / Privacy 信息页收敛
+- **背景**：当前 About 页沿用了面向正式运营场景的 7 个法务入口，向没有账号、服务器和商业化的单机内测用户展示了不必要的 SDK、个人信息、共享、注销和投诉页面，增加理解成本并造成产品状态误解。
+- **决策**：
+  1. About 页当前只展示版本信息、功能说明、隐私说明、开源许可、内容来源和可选反馈邮箱；
+  2. 新增 `privacy_notice.txt`，用普通用户语言说明本地存储与通知、相机、无障碍、悬浮窗、使用情况访问权限用途；
+  3. 旧文档资源、首屏同意流程和 `LegalDocumentActivity` 路由保留，但旧入口从当前导航隐藏，未来增加账号、云同步或数据服务时再恢复对应入口；
+  4. 不改闹钟、权限申请、挑战和保护业务逻辑。
+
+
 ### [DECISION-01] 闹钟状态与 Direct Boot 设备保护存储双写
 - **背景**：Android 设备强制关机重启后，在首次输入锁屏密码前处于 Direct Boot 模式，凭据加密存储（Credential Protected Storage）不可读，导致闹钟标志位丢失无法恢复震动。
 - **决策**：所有闹钟激活状态必须使用 `createDeviceProtectedStorageContext()` 双写到设备保护存储，且必须使用 `commit()` 同步写入，服务声明 `android:directBootAware="true"`。

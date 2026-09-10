@@ -96,6 +96,11 @@ object PrivacyProtectionManager {
         }
     }
 
+    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
+        getPrefs(context).edit().putBoolean(KEY_IS_ENABLED, false).apply()
+        ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+    }
+
     fun getPendingDisableTime(context: Context): Long {
         return ConfigPendingManager.getEffectiveTime(context, KEY_PENDING_DISABLE)
     }

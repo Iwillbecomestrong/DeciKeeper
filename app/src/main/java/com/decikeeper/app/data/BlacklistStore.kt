@@ -32,7 +32,8 @@ object BlacklistStore {
 
     fun isAutoBlacklistEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_AUTO_BLACKLIST_ENABLED, true)
+        // 读取已安装应用列表属于用户主动配置的能力，首次安装不自动扫描。
+        return prefs.getBoolean(KEY_AUTO_BLACKLIST_ENABLED, false)
     }
 
     fun setAutoBlacklistEnabled(context: Context, enabled: Boolean) {

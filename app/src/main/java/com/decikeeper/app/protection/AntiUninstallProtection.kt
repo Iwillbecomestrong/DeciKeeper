@@ -291,6 +291,25 @@ class AntiUninstallProtection(private val context: Context) {
         ): Boolean {
             return contentCandidates.any { containsProtectedAppToken(it, protectedPackageName) }
         }
+
+        internal fun shouldEnforceForceStopProtection(
+            state: AntiUninstallManager.State
+        ): Boolean {
+            return state == AntiUninstallManager.State.ACTIVE ||
+                state == AntiUninstallManager.State.PENDING
+        }
+
+        internal fun shouldSkipAccessibilitySettings(content: String): Boolean {
+            val hasProtectedApp = PROTECTED_APP_NAMES.any {
+                content.contains(it, ignoreCase = true)
+            } || content.contains("com.decikeeper.app", ignoreCase = true) ||
+                content.contains("com.ironwill", ignoreCase = true)
+            if (!hasProtectedApp) return false
+
+            return ACCESSIBILITY_CONTEXT_KEYWORDS.any {
+                content.contains(it, ignoreCase = true)
+            }
+        }
     }
 
     private var mLastBlockTime: Long = 0
@@ -350,10 +369,12 @@ class AntiUninstallProtection(private val context: Context) {
             return
         }
 
-        // 0. Force Stop Dialog Detection — 独立于 AntiUninstallManager 状态
-        // 强制停止会直接破坏无障碍服务，因此只要 CoreService 在运行（即能收到事件），
-        // 就必须拦截。用户明确要求：强制停止拦截的开关应该和无障碍权限一起开关。
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+        // 0. Force Stop Dialog Detection — 仅由防卸载增强开关控制。
+        // 防卸载关闭后不能因为历史状态或仍在运行的服务而继续拦截。
+        val antiUninstallState = AntiUninstallManager.getProtectionState(context)
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            shouldEnforceForceStopProtection(antiUninstallState)
+        ) {
             val fsEventClassName = event.className?.toString() ?: ""
             val fsEventText = event.text?.toString() ?: ""
 
@@ -544,8 +565,8 @@ class AntiUninstallProtection(private val context: Context) {
                 val hasAppInfoIndicators = APP_INFO_INDICATORS.any {
                     pageContent.contains(it, ignoreCase = true)
                 }
-                if (isOurApp && AccessibilityProtection.isAccessibilityServiceListContent(pageContent)) {
-                    LogExporter.logEvent(TAG, "[Skip] Settings accessibility service list")
+                if (isOurApp && shouldSkipAccessibilitySettings(pageContent)) {
+                    LogExporter.logEvent(TAG, "[Skip] Settings accessibility page")
                     return
                 }
                 // [Gate] 防关权限保护 ACTIVE 或 PENDING 时才拦截无障碍详情页
@@ -598,7 +619,7 @@ class AntiUninstallProtection(private val context: Context) {
                                 || pageContent.contains("decikeeper", ignoreCase = true)
                                 || pageContent.contains("ironwill", ignoreCase = true)
                 
-                if (isOurApp) {
+                if (isOurApp && !shouldSkipAccessibilitySettings(pageContent)) {
                     Log.w(TAG, "!!! [Permission] IronWill 鐨勬潈闄愰〉闈㈣鎵撳紑! 绔嬪嵆鎷︽埅. Class=$eventClassName")
                     logBlock(
                         reason = "PERMISSION_PAGE_DEEP_SCAN",
@@ -644,8 +665,8 @@ class AntiUninstallProtection(private val context: Context) {
                             || pageContent.contains("com.ironwill", ignoreCase = true)
                             || pageContent.contains("decikeeper", ignoreCase = true)
                             || pageContent.contains("ironwill", ignoreCase = true)
-            if (isOurApp && AccessibilityProtection.isAccessibilityServiceListContent(pageContent)) {
-                LogExporter.logEvent(TAG, "[Skip] Delayed accessibility service list")
+            if (isOurApp && shouldSkipAccessibilitySettings(pageContent)) {
+                LogExporter.logEvent(TAG, "[Skip] Delayed accessibility page")
                 return
             }
 
@@ -1269,7 +1290,7 @@ class AntiUninstallProtection(private val context: Context) {
         // never treat it as an uninstall attempt — even if "卸载" appears in nearby UI
         // elements. The list page is where users grant/revoke accessibility permissions
         // to ALL apps, and blocking it prevents other apps from requesting a11y access.
-        if (AccessibilityProtection.isAccessibilityServiceListContent(content)) {
+        if (shouldSkipAccessibilitySettings(content)) {
             return null
         }
 

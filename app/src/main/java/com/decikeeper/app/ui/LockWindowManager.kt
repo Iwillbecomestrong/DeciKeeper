@@ -73,6 +73,7 @@ import com.decikeeper.app.data.TemporaryAccessQuotaPlan
 import com.decikeeper.app.data.UsableCount
 import com.decikeeper.app.data.calculateQuotaDetail
 import com.decikeeper.app.data.calculateTemporaryAccessQuotaPlan
+import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.data.calculateTemporaryAccessRefundPlan
 import com.decikeeper.app.data.formatUsableCountHalfUnits
 import com.decikeeper.app.manager.AlarmChallengeManager
@@ -1130,6 +1131,11 @@ object LockWindowManager {
 
     fun showSystemInitOverlay(reason: String, durationMs: Long = 10000L) {
         val context = mContext ?: return
+        val antiUninstallState = AntiUninstallManager.getProtectionState(context)
+        if (!AntiUninstallManager.shouldShowInitialization(antiUninstallState)) {
+            LogExporter.logEvent("InitOverlay", "[SKIP] anti-uninstall initialization disabled, reason=$reason")
+            return
+        }
         val canUseA11y = mCoreService != null && isServiceActive()
 
         if (isInitLockShowing.get()) {

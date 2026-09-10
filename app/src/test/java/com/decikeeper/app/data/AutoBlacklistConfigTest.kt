@@ -28,7 +28,7 @@ class AutoBlacklistConfigTest {
 
     @Test
     fun testDefaultAutoBlacklistConfig() {
-        assertTrue(BlacklistStore.isAutoBlacklistEnabled(context))
+        assertFalse(BlacklistStore.isAutoBlacklistEnabled(context))
         val categories = BlacklistStore.getAutoBlacklistCategories(context)
         assertEquals(4, categories.size)
         assertTrue(categories.contains("comm"))
@@ -55,7 +55,8 @@ class AutoBlacklistConfigTest {
         // QQ package is in "comm" category
         val qqPkg = "com.tencent.mobileqq"
 
-        // Default: enabled, comm is selected
+        // Categories remain available, but new-app auto scanning is opt-in.
+        BlacklistStore.setAutoBlacklistEnabled(context, true)
         assertEquals("comm", CreditManager.getMatchedCategory(context, qqPkg))
 
         // Disable comm category
@@ -91,6 +92,7 @@ class AutoBlacklistConfigTest {
         BlacklistStore.saveBaselineBlacklist(context)
 
         // Auto-add new app
+        BlacklistStore.setAutoBlacklistEnabled(context, true)
         CreditManager.tryAutoBlacklistNewPackage(context, qqPkg)
         assertTrue(BlacklistStore.getBlacklistApps(context).contains(qqPkg))
 

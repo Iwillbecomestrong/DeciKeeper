@@ -57,39 +57,22 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <LinearLayout
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:orientation="horizontal">
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="5dp"
-                app:cardBackgroundColor="?attr/zzSurface"
-                app:cardCornerRadius="18dp"
-                app:cardElevation="0dp">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="15dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="黑白名单" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                    <Button android:id="@+id/btn_select_apps" android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginTop="10dp" android:backgroundTint="?attr/zzAccent" android:text="进入设置" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="12sp" />
+            app:cardBackgroundColor="?attr/zzSurface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="无障碍服务" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tv_accessibility_status_main" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="5dp"
-                app:cardBackgroundColor="?attr/zzSurface"
-                app:cardCornerRadius="18dp"
-                app:cardElevation="0dp">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="15dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="全局参数" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                    <Button android:id="@+id/btn_global_params_rules" android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginTop="10dp" android:backgroundTint="?attr/zzAccent" android:text="进入设置" android:textAllCaps="false" android:textColor="@android:color/white" android:textSize="12sp" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-        </LinearLayout>
-
+                <TextView android:id="@+id/btn_accessibility_service_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="无障碍服务说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
+                <Switch android:id="@+id/switch_accessibility_service" android:layout_width="wrap_content" android:layout_height="wrap_content" android:buttonTint="?attr/zzAccent" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
@@ -100,41 +83,35 @@
             app:cardElevation="0dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="加强约束功能" android:textColor="?attr/zzText" android:textSize="18sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:layout_marginBottom="8dp" android:text="防卸载、防关权限、隐私空间拦截、闹钟防关机" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:layout_marginBottom="8dp" android:text="以下功能需先开启无障碍服务" android:textColor="?attr/zzMuted" android:textSize="11sp" />
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="无障碍服务" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                        <TextView android:id="@+id/tv_accessibility_status_main" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
-                    </LinearLayout>
-                    <Switch android:id="@+id/switch_accessibility_service" android:layout_width="wrap_content" android:layout_height="wrap_content" android:buttonTint="?attr/zzAccent" />
-                </LinearLayout>
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
-
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="防卸载保护" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                        <TextView android:id="@+id/tv_uninstall_status_main" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
-                    </LinearLayout>
-                    <Switch android:id="@+id/switch_uninstall_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                </LinearLayout>
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
-
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="防关权限保护" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="小窗可见性识别与防关权限保护" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                         <TextView android:id="@+id/tv_perm_protection_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
+                    <TextView android:id="@+id/btn_perm_protection_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="小窗可见性识别与防关权限保护说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_accessibility" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="隐私空间拦截" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="隐私空间保护" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                         <TextView android:id="@+id/tv_privacy_space_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
+                    <TextView android:id="@+id/btn_privacy_space_guard_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="隐私空间保护说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_privacy_space_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="防卸载增强" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_uninstall_status_main" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/btn_uninstall_protection_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="防卸载增强说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
+                    <Switch android:id="@+id/switch_uninstall_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
 
@@ -143,6 +120,7 @@
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="闹钟防关机保护" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                         <TextView android:id="@+id/tv_alarm_power_off_status_main" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
+                    <TextView android:id="@+id/btn_alarm_power_off_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="闹钟防关机保护说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_alarm_power_off_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
             </LinearLayout>
@@ -155,39 +133,44 @@
             app:cardBackgroundColor="?attr/zzSurface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="6dp">
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="隐藏决定守护在多任务界面" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="减少误划掉多进程的风险" android:textColor="?attr/zzMuted" android:textSize="11sp" />
-                    </LinearLayout>
-                    <TextView android:id="@+id/btn_hide_in_recent_tasks_help" android:layout_width="24dp" android:layout_height="24dp" android:gravity="center" android:layout_marginEnd="6dp" android:background="@drawable/bg_zz_pill" android:backgroundTint="?attr/zzSurface2" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
-                    <Switch android:id="@+id/switch_hide_in_recent_tasks" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="隐藏决定守护在多任务界面" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="减少误划掉多进程的风险" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                 </LinearLayout>
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
-                <Button
-                    android:id="@+id/btn_quick_send_logs"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
-                    android:gravity="start|center_vertical"
-                    android:textAlignment="viewStart"
-                    android:paddingStart="0dp"
-                    android:paddingLeft="0dp"
-                    android:paddingEnd="0dp"
-                    android:paddingRight="0dp"
-                    android:insetLeft="0dp"
-                    android:insetRight="0dp"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:minWidth="0dp"
-                    android:minHeight="0dp"
-                    android:text="导出日志"
-                    android:textAllCaps="false"
-                    android:textColor="?attr/zzText"
-                    android:textSize="14sp" />
+                <TextView android:id="@+id/btn_hide_in_recent_tasks_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="隐藏多任务界面说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
+                <Switch android:id="@+id/switch_hide_in_recent_tasks" android:layout_width="wrap_content" android:layout_height="wrap_content" />
             </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="?attr/zzSurface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+            <Button
+                android:id="@+id/btn_quick_send_logs"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="start|center_vertical"
+                android:textAlignment="viewStart"
+                android:paddingStart="16dp"
+                android:paddingLeft="16dp"
+                android:paddingEnd="16dp"
+                android:paddingRight="16dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="导出日志"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="14sp" />
         </androidx.cardview.widget.CardView>
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="10dp">

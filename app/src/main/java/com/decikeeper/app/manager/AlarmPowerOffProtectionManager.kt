@@ -19,7 +19,6 @@
 package com.decikeeper.app.manager
 
 import android.Manifest
-import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -28,8 +27,33 @@ import androidx.core.app.NotificationManagerCompat
 
 object AlarmPowerOffProtectionManager {
 
-    private const val PREFS_NAME = "alarm_power_off_protection_prefs"
+    internal const val PREFS_NAME = "alarm_power_off_protection_prefs"
     private const val KEY_ENABLED = "enabled"
+    private const val KEY_LOCK_SCREEN_DISPLAY_CONFIRMED = "lock_screen_display_confirmed"
+
+    data class PrerequisiteStatus(
+        val a11yReady: Boolean,
+        val overlayReady: Boolean,
+        val notificationPermissionReady: Boolean,
+        val notificationsEnabled: Boolean,
+        val lockScreenDisplayReady: Boolean
+    ) {
+        val allReady: Boolean
+            get() = a11yReady &&
+                overlayReady &&
+                notificationPermissionReady &&
+                notificationsEnabled &&
+                lockScreenDisplayReady
+
+        val missingLabels: List<String>
+            get() = buildList {
+                if (!a11yReady) add("无障碍服务")
+                if (!overlayReady) add("悬浮窗权限")
+                if (!notificationPermissionReady) add("通知权限")
+                if (!notificationsEnabled) add("允许通知")
+                if (!lockScreenDisplayReady) add("锁屏显示")
+            }
+    }
 
     fun isEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -43,30 +67,34 @@ object AlarmPowerOffProtectionManager {
             .apply()
     }
 
+    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
+        setEnabled(context, false)
+    }
+
     fun canEnable(context: Context): Boolean {
-        return getMissingPrerequisites(context).isEmpty()
+        return getPrerequisiteStatus(context).allReady
     }
 
     fun getMissingPrerequisites(context: Context): List<String> {
-        val missing = mutableListOf<String>()
+        return getPrerequisiteStatus(context).missingLabels
+    }
 
-        if (!isAccessibilityServiceEnabled(context)) {
-            missing.add("无障碍服务")
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-            missing.add("悬浮窗权限")
-        }
-        if (!hasNotificationPermission(context)) {
-            missing.add("通知权限")
-        }
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            missing.add("允许通知")
-        }
-        if (!canUseFullScreenIntent(context)) {
-            missing.add("全屏通知/锁屏显示")
-        }
+    fun setLockScreenDisplayConfirmed(context: Context, confirmed: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_LOCK_SCREEN_DISPLAY_CONFIRMED, confirmed)
+            .apply()
+    }
 
-        return missing
+    fun getPrerequisiteStatus(context: Context): PrerequisiteStatus {
+        return PrerequisiteStatus(
+            a11yReady = isAccessibilityServiceEnabled(context),
+            overlayReady = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+                Settings.canDrawOverlays(context),
+            notificationPermissionReady = hasNotificationPermission(context),
+            notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled(),
+            lockScreenDisplayReady = isLockScreenDisplayReady(context)
+        )
     }
 
     fun isAccessibilityServiceEnabled(context: Context): Boolean {
@@ -82,9 +110,8 @@ object AlarmPowerOffProtectionManager {
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun canUseFullScreenIntent(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < 34) return true
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        return notificationManager?.canUseFullScreenIntent() == true
+    fun isLockScreenDisplayReady(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_LOCK_SCREEN_DISPLAY_CONFIRMED, false)
     }
 }

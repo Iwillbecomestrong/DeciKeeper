@@ -34,6 +34,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import com.decikeeper.app.R
+import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.StartupA11yCache
 import com.decikeeper.app.manager.StartupProtectionManager
 
@@ -92,6 +93,15 @@ class FastLockService : Service() {
         super.onCreate()
         isRunning = true
         startForegroundCompat()
+        if (!AntiUninstallManager.shouldShowInitialization(
+                AntiUninstallManager.getProtectionState(this)
+            )
+        ) {
+            Log.i(TAG, "FastLockService: anti-uninstall initialization disabled, stopping without overlay")
+            isRunning = false
+            stopSelf()
+            return
+        }
 
         // 接管 MyApplication 直接添加的覆盖层（毫秒级已可见），或自行 addView
         val adopted = StartupProtectionManager.takeOverEarlyBootOverlay()
@@ -579,8 +589,12 @@ class FastLockService : Service() {
 
 
     private fun shouldKeepStartupProtection(): Boolean {
-        val result = StartupA11yCache.isA11yWasEnabledForStartup(this)
-        Log.i("DeciKeeper", "[FastLock_ShouldKeep] isA11yWasEnabledForStartup=$result isServiceActive=${CoreService.isServiceActive} lastAccessibilitySignalTime=${CoreService.lastAccessibilitySignalTime} isRunning=$isRunning")
+        val antiUninstallEnabled = AntiUninstallManager.shouldShowInitialization(
+            AntiUninstallManager.getProtectionState(this)
+        )
+        val a11yWasEnabled = StartupA11yCache.isA11yWasEnabledForStartup(this)
+        val result = antiUninstallEnabled && a11yWasEnabled
+        Log.i("DeciKeeper", "[FastLock_ShouldKeep] antiUninstallEnabled=$antiUninstallEnabled isA11yWasEnabledForStartup=$a11yWasEnabled result=$result isServiceActive=${CoreService.isServiceActive} lastAccessibilitySignalTime=${CoreService.lastAccessibilitySignalTime} isRunning=$isRunning")
         return result
     }
 

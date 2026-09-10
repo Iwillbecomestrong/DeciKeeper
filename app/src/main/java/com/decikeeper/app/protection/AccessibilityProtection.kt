@@ -25,6 +25,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.manager.A11ySelfDisableAuthorization
+import com.decikeeper.app.manager.AccessibilityControlManager
 
 
 
@@ -143,9 +144,24 @@ class AccessibilityProtection(private val context: Context) {
                 content.contains("强制停止", ignoreCase = true) ||
                 content.contains("Force stop", ignoreCase = true)
         }
+
+        internal fun shouldEnforceProtection(
+            state: AccessibilityControlManager.State
+        ): Boolean {
+            return state == AccessibilityControlManager.State.ACTIVE ||
+                state == AccessibilityControlManager.State.PENDING
+        }
     }
 
     fun check(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo) {
+        // 防关权限保护关闭后，系统无障碍详情页必须可正常操作。
+        // 这里是实际拦截“关闭无障碍服务”的入口，不能只在 PermissionProtection 中设门禁。
+        val controlState = AccessibilityControlManager.getState(context)
+        if (!shouldEnforceProtection(controlState)) {
+            Log.v(TAG, "[Skip] Accessibility protection disabled: state=$controlState")
+            return
+        }
+
         // 🚫 [Self-Protection Gate] 使用短期授权判断是否跳过保护
         // 不再读取 ConfigPendingManager 中历史的 a11y_service_self_pending 持久化 key，
         // 改为纯内存 A11ySelfDisableAuthorization，最长 10 秒自动过期。

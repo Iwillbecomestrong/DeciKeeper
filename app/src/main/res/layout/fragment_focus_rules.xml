@@ -50,6 +50,12 @@
                 android:layout_height="wrap_content"
                 android:visibility="gone" />
 
+            <FrameLayout
+                android:id="@+id/container_global_params"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone" />
+
             <androidx.cardview.widget.CardView
                 android:id="@+id/card_effective_policy"
                 android:layout_width="match_parent"

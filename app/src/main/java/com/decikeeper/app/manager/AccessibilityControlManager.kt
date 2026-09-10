@@ -75,12 +75,23 @@ object AccessibilityControlManager {
             return
         }
 
+        if (TimeRuleManager.isInAdaptationPeriod(context)) {
+            setDesiredEnabled(context, false)
+            ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+            return
+        }
+
         ConfigPendingManager.submitChange(
             context = context,
             key = KEY_PENDING_DISABLE,
             value = "false",
             strictNextDay = true
         )
+    }
+
+    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
+        setDesiredEnabled(context, false)
+        ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
     }
 
     fun getDisableEffectiveTime(context: Context): Long {

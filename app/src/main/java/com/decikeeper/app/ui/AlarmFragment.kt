@@ -57,6 +57,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.decikeeper.app.R
+import com.decikeeper.app.manager.AlarmOverlayRequirement
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmSystemBackupUseCase
 
@@ -221,6 +222,31 @@ class AlarmFragment : Fragment() {
         Toast.makeText(ctx, "请关闭「睡眠待机优化」并允许「后台高耗电」", Toast.LENGTH_LONG).show()
     }
 
+    /** 闹钟挑战只能承载在悬浮窗中；没有权限时不进入页面版挑战。 */
+    private fun ensureAlarmOverlayPermission(ctx: Context = requireContext()): Boolean {
+        if (AlarmOverlayRequirement.isGranted(ctx)) return true
+
+        AlertDialog.Builder(ctx)
+            .setTitle(AlarmOverlayRequirement.TITLE)
+            .setMessage(AlarmOverlayRequirement.MESSAGE)
+            .setPositiveButton("去开启") { _, _ ->
+                try {
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${ctx.packageName}")
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Unable to open overlay permission settings", e)
+                    Toast.makeText(ctx, "请在系统设置中手动开启悬浮窗权限", Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("稍后", null)
+            .show()
+        return false
+    }
+
     private fun maybeShowKeepAliveGuideOnFirstActiveAlarm() {
         val ctx = context ?: return
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
@@ -264,10 +290,12 @@ class AlarmFragment : Fragment() {
 
                 if (isThisAlarmActive && !overlayShowing) {
                     // 正常情况：当前闹钟在震动但没有覆盖层 → 手动进入挑战
-                    val intent = android.content.Intent(ctx, AlarmActivity::class.java).apply {
-                        putExtra(AlarmScheduler.EXTRA_ALARM_ID, activeAlarmId)
+                    if (ensureAlarmOverlayPermission(ctx)) {
+                        val intent = android.content.Intent(ctx, AlarmActivity::class.java).apply {
+                            putExtra(AlarmScheduler.EXTRA_ALARM_ID, activeAlarmId)
+                        }
+                        startActivity(intent)
                     }
-                    startActivity(intent)
                 } else {
                     // 异常点击：闹钟没有在震动，或覆盖层已经显示
                     val reason = if (overlayShowing) {
@@ -297,11 +325,11 @@ class AlarmFragment : Fragment() {
         recyclerView?.isNestedScrollingEnabled = false
 
         btnAdd?.setOnClickListener {
-            showEditDialog(null)
+            if (ensureAlarmOverlayPermission()) showEditDialog(null)
         }
 
         btnTest?.setOnClickListener {
-            showTestDialog()
+            if (ensureAlarmOverlayPermission()) showTestDialog()
         }
 
         view.findViewById<View>(R.id.btn_emergency_whitelist)?.setOnClickListener {
@@ -1098,6 +1126,9 @@ class AlarmFragment : Fragment() {
         editDialog.show()
 
         editDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            // 用户可能在编辑过程中从系统设置撤销悬浮窗权限，保存时再次校验。
+            if (!ensureAlarmOverlayPermission()) return@setOnClickListener
+
             val hour = selectedHour
             val minute = selectedMinute
             val days = BooleanArray(7) { index -> checkboxes[index].isChecked }
@@ -1245,6 +1276,7 @@ class AlarmFragment : Fragment() {
 
     private fun showTestDialog() {
         val ctx = requireContext()
+        if (!ensureAlarmOverlayPermission(ctx)) return
         val dialogView = layoutInflater.inflate(R.layout.dialog_test_alarm, null)
 
         val rgUnlockMode = dialogView.findViewById<android.widget.RadioGroup>(R.id.rg_unlock_mode)
@@ -1668,6 +1700,11 @@ class AlarmFragment : Fragment() {
     }
 
     private fun updateAlarm(entry: AlarmScheduler.AlarmEntry) {
+        if (entry.enabled && !ensureAlarmOverlayPermission()) {
+            // 还原开关对应的内存列表状态，避免无权限时出现“看起来已开启”的假状态。
+            adapter?.updateAll(alarms)
+            return
+        }
         val index = alarms.indexOfFirst { it.id == entry.id }
         if (index >= 0) {
             alarms[index] = entry

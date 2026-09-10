@@ -1,0 +1,3524 @@
+{
+  "version": 1,
+  "created_at": "2026-09-10T08:43:03Z",
+  "updated_at": "2026-09-10T08:43:03Z",
+  "files": {
+    ".gitattributes": {
+      "role": "index",
+      "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
+      "size": 291,
+      "normalized_sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476"
+    },
+    ".github/CONTRIBUTING.md": {
+      "role": "index",
+      "sha256": "0ae52b603da9e9ee57799ab20425d9290ee9af2b6768743cf980d0c51c3ce080",
+      "size": 6910,
+      "normalized_sha256": "0f637a6d11aa8b8a777ce9dd9fca14df55ee2a95de233d24a67e543266c497fc"
+    },
+    ".github/ISSUE_TEMPLATE/bug_report.md": {
+      "role": "index",
+      "sha256": "539836409b7d2779d9733bf515740ee14f9f86b2769e7c85e94e5cfddbd5bea0",
+      "size": 1110,
+      "normalized_sha256": "539836409b7d2779d9733bf515740ee14f9f86b2769e7c85e94e5cfddbd5bea0"
+    },
+    ".github/ISSUE_TEMPLATE/feature_request.md": {
+      "role": "index",
+      "sha256": "ca66b3fe93eaa89d8a2a636554e1580db669dfd9bd5e5d8b038b69abc34e0ffd",
+      "size": 826,
+      "normalized_sha256": "ca66b3fe93eaa89d8a2a636554e1580db669dfd9bd5e5d8b038b69abc34e0ffd"
+    },
+    ".github/PULL_REQUEST_TEMPLATE.md": {
+      "role": "index",
+      "sha256": "fa98e91bc3fb183da654460f50562e8d72216dfda541ca04a605dfed9511c133",
+      "size": 895,
+      "normalized_sha256": "fa98e91bc3fb183da654460f50562e8d72216dfda541ca04a605dfed9511c133"
+    },
+    ".github/SECURITY.md": {
+      "role": "index",
+      "sha256": "25ee3b5ece5943e0d330d38ab6af96166722d3427a9fba6b9ac969ba12552acb",
+      "size": 2255,
+      "normalized_sha256": "25ee3b5ece5943e0d330d38ab6af96166722d3427a9fba6b9ac969ba12552acb"
+    },
+    ".github/workflows/alarm-reminder-redesign.yml": {
+      "role": "index",
+      "sha256": "22e124ca9cf268325877ca22ad7bf681a6dc8c1dd53cbdde0707a1e50f7e5062",
+      "size": 1631,
+      "normalized_sha256": "750b505a5ec34cbabb22cc870e541b829ae0bdfda6cb0cdeb87a16f8a51fbe4c"
+    },
+    ".github/workflows/alarm-snooze-contract.yml": {
+      "role": "index",
+      "sha256": "7e6b1bd769e4d46d5ef063c68d7aade20ea9d350031d47d720d1e11596f135de",
+      "size": 987,
+      "normalized_sha256": "4be4d391e8a63cf13174212db4a8f0a741643dbf591dcbece6e147c5af54e6d2"
+    },
+    ".github/workflows/android-build.yml": {
+      "role": "index",
+      "sha256": "f927d691f209b2b4bb6463b33a352d5b8147ab55bd9db842543a951ff7d7e4ae",
+      "size": 2044,
+      "normalized_sha256": "bf867f3a19208cb1a0e9ee5fcd67a0f30081058df4960f61d8bea6bdebd49c4a"
+    },
+    ".github/workflows/apply-alarm-reminder-redesign.yml": {
+      "role": "index",
+      "sha256": "64d0ed2607e51bac0a9278949ad331d380bf8b10ce1a5eaffddbb93c1a9cdf37",
+      "size": 1281,
+      "normalized_sha256": "5c731af1574efb34101803f4a8161d3ea5c1aefe68e5bb76375f7e094b1f2f2e"
+    },
+    ".gitignore": {
+      "role": "index",
+      "sha256": "56a1dc5351b24940a8472f1ef9afafde8cd03e81cc229ca769a9ad21cd4b5821",
+      "size": 1578,
+      "normalized_sha256": "4c1ed8fa00aa61c04147e5e00b290c4dd023c17ed6d6b2c281736aa12c584c29"
+    },
+    ".history_full.md": {
+      "role": "index",
+      "sha256": "4ce92fa375fcdc6a4059cf1b0fa33863e5b2b533957bb12c1d38459171d766d0",
+      "size": 69125,
+      "normalized_sha256": "63448a5082813c82768d8acf137363a9a19cda45225fe4e6c0aee8540efb2858"
+    },
+    "AGENTS.md": {
+      "role": "index",
+      "sha256": "ead475eb9f22525d50b11ff56f0dbd6308bc5bfc6a4e6d6558a0bdaf45ae6cae",
+      "size": 13980,
+      "normalized_sha256": "ead475eb9f22525d50b11ff56f0dbd6308bc5bfc6a4e6d6558a0bdaf45ae6cae"
+    },
+    "AGENT_CORE.md": {
+      "role": "index",
+      "sha256": "5c4303bbfe0a50551b41038731de4ecff49db142e29a44d2da60d363d10580d0",
+      "size": 8937,
+      "normalized_sha256": "e2bb93cffd1036e8bc1b508282f0621e7fa90a01cbdc9d40ace0d2e43d621187"
+    },
+    "CHANGELOG.md": {
+      "role": "index",
+      "sha256": "59f5b0e610e725de26fcc78942e72eb0b8848dd48930a3008e62f1d5bf811b18",
+      "size": 3988,
+      "normalized_sha256": "59f5b0e610e725de26fcc78942e72eb0b8848dd48930a3008e62f1d5bf811b18"
+    },
+    "CLAUDE.md": {
+      "role": "index",
+      "sha256": "fe70863feb9bb2de5cd3a8e86f041430ccd1841f35f00da7fa9da291833a4fcf",
+      "size": 694,
+      "normalized_sha256": "fe70863feb9bb2de5cd3a8e86f041430ccd1841f35f00da7fa9da291833a4fcf"
+    },
+    "GEMINI.md": {
+      "role": "index",
+      "sha256": "7c5ad05d647d5fee1d230e2f71487a92d1beacb507e69024b32ec68abd159035",
+      "size": 709,
+      "normalized_sha256": "7c5ad05d647d5fee1d230e2f71487a92d1beacb507e69024b32ec68abd159035"
+    },
+    "HISTORY.md": {
+      "role": "index",
+      "sha256": "2c43d1ae2c9c8840d793e654be59d758f09c405c07fc7552c982c208da31dc33",
+      "size": 65745,
+      "normalized_sha256": "d3a28237e8b84983c535fda96b6866a6eb99f98d8f0c3353374d82f39f90b37c"
+    },
+    "LICENSE": {
+      "role": "index",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "size": 35149,
+      "normalized_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "PLAN.md": {
+      "role": "index",
+      "sha256": "bef88d3138866b56f8320632b2bc1f95fa0c752897d6fa29767dc8301b9d6946",
+      "size": 11850,
+      "normalized_sha256": "3f1f933a77b65a86c2f5b256d9c3914b0107d2ea9e6a97607225b2fad0e5c6ec"
+    },
+    "README.md": {
+      "role": "index",
+      "sha256": "bc915eec8d92ea5f298e9c6ecdc89bf2381ead3a0ba954ad13800dcdaf4c4926",
+      "size": 8847,
+      "normalized_sha256": "dd2fe3ea4e1a6de8a4368aa877e57deee04057ce6d9499c2a6a07515ca2f4e8b"
+    },
+    "SPEC.md": {
+      "role": "index",
+      "sha256": "6e2b05f3486a694ab66f86a3156b5ee68d04bc7613751eefce095b690de362e9",
+      "size": 16143,
+      "normalized_sha256": "22489661a6197c8ef6ec07a54cd8149de00bd446ef2b6bea9e0d94485e56ae08"
+    },
+    "aoci.code.txt": {
+      "role": "index",
+      "sha256": "12cbc237b863041b3ab7b6c6330091964cb014a20e624ec1f88de6056aed56c2",
+      "size": 21,
+      "normalized_sha256": "12cbc237b863041b3ab7b6c6330091964cb014a20e624ec1f88de6056aed56c2"
+    },
+    "aoci.meta.txt": {
+      "role": "index",
+      "sha256": "60ffea0527ae0e1e2b5bf822c119cd3141118cdd33479dec063ee5f9c2114126",
+      "size": 1900,
+      "normalized_sha256": "60ffea0527ae0e1e2b5bf822c119cd3141118cdd33479dec063ee5f9c2114126"
+    },
+    "aoci.txt": {
+      "role": "index",
+      "sha256": "bb13f1a8aa55fb18d9d0f53bd4de0eca7d20b38b845734abe22a07d58e1f5f88",
+      "size": 308,
+      "normalized_sha256": "bb13f1a8aa55fb18d9d0f53bd4de0eca7d20b38b845734abe22a07d58e1f5f88"
+    },
+    "app/.gitignore": {
+      "role": "index",
+      "sha256": "5c3174b74edc6f2b9e0743594b8bd3c7f31e4f4405758cc9872b3fe1de1d28b4",
+      "size": 6,
+      "normalized_sha256": "5c3174b74edc6f2b9e0743594b8bd3c7f31e4f4405758cc9872b3fe1de1d28b4"
+    },
+    "app/README.md": {
+      "role": "index",
+      "sha256": "330f1ca8de219945fabbff95069997f17ece325b80e03733921f31804d9918db",
+      "size": 5651,
+      "normalized_sha256": "29ab77b9f1750d3e41e1e6ca0d031194a6d2332918665518aa94d44d9bc7bc64"
+    },
+    "app/build.gradle.kts": {
+      "role": "index",
+      "sha256": "9326cee298951a53423e296612183de120dcc1eec9c1afcc0cd2bd54ee3ad583",
+      "size": 5373,
+      "normalized_sha256": "1b37fadc085161d0c19c9b4cecc6f5666b1762a8541f471561bbcd3213ccda6b"
+    },
+    "app/lint-baseline.xml": {
+      "role": "index",
+      "sha256": "fa6241c3338c0481ba5bc76923f2b026018a29dd4d7838fe59e9904273e5c2e3",
+      "size": 493101,
+      "normalized_sha256": "e5283fc072ae58900404c37b91576613d72e033d00e8ce36a8ea940fca649de6"
+    },
+    "app/proguard-rules.pro": {
+      "role": "index",
+      "sha256": "48c84bd2ac064ce2665b62a6e7c0e87f3b4fe259708a76e16625c2b43e1bc078",
+      "size": 770,
+      "normalized_sha256": "56fd960cf225f6ca40f982b13a5dbb0d8bc3dfde13ff76422825c6070d0a1890"
+    },
+    "app/src/androidTest/java/com/zhizhi/app/ExampleInstrumentedTest.kt": {
+      "role": "index",
+      "sha256": "43eb1d2049681a6596d5dc359aceae6c2f0dba8136b77b6b73fa4d040f192fbd",
+      "size": 656,
+      "normalized_sha256": "43eb1d2049681a6596d5dc359aceae6c2f0dba8136b77b6b73fa4d040f192fbd"
+    },
+    "app/src/main/AndroidManifest.xml": {
+      "role": "index",
+      "sha256": "f5b5f7b8cba21f4534e2bdb445df8e7c44d3dcd77d528a4f9e5201b2ff9edfb0",
+      "size": 13955,
+      "normalized_sha256": "ceb84b02c251a229498d940f2a5042b5781d39215ba27d08014a5ba229d429c2"
+    },
+    "app/src/main/assets/cloze_pool.json": {
+      "role": "index",
+      "sha256": "8b79c12d4e974402f9fd9115c32ceafb701a5e57de727a65e67b6e61b4503f80",
+      "size": 2123841,
+      "normalized_sha256": "cc22aa6b840caf4d97f3ea8e5595b229f817b84429edde4bf5393cab5825cc36"
+    },
+    "app/src/main/assets/duilian.json": {
+      "role": "index",
+      "sha256": "7495bab2b92c653ab6eec79d3b740af94bac815fd27c5a54cc8ae20439dca26d",
+      "size": 67106,
+      "normalized_sha256": "c7eb462529354904e9870042cbb687626b5ca5cff00fa8a1720d53db78221eca"
+    },
+    "app/src/main/assets/duilian_single.json": {
+      "role": "index",
+      "sha256": "61cbed8b7b33f482c36721d44b97734879ea0ae6b3133505882eb0126fd31d2c",
+      "size": 36608,
+      "normalized_sha256": "f1cad42a936d327f26c16f510ee4824e4a9ff44b3b017617fb2bb887fdd7b083"
+    },
+    "app/src/main/assets/passage_words.json": {
+      "role": "index",
+      "sha256": "5cef35287de499a503b5e48d34f7778bad2290b138002705b3b92a8aae2b1e0f",
+      "size": 70529,
+      "normalized_sha256": "d379798c6bd366bbbd2ff4c67d05ae2299ea9a2d5c6b20f661dcbe9b2de2e319"
+    },
+    "app/src/main/assets/vocab_merged.json": {
+      "role": "index",
+      "sha256": "5b8dc65718422ba44753a3776664167c5ca9fe54b38f45d0606adb51c50a02c9",
+      "size": 634900,
+      "normalized_sha256": "d688475e80e347ffeec1963c712fb1b696d701c41d017fc86dee69ba0af701dd"
+    },
+    "app/src/main/assets/vocabulary_kaoyan.json": {
+      "role": "index",
+      "sha256": "43bf1c2b93faf86020c59547021f45a05a6c6cf51e95f0a499171bebf76c74e9",
+      "size": 785953,
+      "normalized_sha256": "97a1a0eb1cdf1c68ae0562577c7bc54d403e3aa867120a22e19f6dc4e6b6625d"
+    },
+    "app/src/main/assets/wordlist.json": {
+      "role": "index",
+      "sha256": "1fe1dde6444d4d34dc2c2bb2ad89c409e5cc569db44c78d456c6a5885e2289b4",
+      "size": 326521,
+      "normalized_sha256": "365fd97c9f81c2aae106fbe7cea3203f890e66e7d4c796f93961c71a52167053"
+    },
+    "app/src/main/assets/考研词汇.txt": {
+      "role": "index",
+      "sha256": "eeacab93d06e3bff9a9f57a2c8a1e74346a755bacd00d238c641d563a2f6c971",
+      "size": 48694,
+      "normalized_sha256": "165bc3b60706cd24d6b21dab5c263f287e2373dc26b6494610ab6819485f05bd"
+    },
+    "app/src/main/java/com/zhizhi/app/MyApplication.kt": {
+      "role": "index",
+      "sha256": "8cd5c97dbc0b7ce6885feca53ef439b7ab6b7ee2e2d3c75465a67594db8009ad",
+      "size": 16744,
+      "normalized_sha256": "f64dfc0ba8d219a11d09d585de46191dcd6629dd35ca0fc228d2768c973215ff"
+    },
+    "app/src/main/java/com/zhizhi/app/WordLookupTextView.kt": {
+      "role": "index",
+      "sha256": "049d2878585d07d7c6c738f73d3a35d5955fc064f3f88aa427ed7c113b7ae864",
+      "size": 417,
+      "normalized_sha256": "049d2878585d07d7c6c738f73d3a35d5955fc064f3f88aa427ed7c113b7ae864"
+    },
+    "app/src/main/java/com/zhizhi/app/data/AdverseAnalysis.kt": {
+      "role": "index",
+      "sha256": "a9799249c57e09a964ec5dd9b22ffe97d9ed5d9d2d83a6fd2b89fd5a6f2fcb5f",
+      "size": 6787,
+      "normalized_sha256": "a9799249c57e09a964ec5dd9b22ffe97d9ed5d9d2d83a6fd2b89fd5a6f2fcb5f"
+    },
+    "app/src/main/java/com/zhizhi/app/data/BlacklistStore.kt": {
+      "role": "index",
+      "sha256": "ea5818c548a01ac1d662354d4dbc3dc9c48115c463ff809896a8524482ac6fd5",
+      "size": 31575,
+      "normalized_sha256": "ea5818c548a01ac1d662354d4dbc3dc9c48115c463ff809896a8524482ac6fd5"
+    },
+    "app/src/main/java/com/zhizhi/app/data/CrashRecorder.kt": {
+      "role": "index",
+      "sha256": "bd9f2a2ca91fd77027a9f815a9b4cebf6dfd333bcf17753a06b2337a9e1842b0",
+      "size": 2723,
+      "normalized_sha256": "bd9f2a2ca91fd77027a9f815a9b4cebf6dfd333bcf17753a06b2337a9e1842b0"
+    },
+    "app/src/main/java/com/zhizhi/app/data/EventLog.kt": {
+      "role": "index",
+      "sha256": "10a47723e2dfc2fc032b66aff0916f5d9fceea4843708d3522380fc4ef61a919",
+      "size": 14735,
+      "normalized_sha256": "10a47723e2dfc2fc032b66aff0916f5d9fceea4843708d3522380fc4ef61a919"
+    },
+    "app/src/main/java/com/zhizhi/app/data/ForegroundDetectionLog.kt": {
+      "role": "index",
+      "sha256": "5832af0515ebad94a8478a102fa722cf0551e7e8474ed6910f93b8c078bbeac8",
+      "size": 6927,
+      "normalized_sha256": "5832af0515ebad94a8478a102fa722cf0551e7e8474ed6910f93b8c078bbeac8"
+    },
+    "app/src/main/java/com/zhizhi/app/data/ForegroundDiagnosticReport.kt": {
+      "role": "index",
+      "sha256": "4673547a3f77300d9bc7332ee1e6b17d22e932e219085edf1ec7672669704fd6",
+      "size": 40511,
+      "normalized_sha256": "4673547a3f77300d9bc7332ee1e6b17d22e932e219085edf1ec7672669704fd6"
+    },
+    "app/src/main/java/com/zhizhi/app/data/LegalDocumentRepository.kt": {
+      "role": "index",
+      "sha256": "613266c28a5f825242cefae72c268c11e501008d30e053cee7c0e0ffe50d51b3",
+      "size": 5019,
+      "normalized_sha256": "613266c28a5f825242cefae72c268c11e501008d30e053cee7c0e0ffe50d51b3"
+    },
+    "app/src/main/java/com/zhizhi/app/data/LogExporter.kt": {
+      "role": "index",
+      "sha256": "58cd32c9d9d5dc55d2ca72e3c420f05abff6dc6484ce50033f67a0362bf29ee3",
+      "size": 42772,
+      "normalized_sha256": "3d058d13803bee6157a00ca0516432809cc78c0f518dfa5d5f99f83efd021f85"
+    },
+    "app/src/main/java/com/zhizhi/app/data/NormalEventLog.kt": {
+      "role": "index",
+      "sha256": "fb42f86dffefd4a85a4c8d1a346a2d52dacabbd07d7f06789f0d6f1113fb5e45",
+      "size": 8222,
+      "normalized_sha256": "fb42f86dffefd4a85a4c8d1a346a2d52dacabbd07d7f06789f0d6f1113fb5e45"
+    },
+    "app/src/main/java/com/zhizhi/app/data/QuotaDetailModel.kt": {
+      "role": "index",
+      "sha256": "1981985425890f6157a38084749ed40a4be1c10d43685590ca75d3d132a3cd9d",
+      "size": 873,
+      "normalized_sha256": "1981985425890f6157a38084749ed40a4be1c10d43685590ca75d3d132a3cd9d"
+    },
+    "app/src/main/java/com/zhizhi/app/data/SegmentAdverseAnalysis.kt": {
+      "role": "index",
+      "sha256": "a28992beb12d3a90b141e9f51bd76a1139993602653d2d7422e17b94b4d3d661",
+      "size": 31943,
+      "normalized_sha256": "a28992beb12d3a90b141e9f51bd76a1139993602653d2d7422e17b94b4d3d661"
+    },
+    "app/src/main/java/com/zhizhi/app/data/SegmentBlacklist.kt": {
+      "role": "index",
+      "sha256": "68e70589e6de2df1c2dd8316a0cbf21c198d06dfdaf6f7ac452da8e3833ad9cc",
+      "size": 7168,
+      "normalized_sha256": "68e70589e6de2df1c2dd8316a0cbf21c198d06dfdaf6f7ac452da8e3833ad9cc"
+    },
+    "app/src/main/java/com/zhizhi/app/data/TemporaryAccessQuotaPlan.kt": {
+      "role": "index",
+      "sha256": "f77166ff3ae89494ebaee3ad7690e64b1a3d2bf6a4f2e2bf965ccccc45ed9917",
+      "size": 4147,
+      "normalized_sha256": "f77166ff3ae89494ebaee3ad7690e64b1a3d2bf6a4f2e2bf965ccccc45ed9917"
+    },
+    "app/src/main/java/com/zhizhi/app/data/TimeSegmentJson.kt": {
+      "role": "index",
+      "sha256": "dc29e989a768b7ce1e8a5a15da1feaadb7199c15cbb7119c5692148a1b66358f",
+      "size": 16368,
+      "normalized_sha256": "dc29e989a768b7ce1e8a5a15da1feaadb7199c15cbb7119c5692148a1b66358f"
+    },
+    "app/src/main/java/com/zhizhi/app/data/UsableCount.kt": {
+      "role": "index",
+      "sha256": "d959fb276d82dcfdf6ae67673250d632cb12d5223110360d0f0cbb3f6dd1c2fe",
+      "size": 1615,
+      "normalized_sha256": "d959fb276d82dcfdf6ae67673250d632cb12d5223110360d0f0cbb3f6dd1c2fe"
+    },
+    "app/src/main/java/com/zhizhi/app/data/UsableCountLedgerMigration.kt": {
+      "role": "index",
+      "sha256": "ef61232579ca43c61059bc9530918722d54db5e2de5ad358c562c37e701ea8db",
+      "size": 652,
+      "normalized_sha256": "ef61232579ca43c61059bc9530918722d54db5e2de5ad358c562c37e701ea8db"
+    },
+    "app/src/main/java/com/zhizhi/app/data/questionbank/CustomQuestionModels.kt": {
+      "role": "index",
+      "sha256": "be0f0b96515d3d57b8fc5e447d62ed8069692bdabeef01dccc21b5eb7d86afc0",
+      "size": 3120,
+      "normalized_sha256": "e6d68a06ac9ab7bfc152d8dbdcdfdbe983e95fbfcacbc180557b657e1b16c48a"
+    },
+    "app/src/main/java/com/zhizhi/app/data/statistics/StatisticsModels.kt": {
+      "role": "index",
+      "sha256": "1896d72d65a1d43fe3ec9a3a75f34e4b3a0e924d19ce26fe656b3b493ed86ed7",
+      "size": 10860,
+      "normalized_sha256": "51c23827f1a81b7f38cdb155cb4c7d2eaf87bd33fc360471b55b9141a195aa48"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/A11ySelfDisableAuthorization.kt": {
+      "role": "index",
+      "sha256": "52c3946e1fb8fc57fb5fb5659ccfef7cd0f3e73ae5a7cdcbd026c0df7675fdc5",
+      "size": 4293,
+      "normalized_sha256": "52c3946e1fb8fc57fb5fb5659ccfef7cd0f3e73ae5a7cdcbd026c0df7675fdc5"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AccessibilityControlManager.kt": {
+      "role": "index",
+      "sha256": "7a604cd84eb1e9fb69bff61e2edeedbe4d62d885992c7a3c25bad9b748515a09",
+      "size": 3059,
+      "normalized_sha256": "7a604cd84eb1e9fb69bff61e2edeedbe4d62d885992c7a3c25bad9b748515a09"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmAlertPolicy.kt": {
+      "role": "index",
+      "sha256": "77c144b8d73352c35d76b7d321f61e3bc287625f20bfd14b1cb369c26f3d3d42",
+      "size": 1788,
+      "normalized_sha256": "6ad9b98b2e81806c3db03b02479858eaa1f86b710e9898a5777ef6ddc5c48adf"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmChallengeEmergencyWhitelist.kt": {
+      "role": "index",
+      "sha256": "34d31b336c72b588b2efdf32c802299716f099c51b36c18b51bd43ea27081e91",
+      "size": 8731,
+      "normalized_sha256": "34d31b336c72b588b2efdf32c802299716f099c51b36c18b51bd43ea27081e91"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmChallengeManager.kt": {
+      "role": "index",
+      "sha256": "849833f572cffbb114104e76a2c0d11bd6add9552bceebab2dc0605a345a79e7",
+      "size": 72506,
+      "normalized_sha256": "fc9d14b27caf0ad4e4ee0dc3cc088c56c51d5178fd757ceeb520c4f4103f0e65"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmHeartbeatScheduler.kt": {
+      "role": "index",
+      "sha256": "8d2c6daa791cb48ec651f1df57665496a0e7e3594970fc713cf41abda9ab7c96",
+      "size": 5519,
+      "normalized_sha256": "8d2c6daa791cb48ec651f1df57665496a0e7e3594970fc713cf41abda9ab7c96"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmPowerOffProtectionManager.kt": {
+      "role": "index",
+      "sha256": "953c98f54ba99c377e417370ed55bc6dcc096577533c98a86f81247c23f78806",
+      "size": 3355,
+      "normalized_sha256": "953c98f54ba99c377e417370ed55bc6dcc096577533c98a86f81247c23f78806"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmProtectionEventBridge.kt": {
+      "role": "index",
+      "sha256": "e5890c06e0896bb4264a0ad7125d436298d60b0da3991b4f9ab2776da5e984d7",
+      "size": 8506,
+      "normalized_sha256": "e5890c06e0896bb4264a0ad7125d436298d60b0da3991b4f9ab2776da5e984d7"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmScheduler.kt": {
+      "role": "index",
+      "sha256": "f81b3b98ad160cb2d36006ea888a2b3108c80059e63d3fd71b45c9a677453321",
+      "size": 81840,
+      "normalized_sha256": "1b429367ead4e7ca62a599d67eba84e8324cf8913fc988d48cd92d3a5df2d330"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmSystemBackupUseCase.kt": {
+      "role": "index",
+      "sha256": "d3f75576b9801faf7a479e0bf39eb7961b0a4d1f05a451870dc0aefef8d9f331",
+      "size": 13054,
+      "normalized_sha256": "d3f75576b9801faf7a479e0bf39eb7961b0a4d1f05a451870dc0aefef8d9f331"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AlarmWindowManager.kt": {
+      "role": "index",
+      "sha256": "4e7a99938a1d8b7db81b1b9816da7774fb8ca72e2cb9b44bfbc3b8939f501e74",
+      "size": 15132,
+      "normalized_sha256": "4e7a99938a1d8b7db81b1b9816da7774fb8ca72e2cb9b44bfbc3b8939f501e74"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AntiUninstallManager.kt": {
+      "role": "index",
+      "sha256": "25c5629a2da07c22db9bf2cc5e8529a6f94147903727e8b1f64a8bf38cfcde69",
+      "size": 5054,
+      "normalized_sha256": "25c5629a2da07c22db9bf2cc5e8529a6f94147903727e8b1f64a8bf38cfcde69"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AppSafetyClassifiers.kt": {
+      "role": "index",
+      "sha256": "0b933ce620b7b40c9b3bcb870b66d3cdccf97f2168a02ae42c94e8d6e79abae8",
+      "size": 2986,
+      "normalized_sha256": "0b933ce620b7b40c9b3bcb870b66d3cdccf97f2168a02ae42c94e8d6e79abae8"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AppVisibilityTracker.kt": {
+      "role": "index",
+      "sha256": "33334e3b89b16effe8905631f38c558ffee8313d55173b395a1d04210f854e03",
+      "size": 953,
+      "normalized_sha256": "33334e3b89b16effe8905631f38c558ffee8313d55173b395a1d04210f854e03"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AppWindowManager.kt": {
+      "role": "index",
+      "sha256": "808d7ef0d6c327024557758af8393208971e1c93ad452e710db44c7245ca2dc3",
+      "size": 76277,
+      "normalized_sha256": "c467d95d45c00cff0f0b34c8e686f97aae1e546905376fbe58bbd9b80d185e9a"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AutoBackupManager.kt": {
+      "role": "index",
+      "sha256": "0cffae86daca26c5c15eefa820c4bdf24c9fee2eedcc672350a7ec1cbc3b2746",
+      "size": 8206,
+      "normalized_sha256": "92f8ce5473724407dd46f21f1bdf037b19ece3e2efa083676d7552b931bd6935"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/AutomaticRestrictionReleasePolicy.kt": {
+      "role": "index",
+      "sha256": "8a51a8d91818b864c8db8276f3dbc786f7e2e44230c2eb9a3edcd25308714bcd",
+      "size": 950,
+      "normalized_sha256": "a64c79343f77a8b2d8818b4b2dd76e7e64d43657be408ca1daa5d20543d39811"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/ChangeLogManager.kt": {
+      "role": "index",
+      "sha256": "bc87ed0c3ea20fea21cb4b16a44522112780e0605d8602ebd244c43daf031652",
+      "size": 19513,
+      "normalized_sha256": "bc87ed0c3ea20fea21cb4b16a44522112780e0605d8602ebd244c43daf031652"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/ConfigPendingManager.kt": {
+      "role": "index",
+      "sha256": "f8ab778b9cee3d0c4ace851e258240ad7fb8af3c73e30c8ef1e278fa32cd6f73",
+      "size": 6515,
+      "normalized_sha256": "f8ab778b9cee3d0c4ace851e258240ad7fb8af3c73e30c8ef1e278fa32cd6f73"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/CreditManager.kt": {
+      "role": "index",
+      "sha256": "4375ac1cd1c4dcda816af8516af294c6a5e65c608366b4452e8c4dd32e0bdb11",
+      "size": 182482,
+      "normalized_sha256": "2fa44da8726596c86d0cc96f04875cc63a9568af70129c4e7c231d94a2e0f2eb"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/EffectiveActivationPolicyManager.kt": {
+      "role": "index",
+      "sha256": "4680f998d1cd5bcd3af4d755ab3237556f3e09ed19dc892f10df4fa2d8f5a28a",
+      "size": 3127,
+      "normalized_sha256": "408302040414fef209afad0b5f004cdd3129565589640bac1a81d9bb77c7788b"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/ForegroundEvidencePolicy.kt": {
+      "role": "index",
+      "sha256": "3ddefe22bb7279b8a3ff94d27ccadd576d916758d6950af24f83b8e969134b47",
+      "size": 3805,
+      "normalized_sha256": "3ddefe22bb7279b8a3ff94d27ccadd576d916758d6950af24f83b8e969134b47"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/LockDecision.kt": {
+      "role": "index",
+      "sha256": "1f32b2efdd596483d86b59d9bdac5b54864836bc1648551faa2dd40d9c90696d",
+      "size": 2873,
+      "normalized_sha256": "23a3affcde34854afc4aa71b479b128c2897456594a4ae2075aa09e5d264e2b9"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/LockScreenPresentationPolicy.kt": {
+      "role": "index",
+      "sha256": "237d2526563218bf1c8878e9beda233d254ad6b35e495bcaa55eabda233e0e00",
+      "size": 5161,
+      "normalized_sha256": "37da312103a4b8bbe0b1eb713007b901e9ad049729da31e6bd6c5e7ffd40112c"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/ManualPermissionRecoveryManager.kt": {
+      "role": "index",
+      "sha256": "f4e4664bb8794f8cb4fbcb0c77fcd21129408dce988a735e027aa3523d040f3c",
+      "size": 4255,
+      "normalized_sha256": "f4e4664bb8794f8cb4fbcb0c77fcd21129408dce988a735e027aa3523d040f3c"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/NormalEventStateTracker.kt": {
+      "role": "index",
+      "sha256": "92e0e0cd1f9c5ef2587e72f21d970cbe3885fac99745e71891f50dd4701342c5",
+      "size": 3709,
+      "normalized_sha256": "92e0e0cd1f9c5ef2587e72f21d970cbe3885fac99745e71891f50dd4701342c5"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/PackageForegroundEventExtractor.kt": {
+      "role": "index",
+      "sha256": "d03b4af6c64da2ecfd42805586a416ac7454ccbef1dc5b9f71aeb56f91f24523",
+      "size": 1483,
+      "normalized_sha256": "d03b4af6c64da2ecfd42805586a416ac7454ccbef1dc5b9f71aeb56f91f24523"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/PermissionManager.kt": {
+      "role": "index",
+      "sha256": "d492d1fd04bcb681aa1238204192ae88fcc6cc06755cb32596f3087bac297fb5",
+      "size": 23914,
+      "normalized_sha256": "d492d1fd04bcb681aa1238204192ae88fcc6cc06755cb32596f3087bac297fb5"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/PrivacyConsentManager.kt": {
+      "role": "index",
+      "sha256": "7e5fa202738b85f0167a3724309a593f022c7f446c9622f56a84bd72edde846c",
+      "size": 5839,
+      "normalized_sha256": "7e5fa202738b85f0167a3724309a593f022c7f446c9622f56a84bd72edde846c"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/PrivacyProtectionManager.kt": {
+      "role": "index",
+      "sha256": "a0bc4c7d943090167e2dc588ffe764ce769f4873ae41f39b2e6690012adf4c9b",
+      "size": 3882,
+      "normalized_sha256": "a0bc4c7d943090167e2dc588ffe764ce769f4873ae41f39b2e6690012adf4c9b"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/ProbationManager.kt": {
+      "role": "index",
+      "sha256": "564a74a74a1dfc268fe8e78f8d4673c98028681343fbb2e1cae360af2533876f",
+      "size": 7073,
+      "normalized_sha256": "564a74a74a1dfc268fe8e78f8d4673c98028681343fbb2e1cae360af2533876f"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/PwaBypassManager.kt": {
+      "role": "index",
+      "sha256": "1ad2b9aec5fc636b1731e2ff3b275ad2267ca908a96466b6d3c44dc226d716c2",
+      "size": 8217,
+      "normalized_sha256": "1ad2b9aec5fc636b1731e2ff3b275ad2267ca908a96466b6d3c44dc226d716c2"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/QuotaConfigEventBridge.kt": {
+      "role": "index",
+      "sha256": "b4752e85fc99f9976decce746a0c438b52f0798734847fce61af550852b8b7ce",
+      "size": 7524,
+      "normalized_sha256": "b4752e85fc99f9976decce746a0c438b52f0798734847fce61af550852b8b7ce"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/RecentTasksHideManager.kt": {
+      "role": "index",
+      "sha256": "c2d9e5bddebe6e6766a7c2fb8577430a6ed43925a2200328641f4e55fc086e32",
+      "size": 4376,
+      "normalized_sha256": "c2d9e5bddebe6e6766a7c2fb8577430a6ed43925a2200328641f4e55fc086e32"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/ReminderManager.kt": {
+      "role": "index",
+      "sha256": "9c1d0c50855e37836f38628a9ce983f1a17b1d6df0a94e5301d86a20a0c27c67",
+      "size": 7611,
+      "normalized_sha256": "9c1d0c50855e37836f38628a9ce983f1a17b1d6df0a94e5301d86a20a0c27c67"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/RomPermissionDetector.kt": {
+      "role": "index",
+      "sha256": "fe049e369bdff5ecac97f814636beadde36e397a83000786c1811f511c353384",
+      "size": 7561,
+      "normalized_sha256": "fe049e369bdff5ecac97f814636beadde36e397a83000786c1811f511c353384"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/SettingsBackupManager.kt": {
+      "role": "index",
+      "sha256": "21e681d270d4e0e903de9802152996cb724170862aa4721774831f0b722fe6a1",
+      "size": 36734,
+      "normalized_sha256": "7383926ddaa6f26f40a9ae0a44a4d9ca83ff0cc07ebdaa15d475a1dbace61156"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/SettingsNavigator.kt": {
+      "role": "index",
+      "sha256": "86c22ef2a1bc8395b784763fb627dec59ed617f98bcc888617ffb1793970072e",
+      "size": 5819,
+      "normalized_sha256": "86c22ef2a1bc8395b784763fb627dec59ed617f98bcc888617ffb1793970072e"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/StartupA11yCache.kt": {
+      "role": "index",
+      "sha256": "ad3ecba53e77f1e8d2152744eedc064fd042ca5502aee03aff665c6288a97331",
+      "size": 2666,
+      "normalized_sha256": "ad3ecba53e77f1e8d2152744eedc064fd042ca5502aee03aff665c6288a97331"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/StartupProtectionManager.kt": {
+      "role": "index",
+      "sha256": "7b1507b3c2b59001337f7402e4b44f952028569f49445404687f3001dab171dd",
+      "size": 20796,
+      "normalized_sha256": "5c5f7e418e3d6c9eabf29fdaf62505bb534269ea72fce833b6914106239b7829"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/TimeRuleManager.kt": {
+      "role": "index",
+      "sha256": "a95a058687be816c29b3c742a1b254935044ad179b2d4b5caed0a0116871fbe5",
+      "size": 180363,
+      "normalized_sha256": "c847ece47082fe62cfcf39bdc595d68764da89890b33027db73348af2d5a50df"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/questionbank/CustomQuestionBankManager.kt": {
+      "role": "index",
+      "sha256": "0502db39901570bb430134d170fe22c882ab9d24c8c61d2729d1884175dc0360",
+      "size": 21459,
+      "normalized_sha256": "2144ff5179fc15335360b72cfff54a1de148661703d58ae7ec6d4694552dc9f1"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/questionbank/CustomQuestionBankParser.kt": {
+      "role": "index",
+      "sha256": "ce58b576ab2ed0ee13f8f1f885945528a2aca72219c360cc3a4adbbc2b19f67c",
+      "size": 16306,
+      "normalized_sha256": "4627f926d27f8692f21256e7696ada25e336f7b939dbc5a23c7a23bb7c3e5930"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/statistics/AlarmWakeStatsRecorder.kt": {
+      "role": "index",
+      "sha256": "8b5817352e103c88d59bcbbaaac3f7a9f931c318be603668b099543d3757e462",
+      "size": 11239,
+      "normalized_sha256": "281fd939f122f15bca378b93e80640de0d7f507f1b5d2ea553c22c680eeb5c46"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/statistics/RestStatsRecorder.kt": {
+      "role": "index",
+      "sha256": "c313c7992a24dac8a7227cc893ab34dc568407e1016f92ad506c92dde082c498",
+      "size": 5905,
+      "normalized_sha256": "22121ef104e266870bd6e415575cd77da61b1aafe056bd6dba0f7add6cb3665f"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/statistics/RuleChangeLedger.kt": {
+      "role": "index",
+      "sha256": "2d586deef2ec7d8ab35d9f4fc19d75de27b932b8cd28d0652f6a08a4fb1a2b80",
+      "size": 5534,
+      "normalized_sha256": "7d04ffa3bd82de7999d587f6b189c5714d1d9d1c639775e0cb51e96e8f5eb882"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/statistics/StatisticsRepository.kt": {
+      "role": "index",
+      "sha256": "cf7a9ff59045e474ee619823abf7f5f123609cd03b6bcdd353af2f68e332c87e",
+      "size": 62381,
+      "normalized_sha256": "e3c5b4a9426386c899d7a6c43635ce3c392b7a85f96757e2258c3a1c33664d27"
+    },
+    "app/src/main/java/com/zhizhi/app/manager/statistics/StatsDateRangeResolver.kt": {
+      "role": "index",
+      "sha256": "c16268d9a3c772ad6bb20ed9333bca828a02e0af04105f20cbe2734c76938957",
+      "size": 10138,
+      "normalized_sha256": "1fe9a9acf00b9468919bd1f4b8f10fa96c5489d864c190c633dd903e05f25515"
+    },
+    "app/src/main/java/com/zhizhi/app/protection/AccessibilityProtection.kt": {
+      "role": "index",
+      "sha256": "32f0578d1d025bc0f30a6bed9603228ab141fffb1cff7503ef579caf691c464b",
+      "size": 11849,
+      "normalized_sha256": "85011f59f31a7443e12eb66c70c4210ea1e64b2b476e5be008a5828190733f0e"
+    },
+    "app/src/main/java/com/zhizhi/app/protection/AntiUninstallProtection.kt": {
+      "role": "index",
+      "sha256": "0831b68aef9cd657463178e41f6616fea20b9294986de55150cc041027252349",
+      "size": 85918,
+      "normalized_sha256": "800d2de1ce9d41de3ffa75455173adb130609bd287fb403f28206b78682beb2f"
+    },
+    "app/src/main/java/com/zhizhi/app/protection/PermissionProtection.kt": {
+      "role": "index",
+      "sha256": "982137b7cab99b5b7cc44100f37a4ccddc6a74b44b7e62ba7f0abfc29a8131e8",
+      "size": 11450,
+      "normalized_sha256": "3ccaa99ab07f16342c9b70f57f6afbd46ed0e84d98efd333d425aed0c6913400"
+    },
+    "app/src/main/java/com/zhizhi/app/protection/ProtectionManager.kt": {
+      "role": "index",
+      "sha256": "bdaba4101021208f4f09fb6e897b00b834b49f835b5a1f75d93413cc07c2b15d",
+      "size": 3625,
+      "normalized_sha256": "bdaba4101021208f4f09fb6e897b00b834b49f835b5a1f75d93413cc07c2b15d"
+    },
+    "app/src/main/java/com/zhizhi/app/receiver/AlarmHeartbeatReceiver.kt": {
+      "role": "index",
+      "sha256": "e5aaf86cab2b4e5f519bfdc6a42fbc8878e9403a63bc8cef44f22782f1ababb4",
+      "size": 3093,
+      "normalized_sha256": "e5aaf86cab2b4e5f519bfdc6a42fbc8878e9403a63bc8cef44f22782f1ababb4"
+    },
+    "app/src/main/java/com/zhizhi/app/receiver/AlarmReceiver.kt": {
+      "role": "index",
+      "sha256": "44e93a24041fc317c808fdd0f068371f64df1839e0e0d27be2c2e410fd142d87",
+      "size": 18770,
+      "normalized_sha256": "44e93a24041fc317c808fdd0f068371f64df1839e0e0d27be2c2e410fd142d87"
+    },
+    "app/src/main/java/com/zhizhi/app/receiver/AutoStartTestReceiver.kt": {
+      "role": "index",
+      "sha256": "cd049b751ba15b45010c221b26356a2b9835aad63a970967bc5914d70da5834e",
+      "size": 1679,
+      "normalized_sha256": "cd049b751ba15b45010c221b26356a2b9835aad63a970967bc5914d70da5834e"
+    },
+    "app/src/main/java/com/zhizhi/app/receiver/BootReceiver.kt": {
+      "role": "index",
+      "sha256": "316a12a997d977ecf1d6ea6491d52c625dad8bf69efcf230f8cb1b76851eb328",
+      "size": 9421,
+      "normalized_sha256": "316a12a997d977ecf1d6ea6491d52c625dad8bf69efcf230f8cb1b76851eb328"
+    },
+    "app/src/main/java/com/zhizhi/app/receiver/DeviceAdmin.kt": {
+      "role": "index",
+      "sha256": "9b8e6fd4d6547b578d7eeca2ae902c3b182da0fd3e7646a9bd0d00b1fe621cad",
+      "size": 1227,
+      "normalized_sha256": "9b8e6fd4d6547b578d7eeca2ae902c3b182da0fd3e7646a9bd0d00b1fe621cad"
+    },
+    "app/src/main/java/com/zhizhi/app/receiver/PackageInstallReceiver.kt": {
+      "role": "index",
+      "sha256": "d67ee8e649792dc35886c342213c2b9a5821d25d3a2280df1d0e77953efe244f",
+      "size": 2227,
+      "normalized_sha256": "d67ee8e649792dc35886c342213c2b9a5821d25d3a2280df1d0e77953efe244f"
+    },
+    "app/src/main/java/com/zhizhi/app/service/A11yGuardService.kt": {
+      "role": "index",
+      "sha256": "337a7f5a2a043c53e1f29241e12b0e026210d4f3e27f0bcd74afbc08fbee2fba",
+      "size": 14327,
+      "normalized_sha256": "337a7f5a2a043c53e1f29241e12b0e026210d4f3e27f0bcd74afbc08fbee2fba"
+    },
+    "app/src/main/java/com/zhizhi/app/service/AccessibilityWindowPresenceProbe.kt": {
+      "role": "index",
+      "sha256": "8c39e36fc62669f58abe8ff9d18fcb3f418dede284ba15a848b1c451bfbb2b8b",
+      "size": 6002,
+      "normalized_sha256": "8c39e36fc62669f58abe8ff9d18fcb3f418dede284ba15a848b1c451bfbb2b8b"
+    },
+    "app/src/main/java/com/zhizhi/app/service/AccessibilityWindowSnapshot.kt": {
+      "role": "index",
+      "sha256": "8e09bcbdba83d15695e0e4860d30fe05b91f40180b97636f1cb5300b3144f6d2",
+      "size": 376,
+      "normalized_sha256": "8e09bcbdba83d15695e0e4860d30fe05b91f40180b97636f1cb5300b3144f6d2"
+    },
+    "app/src/main/java/com/zhizhi/app/service/AlarmChallengeEmergencyGuardService.kt": {
+      "role": "index",
+      "sha256": "5554e44632cef7b5d1ea02c035f954664c249a144faff3ec138296eafb61443c",
+      "size": 15417,
+      "normalized_sha256": "e91c3f717a83a10388cd0105d16ca5b53bd8872cfd200ef49400ff0628e38c05"
+    },
+    "app/src/main/java/com/zhizhi/app/service/AlarmGuardianService.kt": {
+      "role": "index",
+      "sha256": "a9ac21ec4f1dc0138696e1838d95be2e15a850b61fc4b21694297d9a9944a3b7",
+      "size": 28194,
+      "normalized_sha256": "a9ac21ec4f1dc0138696e1838d95be2e15a850b61fc4b21694297d9a9944a3b7"
+    },
+    "app/src/main/java/com/zhizhi/app/service/AlarmVibrationService.kt": {
+      "role": "index",
+      "sha256": "6a26521f2940265abddf5e10120302518d042a6e3ee3dcc4d83773dd56631e2d",
+      "size": 40183,
+      "normalized_sha256": "95f270e488f3b17c657086ed6e6a0ba7c3515e911a7dd20954867e1355fa9f5c"
+    },
+    "app/src/main/java/com/zhizhi/app/service/AlarmWatchdogService.kt": {
+      "role": "index",
+      "sha256": "f2d70c8fb1752a269ebe16b069041054d14b0bec10db40c3762ca52b0f2f3312",
+      "size": 7254,
+      "normalized_sha256": "f2d70c8fb1752a269ebe16b069041054d14b0bec10db40c3762ca52b0f2f3312"
+    },
+    "app/src/main/java/com/zhizhi/app/service/CoreService.kt": {
+      "role": "index",
+      "sha256": "c349423ae031ad100f3cb06113cc28a792b69cff8cdd0f7aa5d0ae403e815f9d",
+      "size": 72087,
+      "normalized_sha256": "b57e81a9bffb8a6c95b83dc519a79b5da5388c2408636431424935a513539f2c"
+    },
+    "app/src/main/java/com/zhizhi/app/service/FastLockService.kt": {
+      "role": "index",
+      "sha256": "0922132cc5c89ce586f457e69a1d11eb884215396c07163a69a931eeb78a65a6",
+      "size": 34978,
+      "normalized_sha256": "abdc38bdc6f12cb3dfdcf8241b31fd2a4a0901ac9f51c8e7d0084d0b6aadfc57"
+    },
+    "app/src/main/java/com/zhizhi/app/service/ForegroundGuardFallbackGate.kt": {
+      "role": "index",
+      "sha256": "55cc44fff3ea7ad5232358bd58653207f92d5efa71acf4d8bb24af019082dd1b",
+      "size": 2637,
+      "normalized_sha256": "d9c4a0612b1d2b6b83342d9852975992611075ed9496e11ec971c39515965162"
+    },
+    "app/src/main/java/com/zhizhi/app/service/ForegroundSessionTracker.kt": {
+      "role": "index",
+      "sha256": "1554fd3bcbaccf5a68c4894e825c94eee0049494cefbdcf0c78c737a97d084df",
+      "size": 20089,
+      "normalized_sha256": "f4b16b93c9615576afadf3b54127abec0009845c2593f2d85230ac0667a764da"
+    },
+    "app/src/main/java/com/zhizhi/app/service/MonitorService.kt": {
+      "role": "index",
+      "sha256": "9893de1aafd892d00d2c9696c0cc48dcc1c11620e8ab92f56dd812fe045d595c",
+      "size": 192571,
+      "normalized_sha256": "fa3f9698cb278ec3b3f23e5aa529267ad9e29ae638bef6b57941e4d0eedc5cc0"
+    },
+    "app/src/main/java/com/zhizhi/app/service/PresenceNotificationListener.kt": {
+      "role": "index",
+      "sha256": "9009434a94a38e7ac86eefe495675eef55f0f16a443c473a5794ff7ba6e1f972",
+      "size": 8563,
+      "normalized_sha256": "9009434a94a38e7ac86eefe495675eef55f0f16a443c473a5794ff7ba6e1f972"
+    },
+    "app/src/main/java/com/zhizhi/app/service/VisibleBlacklistLockPolicy.kt": {
+      "role": "index",
+      "sha256": "ecef284c39a87a1c30b15f7a425cff1d77cc01b48917947143e15be580f1a116",
+      "size": 932,
+      "normalized_sha256": "ecef284c39a87a1c30b15f7a425cff1d77cc01b48917947143e15be580f1a116"
+    },
+    "app/src/main/java/com/zhizhi/app/service/VisibleBlacklistPresenceTracker.kt": {
+      "role": "index",
+      "sha256": "7de3eec0259c77356bf5257fea33f57ae569f67093cc399e10bda62d7d427db6",
+      "size": 15334,
+      "normalized_sha256": "29b14b5fea82ca53647e62af682f255a22e5150ca1ceb1bd1250f78ad0ffcec7"
+    },
+    "app/src/main/java/com/zhizhi/app/test/PermissionTestRunner.kt": {
+      "role": "index",
+      "sha256": "c33c73487ab8e69108dc3d916a54c186f09766bb800e1c4dcdf8f0909cd52f95",
+      "size": 2268,
+      "normalized_sha256": "c33c73487ab8e69108dc3d916a54c186f09766bb800e1c4dcdf8f0909cd52f95"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AboutActivity.kt": {
+      "role": "index",
+      "sha256": "32437bdd2284cc0c44d7b5bd05bd0f146d09bf2346cbd0b9274c5cba76a1364e",
+      "size": 5945,
+      "normalized_sha256": "509ee7e48a9b9ac085ce2be9dd9054d0f24ddba67c9e6865bb04b34a8e76f7d8"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AlarmActivity.kt": {
+      "role": "index",
+      "sha256": "aedb53a674e8e5410d584a3ec8e0855998301e8b0fa4b312e3c6d11ef90384cb",
+      "size": 19639,
+      "normalized_sha256": "4c71c966178b52158d1bcd497f8972f28a5182e61c4ad72e92b5d56c8bbffa39"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AlarmEmergencyWhitelistPickerActivity.kt": {
+      "role": "index",
+      "sha256": "1fac131b00e8166af3a8f83dea73605b02f7511abe553f02f7d272621fc93652",
+      "size": 714,
+      "normalized_sha256": "1fac131b00e8166af3a8f83dea73605b02f7511abe553f02f7d272621fc93652"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AlarmEmergencyWhitelistSettingsCard.kt": {
+      "role": "index",
+      "sha256": "319155368b939cae485184d735e19cfb9b9d30b3bce0cd14d435c7ec9ad2a271",
+      "size": 2095,
+      "normalized_sha256": "319155368b939cae485184d735e19cfb9b9d30b3bce0cd14d435c7ec9ad2a271"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AlarmEmergencyWhitelistUiProvider.kt": {
+      "role": "index",
+      "sha256": "58d6af483ff64724ae0676a6f8286491ffa7d445bf3c90dbf9b1ed886626250e",
+      "size": 3043,
+      "normalized_sha256": "93a774840b6447373c56c58d5037d391b611a7c1fe3c4dffcf1df4d34d07b1b4"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AlarmFragment.kt": {
+      "role": "index",
+      "sha256": "e085bbb05e889d7cd8f3cb221da968f1fcd68057804a8421932cdaf6548cd899",
+      "size": 98156,
+      "normalized_sha256": "96448b18e21e574079eb52677850ca42e1e333c586b49144578f682fbb2b578a"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AlarmListAdapter.kt": {
+      "role": "index",
+      "sha256": "01ec6dcba564ce87d21cbf61fd909e895477aba294385cf8ade26a1e98c6465b",
+      "size": 5670,
+      "normalized_sha256": "01ec6dcba564ce87d21cbf61fd909e895477aba294385cf8ade26a1e98c6465b"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AppListAdapter.kt": {
+      "role": "index",
+      "sha256": "fe416ae4ea26d5551069b983d74b5edb9bacda37889089a42e740ad1dc95c987",
+      "size": 6818,
+      "normalized_sha256": "18f3dc60357f3826dc753ac41a159939634fa46d289299a28ba89bf8dcc7c341"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AppSelectionActivity.kt": {
+      "role": "index",
+      "sha256": "cb1330056916cc5a8d72233d435550ac6c991ebc0fed2f80649ec350e8a26d10",
+      "size": 25725,
+      "normalized_sha256": "ace528daf92b5c230e7b04ec00763dba845a43e14fc936609434bc663fe75482"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AppSelectionAdapter.kt": {
+      "role": "index",
+      "sha256": "dd84d27f0a739e3e36916e9af6dd0f09d98571350b6d7949edba736601571474",
+      "size": 4447,
+      "normalized_sha256": "dd84d27f0a739e3e36916e9af6dd0f09d98571350b6d7949edba736601571474"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AppWindowAdapter.kt": {
+      "role": "index",
+      "sha256": "e6f4fcd140f45e06af5872edfa7ec279bc41c2381deafc6aee63a2f78ddfd255",
+      "size": 11574,
+      "normalized_sha256": "b8199c0c2494fa082ddadf5a5ce10cf55c8f99a153bde50677dd38d67930076b"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AppWindowFragment.kt": {
+      "role": "index",
+      "sha256": "a8394f1d636c645fe7a8a2102e3f7f9e3f6c53e889e8d3e925ca52454e812200",
+      "size": 30679,
+      "normalized_sha256": "d8a8150541269144d7b9baf15987e8f9d15186e487337168cea89507b1c03352"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/AppWindowPreviewActivity.kt": {
+      "role": "index",
+      "sha256": "e299457e1cd172f23b65d10df1bc1d8cf8c3cfccd9cb0e880d7dbe78ca8e05ff",
+      "size": 15449,
+      "normalized_sha256": "208d3befa0a945bfec45eff9f073b830be060b3c7e357633a69d01064063f910"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/BookmarkActivity.kt": {
+      "role": "index",
+      "sha256": "56f0b84cc8abcdab120b39c5c73a6e2cca182a6a6eeb9bf5e4c3e718949a2d54",
+      "size": 34777,
+      "normalized_sha256": "a3df1f48518c1cec860c84e46bddc3d3e78f45d959f273a33067eccd66c7462b"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/ClozeChallengeUi.kt": {
+      "role": "index",
+      "sha256": "e27393e4e1b72b7b073c77f29b39501a19927e859a09759481ba0c26aaf154e1",
+      "size": 8164,
+      "normalized_sha256": "e27393e4e1b72b7b073c77f29b39501a19927e859a09759481ba0c26aaf154e1"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/FocusRulesFragment.kt": {
+      "role": "index",
+      "sha256": "8039bd795f308071fcd0a3fb6045ece23d2ee7b0771bedb1ea9a3ca21cba322d",
+      "size": 7171,
+      "normalized_sha256": "fba16f0790f54bf616e05f46768c7bc0eacdf18e80cdca9c49516cffcae1431f"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/GlobalParamsActivity.kt": {
+      "role": "index",
+      "sha256": "996bd72f106db62b3f74ba1c35627ddb254fff4f453046918a602ec0fe9b770d",
+      "size": 18606,
+      "normalized_sha256": "ae33d6c721867e5d55ff641391913bb613a4c970965bd3aac0764a70d38cb265"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/HelpActivity.kt": {
+      "role": "index",
+      "sha256": "535c9742b8f2205a1fffdbb282c73d0e2ce80494aae1efe6ad97bcf0bac3da89",
+      "size": 19802,
+      "normalized_sha256": "b5a8870db6cbd6d5fae11da7039abe6623f4fe94cd4dce51b869795a5b0b7a66"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/HomeFragment.kt": {
+      "role": "index",
+      "sha256": "28bc810b3d2196a4a71905238d35c6e0ef12f79b6009162db3e70451bea390a6",
+      "size": 88765,
+      "normalized_sha256": "cd789cea1559bde6b3133264df3c014c6ddf02d9c27057a007eacc919f961430"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/LegalDocumentActivity.kt": {
+      "role": "index",
+      "sha256": "e63e4bc20c5137495137d6f6af35376686a02aaca9c5cf5386c9bfcbecded867",
+      "size": 1855,
+      "normalized_sha256": "a3b7aeee58298eb0bb6523cfb5f5b4140e69171150a2b9b136567d1a5916e445"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/LockAlarmOverlay.kt": {
+      "role": "index",
+      "sha256": "99ed1b4d5c2de18dcd69879cc9823765319ec4d00c9bf810a9224ec2bd4e6f93",
+      "size": 172220,
+      "normalized_sha256": "b6c0310da618122ac985dd12603afe8712d0bd0f7089b5a899aa1b2f52896aa5"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/LockDismissAuthority.kt": {
+      "role": "index",
+      "sha256": "dbda44cd60b523065a92693e3380f92857cd4704dd5758c617a50b7547974af8",
+      "size": 467,
+      "normalized_sha256": "b2bf8a2e45e8c68eb0c7ac991dfa86e915cb28c66364b30de0e15b9af8f200a8"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/LockWindowManager.kt": {
+      "role": "index",
+      "sha256": "df7d1b399fa3102b5f66c59c81e7f602afe326094998f7298328cb9441fb8aa2",
+      "size": 353565,
+      "normalized_sha256": "93d76f0234a390ddc3fad2d1252c8573e6cb569614f78fec355a2a7671fdafb0"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/MainActivity.kt": {
+      "role": "index",
+      "sha256": "ccf24d261761b5c272a03c747046c3df0b1d376d289a1b7c3b88f30caa07623e",
+      "size": 8803,
+      "normalized_sha256": "9ca65ec67f1cb9aabdaa507eaa8c07a7532d58dd3cf755757a640307414345ca"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/MainActivityEntry.kt": {
+      "role": "index",
+      "sha256": "2595f3ee2bf225540a2e468c44e3736024229649dbb386d7737e2182a1608b38",
+      "size": 7403,
+      "normalized_sha256": "2595f3ee2bf225540a2e468c44e3736024229649dbb386d7737e2182a1608b38"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/PendingMainActivityExtras.kt": {
+      "role": "index",
+      "sha256": "390c0f868da6f055e57229f42d67229db288b292da430e064d745373504798c0",
+      "size": 10029,
+      "normalized_sha256": "390c0f868da6f055e57229f42d67229db288b292da430e064d745373504798c0"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/PrivacyConsentActivity.kt": {
+      "role": "index",
+      "sha256": "c7f45198103ee8b2ee30abffa304044430ad9c7a0b57eb54df27b698130ad67c",
+      "size": 5329,
+      "normalized_sha256": "c7f45198103ee8b2ee30abffa304044430ad9c7a0b57eb54df27b698130ad67c"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/RulesFragment.kt": {
+      "role": "index",
+      "sha256": "9a29a2aaea14a9eb93e14076bc20f125687445282572350c44892d8294ee3202",
+      "size": 110572,
+      "normalized_sha256": "45d686ea801258bd252032fb3efcd57d9d7414ff9870803fe2a8634f087a4a4e"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/SchedulePreviewActivity.kt": {
+      "role": "index",
+      "sha256": "59ad3790d13005d6f05fc3c3f7f77cf1f6916e74b93cffd351fc25cf4a6a3846",
+      "size": 5615,
+      "normalized_sha256": "af39de38eb0d80b2bb2827202a1d5f775901ac7033a124d9d15bc6ab82cdba71"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/SeasonalRuntimeRethemer.kt": {
+      "role": "index",
+      "sha256": "590d8ceb66c71343e2ba9f812a284a533a5ff8aff893690b3520706d9f5d118c",
+      "size": 4232,
+      "normalized_sha256": "20bfa38442db1c725f30b8d1fc015ac490d5901af9e102d25dcc574ba306db8c"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/StatisticsFragment.kt": {
+      "role": "index",
+      "sha256": "2abe0abaf5631fd6cb1d9ab1243f1fad4449e072dcc53e293daccc823fed4d2b",
+      "size": 47965,
+      "normalized_sha256": "c0ab2294299db83a796628b49f0552082f59c6348849f9c121c841244fb7f7b3"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/ThemeManager.kt": {
+      "role": "index",
+      "sha256": "4593bc46331aa783bb208c31acecb0c2933acb9175f4550d7809fbedb48d206e",
+      "size": 7054,
+      "normalized_sha256": "09ab78ca3df57ec3ea541862a35b66dd75bf9992a48602a1368de5ed0d06f8e7"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/ThemeSummaryView.kt": {
+      "role": "index",
+      "sha256": "2437a4aeb3393dcb9cbe94203ebf668097cc9e1a0ea1c0ad8ed825af43d32a2c",
+      "size": 432,
+      "normalized_sha256": "85139d28182f1d2c76c2e22b45f05ec3d4ca7ea930860564ed7108703f073e7e"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/ThemedStatusTextView.kt": {
+      "role": "index",
+      "sha256": "deaa3aa2f09b5df43640d2855937610db9169056138cb950761fb9dc66801242",
+      "size": 1589,
+      "normalized_sha256": "923cffc4f9bd8c25f77ccc3e927312eb1fae9e61d13dc63e48dcf2cd49b3abc2"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/TimeConfigFragment.kt": {
+      "role": "index",
+      "sha256": "54286823eece85f61c6b3d1e5ad0dfb984406dd8cf1b8d23bc07a9539e1e1e8d",
+      "size": 36618,
+      "normalized_sha256": "54286823eece85f61c6b3d1e5ad0dfb984406dd8cf1b8d23bc07a9539e1e1e8d"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/TimeSegmentAdapter.kt": {
+      "role": "index",
+      "sha256": "54e04a935f02774eb05c8c0121fe8daf879c61daad9c123fe21be0b5dd4f2a0e",
+      "size": 9678,
+      "normalized_sha256": "ee9f95d96224c80a1e060bc4127e4afc4fa3d2c9105c35b0ed15dce473a715ba"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/TodayRulesView.kt": {
+      "role": "index",
+      "sha256": "edb2bc0927b93b801ef19cb46eac7eab3737fcafb2291705a64ce62124540c1b",
+      "size": 4367,
+      "normalized_sha256": "90db0f820af07df549c3f8dd93dbc3c4250f98c7d4a67ec2840c43f2fea287e3"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/TypewriterTextView.kt": {
+      "role": "index",
+      "sha256": "cc12bd1d98c489726391b77ef0d10cb90528e3f7afe76df2f990e88af9862513",
+      "size": 2091,
+      "normalized_sha256": "cc12bd1d98c489726391b77ef0d10cb90528e3f7afe76df2f990e88af9862513"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/WordLookupTextView.kt": {
+      "role": "index",
+      "sha256": "863097516129506e8b65e268f34bda2b1059faf8ca6855a56db6c901b72d8d21",
+      "size": 3846,
+      "normalized_sha256": "863097516129506e8b65e268f34bda2b1059faf8ca6855a56db6c901b72d8d21"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/questionbank/CustomQuestionBankActivity.kt": {
+      "role": "index",
+      "sha256": "201956097a64e466ac0c448e49383cf6437feab9aa6d21501c9832870787d57a",
+      "size": 13174,
+      "normalized_sha256": "1089729be7beec5a757fde2c5b5a2a95cd2834c234cbe90be29d56c180083054"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/questionbank/CustomQuestionBankImportActivity.kt": {
+      "role": "index",
+      "sha256": "33083609e5758b8d3a4acd5dcfe6ad406ac8f5335e50ab2e7686febc75196464",
+      "size": 10390,
+      "normalized_sha256": "e82178c021564d0c034bd862838e9348289ce451a594c2b55e42276fa90f7721"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/questionbank/CustomQuestionReviewActivity.kt": {
+      "role": "index",
+      "sha256": "34217810e079c4551f63f4074bf1b46a76718dc2c4d58d0dff115b04889ead0a",
+      "size": 13188,
+      "normalized_sha256": "e9210f24ff458397aff484de2004da63796ea8c5b84ce82f47d337af9324c0e5"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/statistics/AppCategoryDetailActivity.kt": {
+      "role": "index",
+      "sha256": "8767b376d938e00daa13a9966a2f8c5421695f7dfd8f247dc5284ea6f98e3dee",
+      "size": 10019,
+      "normalized_sha256": "05140a37c807b956a1e43a9271926063376998ebd828386fb5e47b858d95c3b7"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/statistics/StatisticsChartRenderer.kt": {
+      "role": "index",
+      "sha256": "49d925ad56e469a983d00f5e662594fc73e9a49d755ab3eca23e888a6b638d32",
+      "size": 23541,
+      "normalized_sha256": "801a56c507a7c65d57cb3a771839902a812286a309f83df5cdd523758613dac0"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/statistics/StatisticsFilterBottomSheet.kt": {
+      "role": "index",
+      "sha256": "7e09ff971256e84b953e16b2621c239e7c679cf39e16eb3c235859dd00adb2c3",
+      "size": 14127,
+      "normalized_sha256": "6d7189e72e917e51ac0abdcf6bff8419516fada67cfe4a8c66eab0e8a4bbd585"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/statistics/StatsFilterActivity.kt": {
+      "role": "index",
+      "sha256": "1f423ced78d61b582ca5e5f20f24ae60adad7b00cc540ca040e80e8805fd76bb",
+      "size": 12323,
+      "normalized_sha256": "4da3b69b27a70c01451a8f9849ddec3c6cabb3056ea779d5d8c153851814c191"
+    },
+    "app/src/main/java/com/zhizhi/app/ui/statistics/StatsHistoryActivity.kt": {
+      "role": "index",
+      "sha256": "3404298d464c48e02c0ef8a45ed8e4d9f16f2e2e282fcb6ecec6853fe6293eee",
+      "size": 14556,
+      "normalized_sha256": "f8bf5f1600c2c15bb8c9f1260065fd99e0bbeee5f30c355681c6f16845cdd528"
+    },
+    "app/src/main/java/com/zhizhi/app/util/BorrowLimitCalculations.kt": {
+      "role": "index",
+      "sha256": "3069c10278043477d3d2eaa380e0e35e81586bae9efa058a8431ba67d4be5da0",
+      "size": 2211,
+      "normalized_sha256": "3069c10278043477d3d2eaa380e0e35e81586bae9efa058a8431ba67d4be5da0"
+    },
+    "app/src/main/java/com/zhizhi/app/util/BorrowRemainingCalculator.kt": {
+      "role": "index",
+      "sha256": "9d652d8beda8a0e2a7c767049beedc4ffb633be4a5151cf2509ca20b1679ef3e",
+      "size": 1065,
+      "normalized_sha256": "9d652d8beda8a0e2a7c767049beedc4ffb633be4a5151cf2509ca20b1679ef3e"
+    },
+    "app/src/main/java/com/zhizhi/app/util/ContrastHelper.kt": {
+      "role": "index",
+      "sha256": "31c195e5a684a7a968a903832db000528ac19d2b3f97aa88d9647189b368cc8e",
+      "size": 2554,
+      "normalized_sha256": "827ee784c1ba0d390389eef49b004775efb38def92c03e02f56fe6acfa925a82"
+    },
+    "app/src/main/java/com/zhizhi/app/util/DiagnosticLogCompressor.kt": {
+      "role": "index",
+      "sha256": "7f069b1d6f1d511c2aaff8f46ab8d94fdac210d87b2eb9b4e225f15b3b041492",
+      "size": 7724,
+      "normalized_sha256": "7f069b1d6f1d511c2aaff8f46ab8d94fdac210d87b2eb9b4e225f15b3b041492"
+    },
+    "app/src/main/java/com/zhizhi/app/util/DiagnosticTimestampFormatter.kt": {
+      "role": "index",
+      "sha256": "b9c9f22d0e7b94fe1cd2c51e2edb2ef540e7228720ddc4dd992c61074286b3db",
+      "size": 1346,
+      "normalized_sha256": "b9c9f22d0e7b94fe1cd2c51e2edb2ef540e7228720ddc4dd992c61074286b3db"
+    },
+    "app/src/main/java/com/zhizhi/app/util/ForegroundReportFormatter.kt": {
+      "role": "index",
+      "sha256": "d39cdac86845663481f64ed0afd618c11508469ae1ae64ab8857d2636ca7fea7",
+      "size": 45773,
+      "normalized_sha256": "d39cdac86845663481f64ed0afd618c11508469ae1ae64ab8857d2636ca7fea7"
+    },
+    "app/src/main/java/com/zhizhi/app/worker/AlarmHeartbeatWorker.kt": {
+      "role": "index",
+      "sha256": "6ec7f191cbec796f095dce702f006882d1edf8e6d1df4766564fe57b2fe99578",
+      "size": 5171,
+      "normalized_sha256": "6ec7f191cbec796f095dce702f006882d1edf8e6d1df4766564fe57b2fe99578"
+    },
+    "app/src/main/java/com/zhizhi/app/worker/AlarmWorker.kt": {
+      "role": "index",
+      "sha256": "f3f46c7e7f4ba57ae520889fc8a1584b2c6d1a08f5e297c07c7720e8cd307137",
+      "size": 1468,
+      "normalized_sha256": "f3f46c7e7f4ba57ae520889fc8a1584b2c6d1a08f5e297c07c7720e8cd307137"
+    },
+    "app/src/main/res/color/nav_item_color.xml": {
+      "role": "index",
+      "sha256": "60a62efcd326caca6b85b3ef4cb071184e0eab4ee859b41e86315a5526064d0e",
+      "size": 209,
+      "normalized_sha256": "5a6ae274f2196a6f638f2dd363e90a4feede9b59b8e836d0b7cb281f571bac9c"
+    },
+    "app/src/main/res/color/selector_mode_text.xml": {
+      "role": "index",
+      "sha256": "e7f64460b52c2e493451f82585ea626bc5ec6f9b0a10923dd4d7b4ef29f2bd24",
+      "size": 225,
+      "normalized_sha256": "50f7481ec3aa23b0e23c0c5fcbe69de6045a42212490d5293056a025a4fd1334"
+    },
+    "app/src/main/res/color/selector_text_color_toggle.xml": {
+      "role": "index",
+      "sha256": "c9c53a9d3ffae7c197827a3d95b9ee95f263a307ec9bd678c9a54a9605165c10",
+      "size": 227,
+      "normalized_sha256": "ef3ec8a1fe75b839d02043660b86dd26694bcc08a5a931a65156be598ffb4b99"
+    },
+    "app/src/main/res/color/switch_thumb_color.xml": {
+      "role": "index",
+      "sha256": "20f5830d6c57bbd062da8bd619bae433571d05ecbf33b082c987ea21d9a33b5c",
+      "size": 284,
+      "normalized_sha256": "49de769a8f3be2ec604535a0d4959b4cea23280948a0d4d921e5612c4dfbca0f"
+    },
+    "app/src/main/res/color/switch_track_color.xml": {
+      "role": "index",
+      "sha256": "955594591e8ef5a6f03b563059fc82a40eb49695bc2ce052689ab7e756f49528",
+      "size": 296,
+      "normalized_sha256": "9862079bfa5a6b812c75d64d1a55a6287b4f82e60e70c699217f08edddfe68fd"
+    },
+    "app/src/main/res/drawable/bg_badge_new.xml": {
+      "role": "index",
+      "sha256": "c3900a13dfbd752d6eba73d58cde147d696f84cc3dbd6aa3b35922726e72b175",
+      "size": 221,
+      "normalized_sha256": "d01f906a4c3780567e48d8e2cd2ca632aa7f2c6a117909132ad662f428fb1be3"
+    },
+    "app/src/main/res/drawable/bg_bottom_nav_item.xml": {
+      "role": "index",
+      "sha256": "ca55e1c811650b064515f99f0544de9e6372a170e8f6982a8a3422b65b740303",
+      "size": 583,
+      "normalized_sha256": "8ebfb855aa9b398d858102489ba04180ac327086aee2f182c9c40752c738a8c0"
+    },
+    "app/src/main/res/drawable/bg_dialog_button_outline.xml": {
+      "role": "index",
+      "sha256": "3445f28d520080528b4969ab4b0421cbb39cef978dd6d94f3476dfc5768cd389",
+      "size": 425,
+      "normalized_sha256": "52fd29093ede3038cf95701297b27a30b6fbd9fb903987f77c36f467d5dfab55"
+    },
+    "app/src/main/res/drawable/bg_focus_rules_tab_container.xml": {
+      "role": "index",
+      "sha256": "43b19664eb1aa912c93cc08cdf1c9b5c7836b24f07aba00b00e77082ac4bea09",
+      "size": 232,
+      "normalized_sha256": "da2d38225a75e01f4526143f689cc865af8375c23226a43c597c3b1775848a41"
+    },
+    "app/src/main/res/drawable/bg_input_field.xml": {
+      "role": "index",
+      "sha256": "828322d143b1477ff390d7046e1f2d8be6114104cac6af10f16fd37e4216bb69",
+      "size": 322,
+      "normalized_sha256": "d287342388bf4abb4795495f0a9b76a2daa3bfe5b67e68f7a296ed8c8b947ea1"
+    },
+    "app/src/main/res/drawable/bg_quota_current.xml": {
+      "role": "index",
+      "sha256": "39f7ff28508c07393a610a26baa364862160c602c1837bc3ca81c8a086f6e218",
+      "size": 232,
+      "normalized_sha256": "ec6c85a354ff44f68905d5720827863cf738c660e09a1de595611946054ca3f8"
+    },
+    "app/src/main/res/drawable/bg_quota_next.xml": {
+      "role": "index",
+      "sha256": "2a37ba8ed5a627e36f9862f3b9c33d61235057e12d611ede408e7bfcae5fa497",
+      "size": 175,
+      "normalized_sha256": "17b1ed5d5b4633724a0fec6b453f8467ac7fad8ec35767cc1d87b8283bc4a689"
+    },
+    "app/src/main/res/drawable/bg_quota_note.xml": {
+      "role": "index",
+      "sha256": "c0e499f55b4696c4aba1075914d8a5489268593e3d6151ea30341c8118009aac",
+      "size": 179,
+      "normalized_sha256": "d656208c39f31cdee6510dbe99b7b93f2794cd23d97e1d9b7e186eb0b7bec665"
+    },
+    "app/src/main/res/drawable/bg_quota_required.xml": {
+      "role": "index",
+      "sha256": "38c07fe84cb6f8815afeebef57a213196eede75ae70a8215150296d0ead097d9",
+      "size": 178,
+      "normalized_sha256": "4b3c66a1934bb43887ded7ee9b0ed3aa65bca7bcd00453374c4d2c1842c25848"
+    },
+    "app/src/main/res/drawable/bg_sea_bubble.xml": {
+      "role": "index",
+      "sha256": "937c5e5c666069fa1c1771266d1de91c6eed6396581c1a33cd24deae3bc5cafa",
+      "size": 235,
+      "normalized_sha256": "c091cda8a68f3f14c7c8f8d905dc59cf272b94f96535aec51841adccc819d2f0"
+    },
+    "app/src/main/res/drawable/bg_sea_depths.xml": {
+      "role": "index",
+      "sha256": "889e84e1d51d243402fd2d7489d7123f0246b4670e69fa9e25a27f246914936d",
+      "size": 142,
+      "normalized_sha256": "0826a7d6e4de07588a73b8ae59fe13dc582e147ed1338906c7cfca746734f683"
+    },
+    "app/src/main/res/drawable/bg_sea_porthole.xml": {
+      "role": "index",
+      "sha256": "b1a27b70bcfdec2d029418a0aac41e86a9b262311dfc9bef41846aa206ca16a1",
+      "size": 235,
+      "normalized_sha256": "eb921b793f81b4bc8632ba81118da7c78a552df48c819acfad5f2b78a2b81d62"
+    },
+    "app/src/main/res/drawable/bg_sea_surface.xml": {
+      "role": "index",
+      "sha256": "889e84e1d51d243402fd2d7489d7123f0246b4670e69fa9e25a27f246914936d",
+      "size": 142,
+      "normalized_sha256": "0826a7d6e4de07588a73b8ae59fe13dc582e147ed1338906c7cfca746734f683"
+    },
+    "app/src/main/res/drawable/bg_zz_badge.xml": {
+      "role": "index",
+      "sha256": "af57ed1fae981c5a002699e0f5bf31218158dd3e79a2c4c34e4ee5a4ed62c0c3",
+      "size": 237,
+      "normalized_sha256": "0fac8b52791f9e51219ac74d271c1ab477779dcd6789061f524e1254b20ccf82"
+    },
+    "app/src/main/res/drawable/bg_zz_card.xml": {
+      "role": "index",
+      "sha256": "937c5e5c666069fa1c1771266d1de91c6eed6396581c1a33cd24deae3bc5cafa",
+      "size": 235,
+      "normalized_sha256": "c091cda8a68f3f14c7c8f8d905dc59cf272b94f96535aec51841adccc819d2f0"
+    },
+    "app/src/main/res/drawable/bg_zz_card_soft.xml": {
+      "role": "index",
+      "sha256": "18ec7081897f92558fd589fea34084399d410aa446205dd37a42edbc09c5825e",
+      "size": 177,
+      "normalized_sha256": "f225da9d5312be072dc87aeed762762f547994eaf1b5613de84a8643e8a345a0"
+    },
+    "app/src/main/res/drawable/bg_zz_control_btn.xml": {
+      "role": "index",
+      "sha256": "76a64d96257675b4985c564ece3b71e53484b82f8de6a903c091637bdff455e8",
+      "size": 236,
+      "normalized_sha256": "ae4b1e92ac40a351045d64ddbed0a61f9795fd49bed524b81b34f9146d30b816"
+    },
+    "app/src/main/res/drawable/bg_zz_kpi_card.xml": {
+      "role": "index",
+      "sha256": "744e6c97e2958fe917180d4993fb4e87bc33d16106b0567058ac789f82fc39e0",
+      "size": 308,
+      "normalized_sha256": "04aac154bec2731328e961f1c8fa06183aa904294ff0c7df2ca017f00d286abb"
+    },
+    "app/src/main/res/drawable/bg_zz_option_btn.xml": {
+      "role": "index",
+      "sha256": "839c9c100610dea0ed079d351b1e8fd266b17d0f84050faf07b716638ea116af",
+      "size": 308,
+      "normalized_sha256": "e2615d242e25bf65f79ebebc50b90505da607405c908b06fa39ff5966dde8718"
+    },
+    "app/src/main/res/drawable/bg_zz_option_btn_selected.xml": {
+      "role": "index",
+      "sha256": "33ed536acf9b9c7dc02092913100448c98c732ed62f09b7c83503cb994216d91",
+      "size": 309,
+      "normalized_sha256": "6cf87464b9f9870e3b9054a1afe45fcc8ab79112def6fe7cf0cae1cb9ce1e063"
+    },
+    "app/src/main/res/drawable/bg_zz_pill.xml": {
+      "role": "index",
+      "sha256": "b9b6a8d4791338ef6a8843a8b83944d8eecb793612ade86c2455f88603cc6560",
+      "size": 180,
+      "normalized_sha256": "615e6cbaf61e5e74f64893ee55c5b74cba58ec434997d9cdc9c09a6afb42d377"
+    },
+    "app/src/main/res/drawable/bg_zz_primary_btn.xml": {
+      "role": "index",
+      "sha256": "b007ec99b6e5450ca489a6c51ff6e3cb480ae3134f1431f510d8b3213ac6d736",
+      "size": 234,
+      "normalized_sha256": "c609c6b66895b5ba1e822d5d4794563d2a0eac160c534248a09a5ffa3ffed819"
+    },
+    "app/src/main/res/drawable/bg_zz_rank_fill.xml": {
+      "role": "index",
+      "sha256": "719d91a100b87028be75111fe3905729178c9a2f922b593bff59050d31096307",
+      "size": 235,
+      "normalized_sha256": "18cead0e69211848075c5684969e0700f0e4020a241f55b68940a2316a6e8ced"
+    },
+    "app/src/main/res/drawable/bg_zz_rank_track.xml": {
+      "role": "index",
+      "sha256": "af57ed1fae981c5a002699e0f5bf31218158dd3e79a2c4c34e4ee5a4ed62c0c3",
+      "size": 237,
+      "normalized_sha256": "0fac8b52791f9e51219ac74d271c1ab477779dcd6789061f524e1254b20ccf82"
+    },
+    "app/src/main/res/drawable/bg_zz_subtab_bg.xml": {
+      "role": "index",
+      "sha256": "4b26fcdf81297b59ded1d9d6e0a5235c05a826cf5b13657a725bc077f0aaadf0",
+      "size": 236,
+      "normalized_sha256": "f7a21caa9fe1e2e9fcb102f87d70c81aa2fee664883cceb15970fbbff52ff3cd"
+    },
+    "app/src/main/res/drawable/btn_torch_bg.xml": {
+      "role": "index",
+      "sha256": "4bf7155fab7edbe9c6dfdff1521628f870e889acd03f7ef3cba29dbdf747893e",
+      "size": 185,
+      "normalized_sha256": "88f2873e7518fd3508ee55827cafd333a96791fb500305a4d53bab00e1fc66d3"
+    },
+    "app/src/main/res/drawable/ic_back_arrow.xml": {
+      "role": "index",
+      "sha256": "a78c39fa4fad2fa6a469ba9df88d8a39c06d4ce33f7b9eeb32da6a2cca450123",
+      "size": 374,
+      "normalized_sha256": "0f4f8eefd210106440c0ac50ff6d2499a37ca3e9ef827ecbd7c0e8e3f86da079"
+    },
+    "app/src/main/res/drawable/ic_launcher_foreground.xml": {
+      "role": "index",
+      "sha256": "738064892d277d6ffe625487c16233431a4f66e52536efb684300a059df7c19f",
+      "size": 1784,
+      "normalized_sha256": "51592bcda6a126d575bb19e962fcbc573288e0c4ce6cea9824ab9e8a77a4a635"
+    },
+    "app/src/main/res/drawable/ic_nav_alarm.xml": {
+      "role": "index",
+      "sha256": "1c7bc14272b2ce67dba8cc0c5d7d5f1b0d3f55c84328ac78e164a8b64ed9fada",
+      "size": 464,
+      "normalized_sha256": "1c7bc14272b2ce67dba8cc0c5d7d5f1b0d3f55c84328ac78e164a8b64ed9fada"
+    },
+    "app/src/main/res/drawable/ic_nav_focus.xml": {
+      "role": "index",
+      "sha256": "4519a9ca8532e257d27ccdb4f57dd6c66092222d1baf98949d75cc270355623f",
+      "size": 436,
+      "normalized_sha256": "4519a9ca8532e257d27ccdb4f57dd6c66092222d1baf98949d75cc270355623f"
+    },
+    "app/src/main/res/drawable/ic_nav_home.xml": {
+      "role": "index",
+      "sha256": "7f3ecc683613bdc6d9749f70623b6f4398b0bbfe67d2607445a0c740085ab8a1",
+      "size": 436,
+      "normalized_sha256": "7f3ecc683613bdc6d9749f70623b6f4398b0bbfe67d2607445a0c740085ab8a1"
+    },
+    "app/src/main/res/drawable/ic_nav_settings.xml": {
+      "role": "index",
+      "sha256": "51a5436864850e6fb16d752624f8d80f208233b999da65e6b1b6b540b497181d",
+      "size": 375,
+      "normalized_sha256": "51a5436864850e6fb16d752624f8d80f208233b999da65e6b1b6b540b497181d"
+    },
+    "app/src/main/res/drawable/ic_nav_stats.xml": {
+      "role": "index",
+      "sha256": "d6c4ecc252d31c9f4b6a537874a3a6e3d7572f64928edfcf20ddf4da90ca8410",
+      "size": 386,
+      "normalized_sha256": "d6c4ecc252d31c9f4b6a537874a3a6e3d7572f64928edfcf20ddf4da90ca8410"
+    },
+    "app/src/main/res/drawable/ic_torch.xml": {
+      "role": "index",
+      "sha256": "ac4724f2105fb7a5c854cefcc1acccf0d1dfe1761de43c99d4ab9f9a8be2c260",
+      "size": 673,
+      "normalized_sha256": "7f5dab5a7335265378c568e78a3a5fb007fbb5331460da31f25bf0ab46642fa1"
+    },
+    "app/src/main/res/drawable/selector_bg_toggle_left.xml": {
+      "role": "index",
+      "sha256": "998fc99bf3fd31d79fe09abac19b3990f0adbbfae66121767f168503e8eafac1",
+      "size": 606,
+      "normalized_sha256": "d6c97864e5093aafee44a50af2e7d22fbb745a357347988b17d11957dec1ee6a"
+    },
+    "app/src/main/res/drawable/selector_bg_toggle_right.xml": {
+      "role": "index",
+      "sha256": "f2ec33eec82a556c76aef76753a0edfbe84fdf81e51abc2110891d612a942bcf",
+      "size": 610,
+      "normalized_sha256": "e0be2a62559a458fe13a43b50809be253be72e0ec8cb59c51ad56bd34c495923"
+    },
+    "app/src/main/res/drawable/selector_focus_rules_tab.xml": {
+      "role": "index",
+      "sha256": "a94e7a0d729337b5d21604c33adec5b3000ebc9608609b9693afdcf06b0f1866",
+      "size": 322,
+      "normalized_sha256": "1e437bbe8064084c8bd3903f3f8df503c773d137813b0dc4ad4925c8380e3ba5"
+    },
+    "app/src/main/res/drawable/selector_mode_tab.xml": {
+      "role": "index",
+      "sha256": "b6cb6648af81d9d96469dd30fad1265fb434ba64a39cfc798e09e096d6cd8d72",
+      "size": 574,
+      "normalized_sha256": "9d03223b6b0f71f632dc1ee01964ab113d6cb7d6a001d3dbd9f58cf827f7a769"
+    },
+    "app/src/main/res/layout/activity_about.xml": {
+      "role": "index",
+      "sha256": "045ea984a821d7556a228b602c7b8b804716c545811a9ca2e55ae7d1b07ef918",
+      "size": 1365,
+      "normalized_sha256": "43f564fc6b7957f2bc42ccd0ffe921cf3aa8b938c8fbe47c02a8af58997b38bf"
+    },
+    "app/src/main/res/layout/activity_alarm.xml": {
+      "role": "index",
+      "sha256": "aa5565d479a2be0f0ff7dde82453627be8dd0213975b3f349e0735d30da901cd",
+      "size": 5146,
+      "normalized_sha256": "284ad38ba742275aaa45302e125f5a6c5541f33af059348c8313bd879c610af6"
+    },
+    "app/src/main/res/layout/activity_alarm_scan.xml": {
+      "role": "index",
+      "sha256": "dc776dacb4344bb0a72156a37d1aa54ec8d4842c903e2bd1741aba50366f83f1",
+      "size": 2463,
+      "normalized_sha256": "893b0584b1722567788940a759cfb2e4c13fe6920d8a7bd8f943a478929e5864"
+    },
+    "app/src/main/res/layout/activity_app_category_detail.xml": {
+      "role": "index",
+      "sha256": "203ace67c2fb358028f4c800201637cc7f4717907bf24dcc7ef385bb7a08c732",
+      "size": 8297,
+      "normalized_sha256": "e5c8f803ac42f1dfd3944c32d9188344426be2828f3c09daff0b40863d36e999"
+    },
+    "app/src/main/res/layout/activity_app_selection.xml": {
+      "role": "index",
+      "sha256": "0f3a7d600a33fb2d2e9d49309e61a3bf33281d6ac91df13780a8f9959b1f02da",
+      "size": 8343,
+      "normalized_sha256": "75406f9adc8a34df76ae7e90093488defab0ce96940c5ab11880a3f5edcf3dc5"
+    },
+    "app/src/main/res/layout/activity_app_window_preview.xml": {
+      "role": "index",
+      "sha256": "ff07c73a0e4823638fd9d25c92e8c2258664d5cbde8f56a4a307902e8b71857c",
+      "size": 3336,
+      "normalized_sha256": "8b2d3a08190bac9125d35e667d3eebb35b5df5231fd6353cd065b8bf051a1734"
+    },
+    "app/src/main/res/layout/activity_bookmark.xml": {
+      "role": "index",
+      "sha256": "116d5a074b77654751ac18afe1ba694e93253deb5abc9ba67eb8c23e3485a26a",
+      "size": 8641,
+      "normalized_sha256": "48a45147ceba65870d68a7f5f63eb9928b31b8a6bba883ebd23e288da317cf96"
+    },
+    "app/src/main/res/layout/activity_custom_question_bank.xml": {
+      "role": "index",
+      "sha256": "c44f6844c781faef08bf56663e52c24b05278e77432c61f2d40232e15678e546",
+      "size": 12181,
+      "normalized_sha256": "f139777440d4aee7f2e34828420a42488e0d26da7d0f95337f27ccfb6f565591"
+    },
+    "app/src/main/res/layout/activity_custom_question_import.xml": {
+      "role": "index",
+      "sha256": "745f8a0324d129ee6212d6b86eb4dc66a29ff5cf39c19a72fee71fa2a6530347",
+      "size": 12697,
+      "normalized_sha256": "143143507a6b9fd64bc84cc07b6cca86df0600906276eb564b6fb4c37e87fda5"
+    },
+    "app/src/main/res/layout/activity_custom_question_review.xml": {
+      "role": "index",
+      "sha256": "778446b8ccf6b0231c1a0e87620201b956ad94c0ddf84b73c459d819dcc3f3cf",
+      "size": 5680,
+      "normalized_sha256": "bf93f74acb0edcae04101df560d606b4988910b46704391e3a1201e4144ac7b3"
+    },
+    "app/src/main/res/layout/activity_global_params_new.xml": {
+      "role": "index",
+      "sha256": "8f4d6ae9741c0fdfc005ded6f079364acdcff7ad249fbbb2c01610328a2854c6",
+      "size": 14651,
+      "normalized_sha256": "11f6d601a4b0f6902e594b7df5c832ed0e04eea660fb2b2673c52737bfcb2362"
+    },
+    "app/src/main/res/layout/activity_help.xml": {
+      "role": "index",
+      "sha256": "3022e41b61aafdc28fe726a9068bdb1e1be90993d6b637f2e3e6769021ebd330",
+      "size": 7216,
+      "normalized_sha256": "1160576aca13b993e284632bc36e7c2c08f6961a482ebb6cf3c8e00b496db270"
+    },
+    "app/src/main/res/layout/activity_legal_document.xml": {
+      "role": "index",
+      "sha256": "d7e67daacec530f11d251f6c94568c19dbe85df797d4d8817a8e2dc878dcfe20",
+      "size": 1276,
+      "normalized_sha256": "7987c65fc8ef1cad8211038619fa8e9782c2dfb1f22219578fb1250bdd7e2019"
+    },
+    "app/src/main/res/layout/activity_main.xml": {
+      "role": "index",
+      "sha256": "0f9d586e163a7e99f5d2135039ee2ac5f3fcee546295be724602d1533a59bdcb",
+      "size": 1349,
+      "normalized_sha256": "dad1b12559f4c0d26761603983487bb0fe927aa453e7bc1d012022402afda9ac"
+    },
+    "app/src/main/res/layout/activity_privacy_consent.xml": {
+      "role": "index",
+      "sha256": "633aee5be59990c11d595b0aa631c9ac43f70911f7ae69bb091bcfe5222ec86a",
+      "size": 3731,
+      "normalized_sha256": "cf2dd2834e8596294520b29fd338e5094442912632ae3aa36f5cf7ea8ecb54e2"
+    },
+    "app/src/main/res/layout/activity_schedule_preview.xml": {
+      "role": "index",
+      "sha256": "0aed531a450904158c8b326b58c970768d9aad1410ee91dabe80a2e68e2b67b9",
+      "size": 2926,
+      "normalized_sha256": "f2bbebac8b35bfb79e1dc46b28383c241a3402c7685bf5be36524e368ec0dc1f"
+    },
+    "app/src/main/res/layout/activity_stats_filter.xml": {
+      "role": "index",
+      "sha256": "a89833a001e79c76a35e34f468fb5e70fd4462f8e58c06f2079daf195fdd2428",
+      "size": 21575,
+      "normalized_sha256": "a4ea6e2e4571047778de24a874ac0f5ff2a7049b1288e75c50ac160cc0b58fe5"
+    },
+    "app/src/main/res/layout/activity_stats_history.xml": {
+      "role": "index",
+      "sha256": "8e9dd8fc81e7db29d5af9e8b87c419a4e442e2e4ddb5f45fc2af9daa3c5e3b67",
+      "size": 5106,
+      "normalized_sha256": "8069a9b48f253de59fb61f23bcfcdade5bf02330e2b4612fbfc1e8116ddfcee7"
+    },
+    "app/src/main/res/layout/dialog_add_segment.xml": {
+      "role": "index",
+      "sha256": "481b0e27d3adc8bf320254df079d70c360e00997f5a7b18aa281ec73e4b6df29",
+      "size": 5205,
+      "normalized_sha256": "4f473175c50afa161cf92506f38dcc6c8bf84465279191c240bde36abe795c76"
+    },
+    "app/src/main/res/layout/dialog_alarm_default_settings.xml": {
+      "role": "index",
+      "sha256": "d5f27411535f9c249c9e48661ccf10388c3f336595d2b85af09572a415ee3200",
+      "size": 32052,
+      "normalized_sha256": "f0e54af634cd1831debc782a7141a5b71d808594b944e1e7e55e2bba0b0047af"
+    },
+    "app/src/main/res/layout/dialog_alarm_edit.xml": {
+      "role": "index",
+      "sha256": "d6dbbca1490b6a81006765e171013475573c0c69e198234d22cf83e6e1985a6f",
+      "size": 24299,
+      "normalized_sha256": "027e7619605b106859739bba30587fc41338373730148b0e0035eea76e9890d4"
+    },
+    "app/src/main/res/layout/dialog_batch_cycle.xml": {
+      "role": "index",
+      "sha256": "ee7a8b20cb6ab78cdff4f878262208fc2133d7164172b85fddb3b69ad9f1a7d3",
+      "size": 3742,
+      "normalized_sha256": "110956fef16a3613383ba2cfae62546525020ad7bc41189e34aeab2812408163"
+    },
+    "app/src/main/res/layout/dialog_edit_app_window.xml": {
+      "role": "index",
+      "sha256": "ff8718664179c88681e4d25b2401810786c9adf7ac08451b97fe8b8cae2b9013",
+      "size": 4773,
+      "normalized_sha256": "c8ae45b0524ec8ed97ffcf03b4e9bf3b4b9359ac90eaa33fe5676d40a5c5028c"
+    },
+    "app/src/main/res/layout/dialog_edit_challenge_counts.xml": {
+      "role": "index",
+      "sha256": "4cf065b565db882bbd76a757dbf425faf9149c1c8d7fa1d5c0b99b35eb44f5cd",
+      "size": 4117,
+      "normalized_sha256": "8bf0adb14a0376d067b8f5da21b51a1b318cb6c404fa129b32f52be782669ace"
+    },
+    "app/src/main/res/layout/dialog_edit_segment.xml": {
+      "role": "index",
+      "sha256": "4f12e60ad142e17bfcb4d0484083f799b946107d9ae17dce2fdbb8e148aba117",
+      "size": 7247,
+      "normalized_sha256": "cfbf3496566c417426b3c27d1d0816e3f6b3037bc9b99042eed42a42b3872ea3"
+    },
+    "app/src/main/res/layout/dialog_edit_snooze.xml": {
+      "role": "index",
+      "sha256": "858d331ae9f802fcc59474cf6c4ce42e1ca590aa72415f005fb997f23ae12627",
+      "size": 2179,
+      "normalized_sha256": "a3442631f17832ccb0d35ff9f50e76d1ab7c11f77ae3806e9690c5fab11949d5"
+    },
+    "app/src/main/res/layout/dialog_edit_unlock.xml": {
+      "role": "index",
+      "sha256": "fd895aea62ec90b3e3fa292de499bdbe883aedc7febc6641c497ed53aa769e54",
+      "size": 5461,
+      "normalized_sha256": "08431a55c6f0beea1712442e3ff846e5919936f7f2a47788ff477dbe85dcfa77"
+    },
+    "app/src/main/res/layout/dialog_edit_vibration.xml": {
+      "role": "index",
+      "sha256": "a238249d86a49da9bbfe9586651b95b2857e315c75f63f87a7cc753843c007c9",
+      "size": 1709,
+      "normalized_sha256": "4dca82656094f695099b8dda413359e62fe3f61e61860a0c51249a5703095055"
+    },
+    "app/src/main/res/layout/dialog_effective_days.xml": {
+      "role": "index",
+      "sha256": "35f799de7cad264f3f116d5e919e879c926fb9c24ee2515cf43ea8ca88e6a7ff",
+      "size": 3197,
+      "normalized_sha256": "d7f835229fa90e5af6cdaf1560c8c5f89f33d2f89a45c2b8f72130eb8b18f4be"
+    },
+    "app/src/main/res/layout/dialog_gentle_warning.xml": {
+      "role": "index",
+      "sha256": "1d61145ca4043c697af78d75abc5308476c9145d2e0301ba238939d9e4298c5a",
+      "size": 2413,
+      "normalized_sha256": "3c6334dc5b1fbcbb490f7e3e5d09a43babd8add646bed66b835a21740ccef244"
+    },
+    "app/src/main/res/layout/dialog_global_params.xml": {
+      "role": "index",
+      "sha256": "9f53e7fa50d722a97b2471bd2ce01e786cf509d3374e5f73d6fa7586bf845bff",
+      "size": 9164,
+      "normalized_sha256": "b251e4dccf655d082fbd8a7c0ddefd6d89bdfaaca2cc4ef6d18a1fdd1dd80d8f"
+    },
+    "app/src/main/res/layout/dialog_global_params_activity.xml": {
+      "role": "index",
+      "sha256": "9a1a3392a5484669878665016dec850e760334a790d7f60a0cabf6727c0bb00d",
+      "size": 4074,
+      "normalized_sha256": "e0b349d7d9d355a37cb1c53d782fe72d8e2e33f0e2e83b3173c0b326d67eb679"
+    },
+    "app/src/main/res/layout/dialog_lights_out.xml": {
+      "role": "index",
+      "sha256": "b00bf6964c88a06870198c06007c8d9cf2883082ecde4655268e6137c00c33ec",
+      "size": 2101,
+      "normalized_sha256": "b00bf6964c88a06870198c06007c8d9cf2883082ecde4655268e6137c00c33ec"
+    },
+    "app/src/main/res/layout/dialog_privilege_time_picker.xml": {
+      "role": "index",
+      "sha256": "25e708f646d01825536229bff00da59a42d4bf499dc1df0e1fd51353aea4ae36",
+      "size": 1278,
+      "normalized_sha256": "90948a42db2d3380206591a0f77c7880bad89c1d7afc820064973340f8e508e3"
+    },
+    "app/src/main/res/layout/dialog_quick_import_config.xml": {
+      "role": "index",
+      "sha256": "e68784633f8282e56bd99883ebecb318dd06fb97bd7bbfcd34dd22bb41c570bb",
+      "size": 4176,
+      "normalized_sha256": "e68784633f8282e56bd99883ebecb318dd06fb97bd7bbfcd34dd22bb41c570bb"
+    },
+    "app/src/main/res/layout/dialog_quota_transaction_confirm.xml": {
+      "role": "index",
+      "sha256": "1ddc0b8a112a44dc91d5882e6b62737f55f7c1fd73ef19ae89b40d172e089cba",
+      "size": 9178,
+      "normalized_sha256": "9398a2ff71646b64816c037a1882ede814fb377055f85d81aaa483d79d16b30f"
+    },
+    "app/src/main/res/layout/dialog_schedule_preview.xml": {
+      "role": "index",
+      "sha256": "c88a7427b1ca7e48747157111a7d6d54fa441547c11bcb4bcbfb455989d4088b",
+      "size": 2759,
+      "normalized_sha256": "df813237c62032611396ff20d8cea68a93461276725d9c8ff1e388598b4c1b1c"
+    },
+    "app/src/main/res/layout/dialog_select_apps.xml": {
+      "role": "index",
+      "sha256": "643ef9d9659965ea244abb19ba0f6b0e1258b4a531b4838402292bdc27ef46bf",
+      "size": 1027,
+      "normalized_sha256": "70a220bae5d4b22dcef9a8951db6d26d54e769f3f2f3ffa784215f5ec63c518e"
+    },
+    "app/src/main/res/layout/dialog_test_alarm.xml": {
+      "role": "index",
+      "sha256": "cec3e46ea15110677b006f09409b7cd8e12f26167c580ed754545c3bd7a0df4a",
+      "size": 19040,
+      "normalized_sha256": "361fcd1f93ceae618cc2cfb8f3e638076cb9a34f859d2829ff7f3520c977363c"
+    },
+    "app/src/main/res/layout/fragment_alarm.xml": {
+      "role": "index",
+      "sha256": "079c7323042dce56961c4ca7dbb6190e77c8c4b8a4daeed69573e36b661a5461",
+      "size": 6970,
+      "normalized_sha256": "42da9a535313842509074b03ac0d7a6339d51904d79297b6478ba30b8383d3bf"
+    },
+    "app/src/main/res/layout/fragment_app_window.xml": {
+      "role": "index",
+      "sha256": "39726d7f9d1ac6c678ff2ced5a534522d535cfd2d827c880acd587d772d7b73f",
+      "size": 4633,
+      "normalized_sha256": "4e76c3c7ccb8ed699051f83c2c03dc625744b9550f5404ceee7595ccdb2c7e60"
+    },
+    "app/src/main/res/layout/fragment_focus_rules.xml": {
+      "role": "index",
+      "sha256": "6aca05baef6a03438022a693f86b29c66174ceb8eb039898fdc09b2e1c6adc07",
+      "size": 5924,
+      "normalized_sha256": "2935bdc06c3e9a4e319c14daad0fe6358bc4389b82587b5ee7f625bdba40ef3e"
+    },
+    "app/src/main/res/layout/fragment_home.xml": {
+      "role": "index",
+      "sha256": "3a80a325fb5cf049d24dcfd0e3a80c28ff24551988a0fa2d53e4a685deae250e",
+      "size": 22225,
+      "normalized_sha256": "e00606476069f3046c3f08bb15ebfe7ffa0cbb9e6af0ca8112f717c17e59b194"
+    },
+    "app/src/main/res/layout/fragment_rules.xml": {
+      "role": "index",
+      "sha256": "b1e873f3ca9722d2240ca79140778ba11928e11b2f54a163d379fc1a77759d23",
+      "size": 17157,
+      "normalized_sha256": "e42e163849a4af569d3e5017501a6944817645bb0b2d50ac40a20c73b2cd4f12"
+    },
+    "app/src/main/res/layout/fragment_statistics.xml": {
+      "role": "index",
+      "sha256": "72c07205e1bdb7f95d6bd0a387b4cf0386fd6f71fe6f9ce5fe65986984750a36",
+      "size": 46093,
+      "normalized_sha256": "4c0aed9e5a14839e63537fa3f1e532c604b83773a85faf1d1a94ec09dda2c9a2"
+    },
+    "app/src/main/res/layout/fragment_time_config.xml": {
+      "role": "index",
+      "sha256": "2ace590e5f76bf9132cc2c0c5cf0c6402e6ab64c4d0d6e5462b46e380431b581",
+      "size": 7115,
+      "normalized_sha256": "6c3b8432ed56fb8e1070afd85496134b4d20f26209b780537dff5f4404589d6c"
+    },
+    "app/src/main/res/layout/item_alarm.xml": {
+      "role": "index",
+      "sha256": "f5789218f6662a8f3716bfdfa463b4e33d86648e68da507bf10add9410e3129a",
+      "size": 3839,
+      "normalized_sha256": "b0fc69bac62396c26fc2f616f2fb62c6018cbad53921f250e2a3c47e643cdb4e"
+    },
+    "app/src/main/res/layout/item_app_list.xml": {
+      "role": "index",
+      "sha256": "f11244da4c193bdcf3c5e95b4e53f1ebdbe1181a7b5d183160b329fc60e18dc4",
+      "size": 1580,
+      "normalized_sha256": "e970a933bbf7d0a6170e782cd9dc3dbfaf18b1007ae921314881be274c1fef05"
+    },
+    "app/src/main/res/layout/item_app_select.xml": {
+      "role": "index",
+      "sha256": "83fd33720c09b14b3dde65c9e6cee3a80c5d3cae39c91f852095bbcccab642be",
+      "size": 1401,
+      "normalized_sha256": "6bda7eecd966fd64a2dcba10915194d3ef3a21e4ae547f4acf84b05ef3a20391"
+    },
+    "app/src/main/res/layout/item_app_selection.xml": {
+      "role": "index",
+      "sha256": "6a01a2181e783002973d9c6369ef02e531acbe4c6de55dfbe165a8a7ca206940",
+      "size": 1135,
+      "normalized_sha256": "40704491cd15db693ce67b4cb26ac0f5efa50ea41f9299a1eab3ec69ba15c11c"
+    },
+    "app/src/main/res/layout/item_app_window_preview_rule.xml": {
+      "role": "index",
+      "sha256": "cd8cac2ef58b8f7cc83a3eb6f240d159a8999c658e8d53d8aae4da3f2a2fc38a",
+      "size": 2427,
+      "normalized_sha256": "233dec0649c2ab572500253137369166c9d7e01c0aea032576f3ca01dff85460"
+    },
+    "app/src/main/res/layout/item_app_window_preview_sub_rule.xml": {
+      "role": "index",
+      "sha256": "30f14102443a21aef766d6ed7be608116076309f24d611a9e765d2c1d5e509b9",
+      "size": 1366,
+      "normalized_sha256": "37bd4020ba9fb4f445879b4054824d9205b1a3e0f93faae00c5dd1cca4d10cab"
+    },
+    "app/src/main/res/layout/item_app_window_preview_time.xml": {
+      "role": "index",
+      "sha256": "f151d43cfffa7dab49d68d529474ac7b5ad4afd543e95efcd06fa6a6791d947a",
+      "size": 2786,
+      "normalized_sha256": "0146cf7f78be61a7c4fbf3be2e14fa85654b47b40b8eccb17ef030ddeb9ecf52"
+    },
+    "app/src/main/res/layout/item_app_window_rule.xml": {
+      "role": "index",
+      "sha256": "62204f346cef74b838223af22f07db15ea35c07e5767d39413a34ae937c90dc9",
+      "size": 3695,
+      "normalized_sha256": "58ce17ebb1efd9d3dbeaf6510a3f3f6cd81a9c4a84c530827e604d3be10416b3"
+    },
+    "app/src/main/res/layout/item_category_sub_app.xml": {
+      "role": "index",
+      "sha256": "be6a7b4f7ab920eaeb50b6b20ce37dace19f38b042b2030558b34c0cf662080e",
+      "size": 3540,
+      "normalized_sha256": "cfb253f42d7a3f94dc8e1675b871778d5265ad6f699b4362c7ff58a6851286c0"
+    },
+    "app/src/main/res/layout/item_history_alarm_card.xml": {
+      "role": "index",
+      "sha256": "3cbf49ee21bd742d4ff3f900e8aaf0ccb0bd8278ec3435a4e7c560fc1b7964ba",
+      "size": 4224,
+      "normalized_sha256": "cd8f6e11ec32949738bce365b4c643b5228c4cf3c36ffa2d0c8283c500dfa8f5"
+    },
+    "app/src/main/res/layout/item_history_rest_card.xml": {
+      "role": "index",
+      "sha256": "7f35fa0d503907607d1a2ce8cc0b70cfcf0ccec1e9dff86ded324adbd80ac9ef",
+      "size": 5424,
+      "normalized_sha256": "94b7bf7ad08b139a9af95b0828f2cfde93858ca3ab3bc90821ce809e7f86c7a5"
+    },
+    "app/src/main/res/layout/item_stats_alarm_row.xml": {
+      "role": "index",
+      "sha256": "ae5aeca0c2e291e9f7fb55ed82772e0f68bfd3dbf3b0d7b322496fa87e4b526a",
+      "size": 2232,
+      "normalized_sha256": "63d26d8f179068a70d1118b89824e21156306a0991181d2a58ad7b8cf97931d9"
+    },
+    "app/src/main/res/layout/item_stats_app_rank.xml": {
+      "role": "index",
+      "sha256": "293fc9136903554c1ebacb5828fd11d8c599305ee321684e812714837f234487",
+      "size": 1332,
+      "normalized_sha256": "965fc0ed34eb4bbadcc92828b668d96594b16e35df326e4225707c7e16bd3c5e"
+    },
+    "app/src/main/res/layout/item_stats_app_row.xml": {
+      "role": "index",
+      "sha256": "24a1b588445609f2d5ce201102241bf335ab470d4bd77960bc2f235be4a00c23",
+      "size": 3912,
+      "normalized_sha256": "32748cbc061113384fd56609f501aca59bb4a1fc90f5b94054d5c8820109e150"
+    },
+    "app/src/main/res/layout/item_stats_dual_app.xml": {
+      "role": "index",
+      "sha256": "2dc560b767dfa3234a6a924c3b9950a8ea6d26d20d360cb4e893f6d338e5d093",
+      "size": 1664,
+      "normalized_sha256": "96075434170d7ddaff8574c91481c355a29253ee7fd82552bcb3c8e6185e82ca"
+    },
+    "app/src/main/res/layout/item_stats_rest_row.xml": {
+      "role": "index",
+      "sha256": "4edd0a489dae9753203494f52858e6c366a0c419937799c8a11f2ef995902a25",
+      "size": 2270,
+      "normalized_sha256": "4a1d96f6d0c0024e3e4c2f9914e57d93bdb9f905db48ced5e44db57b34d704cd"
+    },
+    "app/src/main/res/layout/item_stats_rule_row.xml": {
+      "role": "index",
+      "sha256": "f3418e0aa6d19a9e317ed48313f1e270505ab1c40e888a26eff1c805ca57061a",
+      "size": 2209,
+      "normalized_sha256": "8153d4eafba7f7ea1adfc03d02443efeef0c6be56a4a8ea17518ab8eab3eb0cb"
+    },
+    "app/src/main/res/layout/item_time_segment.xml": {
+      "role": "index",
+      "sha256": "8871bdf59a539ce98d867cf01900c6604a6f6a16aaa8767dcf0121c44fe66a61",
+      "size": 4075,
+      "normalized_sha256": "6df4ca2beb06bc953a83a661e86b3f9dfe20c62af05f0e78110866f4b9392b86"
+    },
+    "app/src/main/res/layout/sheet_stats_date_range.xml": {
+      "role": "index",
+      "sha256": "bce7a465233c5ff5e6b785dd2440c70e263d4bfd1a45539be224b08c5f1a515d",
+      "size": 9804,
+      "normalized_sha256": "1a5802c50f0000e1a30e2202be0c73259c8cdfe944fbea64cec7b96712be533d"
+    },
+    "app/src/main/res/layout/sheet_stats_filter.xml": {
+      "role": "index",
+      "sha256": "cef8472fe964630748b395f22fc2b56a321fdbaa6739ab122411eda2d5b54ef7",
+      "size": 17233,
+      "normalized_sha256": "5233c337418d782ae4eb6d2869f1bfeab77b3e7295ff555f1758cf229a61b2a1"
+    },
+    "app/src/main/res/layout/window_alarm_overlay.xml": {
+      "role": "index",
+      "sha256": "1e542e1a00d22a4d538779e470213e70cf666cc61f2a81a1c7a810d9bc0ac4a1",
+      "size": 52685,
+      "normalized_sha256": "69ac0d457d6adcd1cb755a940d8793b66e113fb6456c9eaf832989e4a701ec9f"
+    },
+    "app/src/main/res/layout/window_fast_lock.xml": {
+      "role": "index",
+      "sha256": "e137f504790507c53c6c32991bb57b992945ef886f02baaa874781a34a7a0c63",
+      "size": 1388,
+      "normalized_sha256": "05803f7ba0f4bd8ca71d07b5e5172c23ca517905e8e680ec2bfa9c8cabcb82cb"
+    },
+    "app/src/main/res/layout/window_lock_screen.xml": {
+      "role": "index",
+      "sha256": "58e9bb5502e04e0a4b391b80e7ada5ede065dd381548731b607426b844b81bdb",
+      "size": 18914,
+      "normalized_sha256": "acac8a635548d4cf778c807b1fffa7ecf63b1a58e760b4792965144c5e35d24b"
+    },
+    "app/src/main/res/layout/window_rest_request.xml": {
+      "role": "index",
+      "sha256": "f215d98bd7520dfd8cb2d095c9e63c100f1220a30304ce7fed2a38d3832ce3a5",
+      "size": 5299,
+      "normalized_sha256": "accf41a277a8da7cfd9dc486b331905a8c440f87f996d5bb1d40c71a555f52fd"
+    },
+    "app/src/main/res/menu/bottom_nav_menu.xml": {
+      "role": "index",
+      "sha256": "2077bd17452a0773a30ca33e3b04ef492d4c64c2ee6cd604c8e10c61743c7888",
+      "size": 609,
+      "normalized_sha256": "225221c352acaf3a5cee980745427408f3892a20208ee71bd54b08ec3d534c76"
+    },
+    "app/src/main/res/mipmap-hdpi/ic_launcher.webp": {
+      "role": "index",
+      "sha256": "85dbbb63489ddb3c6aeff7b817cc20f29efa10326a03ca19cd307d0a3c0465d6",
+      "size": 1346
+    },
+    "app/src/main/res/mipmap-hdpi/ic_launcher_round.webp": {
+      "role": "index",
+      "sha256": "85dbbb63489ddb3c6aeff7b817cc20f29efa10326a03ca19cd307d0a3c0465d6",
+      "size": 1346
+    },
+    "app/src/main/res/mipmap-mdpi/ic_launcher.webp": {
+      "role": "index",
+      "sha256": "d38ee2b50b1da9f4944d88fd8f69173a4a655afecd7f2eabf7a947be2988c091",
+      "size": 772
+    },
+    "app/src/main/res/mipmap-mdpi/ic_launcher_round.webp": {
+      "role": "index",
+      "sha256": "d38ee2b50b1da9f4944d88fd8f69173a4a655afecd7f2eabf7a947be2988c091",
+      "size": 772
+    },
+    "app/src/main/res/mipmap-xhdpi/ic_launcher.webp": {
+      "role": "index",
+      "sha256": "ce2eb558002121d61ca36e3e317ee7b769c27c672df6977ff4634c825acb0991",
+      "size": 2012
+    },
+    "app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp": {
+      "role": "index",
+      "sha256": "ce2eb558002121d61ca36e3e317ee7b769c27c672df6977ff4634c825acb0991",
+      "size": 2012
+    },
+    "app/src/main/res/mipmap-xxhdpi/ic_launcher.webp": {
+      "role": "index",
+      "sha256": "58358cd7b80b3b815bdcfb2a7ddc40099bf11c6dd6bd21736ba34fbe37a3f6b3",
+      "size": 3436
+    },
+    "app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp": {
+      "role": "index",
+      "sha256": "58358cd7b80b3b815bdcfb2a7ddc40099bf11c6dd6bd21736ba34fbe37a3f6b3",
+      "size": 3436
+    },
+    "app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp": {
+      "role": "index",
+      "sha256": "7372baf181c38b1c9279f76c5a73d93bacd940c196cb6521c5611df955991b72",
+      "size": 5118
+    },
+    "app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp": {
+      "role": "index",
+      "sha256": "7372baf181c38b1c9279f76c5a73d93bacd940c196cb6521c5611df955991b72",
+      "size": 5118
+    },
+    "app/src/main/res/raw/account_deletion.txt": {
+      "role": "index",
+      "sha256": "5a1702f112935eb3130459be8ad05838eccff7778abb0e8fbaaf1f4e1fe34c8c",
+      "size": 2266,
+      "normalized_sha256": "56286af9143d09ce47ed4a184f1be747d8518cb8028c479aa38858da01a9652e"
+    },
+    "app/src/main/res/raw/contact_and_complaint.txt": {
+      "role": "index",
+      "sha256": "d09d5cccacb3e4edda8f80d02c35391bef7c8a8bbc89b2c69ae9a0c3609add5b",
+      "size": 3878,
+      "normalized_sha256": "d09d5cccacb3e4edda8f80d02c35391bef7c8a8bbc89b2c69ae9a0c3609add5b"
+    },
+    "app/src/main/res/raw/personal_info_list.txt": {
+      "role": "index",
+      "sha256": "74b0268af63b3a57f531d2c7f88373e1e77d8bd360b294a521778120430ea06e",
+      "size": 4177,
+      "normalized_sha256": "731326a3722837f841838773c0015421a52bc5483901bca088fae0d3aab829eb"
+    },
+    "app/src/main/res/raw/privacy_policy.txt": {
+      "role": "index",
+      "sha256": "5c152c243396401cbc2d6d3bd465d1efed1bc8adc5f3ce353c91ac04b1aa2488",
+      "size": 7305,
+      "normalized_sha256": "6a1976f4b602f99689cd3679c6e9c6b54f811f7602e37a57900670a654c27c74"
+    },
+    "app/src/main/res/raw/sharing_list.txt": {
+      "role": "index",
+      "sha256": "412bdb646543cea3f765ee1af1e7b333aefd92c9303de2eacb026227d25f2498",
+      "size": 3409,
+      "normalized_sha256": "3e28a47bf5f791d6073ac781a7706559a6d37c04e44fb7b0932d0630584fcb23"
+    },
+    "app/src/main/res/raw/third_party_sdk_list.txt": {
+      "role": "index",
+      "sha256": "92b307cdcd8b0fa881033e5f9b3f16a1f90cb21be8968c1b2ce58dc3f17e3ba2",
+      "size": 3676,
+      "normalized_sha256": "a22d58b31351a55d8c22a70b8f133915725bce68d83fbc55fa5584efd99ea0d9"
+    },
+    "app/src/main/res/raw/user_agreement.txt": {
+      "role": "index",
+      "sha256": "815dd980c8a20315ab18c342b7d93d55c621c4e701dc954d9b7564e62eede7b5",
+      "size": 4814,
+      "normalized_sha256": "1ecdeaf6e51d2f4f2e32c4b8898116862a972f2a96fe374477880c4c935ca7f6"
+    },
+    "app/src/main/res/values-ar/strings.xml": {
+      "role": "index",
+      "sha256": "758c227a0bee4891aabcfff6e32591b2f488e8ba662f88150bfc76b9e6511f07",
+      "size": 882,
+      "normalized_sha256": "681d743cd2e3f9faaaac2c0c99129ce28f38647357787b7df7e3f898b5a3b548"
+    },
+    "app/src/main/res/values-bn/strings.xml": {
+      "role": "index",
+      "sha256": "3b017857e356afedda96c699bda5f4f0a4046e94102a65270f2b615756e4e488",
+      "size": 1267,
+      "normalized_sha256": "7d5e0b0a1cbad0bbabc0457d3dd38c7e2a5ced034b5a5e665ba12496aa356cd9"
+    },
+    "app/src/main/res/values-bo/strings.xml": {
+      "role": "index",
+      "sha256": "2208e380028c8df14990a11ccab681621d101f41b76a7777fb9c603109e983fc",
+      "size": 1513,
+      "normalized_sha256": "3f739103bd50cc8f91df19ad067f5ab33ad0f948c40558c9430cfa07d91a8d68"
+    },
+    "app/src/main/res/values-de/strings.xml": {
+      "role": "index",
+      "sha256": "c1926afe1bd9556b0b4a9094baa2aac657ded7d5a13d242ea2b3fb78cf081c6b",
+      "size": 729,
+      "normalized_sha256": "de4b8624e417ed487ba06922b7b338e323875f7212ab8b2c9015e9e6359490ea"
+    },
+    "app/src/main/res/values-en/strings.xml": {
+      "role": "index",
+      "sha256": "39f117af3918486fe40fec33859de2da96d0649700b55dcda484c4c3260c61c4",
+      "size": 665,
+      "normalized_sha256": "b9919778588a0f84de6180c1f0e3eb05089694988c53e6bafe43193414825ec9"
+    },
+    "app/src/main/res/values-es/strings.xml": {
+      "role": "index",
+      "sha256": "d85a9023a14c80a27c47e95ae03d82c2746f64a1093f9d501aba10dcc4d7b58f",
+      "size": 744,
+      "normalized_sha256": "064f0bb353b9409c0d8f8fee10ba1c4d20347e43cf3168775be9801639ad6a12"
+    },
+    "app/src/main/res/values-fil/strings.xml": {
+      "role": "index",
+      "sha256": "579816e018bfac78362be48ec4f648fc6cdad0b42e697eebd1eceaa2861d5bac",
+      "size": 741,
+      "normalized_sha256": "35d75d6cf4fed8508c14c152c511416ae0a97303b63d216d709e2c50f84c0d62"
+    },
+    "app/src/main/res/values-fr/strings.xml": {
+      "role": "index",
+      "sha256": "ee36ed2d33faf3c020d756a12e18e8330f69b4dbb501807e477d819acc8d8070",
+      "size": 756,
+      "normalized_sha256": "1e70e41047c1d838d13a4ca8f8a7ea13bc8abe09bb6d3be5d429f997c924f925"
+    },
+    "app/src/main/res/values-hi/strings.xml": {
+      "role": "index",
+      "sha256": "d10eae53f01d08f16e581c71ce915a1edb551376f0ab275cbc570e7782093a49",
+      "size": 1208,
+      "normalized_sha256": "639aa4e8b328dc06956b623abc80dd6abbde0905a5296340e454ffa818131147"
+    },
+    "app/src/main/res/values-id/strings.xml": {
+      "role": "index",
+      "sha256": "31edf0413288d2c1477ed379beacfa736f566abb846e8650842ce38a349f4d4d",
+      "size": 756,
+      "normalized_sha256": "c631b8a1a52d6694d85f98da412723410c716e8d13b1e3ee6cbf9253e52bdaac"
+    },
+    "app/src/main/res/values-it/strings.xml": {
+      "role": "index",
+      "sha256": "2a9e71fe272afce663018ddb0933fccca5c99f70d4e3b8b4ce7c9deda33205c9",
+      "size": 749,
+      "normalized_sha256": "78bda93bc2cbb085f2af43938c502b81f4fc03d85db7ca226a650c4707243981"
+    },
+    "app/src/main/res/values-km/strings.xml": {
+      "role": "index",
+      "sha256": "3e2aaf2e42dc75a038430f05b379247c22cbf0cc91f39a5e0e89db9c72f85fa1",
+      "size": 1216,
+      "normalized_sha256": "a984139d1ad27e89383830601564eb0e5273db5a7dac9ee4420c74696577283e"
+    },
+    "app/src/main/res/values-ko/strings.xml": {
+      "role": "index",
+      "sha256": "aca21c7ba9d1e6b3b1fb1cf6275889be7d79e2d3a5f1e072e2d6a680b105f76e",
+      "size": 731,
+      "normalized_sha256": "24e5ca1ef74e57e5bf899c3ffff3b0ecd7d42e2faa34867d38c698bd6362aaa7"
+    },
+    "app/src/main/res/values-lo/strings.xml": {
+      "role": "index",
+      "sha256": "24413d4247bde57ccf180034d240fc3e579e48d25b3055904877b5a02bbac70b",
+      "size": 1240,
+      "normalized_sha256": "a8f1b306c33d248c33af6a7d0861f89146caca9d2878e5d747855c2529f9523a"
+    },
+    "app/src/main/res/values-ms/strings.xml": {
+      "role": "index",
+      "sha256": "df9bac14793f56f67c9ed22d818521bc3c4af6623df18da2741f1ad55dc0aefd",
+      "size": 747,
+      "normalized_sha256": "b8d14bf252a0f7fbb1ff41a82d68e72cab1637d47cec4312d3b24e6d57eb59d7"
+    },
+    "app/src/main/res/values-my/strings.xml": {
+      "role": "index",
+      "sha256": "dbc47761c24856a5c2ace71eea4049a4d0deaff53502a2cf19e7005639ee8764",
+      "size": 1529,
+      "normalized_sha256": "299d355f12816f36fb18fc5b3113d4e9fc77948d45160bc71cce67d0f51a5f9c"
+    },
+    "app/src/main/res/values-ne/strings.xml": {
+      "role": "index",
+      "sha256": "751f3340f6fb72a84ee2e7da60bf61be9bba8f00fadfdf7dca723e740dfa693d",
+      "size": 1265,
+      "normalized_sha256": "cead2f098f849a76c203c3a4c3e7703f3088c286115ce1ac3a682a1cc8a32efd"
+    },
+    "app/src/main/res/values-night/themes.xml": {
+      "role": "index",
+      "sha256": "cd09cea2aaeb0a3b873b66ffe6bb8051d11e3bfa48a13cff1a0dca3701387adf",
+      "size": 795,
+      "normalized_sha256": "a31a195d1703e665d04a82fe7a3facf37146705bb6eaabea3087291231728c33"
+    },
+    "app/src/main/res/values-nl/strings.xml": {
+      "role": "index",
+      "sha256": "8f4304e2f8b4d14e6191fe755fad50bc4e96fea949f49e1b37bf6e1b071c754d",
+      "size": 710,
+      "normalized_sha256": "007215a68709d70e65b5edad44e9a883144f2d5623c14b44b70f3234e25d70a3"
+    },
+    "app/src/main/res/values-pt/strings.xml": {
+      "role": "index",
+      "sha256": "12558c27c12f450036f0168619e0263ef8db641698e30b4f160d80d64347f0ea",
+      "size": 718,
+      "normalized_sha256": "9a3ca5c0f30f2af205d1d319bced684a7240a0905fa9cab17449901dc4893a49"
+    },
+    "app/src/main/res/values-ru/strings.xml": {
+      "role": "index",
+      "sha256": "27efcdbcf42bc045c82e65e977901ada0bb886158d58860ee497ae75d4f3beeb",
+      "size": 998,
+      "normalized_sha256": "6d5fd0960a1f2a95e190ea2269f1ead5c71e52c00aad7a63ed010932d4dde32c"
+    },
+    "app/src/main/res/values-si/strings.xml": {
+      "role": "index",
+      "sha256": "149e8660a91d60e25c1e7607ad4904bf1441c1728aeee0f3afd5d212bafc9526",
+      "size": 1318,
+      "normalized_sha256": "536679b1e39efb7f28f6ed4db2cda06a0a4e6a79aaeeb9e1093b4a6e68a7a4ee"
+    },
+    "app/src/main/res/values-th/strings.xml": {
+      "role": "index",
+      "sha256": "86f1c5332bf132082d0fe9f553207b10a8c5e0f9ad90d9b8e916ad3c420aedde",
+      "size": 1259,
+      "normalized_sha256": "6407025b9dde9ccd7bf0052c60a67ce39338289881fff36815d377f1c865f68e"
+    },
+    "app/src/main/res/values-ug/strings.xml": {
+      "role": "index",
+      "sha256": "1d689fe66ee30f3a8777d0c81c9b0818c521f894ea547ff6694945ddb8b906f6",
+      "size": 1159,
+      "normalized_sha256": "690cb7e15aab3e84c9162f5004cec5f9939e61086fbd43f950d0a0e084398380"
+    },
+    "app/src/main/res/values-ur/strings.xml": {
+      "role": "index",
+      "sha256": "1a6e060ee1534653c8c40807587936a8e08280f23da5eff3cd799cac28a000f3",
+      "size": 993,
+      "normalized_sha256": "f2da9929012104dfebf2202fb626eb30f474ecaae84b98ebb1a21b6fa19bb103"
+    },
+    "app/src/main/res/values-vi/strings.xml": {
+      "role": "index",
+      "sha256": "d708e3804f37f265da45b3fd6bc5f9521d7048cc4aefaba9e2e20563b31a15d1",
+      "size": 789,
+      "normalized_sha256": "3d585eca3df309960a0c7a78801765e27c3f58c915fc2b02d4148806b916a28e"
+    },
+    "app/src/main/res/values-zh-rTW/strings.xml": {
+      "role": "index",
+      "sha256": "947a1623026d0af3b3d98fbc459658f9c1164bf653686d93a409c65380c0bebc",
+      "size": 680,
+      "normalized_sha256": "5cca43919022f714bc4617b47938ac0a4b1b2dc9f0e4f432eafb40945c71e7ec"
+    },
+    "app/src/main/res/values/attrs.xml": {
+      "role": "index",
+      "sha256": "b3df555ffb43bdf474c11a281f3d9e880c122c693bd8cf46569cfc6de7877016",
+      "size": 1192,
+      "normalized_sha256": "7331fbf8907f3afa395714b9ce09eba85220c0bfc6699b03ae2c48cd7c3089d5"
+    },
+    "app/src/main/res/values/colors.xml": {
+      "role": "index",
+      "sha256": "e971d4358c7ccf17454e85cd57065864f9fd9924e39e8af6cf291428bf5f8f9b",
+      "size": 522,
+      "normalized_sha256": "b4cab6ffc2e3b51278d5d23ea7effd606216bdda9a1075c49693326972d81f42"
+    },
+    "app/src/main/res/values/strings.xml": {
+      "role": "index",
+      "sha256": "63117482d9a678ac8e59417fb5cb67fb17c76934741b747dbfe68686f673e7b8",
+      "size": 4067,
+      "normalized_sha256": "900327543af0495c16d92624da46e1423b89cdd4e35147db084e121a89f094a8"
+    },
+    "app/src/main/res/values/themes.xml": {
+      "role": "index",
+      "sha256": "7e7f0f977c9fcf38e2bc4259d8e2aff7b3d4d6a82f6b7d4dacc6149e614c1913",
+      "size": 6826,
+      "normalized_sha256": "eb1764e4eade8b6829df3e665f5a6aca4edeb2ff1c7e23198183d2710fed62b0"
+    },
+    "app/src/main/res/xml/accessibility_service_config.xml": {
+      "role": "index",
+      "sha256": "2117d1b9e3c7045eed745aa58b6ea3eb2be3203a1acb0fd58a5ecb02d6c966cd",
+      "size": 579,
+      "normalized_sha256": "2c892d8a15126519a272f0a7a712e9b3929461275a3a44332f7b33698693d2f9"
+    },
+    "app/src/main/res/xml/backup_rules.xml": {
+      "role": "index",
+      "sha256": "90700c47276462c82f64b5f6fb5649aa005ef8bb6ec4eaccecf89d947df818d4",
+      "size": 1081,
+      "normalized_sha256": "b12feb4e0b1e669a93f08bd5d912a75b66d0c7cc4c2f014434fd88cb030432e8"
+    },
+    "app/src/main/res/xml/data_extraction_rules.xml": {
+      "role": "index",
+      "sha256": "36ce6c8291a25ce1ac37a8e18f5a406270f7ad6620c39c90d3109ebb6cb1307c",
+      "size": 1335,
+      "normalized_sha256": "d3660483741e99083fbc4da16b612647aa0d39406b67119c8a5baba1eee28a5e"
+    },
+    "app/src/main/res/xml/device_admin.xml": {
+      "role": "index",
+      "sha256": "857ec80e6b3b4857f2fcc7f8043d5415c35b0123fa7bd3b006ef4f61593748a2",
+      "size": 197,
+      "normalized_sha256": "0348a456090c36d2a24693178020420f0562653238bf586252c2bfd0967397e0"
+    },
+    "app/src/main/res/xml/file_paths.xml": {
+      "role": "index",
+      "sha256": "04f4367e755399d356e45e7b656c353c37a8ba25d82971852e5845b63b0078e6",
+      "size": 168,
+      "normalized_sha256": "530eb312ae43c494e13dc133cb9897be0496df9c710a00bcdda40a10dde1f1eb"
+    },
+    "app/src/test/java/com/zhizhi/app/A01BusinessDayFilterValidationTest.kt": {
+      "role": "index",
+      "sha256": "94845f33979058b6339dcba2865acf7ec3b3a1a30fd50b082e980cd1f1e71f30",
+      "size": 27269,
+      "normalized_sha256": "94845f33979058b6339dcba2865acf7ec3b3a1a30fd50b082e980cd1f1e71f30"
+    },
+    "app/src/test/java/com/zhizhi/app/A11yProtectionDependencyRulesTest.kt": {
+      "role": "index",
+      "sha256": "e7d245f01f014dcce0623c2a65b9d60f32df60506c85405842a641d015336fd8",
+      "size": 3031,
+      "normalized_sha256": "a31272f03a93a95a6f084936c424579c71914843be704f04341c5ffd4e494c57"
+    },
+    "app/src/test/java/com/zhizhi/app/AboutActivityLongVersionCodeTest.kt": {
+      "role": "index",
+      "sha256": "a036b823ed088092cc09b19515a932beaa5315b27405d1f8d30f23f916fde219",
+      "size": 3895,
+      "normalized_sha256": "ea53926738f0ddb1690566c1d7cf4c9306649ebf6cfcd2ed8c1aad7cdcd72d8f"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmAlertPolicyTest.kt": {
+      "role": "index",
+      "sha256": "0ce2913b46f5ade293b5afd89a0b8b0de196caec4efdb805ebc5d9206a2bbe99",
+      "size": 2844,
+      "normalized_sha256": "cb6d922417a7dff95eca18ae3c2356b6e2c09c79ad5d596e7ff7e863db16f033"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmAndProtectionEventTest.kt": {
+      "role": "index",
+      "sha256": "20ad2b6c7dd9c4147d52ac3ccc4039bd91e0374eb6abc94a265fa1d13fbffe27",
+      "size": 20976,
+      "normalized_sha256": "5e0b5f548c2105b480aea8380dc9fb41208ed307fe08b5a464368ca3067e5ebc"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmChallengeEmergencyWhitelistPolicyTest.kt": {
+      "role": "index",
+      "sha256": "59a790c817cf39d73ca52314b4b41d64ef1442aa800ab206c5719ddd1a623f5b",
+      "size": 3869,
+      "normalized_sha256": "59a790c817cf39d73ca52314b4b41d64ef1442aa800ab206c5719ddd1a623f5b"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmChallengeManagerClozePoolTest.kt": {
+      "role": "index",
+      "sha256": "15d8ee28ca0d9d71f968cfe9157fc7df4ee45f6e75af66bf421337a8086aeaf8",
+      "size": 8448,
+      "normalized_sha256": "15d8ee28ca0d9d71f968cfe9157fc7df4ee45f6e75af66bf421337a8086aeaf8"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmChallengeReentryContractTest.kt": {
+      "role": "index",
+      "sha256": "0b2a3d25d0a52eb3381aaaa04b3030262778ccec8f4e1eeeba0a1a4a05aeca88",
+      "size": 7704,
+      "normalized_sha256": "b23f4ee22531164e31ed4c9d6a80cdf42e6291d9c69e8b0b00e0fc04206b7ced"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmChallengeTwoStageFlowTest.kt": {
+      "role": "index",
+      "sha256": "a6983b446bfb98f774deadadd126414cdcb3de8bf3bc517d4c3581de8e5e58a2",
+      "size": 1851,
+      "normalized_sha256": "193b5cd99796e9fe7bb2f643754ad37e1afb4ac3f6fe21e80115f0e6bbe72c06"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmDialogAndLockScreenContractTest.kt": {
+      "role": "index",
+      "sha256": "bbdc913a51a42c432028a87ca1cfbf89c634045c491428a5061563e03d523c22",
+      "size": 2664,
+      "normalized_sha256": "84d92fcdc6a5fc4302abe40f8ceb2b76fe5401e8c878abe835a7192a21913ea6"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmOverlayThemeContractTest.kt": {
+      "role": "index",
+      "sha256": "ef8d6ccae87303c81dbaa581019b82d40d12e0c31fc7b3ce34cbe66cbb790bb4",
+      "size": 5777,
+      "normalized_sha256": "131f0ee1480f41f0dd5d280134a38691bb8118d861f951fe022ddf58ada40475"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmPermissionGuideTest.kt": {
+      "role": "index",
+      "sha256": "4f32fa4512a375fe297fff427705e6cc55bb323917c6cd6dfb35a1c2b69604a0",
+      "size": 3413,
+      "normalized_sha256": "4f32fa4512a375fe297fff427705e6cc55bb323917c6cd6dfb35a1c2b69604a0"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmProductionMigrationTest.kt": {
+      "role": "index",
+      "sha256": "b44c066e1f81b537ccca1e93d0ab57bc45144746fb971410f73ff31322f9ced0",
+      "size": 2642,
+      "normalized_sha256": "e3fc892c6621cfc163d0ac9ad6c25d706f2a52f0d4136e59d3cabdc90fce578f"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmReminderRedesignUiContractTest.kt": {
+      "role": "index",
+      "sha256": "34461511cb2f3bdd90319d30a72e4a41d404eced1f6a8e3851cf45ed0fe87edd",
+      "size": 2108,
+      "normalized_sha256": "21dd2975434462d84f03491187c83b31f303dc800752e78ab747e21baed65479"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmScheduleTokenTest.kt": {
+      "role": "index",
+      "sha256": "62394bf24a686078556b6feaf1c437462788d5d0e35fa16e875b221dcaeb97cc",
+      "size": 3218,
+      "normalized_sha256": "62394bf24a686078556b6feaf1c437462788d5d0e35fa16e875b221dcaeb97cc"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmSessionIsolationContractTest.kt": {
+      "role": "index",
+      "sha256": "2f7f1302e8152ba9e9f8f1d20578496c0934964f90ec507be3c7b4b2926a75c6",
+      "size": 13577,
+      "normalized_sha256": "2f7f1302e8152ba9e9f8f1d20578496c0934964f90ec507be3c7b4b2926a75c6"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmStage2AlertPolicyPersistenceTest.kt": {
+      "role": "index",
+      "sha256": "0258b78b2106e1e192b7a2c0a08d5f93fa5b95da3f5b0f0c673880026860540d",
+      "size": 2327,
+      "normalized_sha256": "ff52421d2d83bfa9f1c4609bd9be1d9a0dd0ec1c4abb282e4315215b63bd8e78"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmSystemBackupUseCaseTest.kt": {
+      "role": "index",
+      "sha256": "617a6cb62541bb74c1eb318f08d03d6bf5b3e49391866ec2cbfb36e4b999a94f",
+      "size": 15267,
+      "normalized_sha256": "617a6cb62541bb74c1eb318f08d03d6bf5b3e49391866ec2cbfb36e4b999a94f"
+    },
+    "app/src/test/java/com/zhizhi/app/AlarmTestSnoozeContractTest.kt": {
+      "role": "index",
+      "sha256": "b544e821a88a1ce00114eea3d6099bd8ab63140df17a4f11b8c7a419c51385cc",
+      "size": 2818,
+      "normalized_sha256": "b8a6f310ae12b584a009fad1403e2b48cfb85cc7f26faf5002af9c03f052d754"
+    },
+    "app/src/test/java/com/zhizhi/app/AntiUninstallForceStopDialogTest.kt": {
+      "role": "index",
+      "sha256": "d36a600959c28035b5f31fd3efea5058bc5256dcfee1f9a4b4fa97811ca7004b",
+      "size": 14154,
+      "normalized_sha256": "d36a600959c28035b5f31fd3efea5058bc5256dcfee1f9a4b4fa97811ca7004b"
+    },
+    "app/src/test/java/com/zhizhi/app/AntiUninstallLogicTest.kt": {
+      "role": "index",
+      "sha256": "e70080c04925f9cef21a24e123c90047bb971bc5aed3d86fc05eb04e7d62f5c9",
+      "size": 1269,
+      "normalized_sha256": "e70080c04925f9cef21a24e123c90047bb971bc5aed3d86fc05eb04e7d62f5c9"
+    },
+    "app/src/test/java/com/zhizhi/app/AppUsageCalculationTest.kt": {
+      "role": "index",
+      "sha256": "3b7d9e28a291d5be5462ab3c205ff2db9819784f68c5b81bac35fb35bdbb7fca",
+      "size": 2384,
+      "normalized_sha256": "7603323801c43005057c5e2cf921202de8571f5d69f83e5608fa8b7ed1c41117"
+    },
+    "app/src/test/java/com/zhizhi/app/AppWindowLockReasonDisplayTest.kt": {
+      "role": "index",
+      "sha256": "7d2803c5d55cb2f5e0a6fbe0ba43d40821713d7e18c19920f358fa669821ae73",
+      "size": 3177,
+      "normalized_sha256": "7d2803c5d55cb2f5e0a6fbe0ba43d40821713d7e18c19920f358fa669821ae73"
+    },
+    "app/src/test/java/com/zhizhi/app/AutomaticRestrictionReleasePolicyTest.kt": {
+      "role": "index",
+      "sha256": "509ff3952f074c20b65b97e7a578b80a808847fe3049598c146695d3cb2dd2ad",
+      "size": 1780,
+      "normalized_sha256": "6131c9afcef02a188aa40e055f401208001d320b24ef0dc90b8c047f83802400"
+    },
+    "app/src/test/java/com/zhizhi/app/BackupRulesExcludesConsentOnlyTest.kt": {
+      "role": "index",
+      "sha256": "e2da99b2275e91ee4081661e450fa5ae40270e5d926847395a1128f2b572d805",
+      "size": 4221,
+      "normalized_sha256": "e2da99b2275e91ee4081661e450fa5ae40270e5d926847395a1128f2b572d805"
+    },
+    "app/src/test/java/com/zhizhi/app/BorrowLimitCalculationTest.kt": {
+      "role": "index",
+      "sha256": "4c1d65ec329519b53c0b05964364d135a3fb71fdba12e04d61eb950488a4123e",
+      "size": 2539,
+      "normalized_sha256": "4c1d65ec329519b53c0b05964364d135a3fb71fdba12e04d61eb950488a4123e"
+    },
+    "app/src/test/java/com/zhizhi/app/BusinessDayChangeTest.kt": {
+      "role": "index",
+      "sha256": "214e30cf30381d1316c82eb8af655352f57b445afb6c5cc23c73473e39e1cace",
+      "size": 12604,
+      "normalized_sha256": "214e30cf30381d1316c82eb8af655352f57b445afb6c5cc23c73473e39e1cace"
+    },
+    "app/src/test/java/com/zhizhi/app/ClozeManagerTest.kt": {
+      "role": "index",
+      "sha256": "dc772d44e46f18d8df1eb871ad938815992593c084df0b83dd65226be4e46e0e",
+      "size": 5640,
+      "normalized_sha256": "dc772d44e46f18d8df1eb871ad938815992593c084df0b83dd65226be4e46e0e"
+    },
+    "app/src/test/java/com/zhizhi/app/ClozePagerAdapterTest.kt": {
+      "role": "index",
+      "sha256": "2882aa6b0f52f452e28a15c60cbc88c0fa69338f488a31ab7b24089c9c2b3b47",
+      "size": 14912,
+      "normalized_sha256": "2882aa6b0f52f452e28a15c60cbc88c0fa69338f488a31ab7b24089c9c2b3b47"
+    },
+    "app/src/test/java/com/zhizhi/app/ClozeUxTest.kt": {
+      "role": "index",
+      "sha256": "6a00e6118711e100a74562cc0b8c888235ea6e181240b567ec280312fb768a25",
+      "size": 15228,
+      "normalized_sha256": "6a00e6118711e100a74562cc0b8c888235ea6e181240b567ec280312fb768a25"
+    },
+    "app/src/test/java/com/zhizhi/app/ConsumePenaltySecondsEpisodeTest.kt": {
+      "role": "index",
+      "sha256": "f356b71564e9c378a2d8b5fc3ece8840a4de99ac2ecf38ecd1696b070a233453",
+      "size": 25980,
+      "normalized_sha256": "f0609eb8d9f727ba4918ef3bf44c68b21f1cac8d4975a8040f5d4bd83c7dbd59"
+    },
+    "app/src/test/java/com/zhizhi/app/ContrastHelperTest.kt": {
+      "role": "index",
+      "sha256": "274359c09f637198b5b9673a6fe8d3c4dcedd705ece52ac162ecd8a35a9e8df5",
+      "size": 1827,
+      "normalized_sha256": "f586731d6ebcc47247094957458924c86ab9b243a3cdaa3d378b71e125142faa"
+    },
+    "app/src/test/java/com/zhizhi/app/DayFormatTest.kt": {
+      "role": "index",
+      "sha256": "47e4ef1fd896c16b3e124bc60994653d4fa495e9420b92a518da24747c8d9b95",
+      "size": 1204,
+      "normalized_sha256": "47e4ef1fd896c16b3e124bc60994653d4fa495e9420b92a518da24747c8d9b95"
+    },
+    "app/src/test/java/com/zhizhi/app/DiagnosticLogCompressorTest.kt": {
+      "role": "index",
+      "sha256": "23d805c4862ce5fd096399d180048214339d0fd84c727317bf9f743ffb854b1e",
+      "size": 5373,
+      "normalized_sha256": "23d805c4862ce5fd096399d180048214339d0fd84c727317bf9f743ffb854b1e"
+    },
+    "app/src/test/java/com/zhizhi/app/DndIsolationTimeWindowTest.kt": {
+      "role": "index",
+      "sha256": "090b1b2ecef4149178121a9ddeb89cc6c379254b80ab85b9945ec1ff13a4a705",
+      "size": 11739,
+      "normalized_sha256": "090b1b2ecef4149178121a9ddeb89cc6c379254b80ab85b9945ec1ff13a4a705"
+    },
+    "app/src/test/java/com/zhizhi/app/DndNaturalDayResetTest.kt": {
+      "role": "index",
+      "sha256": "68eaf0c682ad327efabb6054f4fe4d79b061f43b3737e4947d45c592134b7187",
+      "size": 10818,
+      "normalized_sha256": "68eaf0c682ad327efabb6054f4fe4d79b061f43b3737e4947d45c592134b7187"
+    },
+    "app/src/test/java/com/zhizhi/app/DndRefreshBoundaryValidationTest.kt": {
+      "role": "index",
+      "sha256": "a392f95a44c505a773c5701e48e9ae8cd37d017c5843616c524c57cdb79926b4",
+      "size": 46246,
+      "normalized_sha256": "a392f95a44c505a773c5701e48e9ae8cd37d017c5843616c524c57cdb79926b4"
+    },
+    "app/src/test/java/com/zhizhi/app/DndRefreshSaveUiPreflightTest.kt": {
+      "role": "index",
+      "sha256": "68c5a083b8cd035ac3163c0b0c9697fc48c82bde0a901f3440b21795ab1e2e75",
+      "size": 3785,
+      "normalized_sha256": "7a535678b4a5bc2f49764ca5fd1192a3d56a73bb9f36ff4c03cb2acd55e499df"
+    },
+    "app/src/test/java/com/zhizhi/app/DndRefreshSegmentUiPreflightTest.kt": {
+      "role": "index",
+      "sha256": "a94387471ad025a0f1e2c8901bee23e4a637e4310fd4178615f1d0c738cd2a86",
+      "size": 6677,
+      "normalized_sha256": "35ecca841c8f1c2822b1141820238b7a3b744b05fde75ada38601e5a958f3477"
+    },
+    "app/src/test/java/com/zhizhi/app/DndRefreshStructuralFixture.kt": {
+      "role": "index",
+      "sha256": "966affe2872604d71a1adcc586a05438b510052cf9878f4add7ad4d626447fbf",
+      "size": 5842,
+      "normalized_sha256": "ac99fc8bfe8f9bdce61ecc805710ef8750f6506c726447278454b07ba52e3fe7"
+    },
+    "app/src/test/java/com/zhizhi/app/EffectiveActivationPolicyCopyTest.kt": {
+      "role": "index",
+      "sha256": "6ee34a65c6c25a0cfaea5822b8be040d14daf44b6d46ce0f381eb4c4ec650855",
+      "size": 1529,
+      "normalized_sha256": "617409098485b04bc645db07508e7880b28a17db28cee0afd75cc3646953b798"
+    },
+    "app/src/test/java/com/zhizhi/app/EffectiveActivationPolicyUiCopyContractTest.kt": {
+      "role": "index",
+      "sha256": "6e91bf9500d97dc85bc39927edee9f73c2c35b1239c3e3940f6ef824b98d6b7e",
+      "size": 1216,
+      "normalized_sha256": "eb465b6d6bafb794c94d1153643310547b3efbcf519c29fbc878fc4a7099dc41"
+    },
+    "app/src/test/java/com/zhizhi/app/EventLogDecisionFieldsTest.kt": {
+      "role": "index",
+      "sha256": "ff7449c21585da4b8cdcfaad804612a2b53f7e02d0b21dfe81e2d6a1956cfb5f",
+      "size": 7144,
+      "normalized_sha256": "a72c63b405d8c37a034039db76eeb98311a7e91baf3de52a8f13f1b68d135036"
+    },
+    "app/src/test/java/com/zhizhi/app/ExampleUnitTest.kt": {
+      "role": "index",
+      "sha256": "c95891767a99bcd8e9982d7040ee86a9231b224f7632f7540ac32e6116aed8a3",
+      "size": 339,
+      "normalized_sha256": "c95891767a99bcd8e9982d7040ee86a9231b224f7632f7540ac32e6116aed8a3"
+    },
+    "app/src/test/java/com/zhizhi/app/ExcerptCleanTest.kt": {
+      "role": "index",
+      "sha256": "73fa5e4bd6bd8a514b3c8d717d342bcadb616f4792f1fb50127b2dd97699cb2e",
+      "size": 4444,
+      "normalized_sha256": "73fa5e4bd6bd8a514b3c8d717d342bcadb616f4792f1fb50127b2dd97699cb2e"
+    },
+    "app/src/test/java/com/zhizhi/app/ExpiryRetryStormTest.kt": {
+      "role": "index",
+      "sha256": "ad338ba380e2c0d7faa228f7b8d0b1e3cc24dda746530b02ac357afaa41a568d",
+      "size": 9262,
+      "normalized_sha256": "ad338ba380e2c0d7faa228f7b8d0b1e3cc24dda746530b02ac357afaa41a568d"
+    },
+    "app/src/test/java/com/zhizhi/app/ExpiryStormController.kt": {
+      "role": "index",
+      "sha256": "07072f516238579e208f36464ec198a073d0f5634029f6c2db9c6977461a8bd4",
+      "size": 4828,
+      "normalized_sha256": "07072f516238579e208f36464ec198a073d0f5634029f6c2db9c6977461a8bd4"
+    },
+    "app/src/test/java/com/zhizhi/app/FastLockCountdownLogicTest.kt": {
+      "role": "index",
+      "sha256": "d10eda20e94144a39be54bd6054db007abd9314a775c7a31007295b7f9630242",
+      "size": 27230,
+      "normalized_sha256": "d10eda20e94144a39be54bd6054db007abd9314a775c7a31007295b7f9630242"
+    },
+    "app/src/test/java/com/zhizhi/app/FastLockLogicTest.kt": {
+      "role": "index",
+      "sha256": "43eacb0b32f2a5983f3202623999658ab389d99dfd1e4cf1065615792ddc77da",
+      "size": 3976,
+      "normalized_sha256": "43eacb0b32f2a5983f3202623999658ab389d99dfd1e4cf1065615792ddc77da"
+    },
+    "app/src/test/java/com/zhizhi/app/FastLockServiceRuntimeTest.kt": {
+      "role": "index",
+      "sha256": "a1f6255033ce4d6d296e5bdf9fba017b005cb7b802bea57745cebe84be5239f7",
+      "size": 18578,
+      "normalized_sha256": "a1f6255033ce4d6d296e5bdf9fba017b005cb7b802bea57745cebe84be5239f7"
+    },
+    "app/src/test/java/com/zhizhi/app/FeedbackContactContractTest.kt": {
+      "role": "index",
+      "sha256": "1f4348c0b9410913e9b96e0a3ec0166e3ec37be87bd67d7773f6a36ba76baf19",
+      "size": 3540,
+      "normalized_sha256": "1f4348c0b9410913e9b96e0a3ec0166e3ec37be87bd67d7773f6a36ba76baf19"
+    },
+    "app/src/test/java/com/zhizhi/app/FgDecisionCompactGateTest.kt": {
+      "role": "index",
+      "sha256": "1a948ca4a3fb5d4c32a141d564dd1a0728e0a0b8efccd1716caba9509307aac2",
+      "size": 6913,
+      "normalized_sha256": "1a948ca4a3fb5d4c32a141d564dd1a0728e0a0b8efccd1716caba9509307aac2"
+    },
+    "app/src/test/java/com/zhizhi/app/ForegroundDetectionLogTest.kt": {
+      "role": "index",
+      "sha256": "e9cf1f077e8a5d040c908b52b15316c3fd2e4ad4da5e939366672d3f8e93729b",
+      "size": 5123,
+      "normalized_sha256": "e9cf1f077e8a5d040c908b52b15316c3fd2e4ad4da5e939366672d3f8e93729b"
+    },
+    "app/src/test/java/com/zhizhi/app/ForegroundDiagnosticReportTest.kt": {
+      "role": "index",
+      "sha256": "427e3b88c18a3c7d08b6dd41e121a80c5582258789fb7765a453daa1caa60cda",
+      "size": 180962,
+      "normalized_sha256": "427e3b88c18a3c7d08b6dd41e121a80c5582258789fb7765a453daa1caa60cda"
+    },
+    "app/src/test/java/com/zhizhi/app/ForegroundEvidencePolicyTest.kt": {
+      "role": "index",
+      "sha256": "0037ccd3fed6e93a35c6fabc76f7bcadf4f6419ea26a9c209036fcdf9106e3c6",
+      "size": 7108,
+      "normalized_sha256": "0037ccd3fed6e93a35c6fabc76f7bcadf4f6419ea26a9c209036fcdf9106e3c6"
+    },
+    "app/src/test/java/com/zhizhi/app/ForegroundGuardFallbackGateTest.kt": {
+      "role": "index",
+      "sha256": "effd9a68521ea4d1dac1df6db34439158e6d7a5b4d0cdf94ae378e810cd69486",
+      "size": 5780,
+      "normalized_sha256": "1c1a99648d3e0826c6bad5654a5ce9440fe3234155ee111f7dfc60f8b69de047"
+    },
+    "app/src/test/java/com/zhizhi/app/ForegroundLegacyLogRetirementTest.kt": {
+      "role": "index",
+      "sha256": "975c6aff08748d6cafc5e8f624412ceaa2c53c631fd51c33ae1c5ffcb1f62668",
+      "size": 7522,
+      "normalized_sha256": "1474b7ed5f3e98967daf2744052c6f6268b172499285911f2e6df59501cb375f"
+    },
+    "app/src/test/java/com/zhizhi/app/ForegroundNormalEventTest.kt": {
+      "role": "index",
+      "sha256": "21c33dfefd33feb3c47d9490ad47770dcb45eede28a84f5656d78b8748dc7d69",
+      "size": 23215,
+      "normalized_sha256": "a5d3e6bcfc2a6e520b01605e5cb5aa82ca25debdab38c4896cec0f08af8dedca"
+    },
+    "app/src/test/java/com/zhizhi/app/ForegroundSessionTrackerTest.kt": {
+      "role": "index",
+      "sha256": "8c7352408bee7af319eab1ec517a9bedd7acd3386b421dce8d9a2342efc8c99d",
+      "size": 49742,
+      "normalized_sha256": "a37f62474ec3a13cafcc4a358f0d9f2130fea10956a5a3245cc6b87f1badf5a9"
+    },
+    "app/src/test/java/com/zhizhi/app/HeartbeatDivergenceTest.kt": {
+      "role": "index",
+      "sha256": "6c2607f6c3ceb69ac482771f8a6ca07c4b39a10179e6f06420c7650b9fcb6a96",
+      "size": 7491,
+      "normalized_sha256": "6c2607f6c3ceb69ac482771f8a6ca07c4b39a10179e6f06420c7650b9fcb6a96"
+    },
+    "app/src/test/java/com/zhizhi/app/HelpManualSingleSourceContractTest.kt": {
+      "role": "index",
+      "sha256": "083db28907b6d01156961c63db2379d05d089089fcb89d0d5deaa98b4f7ce042",
+      "size": 2645,
+      "normalized_sha256": "16a287bc44d1caf366e76add55d320c3e5286e85a0ede1e3407590c96f59aa79"
+    },
+    "app/src/test/java/com/zhizhi/app/HomeStatusPresentationTest.kt": {
+      "role": "index",
+      "sha256": "fa23ec1afd66fa1cfaa82d9f0efcf6e76c07ee7e68cade6f91e65cce65298e11",
+      "size": 3997,
+      "normalized_sha256": "3eb65d2fa30c05d9b4d8163497702eb709904186f6739c18b21fdfcd190d1cb7"
+    },
+    "app/src/test/java/com/zhizhi/app/LegalEntryRegistryTest.kt": {
+      "role": "index",
+      "sha256": "7e046059e6028604fa305da672fc757a2ffc56be73728bc499e4ee7c688de9f8",
+      "size": 8377,
+      "normalized_sha256": "7e046059e6028604fa305da672fc757a2ffc56be73728bc499e4ee7c688de9f8"
+    },
+    "app/src/test/java/com/zhizhi/app/LockDecisionPolicyTest.kt": {
+      "role": "index",
+      "sha256": "3eb4908dae21692dee2e01dd197618059574164d0314a0ebc633170095313800",
+      "size": 4753,
+      "normalized_sha256": "c7eb43d8ab552eb82cf4344c57ca0b96be0f90de95b31302e242bcb8df2f9b46"
+    },
+    "app/src/test/java/com/zhizhi/app/LockExitAuthorityContractTest.kt": {
+      "role": "index",
+      "sha256": "a986c10d4c66f3a190128fb2d2df886c96207aec2937b8799f9adf4e98921f56",
+      "size": 4283,
+      "normalized_sha256": "f5376678479c41bb8fc8218e2a643df0aa410d4d1581dc4f7835f981c37d12fd"
+    },
+    "app/src/test/java/com/zhizhi/app/LockExitEvidenceDedupTest.kt": {
+      "role": "index",
+      "sha256": "41e124443b9c347ec8b7069072a9eba044c6d9c44351526e4bbb4f8a25dce88f",
+      "size": 5445,
+      "normalized_sha256": "01c39b63dfe215e93ecbb467e898368fac32f0b1045ce1a50a48e698dc4af566"
+    },
+    "app/src/test/java/com/zhizhi/app/LockGenerationIsolationTest.kt": {
+      "role": "index",
+      "sha256": "d85f9cc5c655b1c46a6f1b958b28ac83202a59ff9b1a67d4ead81a572ac3c68e",
+      "size": 6540,
+      "normalized_sha256": "6b3d08a34fa7b0bbef1dced823f0e11856314499fa644c502e3e832f6729db5f"
+    },
+    "app/src/test/java/com/zhizhi/app/LockLifecycleEventTest.kt": {
+      "role": "index",
+      "sha256": "538661d385f15b16b6df3590b7a9de9158a14e9555aa36c00007f77ebf8c2693",
+      "size": 23090,
+      "normalized_sha256": "f563f45890e6af9ed5e569dab735e19401af5592f4c2e146179d2ef8973150b7"
+    },
+    "app/src/test/java/com/zhizhi/app/LockScreenPresentationPolicyTest.kt": {
+      "role": "index",
+      "sha256": "d2dc3b7b6fce33b5cc9576783a9c0b0eab569b42496d4656204412e91838ce7f",
+      "size": 7778,
+      "normalized_sha256": "d103d1cb8ca32a036d61fca153979756c528afa5c532bfba18899240f0ddacee"
+    },
+    "app/src/test/java/com/zhizhi/app/LogEventMigrationInventoryTest.kt": {
+      "role": "index",
+      "sha256": "dd98a1d2418e64fdcce7e8910fb3fe1eb55b65647f0f0f21f5545d289d00d50a",
+      "size": 30400,
+      "normalized_sha256": "3869e7eb48dee2ca6a653a9c47204da332dcaa3ec242327e169ca5ff6641a061"
+    },
+    "app/src/test/java/com/zhizhi/app/LogExportReductionTest.kt": {
+      "role": "index",
+      "sha256": "53f6e8d8373a45ad3afe796b9af3bc486f9cdaa6bcf3ffe8fc6d76747dd4c859",
+      "size": 11208,
+      "normalized_sha256": "53f6e8d8373a45ad3afe796b9af3bc486f9cdaa6bcf3ffe8fc6d76747dd4c859"
+    },
+    "app/src/test/java/com/zhizhi/app/LogExporterNormalEventTest.kt": {
+      "role": "index",
+      "sha256": "6b11ca754870edd25a4e434d68d53849c7fc63fe7b67f9efd3696f80624baf96",
+      "size": 4725,
+      "normalized_sha256": "6b11ca754870edd25a4e434d68d53849c7fc63fe7b67f9efd3696f80624baf96"
+    },
+    "app/src/test/java/com/zhizhi/app/LogExporterStatusReportDedupTest.kt": {
+      "role": "index",
+      "sha256": "67b5d68daaccfdf992f5dcba89a6db523114947102ed426694d2ac0be6ba9826",
+      "size": 12485,
+      "normalized_sha256": "67b5d68daaccfdf992f5dcba89a6db523114947102ed426694d2ac0be6ba9826"
+    },
+    "app/src/test/java/com/zhizhi/app/LogFormatterTest.kt": {
+      "role": "index",
+      "sha256": "9842cc36f30e7c2c69678cb6e1ab45d7da8cdee8f02203f7114033300e464082",
+      "size": 2401,
+      "normalized_sha256": "9842cc36f30e7c2c69678cb6e1ab45d7da8cdee8f02203f7114033300e464082"
+    },
+    "app/src/test/java/com/zhizhi/app/LogSourceDistributionTest.kt": {
+      "role": "index",
+      "sha256": "5b29a5ddc072a709f9dfdeaedee575a04497700755b64893115fe82b85eea3f4",
+      "size": 6205,
+      "normalized_sha256": "5b29a5ddc072a709f9dfdeaedee575a04497700755b64893115fe82b85eea3f4"
+    },
+    "app/src/test/java/com/zhizhi/app/LogicalDayActivationTest.kt": {
+      "role": "index",
+      "sha256": "df1d8fa9b052de840eba56be08b8ef925cad96acb0694aab7b07c1499ee8d00d",
+      "size": 3041,
+      "normalized_sha256": "df1d8fa9b052de840eba56be08b8ef925cad96acb0694aab7b07c1499ee8d00d"
+    },
+    "app/src/test/java/com/zhizhi/app/MainActivityEntryDecisionTest.kt": {
+      "role": "index",
+      "sha256": "191917cdbcbba6e8e7710f1573cfecf73a8ffffe3b6175264a43b6e5382c9bb7",
+      "size": 5069,
+      "normalized_sha256": "191917cdbcbba6e8e7710f1573cfecf73a8ffffe3b6175264a43b6e5382c9bb7"
+    },
+    "app/src/test/java/com/zhizhi/app/MainActivityFallbackPendingExtrasTest.kt": {
+      "role": "index",
+      "sha256": "e6821978d2fe19c4aa0ee6f5a8d0a62631b4eca0c55a1f5dcf9407511e51e886",
+      "size": 4082,
+      "normalized_sha256": "b920b3e1547746c0d7fa431aca7ca454bdcb7039a78e054a95a41158478aca6d"
+    },
+    "app/src/test/java/com/zhizhi/app/MinuteBoundaryMalformedValidationTest.kt": {
+      "role": "index",
+      "sha256": "9d54e620d5b173e83f0df66799efa32aca2ae8eede97f52dac74efd6b99b624c",
+      "size": 12365,
+      "normalized_sha256": "9d54e620d5b173e83f0df66799efa32aca2ae8eede97f52dac74efd6b99b624c"
+    },
+    "app/src/test/java/com/zhizhi/app/MonitorServiceSingleEmissionTest.kt": {
+      "role": "index",
+      "sha256": "f9909df1a5551d01ff007719b2aaafe413cb73b4e00d40e7151070b32d0f51aa",
+      "size": 1244,
+      "normalized_sha256": "7dd1def34f77de692af7c320811329ec5b21bc6b79c596d185e0fd44aecc5a6f"
+    },
+    "app/src/test/java/com/zhizhi/app/NormalEventLogTest.kt": {
+      "role": "index",
+      "sha256": "93b0afc1a5b3937081e712f245d2101266632de8b0b945fa4388e5aacc8a97e4",
+      "size": 10127,
+      "normalized_sha256": "93b0afc1a5b3937081e712f245d2101266632de8b0b945fa4388e5aacc8a97e4"
+    },
+    "app/src/test/java/com/zhizhi/app/NormalEventStateTrackerTest.kt": {
+      "role": "index",
+      "sha256": "1efe0732ebe24c2753424347db9ec7b4326555765820985bca56566452304b93",
+      "size": 7440,
+      "normalized_sha256": "1efe0732ebe24c2753424347db9ec7b4326555765820985bca56566452304b93"
+    },
+    "app/src/test/java/com/zhizhi/app/PackageForegroundEventExtractorTest.kt": {
+      "role": "index",
+      "sha256": "e7c9483ed7de74c0c3690128f9a5aa180638bc95b7fdc7f89b4b3d16eae38be5",
+      "size": 3795,
+      "normalized_sha256": "e7c9483ed7de74c0c3690128f9a5aa180638bc95b7fdc7f89b4b3d16eae38be5"
+    },
+    "app/src/test/java/com/zhizhi/app/PenaltyDisplayCommitTest.kt": {
+      "role": "index",
+      "sha256": "6b0cf671e82f6e260504efe96390cd2ce5e27b86da7e65e367ced2b968e2d9c6",
+      "size": 13896,
+      "normalized_sha256": "6b0cf671e82f6e260504efe96390cd2ce5e27b86da7e65e367ced2b968e2d9c6"
+    },
+    "app/src/test/java/com/zhizhi/app/PenaltyDisplayCommitTestController.kt": {
+      "role": "index",
+      "sha256": "073cc55108a26deaa8043e481d19c8842ea596498cc0140adaedac5a303cdb57",
+      "size": 12174,
+      "normalized_sha256": "073cc55108a26deaa8043e481d19c8842ea596498cc0140adaedac5a303cdb57"
+    },
+    "app/src/test/java/com/zhizhi/app/PenaltyPayloadEquivalenceTest.kt": {
+      "role": "index",
+      "sha256": "9c5778ad2fef4f746448a9e6f7264327ea14420bdeb83995f25f9d1d700eb641",
+      "size": 9177,
+      "normalized_sha256": "9fbe9f2eeeb78e9a5e7cf1dc7fab2ef86e8d918bc33f841c8a181370f5b15bc1"
+    },
+    "app/src/test/java/com/zhizhi/app/PenaltyReclockIntegrationTest.kt": {
+      "role": "index",
+      "sha256": "d90081a65db7e588b3b33bb6785700d70ffdd35b716aacb5c465047f917213a5",
+      "size": 23632,
+      "normalized_sha256": "d90081a65db7e588b3b33bb6785700d70ffdd35b716aacb5c465047f917213a5"
+    },
+    "app/src/test/java/com/zhizhi/app/PendingMainActivityExtrasContractTest.kt": {
+      "role": "index",
+      "sha256": "a1db17b69f1bef5b33a0ecd172448307c0ae73aaa7d8b4819a63cb78b8837456",
+      "size": 6458,
+      "normalized_sha256": "d902f9a94386994df1383e03c5de8a4ec36bb8c5fddfe4b2488ba78f1702761d"
+    },
+    "app/src/test/java/com/zhizhi/app/PrivacyConsentDecisionTest.kt": {
+      "role": "index",
+      "sha256": "b149ecc92ab18cb5736f0c43efd6c4141d25f0bc478a898d9042ad05a7454c0a",
+      "size": 4850,
+      "normalized_sha256": "b149ecc92ab18cb5736f0c43efd6c4141d25f0bc478a898d9042ad05a7454c0a"
+    },
+    "app/src/test/java/com/zhizhi/app/PrivacyProtectionRetirementContractTest.kt": {
+      "role": "index",
+      "sha256": "65086cf692e13d6a664fd59d74c2c5af68cdfd4c3137bc570e2cedc2601aaada",
+      "size": 9573,
+      "normalized_sha256": "e6f802fa56d922e6b6d8010d1c5567fa8baa5b6789e514f1994a3f9dec0b08da"
+    },
+    "app/src/test/java/com/zhizhi/app/PrivacySpaceGuardEnforcementTest.kt": {
+      "role": "index",
+      "sha256": "1e5a3f2ce6a2a6433120062eeb14cbc4a212ed2bdf25dd011eda98426435cc2a",
+      "size": 27225,
+      "normalized_sha256": "1e5a3f2ce6a2a6433120062eeb14cbc4a212ed2bdf25dd011eda98426435cc2a"
+    },
+    "app/src/test/java/com/zhizhi/app/PrivacySpaceGuardRulesTest.kt": {
+      "role": "index",
+      "sha256": "f4137309dbdf65c563f41f08610fb1812b33a7922abce83d4b7a28e63a50e29e",
+      "size": 16107,
+      "normalized_sha256": "f4137309dbdf65c563f41f08610fb1812b33a7922abce83d4b7a28e63a50e29e"
+    },
+    "app/src/test/java/com/zhizhi/app/PrivateSpaceImmediateBlockTest.kt": {
+      "role": "index",
+      "sha256": "4b4424cfce1fba0edf363203795cad85a563e9c75d3ff36c6329c99724ed3796",
+      "size": 28019,
+      "normalized_sha256": "e3a87f050864dd974b7ecf4fd974218cdcab1a9115348a54acd5f70d4af0ade5"
+    },
+    "app/src/test/java/com/zhizhi/app/PrivilegeAutoClampTest.kt": {
+      "role": "index",
+      "sha256": "531559a4a4710d70aacc75be59d4e578f3d61bf30a7038c4c97ced968a3eb725",
+      "size": 5258,
+      "normalized_sha256": "531559a4a4710d70aacc75be59d4e578f3d61bf30a7038c4c97ced968a3eb725"
+    },
+    "app/src/test/java/com/zhizhi/app/QuotaConfigEventTest.kt": {
+      "role": "index",
+      "sha256": "53c106ae1793cf532473ce93819516eb7aec878e4b6fdeb6738a37ad1e19f473",
+      "size": 10478,
+      "normalized_sha256": "13ccd11121e5d90526fd8f9b359509332e5bbf22733f92c0e06bcdabd7f4d0e2"
+    },
+    "app/src/test/java/com/zhizhi/app/QuotaDetailModelTest.kt": {
+      "role": "index",
+      "sha256": "2e29546220eb462a905019c8813aa118403ac8e8c5b307e3cb27114a954a5085",
+      "size": 1505,
+      "normalized_sha256": "2e29546220eb462a905019c8813aa118403ac8e8c5b307e3cb27114a954a5085"
+    },
+    "app/src/test/java/com/zhizhi/app/QuotaProductionMigrationTest.kt": {
+      "role": "index",
+      "sha256": "218b5be860363d9f60753323c198490879a80704de75395a55b1344d6e3d0a98",
+      "size": 1939,
+      "normalized_sha256": "c794d3da856ca5916daaa72b752c700c26f41d79fe7d48979cb3d6d22ede4e0f"
+    },
+    "app/src/test/java/com/zhizhi/app/RecentTasksHideManagerTest.kt": {
+      "role": "index",
+      "sha256": "2d5da3c544d09602f59949dea3bb9fce9b0ff7439e8a29e5370b72315467a7c6",
+      "size": 2072,
+      "normalized_sha256": "2d5da3c544d09602f59949dea3bb9fce9b0ff7439e8a29e5370b72315467a7c6"
+    },
+    "app/src/test/java/com/zhizhi/app/ReviewTranslationTest.kt": {
+      "role": "index",
+      "sha256": "b438b16f32b4f585dfac7383c061d7e32da0e0ff55e16b08e4812f0c10e8768b",
+      "size": 8728,
+      "normalized_sha256": "b438b16f32b4f585dfac7383c061d7e32da0e0ff55e16b08e4812f0c10e8768b"
+    },
+    "app/src/test/java/com/zhizhi/app/RuleDisplayBaselineConsistencyTest.kt": {
+      "role": "index",
+      "sha256": "f933abd34f42fec80c9b0df32826b8594f5b9797a3c3866a2e673f710825cc17",
+      "size": 5687,
+      "normalized_sha256": "ffa45bdc175a76f5399de813480fe36e90f931627f9c432614a13b264c36cc13"
+    },
+    "app/src/test/java/com/zhizhi/app/SegmentBillingTest.kt": {
+      "role": "index",
+      "sha256": "0f2b4d193b07cd2cb629babecebe0e1b323cc3af6244e8e0031a8d14b2e5d968",
+      "size": 8738,
+      "normalized_sha256": "0f2b4d193b07cd2cb629babecebe0e1b323cc3af6244e8e0031a8d14b2e5d968"
+    },
+    "app/src/test/java/com/zhizhi/app/SegmentBlacklistDecisionTest.kt": {
+      "role": "index",
+      "sha256": "3824ebbc415098d25b6c5a9658f49a0c68970be63a78abeed29bf6ec539a0a37",
+      "size": 16122,
+      "normalized_sha256": "3824ebbc415098d25b6c5a9658f49a0c68970be63a78abeed29bf6ec539a0a37"
+    },
+    "app/src/test/java/com/zhizhi/app/SegmentCarryEligibilityTest.kt": {
+      "role": "index",
+      "sha256": "efc4b44e562a35e6bca8088a78789123ba2e9af40fb396c9a8682823d582c57d",
+      "size": 4472,
+      "normalized_sha256": "efc4b44e562a35e6bca8088a78789123ba2e9af40fb396c9a8682823d582c57d"
+    },
+    "app/src/test/java/com/zhizhi/app/SegmentListAddOnGlobalReproTest.kt": {
+      "role": "index",
+      "sha256": "bdc48c8d322099bcfacf8239acbdf09ed063a9e07ec38d84c71feee7c8bfa7fb",
+      "size": 3355,
+      "normalized_sha256": "bdc48c8d322099bcfacf8239acbdf09ed063a9e07ec38d84c71feee7c8bfa7fb"
+    },
+    "app/src/test/java/com/zhizhi/app/SegmentListAdverseTest.kt": {
+      "role": "index",
+      "sha256": "11d1e008587e5ad144c2f68d3461f729814f8d604f1632ceeeb037a7a284aacb",
+      "size": 14016,
+      "normalized_sha256": "11d1e008587e5ad144c2f68d3461f729814f8d604f1632ceeeb037a7a284aacb"
+    },
+    "app/src/test/java/com/zhizhi/app/SegmentListJsonCompatTest.kt": {
+      "role": "index",
+      "sha256": "179fa0899b13a84ae453037c0197a7501727403b512401e9e5bafc5b4050b05b",
+      "size": 7940,
+      "normalized_sha256": "179fa0899b13a84ae453037c0197a7501727403b512401e9e5bafc5b4050b05b"
+    },
+    "app/src/test/java/com/zhizhi/app/SegmentListUiStateTest.kt": {
+      "role": "index",
+      "sha256": "38de4f18243a223a3906d582398cd89e5b80005cca7e3d51a22999bc6d4d7919",
+      "size": 11916,
+      "normalized_sha256": "38de4f18243a223a3906d582398cd89e5b80005cca7e3d51a22999bc6d4d7919"
+    },
+    "app/src/test/java/com/zhizhi/app/TemporaryAccessChargeSnapshotTest.kt": {
+      "role": "index",
+      "sha256": "960260ad9469ae16ae291099e3b97c123f4898e33ddfe0375dd43ff9dd8ebad1",
+      "size": 11289,
+      "normalized_sha256": "7ee3e5ef4e0c3145f36e927718c795c2d914f00e95b010b24a11eacabdabd026"
+    },
+    "app/src/test/java/com/zhizhi/app/TemporaryAccessMinuteInputTest.kt": {
+      "role": "index",
+      "sha256": "77aba7ac4d32bb9121716e7aa79ec714001bfd4c1e0eb866c508e4455ea8a596",
+      "size": 1732,
+      "normalized_sha256": "77aba7ac4d32bb9121716e7aa79ec714001bfd4c1e0eb866c508e4455ea8a596"
+    },
+    "app/src/test/java/com/zhizhi/app/TemporaryAccessQuotaPlanTest.kt": {
+      "role": "index",
+      "sha256": "0e1abda8fd2f91b90c35d958c2d4352e27eccd55130d1ea3135fb135f5daab49",
+      "size": 7289,
+      "normalized_sha256": "0e1abda8fd2f91b90c35d958c2d4352e27eccd55130d1ea3135fb135f5daab49"
+    },
+    "app/src/test/java/com/zhizhi/app/TemporaryAccessQuotaPresentationTest.kt": {
+      "role": "index",
+      "sha256": "d3bf86e86304d448ca1838f86a1de28020b946494d14731b236684f1c66d18e0",
+      "size": 2594,
+      "normalized_sha256": "9e5847f1af36c0508458e5862f94ef44e1d4d156f9c3bdcbeee36c338dea3860"
+    },
+    "app/src/test/java/com/zhizhi/app/TemporaryAccessUserFacingCopyContractTest.kt": {
+      "role": "index",
+      "sha256": "666217c95f3378dd8e5f08cf46119f1e9aae8866f194dca85268267b8932ea09",
+      "size": 1329,
+      "normalized_sha256": "2a0284e98bdd48fde422f22694eb0eba51c16dc291a3666757ccc38629bde107"
+    },
+    "app/src/test/java/com/zhizhi/app/TestScenarioManager.kt": {
+      "role": "index",
+      "sha256": "ea13fef797b92eb284bad710594ad8d48618d0e614565360b7db87ad6a1158ef",
+      "size": 578667,
+      "normalized_sha256": "ea13fef797b92eb284bad710594ad8d48618d0e614565360b7db87ad6a1158ef"
+    },
+    "app/src/test/java/com/zhizhi/app/TestScenarioRunner.kt": {
+      "role": "index",
+      "sha256": "785c975d5473c893d6d499e25c87d80b841cc8b04514b1ba1cad558705618fd9",
+      "size": 5463,
+      "normalized_sha256": "785c975d5473c893d6d499e25c87d80b841cc8b04514b1ba1cad558705618fd9"
+    },
+    "app/src/test/java/com/zhizhi/app/TimeRuleManagerTest.kt": {
+      "role": "index",
+      "sha256": "dcec9ba464d6646b8b957a7634aa0f6d9900ad0de5c4e7182c3c4ae18a1512fe",
+      "size": 1937,
+      "normalized_sha256": "dcec9ba464d6646b8b957a7634aa0f6d9900ad0de5c4e7182c3c4ae18a1512fe"
+    },
+    "app/src/test/java/com/zhizhi/app/TimeRulesInformationArchitectureContractTest.kt": {
+      "role": "index",
+      "sha256": "8b43d1213c7af6ab39c426e7f19cbb068244ed59c606027e95a2c0f88ddc0fdb",
+      "size": 2276,
+      "normalized_sha256": "87edc5b78dc35b47e0497fae1b4a90f108b966f6f4e76787d7f7b24ead50f275"
+    },
+    "app/src/test/java/com/zhizhi/app/UiMasterLayoutContractTest.kt": {
+      "role": "index",
+      "sha256": "1e05e487835702ba5e2edf19b336b86c0426315bfe11ddc5e3911e51100ac58e",
+      "size": 4657,
+      "normalized_sha256": "e610d5c7f6cb5b9828e28bcfae318f36ca5c066caab9fc8fbb023ca198d46e77"
+    },
+    "app/src/test/java/com/zhizhi/app/UiVisualMasterContractTest.kt": {
+      "role": "index",
+      "sha256": "89f868a112e55b50cf63f3f36d87289922f922790dcc2fe03728ebbe4ec624d5",
+      "size": 6156,
+      "normalized_sha256": "497f804a622b8e2f9185df500cab2bb3a086ffda5619e2cb8135875dd2760a04"
+    },
+    "app/src/test/java/com/zhizhi/app/UsableCountLedgerMigrationTest.kt": {
+      "role": "index",
+      "sha256": "81f28807aee56ab66bfe9d95b8a6efa6d24ff640e03f8ac8e80bbc0dbf5861c6",
+      "size": 1118,
+      "normalized_sha256": "81f28807aee56ab66bfe9d95b8a6efa6d24ff640e03f8ac8e80bbc0dbf5861c6"
+    },
+    "app/src/test/java/com/zhizhi/app/UsableCountTest.kt": {
+      "role": "index",
+      "sha256": "c7750c2c13eaa29e1f7cd9ad442933fd1e71ccd453ccd9fa868217edb24da1ca",
+      "size": 1721,
+      "normalized_sha256": "c7750c2c13eaa29e1f7cd9ad442933fd1e71ccd453ccd9fa868217edb24da1ca"
+    },
+    "app/src/test/java/com/zhizhi/app/WeightedRestCountTest.kt": {
+      "role": "index",
+      "sha256": "e301aecd948d8eea0821873a0372ee7ec1c7123dcaa4236970480e6c44734197",
+      "size": 8342,
+      "normalized_sha256": "3872ca9f56798b89c292e47ba197c30a8897f193ce271dbef627998ea272a3e4"
+    },
+    "app/src/test/java/com/zhizhi/app/WordLookupAndBookmarkTest.kt": {
+      "role": "index",
+      "sha256": "16a154722ad70a52a84034f7c8d1b0049851788ad521abb05ddb7c44a1b554f1",
+      "size": 6029,
+      "normalized_sha256": "16a154722ad70a52a84034f7c8d1b0049851788ad521abb05ddb7c44a1b554f1"
+    },
+    "app/src/test/java/com/zhizhi/app/data/AutoBlacklistConfigTest.kt": {
+      "role": "index",
+      "sha256": "cc77905f8edf351568585d32b0f6caf830d3ba726942366e7ea9ed48b769489e",
+      "size": 4225,
+      "normalized_sha256": "cc77905f8edf351568585d32b0f6caf830d3ba726942366e7ea9ed48b769489e"
+    },
+    "app/src/test/java/com/zhizhi/app/manager/AutoBackupManagerTest.kt": {
+      "role": "index",
+      "sha256": "df137d6afcf0d313179f43e011f2f2cbebfffcb511c8c75fe2fd5fa41b3116e1",
+      "size": 6855,
+      "normalized_sha256": "9b263c4bddf0556e0ac6fa3b974d2ed4065628ba75c47475ee25b080ee28ac05"
+    },
+    "app/src/test/java/com/zhizhi/app/questionbank/BookmarkTabManagementTest.kt": {
+      "role": "index",
+      "sha256": "99befa9278e104ed05b3038fd1dc90922d29c564c2f1d745217484c3d8586b69",
+      "size": 2925,
+      "normalized_sha256": "943ca934ef0bb80424d2c053eea647545e0778e71e9d881e6613ab9169a0c181"
+    },
+    "app/src/test/java/com/zhizhi/app/questionbank/CustomQuestionBankImportUiContractTest.kt": {
+      "role": "index",
+      "sha256": "e2b2ecb4050b5989227397718be7e6576d3977167fa7adffb13f4c3aecd5b419",
+      "size": 1278,
+      "normalized_sha256": "caf73f8671bc0fa46bffda5cbbb4956cd0f19e284e26a3218f5c85af81006ce5"
+    },
+    "app/src/test/java/com/zhizhi/app/questionbank/CustomQuestionBankManagerTest.kt": {
+      "role": "index",
+      "sha256": "a2fdcf021126e2fc96bc1128dabe45b739c93f3caf144ac36fd46a2257e05a89",
+      "size": 10824,
+      "normalized_sha256": "2e4a53315a33ca6eb2ebce6ba1ef697efb4207cef5f2c08f7f0ac79cc628c0b3"
+    },
+    "app/src/test/java/com/zhizhi/app/questionbank/CustomQuestionBankParserRobustnessTest.kt": {
+      "role": "index",
+      "sha256": "f6cfeb0a41bd060d92f2f531f599cdf2540473c20901c516e3813cf3397adbba",
+      "size": 3093,
+      "normalized_sha256": "fcf355ac766f38b71556286696a9d9971deddf750b29869a03bfc8aa769ca524"
+    },
+    "app/src/test/java/com/zhizhi/app/questionbank/CustomQuestionBankParserTest.kt": {
+      "role": "index",
+      "sha256": "554ffcb872caad41555cbec3a24c17f2fb8c952a7a668a52cb5856ae3dc568ac",
+      "size": 9402,
+      "normalized_sha256": "bedbcbc5f6333aecf3839f92c030317d0a9b1fe9bc1effa489b7be3da3d71333"
+    },
+    "app/src/test/java/com/zhizhi/app/questionbank/CustomQuestionBankPromptTest.kt": {
+      "role": "index",
+      "sha256": "3467bfa3ac6e440074e60801726171ba0e43dbddf6473f7847560a95cc4dea93",
+      "size": 1044,
+      "normalized_sha256": "fa4a201014b7a23a93f9f13aad7e167d31f441905aab26c19a85d7f79a50876f"
+    },
+    "app/src/test/java/com/zhizhi/app/service/AccessibilityWindowSnapshotTest.kt": {
+      "role": "index",
+      "sha256": "1524bd6134a170ff5e463e96719b4aab415c057b6ab737167b6eb4e76f67d59f",
+      "size": 5165,
+      "normalized_sha256": "1524bd6134a170ff5e463e96719b4aab415c057b6ab737167b6eb4e76f67d59f"
+    },
+    "app/src/test/java/com/zhizhi/app/service/CoreServiceInterruptLifecycleTest.kt": {
+      "role": "index",
+      "sha256": "e0ae7836c898fce81caeeb92d110b0b8a85948cfdec63c5444d2f8feff51b230",
+      "size": 940,
+      "normalized_sha256": "e0ae7836c898fce81caeeb92d110b0b8a85948cfdec63c5444d2f8feff51b230"
+    },
+    "app/src/test/java/com/zhizhi/app/service/VisibleBlacklistLockPolicyTest.kt": {
+      "role": "index",
+      "sha256": "8b488ba9a38641959642ec4bfcd85df1484b0fc1553fd81edce6d3286089bc45",
+      "size": 4970,
+      "normalized_sha256": "8b488ba9a38641959642ec4bfcd85df1484b0fc1553fd81edce6d3286089bc45"
+    },
+    "app/src/test/java/com/zhizhi/app/service/VisibleBlacklistPresenceAccessibilityGateTest.kt": {
+      "role": "index",
+      "sha256": "f79d560998da6d2878ab70e73161e15fe293f82c650b346dff4e56beee1d400c",
+      "size": 2491,
+      "normalized_sha256": "8298fca362dafbae19356e5ac57fe0f79387f560a136f94ed83840c802976ce5"
+    },
+    "app/src/test/java/com/zhizhi/app/service/VisibleBlacklistPresenceRevalidationTest.kt": {
+      "role": "index",
+      "sha256": "08308d8ad369bab4920bc896f4462948c3bd3705aca5aca0cc87cf4471de98e4",
+      "size": 6390,
+      "normalized_sha256": "02d95f44863123596a19bf879066b7c9faa7842f6230c8aac17b90e29118f204"
+    },
+    "app/src/test/java/com/zhizhi/app/service/VisibleBlacklistPresenceTrackerTest.kt": {
+      "role": "index",
+      "sha256": "b242ab8ce3ebc45c0849aee5a74ae8bc39273dd3d65860ca906bec2595f6a80d",
+      "size": 17865,
+      "normalized_sha256": "ba262771a72631e99518dc7c1362e42d510d4a2af3263d21c056689524f10ead"
+    },
+    "app/src/test/java/com/zhizhi/app/service/VisibleBlacklistStoppedRelockRegressionTest.kt": {
+      "role": "index",
+      "sha256": "635ff393cbaf77e8d2ab2c719a6ab99be4c874589b0a7ae38ecf3cc3995759eb",
+      "size": 1870,
+      "normalized_sha256": "6ad57ca5083f913b6acaca5550bbcf9c521902722e2e8fb5cf17f1853e6c5fa9"
+    },
+    "app/src/test/java/com/zhizhi/app/statistics/AlarmWakeMultipleRecordsAndHistoryTest.kt": {
+      "role": "index",
+      "sha256": "74b07b96602a029a28d8c4ab03546d165d40d61097d3bab58473ad7472a05664",
+      "size": 4444,
+      "normalized_sha256": "7ead29dea0d1bdda17daa4eaca93ca2c4c3dd1f9d2497afb6054d471a2065a44"
+    },
+    "app/src/test/java/com/zhizhi/app/statistics/AlarmWakeStatisticsIntegrationTest.kt": {
+      "role": "index",
+      "sha256": "f18ec5983d63c13473fb24ef36b1a93216ed057b207266f9c3a0e77eec7ce71a",
+      "size": 6871,
+      "normalized_sha256": "ae14c3de834f7063ef4cc9d2cadaa4bd3d43fd39e5900985b53bda5881e3999d"
+    },
+    "app/src/test/java/com/zhizhi/app/statistics/RestStatsRecorderAndHistoryTest.kt": {
+      "role": "index",
+      "sha256": "a88de7855b8c075dbe42efcda8ffd014fd6d5b57dce0e80194193a714fe9d04a",
+      "size": 3996,
+      "normalized_sha256": "cf10fdc943ae6802ab932e2c040a0e7ca6ad6b8b9bacffca47b0bae32cd63c9c"
+    },
+    "app/src/test/java/com/zhizhi/app/statistics/StatisticsCategoryResolutionTest.kt": {
+      "role": "index",
+      "sha256": "0c3d9c77185884ae7aaeea53f2a58f6ceab0845633fc695dff98c709f691caac",
+      "size": 5820,
+      "normalized_sha256": "17ada43cc0da1d5857e7d03026bbade682e94d6d26b79494ccbaf6196f255daf"
+    },
+    "app/src/test/java/com/zhizhi/app/statistics/StatisticsRepositoryTest.kt": {
+      "role": "index",
+      "sha256": "7cce0b1234312be59f399b7bf40cb993b89c4c48cf4e405da5529f9cc37ff329",
+      "size": 12276,
+      "normalized_sha256": "3ff8b88f253ac9ae95d72253af1a8538d9292d5116b331b1a2db3edd069684ec"
+    },
+    "app/src/test/java/com/zhizhi/app/statistics/StatsDateRangeResolverTest.kt": {
+      "role": "index",
+      "sha256": "143d3275d69488b70a8513f94ab5aa0b61bf0af1409b536e69b59420db9488b9",
+      "size": 4767,
+      "normalized_sha256": "805d89b0dc5990e1a2dc6189e5c48e14c4e43e6b320a28e5a7a2aef572ec6205"
+    },
+    "build.gradle.kts": {
+      "role": "index",
+      "sha256": "70d68c6e44ea2f71d1d91466097cde5397aad65bd86eadbb6a1facfee5f95623",
+      "size": 222,
+      "normalized_sha256": "6ad44a57f5d546a748417bb5da689c932e40c8478bb5c66cfaef35d42400cd82"
+    },
+    "docs/ARCHITECTURE.md": {
+      "role": "index",
+      "sha256": "c6e5bdb5db4130d3a7da992f18c289b25644dc9be85ec7e3ebca1fb54fa42c52",
+      "size": 4531,
+      "normalized_sha256": "c6e5bdb5db4130d3a7da992f18c289b25644dc9be85ec7e3ebca1fb54fa42c52"
+    },
+    "docs/DATA_SOURCES.md": {
+      "role": "index",
+      "sha256": "09459d75a391f3d210d43f139df1a213400df064383b23f4c338c81dd11f5d93",
+      "size": 3535,
+      "normalized_sha256": "09459d75a391f3d210d43f139df1a213400df064383b23f4c338c81dd11f5d93"
+    },
+    "docs/PUBLISHING.md": {
+      "role": "index",
+      "sha256": "cf6565ea0aae8ecc21966cac5491476eb6ee3ebd629289b87f0818aa01835ba4",
+      "size": 10059,
+      "normalized_sha256": "cf6565ea0aae8ecc21966cac5491476eb6ee3ebd629289b87f0818aa01835ba4"
+    },
+    "docs/README.md": {
+      "role": "index",
+      "sha256": "389075401885ac4255a5cb96994a8d82856e20b54993c13be8c923c1da44d4e5",
+      "size": 4902,
+      "normalized_sha256": "80ccf4279490609191f77e79dd626bffaee5c300fccb9b77d9e16693b4710410"
+    },
+    "docs/THIRD_PARTY_NOTICES.md": {
+      "role": "index",
+      "sha256": "25cdfdd63484b110033b45584a4619830e90783c77097e0ab32bed9dffdee5ae",
+      "size": 1459,
+      "normalized_sha256": "6670c1781c49705b27bb83167b6d00d9c55d39de1c3902444321e2de40c14f27"
+    },
+    "docs/ai/LOG_EVENT_MIGRATION.md": {
+      "role": "index",
+      "sha256": "0268b38883fcb789474f9814e0306e01ec2c985bacc4731f61b23ff1a20f80d7",
+      "size": 25108,
+      "normalized_sha256": "739684d9fe83d5e47e971fbcddcf923daaf7309e58e54b0fe2799d5a1150dc07"
+    },
+    "docs/archive/script.js": {
+      "role": "index",
+      "sha256": "a6a060c0b715e938e90914094579703b7a10702cd2c2c6a433c6ca107b8c4afd",
+      "size": 128681,
+      "normalized_sha256": "f9702e8b9447daa4ebf655736790adbfe5c3c6401d1ee22fce4264885cded414"
+    },
+    "docs/history/issue_tracker.md": {
+      "role": "index",
+      "sha256": "d2f9b3056c48b3a688bb41fab138ac015ec5886393697a6c89669abb79b02481",
+      "size": 113809,
+      "normalized_sha256": "81a6a1c4a37dc6ed05ded6e5f2afc3d28dcc9202a4ce057cd2d82092c9e4594b"
+    },
+    "docs/images/badges/ai-image-20260904-220431-39996-01.svg": {
+      "role": "index",
+      "sha256": "b653fae54fd801c9f5d86db082de875706b28188fa71ece4a3b37594fd942700",
+      "size": 1308,
+      "normalized_sha256": "b653fae54fd801c9f5d86db082de875706b28188fa71ece4a3b37594fd942700"
+    },
+    "docs/images/badges/ai-image-20260904-220431-39996-02.svg": {
+      "role": "index",
+      "sha256": "0566ca0491f52d40dea66c9dadec68f1d3147b3dc24e0fc4303418924a44ef09",
+      "size": 1284,
+      "normalized_sha256": "0566ca0491f52d40dea66c9dadec68f1d3147b3dc24e0fc4303418924a44ef09"
+    },
+    "docs/images/badges/ai-image-20260904-220431-39996-03.svg": {
+      "role": "index",
+      "sha256": "7c8fef476b10ab1740f8552481e6d682848748b38b34c0255c850f51d8c61f90",
+      "size": 1319,
+      "normalized_sha256": "7c8fef476b10ab1740f8552481e6d682848748b38b34c0255c850f51d8c61f90"
+    },
+    "docs/images/logo.png": {
+      "role": "index",
+      "sha256": "e4915b1063c43635523124e35ca5222d40cd4770ff58f34d668e44c6ac7678bc",
+      "size": 1694857
+    },
+    "docs/images/readme配图.png": {
+      "role": "index",
+      "sha256": "3fc906855250b418d13112662a7ae19d5c6ecab904a01a59a4c4b729c2ec8a74",
+      "size": 1444333
+    },
+    "docs/images/screenshots/1770910688297.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910691060.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910692026.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910693352.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910702810.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910703554.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910703880.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910713918.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910714383.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910714549.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/1770910727715.png": {
+      "role": "index",
+      "sha256": "356341b7b3bedaed7f83da8220c3d583f732279556a7dfcf3c947353a8f78fdb",
+      "size": 62053
+    },
+    "docs/images/screenshots/schedule_preview.png": {
+      "role": "index",
+      "sha256": "007476d154bf088e807b4d00261c13bcffb720b413631a079522f53d350587a3",
+      "size": 465792
+    },
+    "docs/plans/2026-09-05-ui-unification-handover.md": {
+      "role": "index",
+      "sha256": "ca0e12dc4a0ce316f40a5209682ee93d587ee57448b2619344af6b1c8d45b563",
+      "size": 25793,
+      "normalized_sha256": "1b43035cddfa6b72839ac7261f72892f25bdbd56eca090843295ca7ef2b94bd6"
+    },
+    "docs/plans/task-feedback-paradigm.md": {
+      "role": "index",
+      "sha256": "2b63591fb76ae74b5e431900b566f09af014c3c16abc29ab91321a1b180ef31a",
+      "size": 5095,
+      "normalized_sha256": "2b63591fb76ae74b5e431900b566f09af014c3c16abc29ab91321a1b180ef31a"
+    },
+    "docs/specs/alarm.md": {
+      "role": "index",
+      "sha256": "ecb8bb43260d11e8ea9480819589011c0b4071f03fade084c74825d262b2edb4",
+      "size": 15046,
+      "normalized_sha256": "b3c8934918f64812217e4e6fae05ae41778ea66cd12cff54d886a67d40479b42"
+    },
+    "docs/specs/data.md": {
+      "role": "index",
+      "sha256": "b34546eca832b55279e5b5e0db77684c5195c70d1725159935125f59a735964b",
+      "size": 6645,
+      "normalized_sha256": "55ac9def2278da207c6ad2f6cf84c033113bf7b74566754d683bc8488a605ef4"
+    },
+    "docs/specs/focus.md": {
+      "role": "index",
+      "sha256": "3bca1c58a5dbb0468f26395aded5d2aa65fe5060d57be4ee50722350e65ebf61",
+      "size": 15502,
+      "normalized_sha256": "36730d5135a554660dd3e34e3bac9e265e4112131f62d8f1835ff3327e384c83"
+    },
+    "docs/specs/protection.md": {
+      "role": "index",
+      "sha256": "3066ee0a88a011022592cec1f8d635cfece141d51ef26ae545a8a3e877c83667",
+      "size": 11432,
+      "normalized_sha256": "fc9385f1c08b72c36e5aacb821dfa4cde92db3068cc11d46b2181dad1b557864"
+    },
+    "docs/specs/statistics.md": {
+      "role": "index",
+      "sha256": "53b69edd61340bdccaabff23f3cc32ac16366d9ccc33b14184c63c80ffe31dd9",
+      "size": 8006,
+      "normalized_sha256": "6e9b57e4c9e5b5cf10fcaa81a03678680ecaf1b990892131461d11160116734e"
+    },
+    "docs/superpowers/plans/2026-09-06-ui-master-alignment.md": {
+      "role": "index",
+      "sha256": "bee6d838c454577bd9be7f88346501d7fe5ac43a98ebeb1ea5644e6d11bd6587",
+      "size": 5277,
+      "normalized_sha256": "ce264e66dfddbd292de3ee8a251bc6d3c54380c19dd5d7da0f39a8e917672ff4"
+    },
+    "docs/superpowers/plans/2026-09-08-alarm-alert-policy.md": {
+      "role": "index",
+      "sha256": "fdb770848c0e7dfdd8384d00352931a00dcb4016bbe4952447e214323c8c6979",
+      "size": 24782,
+      "normalized_sha256": "47153081fcba3131eeb48cd6632763d8cdb1200def2c36594b4c0472f95b6bd4"
+    },
+    "docs/superpowers/plans/2026-09-08-alarm-reminder-redesign.md": {
+      "role": "index",
+      "sha256": "67585420486bc3c16c1f2bcfe5dc5cb5027faf02e508b5b82a254fb3b13ad621",
+      "size": 14573,
+      "normalized_sha256": "d2a263f50550c2d90a51c3a53f49c58208a3763b808d073b8bfb6ddd7c8f0c80"
+    },
+    "docs/superpowers/reviews/2026-09-10-alarm-completion-cooldown-final-review.md": {
+      "role": "index",
+      "sha256": "4ae3d5066c0a1d9fa90f69a37b2eda6da387026111766520428d8ef46a4350fd",
+      "size": 5929,
+      "normalized_sha256": "4ae3d5066c0a1d9fa90f69a37b2eda6da387026111766520428d8ef46a4350fd"
+    },
+    "docs/superpowers/reviews/2026-09-10-alarm-completion-cooldown-review.md": {
+      "role": "index",
+      "sha256": "b44ef786cbf21ecc9dfdc4ba96f33378a9c11e02fc5813bef21f72d94988f11e",
+      "size": 5494,
+      "normalized_sha256": "b44ef786cbf21ecc9dfdc4ba96f33378a9c11e02fc5813bef21f72d94988f11e"
+    },
+    "docs/verification/2026-09-06-vivo-ui-session-verification.md": {
+      "role": "index",
+      "sha256": "0a7eae26ed3f04ce720cebb3a7b01c30037a64909d4ed2ae8dea4b2757533b18",
+      "size": 4542,
+      "normalized_sha256": "f312eb18cb6a1c9e8fcb1a2b98ddacd93f781aa2b1601e229d20d58a5b97324b"
+    },
+    "docs/work/task-brand-cleanup-zhizhi.md": {
+      "role": "index",
+      "sha256": "fd8d25e7bf185a60b8528cba106fdcedcf9de7345f13650caa8b0e47cce49665",
+      "size": 3082,
+      "normalized_sha256": "fd8d25e7bf185a60b8528cba106fdcedcf9de7345f13650caa8b0e47cce49665"
+    },
+    "docs/work/task-feedback-paradigm.md": {
+      "role": "index",
+      "sha256": "b74c753beed0eb2eeabd572e63649deb752428152dc2e94ceb14fb4f5f836dd2",
+      "size": 5070,
+      "normalized_sha256": "b74c753beed0eb2eeabd572e63649deb752428152dc2e94ceb14fb4f5f836dd2"
+    },
+    "docs/zhizhi_ui_showcase.html": {
+      "role": "index",
+      "sha256": "a638066c3df810fddb3f21e8677beffccc5d62c2274b254f9f8caac6b34b74b6",
+      "size": 152567,
+      "normalized_sha256": "90ee7228ddda5a0f54db8db412c2ef41a2388ed89254ff7baa3c61f39c330f4f"
+    },
+    "docs/使用手册.md": {
+      "role": "index",
+      "sha256": "d197fe00df49ddfee176af9433764da5dd1bf3069606bb7a4e20a98fff343b42",
+      "size": 16336,
+      "normalized_sha256": "e51d46f23741dc9ddc61203dcc9898bb69797aa14dd7236fbc6d7a08d1d8df49"
+    },
+    "gradle.properties": {
+      "role": "index",
+      "sha256": "ec9623b4fb4f582034515cb5f2ff676e13917c377ad9e8aa69b3fc863ef50786",
+      "size": 1731,
+      "normalized_sha256": "edc72cb02226dc61ff20fd32f941309ad2eb1fe52ee4b241a2617ea86d662e83"
+    },
+    "gradle/libs.versions.toml": {
+      "role": "index",
+      "sha256": "e4d09b0bf07c12ebb400b9a8e6663aab69a04cfdff19d734a570a0b49f12c591",
+      "size": 1422,
+      "normalized_sha256": "48ffcd984608f6241622c0f4d79446f4862a0ba1da97bba3aeb1bb16b5913f2c"
+    },
+    "gradle/wrapper/gradle-wrapper.jar": {
+      "role": "index",
+      "sha256": "76805e32c009c0cf0dd5d206bddc9fb22ea42e84db904b764f3047de095493f3",
+      "size": 45457
+    },
+    "gradle/wrapper/gradle-wrapper.properties": {
+      "role": "index",
+      "sha256": "664adc00af7b88e01ea9c336ac51f73497657be1c2dd5c188fdad556628fd1be",
+      "size": 289,
+      "normalized_sha256": "42229bcf3500880fb2e0c6b581906bad156378b4f4a1efd1e43d670f11b0d20c"
+    },
+    "gradlew": {
+      "role": "index",
+      "sha256": "8cd81d7a40a14119b8e9e64647e02822b3511e9e4a536ab92c88daa3b0e170bc",
+      "size": 8979,
+      "normalized_sha256": "3238afb2aed5cb16eb7d6718077e7138059108f007b54179e9cc157c5a6e0e89"
+    },
+    "gradlew.bat": {
+      "role": "index",
+      "sha256": "1d297e00bd21de3ace22b4d7f2de1f9dfa858883d66bbf7c1ccbecccec8f4f3b",
+      "size": 2937,
+      "normalized_sha256": "94102713eb8fb22d032397924c0f38ab2da783ba60d07054339f1190a0c4e2cd"
+    },
+    "notes.md": {
+      "role": "index",
+      "sha256": "928f43c472fbcf1310f4480949c84b8cff53d3db2823966b3dba9525dbda0eb3",
+      "size": 1897,
+      "normalized_sha256": "928f43c472fbcf1310f4480949c84b8cff53d3db2823966b3dba9525dbda0eb3"
+    },
+    "penalty-charge-implementation.md": {
+      "role": "index",
+      "sha256": "9dac9331075364593a9824aa6e260da72e506672790a3981f1c18cac07292b02",
+      "size": 1413,
+      "normalized_sha256": "9dac9331075364593a9824aa6e260da72e506672790a3981f1c18cac07292b02"
+    },
+    "scripts/README.md": {
+      "role": "index",
+      "sha256": "76ebe5cab5f366bdc29bae76b097d2201f7fee1f96304099f42cc30b227dc511",
+      "size": 1231,
+      "normalized_sha256": "76ebe5cab5f366bdc29bae76b097d2201f7fee1f96304099f42cc30b227dc511"
+    },
+    "scripts/_clean_cloze_opensource.py": {
+      "role": "index",
+      "sha256": "d0f432c502817ee7ffa5db1e67d3abd7fdc1a6cf4c0934a33a2e707d4acfec49",
+      "size": 2203,
+      "normalized_sha256": "d0f432c502817ee7ffa5db1e67d3abd7fdc1a6cf4c0934a33a2e707d4acfec49"
+    },
+    "scripts/_extract_cloze_translation_items.py": {
+      "role": "index",
+      "sha256": "3ca58d560f4bf812f12448afe90863061283b9fe086906bd7b95fd10be0fe86a",
+      "size": 2070,
+      "normalized_sha256": "3ca58d560f4bf812f12448afe90863061283b9fe086906bd7b95fd10be0fe86a"
+    },
+    "scripts/_gen_ai_translation_inventory.py": {
+      "role": "index",
+      "sha256": "505e137653f2281ff9d3f2ac79b830ad226efc15866266b2bedec6e29ab2022e",
+      "size": 2146,
+      "normalized_sha256": "505e137653f2281ff9d3f2ac79b830ad226efc15866266b2bedec6e29ab2022e"
+    },
+    "scripts/_gen_wordlist.py": {
+      "role": "index",
+      "sha256": "9059f640b6c647d7500af07b6bcb47a71cf210afd765f6308f68b3dd2505fdb9",
+      "size": 163328,
+      "normalized_sha256": "4bcf8eff37eebe0b682d287593093b0027c6fc6a7bdf040c28192eea35006dc4"
+    },
+    "scripts/_merge_ai_translations.py": {
+      "role": "index",
+      "sha256": "21b72f92ee71feb6613e17c2a2b8054f72651b1b59d3693177f239a1693cef1c",
+      "size": 2036,
+      "normalized_sha256": "21b72f92ee71feb6613e17c2a2b8054f72651b1b59d3693177f239a1693cef1c"
+    },
+    "scripts/_merge_cloze_ai_translations.py": {
+      "role": "index",
+      "sha256": "6a18c7d0e1b5d2fbb24c6dca8c3dba9c0e5d6f653927c57dae39575c995426d9",
+      "size": 1776,
+      "normalized_sha256": "6a18c7d0e1b5d2fbb24c6dca8c3dba9c0e5d6f653927c57dae39575c995426d9"
+    },
+    "scripts/_split_translation_batches.py": {
+      "role": "index",
+      "sha256": "a123a8c84a63d68c1ae22eb1367fbda58508d2843de1f6fa9de2e50bfda05161",
+      "size": 1216,
+      "normalized_sha256": "a123a8c84a63d68c1ae22eb1367fbda58508d2843de1f6fa9de2e50bfda05161"
+    },
+    "scripts/apply_alarm_reminder_redesign.py": {
+      "role": "index",
+      "sha256": "3a41a6c5d4cb6e9a5995663afeb79392c15c4c45a39bc2885eb93a2cd5fdd1e3",
+      "size": 5095,
+      "normalized_sha256": "093f8fd43d42a76345e5df7a11af4feed5e186490c321fdd05e36b720f46cbcc"
+    },
+    "scripts/archive/apply-time-window-guard-fix.ps1": {
+      "role": "index",
+      "sha256": "9ca4d9699aa6e892ac546a418f062027df50cc9f9b7c95daf6830531ffb53878",
+      "size": 2716,
+      "normalized_sha256": "3bc6632927918598d5a0a2e5c9f661632e10b93e87f5a03759481cd7cf5bb422"
+    },
+    "scripts/archive/wait_unlock_and_install.py": {
+      "role": "index",
+      "sha256": "c85711bd436b1dc5dfd8808bf3494994824018e9e02a2dbc99df786eac0e32f4",
+      "size": 1351,
+      "normalized_sha256": "8e6326ac7bbc4e144e2a9f3fb237a6dad95dc5c01fcad81efb192493fc4739b1"
+    },
+    "scripts/audit_log_export.py": {
+      "role": "index",
+      "sha256": "8bbceb830d3c62ffcf323d164b0abe2beb8bd47a8c268dc21ac0edf6c4f44800",
+      "size": 21584,
+      "normalized_sha256": "297352b67b657cb5a559aec97778a66dd5f8cdc3da31f122cd9f9acc76927746"
+    },
+    "scripts/test_alarm_alert_cycle_contract.py": {
+      "role": "observe",
+      "sha256": "6d9ce66d25399497a0d8e22434cae53348a5e1dfce9b3d981adf959c232d1f6c",
+      "size": 1179,
+      "normalized_sha256": "54bcc44b38e2c42d58a8d35f5565f34c2e8741a019cd7ef8a8328d197fa0667f"
+    },
+    "scripts/test_alarm_alert_policy_contract.py": {
+      "role": "observe",
+      "sha256": "fb0ca015c9e31d2a4dfedb52047ac279fcf501430cb00c5c63bf0f04146d95a2",
+      "size": 951,
+      "normalized_sha256": "7df27ca077c78c02b1d857dee0a8d9d0673fe4322f1589a22788fe9e5e35a812"
+    },
+    "scripts/test_alarm_snooze_contract.py": {
+      "role": "observe",
+      "sha256": "92acac9b577add85f928ea721f1222f43570be8ed47a7b9d17e5bf66d3cc14ed",
+      "size": 3617,
+      "normalized_sha256": "346e337e278e4b217ec7c5e84643a8f070c3303dfd49889d1114bf9fdd748e52"
+    },
+    "scripts/test_alarm_stage2_policy_persistence_contract.py": {
+      "role": "observe",
+      "sha256": "9f219a50f11fbd0890fb8729f59ad256f888104a538d24d2ce589bfcdc19565b",
+      "size": 922,
+      "normalized_sha256": "b55e7cac1e98aaf2d8d3d9d5be953507f0741d2c8cc4db29a97d3053c67509f9"
+    },
+    "scripts/test_alarm_stage2_transition_contract.py": {
+      "role": "observe",
+      "sha256": "93f5a9c4053279d18983c331974324aa9c3555d56e3554605411658e4fe0aacb",
+      "size": 681,
+      "normalized_sha256": "84ff345bec69d3e6dcc04f0ef5dade35760970043e147c11033e24543876c150"
+    },
+    "scripts/tests/__init__.py": {
+      "role": "observe",
+      "sha256": "19f77c775c351b98269b8f0588dc446350000a78780f95131452c82b69d74634",
+      "size": 139,
+      "normalized_sha256": "7f3e10daa3cfa519926cfcde6b270fb96a45c301a8a91be1f388cd1ac707ca97"
+    },
+    "scripts/tests/test_audit_log_export.py": {
+      "role": "observe",
+      "sha256": "17cf46ca1f3f9dd84df60f613eeeb8fdd1a32eefbd941135676dd84a8d0df167",
+      "size": 21823,
+      "normalized_sha256": "1eeff3fb3955f9ac071bd677864804f8588082634359c9d7cab41b4c53c7e568"
+    },
+    "settings.gradle.kts": {
+      "role": "index",
+      "sha256": "b0f81c36ed5a1e772ea1fd1e97c8cf9e0b68bb7cc3544f6a4a389aa446549e77",
+      "size": 1296,
+      "normalized_sha256": "d1171b373276c2ac34c0dd3b0f63bfb7b6dbfad1c82bd17f681e10457db9231a"
+    },
+    "task_plan.md": {
+      "role": "index",
+      "sha256": "cc798628f600f41225439a0136e41e89e8017b4f199512aa6652cac2850e3555",
+      "size": 1541,
+      "normalized_sha256": "cc798628f600f41225439a0136e41e89e8017b4f199512aa6652cac2850e3555"
+    },
+    "宣传视频制作/README.md": {
+      "role": "index",
+      "sha256": "e127c75032774490741a45bf7654ef3c6d2fb771a7a8f0ef8834fd76f671ac93",
+      "size": 2231,
+      "normalized_sha256": "3cb266448d820fe5818443160ea08f2ff003bf3cdfd53e26f042cc573395586c"
+    },
+    "宣传视频制作/narration_count.py": {
+      "role": "index",
+      "sha256": "2f8581dde8198d71dad7dc58b777ca65acdc68ca0468acfedccc8b4572f4e72c",
+      "size": 26161,
+      "normalized_sha256": "017d520312c1a114fe233fc33c822301535731b43a6d41a67633440f4aaa18c5"
+    },
+    "宣传视频制作/video1_howto_outline.md": {
+      "role": "index",
+      "sha256": "74c09140831c08bd150a9cb44e3773a5bb871a51851add13ee8fe5374890a46d",
+      "size": 6819,
+      "normalized_sha256": "4c19f6670cc9075ed2bc325407e2b308aa609d5d5c16832f112cad4a017b617c"
+    },
+    "宣传视频制作/video1_narration.md": {
+      "role": "index",
+      "sha256": "bd6bba68b9efc7bb4e7c7a5b24123133d7de9e0c9c8afe22f4a996dbb85674b2",
+      "size": 7838,
+      "normalized_sha256": "2fd3f822ea1c9656eb3898f266f7879ebb67f020905b9d00d06d5fdb1395149e"
+    },
+    "宣传视频制作/video1_outline.md": {
+      "role": "index",
+      "sha256": "b090ae9e5d4a3dede4d8a5b150a901ba29755a0f41589addc0691700d01a70a6",
+      "size": 1917,
+      "normalized_sha256": "dfc703f5847e8d977403dce93b77f21c763dc8eb3d2c4d950fd24389109f91e5"
+    },
+    "宣传视频制作/video1_shotlist.md": {
+      "role": "index",
+      "sha256": "3ba9ac322f164a881ec63cee310d2058cd47f2eb1d4edfd7e3099842882c77e1",
+      "size": 18221,
+      "normalized_sha256": "126206fcb7b97436e387564a3f56ae1047e79fc7cc1103770fc1c5746273e82d"
+    },
+    "宣传视频制作/video2_narration.md": {
+      "role": "index",
+      "sha256": "7127df3f17293932211d41e9b53dad904473ac8089080b9bda22b5cb8c1379a1",
+      "size": 3825,
+      "normalized_sha256": "2c703be1b8956d1e4795bb7e1a5c1717009ed17d842c702cb00e02488d47a849"
+    },
+    "宣传视频制作/video2_outline.md": {
+      "role": "index",
+      "sha256": "a50465559b4329911075c48628978c4cca18c1e1bf3da4aec62dab572c410ccb",
+      "size": 4029,
+      "normalized_sha256": "4ffb53d9d1ef1dde38fdf688d263c39333d1d223f0e882fac682ae5b05797344"
+    }
+  },
+  "managed_scope": {
+    "version": "managed-scope-baseline/v1",
+    "policy_identity": "81421936ffa2228995783d12046110aa7b7759d131ce244b24bf0a69a61c9264",
+    "observe_change_policy": "review_required",
+    "budget_policy_identity": "15e9b37a6c57e9bf03c9df3d0d049eb5b9a7f5540f9d34960408114e2538a32d",
+    "budget_policy": {
+      "version": "cognition-budget-policy/v1",
+      "mode": "enforce",
+      "whole_index": {
+        "target_tokens": 200000,
+        "warning_tokens": 300000,
+        "max_tokens": 400000
+      },
+      "r": [
+        {
+          "min_c": 1,
+          "max_c": 4,
+          "target_tokens": 25,
+          "max_tokens": 50
+        },
+        {
+          "min_c": 5,
+          "max_c": 7,
+          "target_tokens": 45,
+          "max_tokens": 90
+        },
+        {
+          "min_c": 8,
+          "max_c": 8,
+          "target_tokens": 70,
+          "max_tokens": 140
+        },
+        {
+          "min_c": 9,
+          "max_c": 9,
+          "target_tokens": 90,
+          "max_tokens": 180
+        }
+      ],
+      "s": [
+        {
+          "min_c": 1,
+          "max_c": 4,
+          "target_tokens": 20,
+          "max_tokens": 40
+        },
+        {
+          "min_c": 5,
+          "max_c": 7,
+          "target_tokens": 40,
+          "max_tokens": 80
+        },
+        {
+          "min_c": 8,
+          "max_c": 8,
+          "target_tokens": 70,
+          "max_tokens": 140
+        },
+        {
+          "min_c": 9,
+          "max_c": 9,
+          "target_tokens": 100,
+          "max_tokens": 200
+        }
+      ]
+    },
+    "apply_authorization_mode": "auto"
+  }
+}

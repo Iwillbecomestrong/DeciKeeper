@@ -30,6 +30,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import com.decikeeper.app.R
+import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.service.FastLockService
 
 
@@ -63,6 +64,13 @@ object StartupProtectionManager {
      * 返回 true 表示覆盖层已成功添加到 WindowManager。
      */
     fun attachEarlyBootFastLock(context: Context): Boolean {
+        if (!AntiUninstallManager.shouldShowInitialization(
+                AntiUninstallManager.getProtectionState(context)
+            )
+        ) {
+            Log.i("DeciKeeper", "StartupProtectionManager: anti-uninstall initialization disabled, skip early boot overlay")
+            return false
+        }
         if (earlyBootOverlayView != null) return true
 
         return try {
@@ -421,6 +429,13 @@ object StartupProtectionManager {
     }
 
     fun startFastLock(context: Context, maxVisibleMs: Long = FAST_LOCK_MAX_VISIBLE_MS) {
+        if (!AntiUninstallManager.shouldShowInitialization(
+                AntiUninstallManager.getProtectionState(context)
+            )
+        ) {
+            Log.i("DeciKeeper", "StartupProtectionManager: anti-uninstall initialization disabled, skip FastLock service")
+            return
+        }
         // [2026-07-06 REQ-2 诊断] 记录 startFastLock 入口上下文：
         // - 调用方（栈追溯）— 用于定位是哪个组件触发（划掉任务 / config-change / boot）
         // - 传入 maxVisibleMs — 标识期望的窗口上限（30s vs 10s）

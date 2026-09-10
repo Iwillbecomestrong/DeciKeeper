@@ -42,6 +42,10 @@ object AntiUninstallManager {
         PENDING    // Protection is ON. Waiting for Tomorrow 06:00.
     }
 
+    internal fun shouldShowInitialization(state: State): Boolean {
+        return state == State.ACTIVE || state == State.PENDING
+    }
+
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
@@ -106,6 +110,11 @@ object AntiUninstallManager {
      * Legacy/Helper: Cancel the request
      */
     fun cancelUninstall(context: Context) {
+        ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+    }
+
+    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
+        getPrefs(context).edit().putBoolean(KEY_IS_ENABLED, false).apply()
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
     }
 
