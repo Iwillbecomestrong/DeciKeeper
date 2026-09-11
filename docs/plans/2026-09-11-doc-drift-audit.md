@@ -1,7 +1,7 @@
 # 文档漂移审计（2026-09-11）
 
 > **定位**：本文件是任务级审计记录，不是产品真相。它记录「现有文档与当前代码/测试之间已经确认的差异」，供决定重写范围使用。
-> **状态**：进行中 —— `docs/specs/focus.md` 与 `docs/user/*.md` 两节待补。
+> **状态**：审计已全部完成（12 份文档）。另有真机复现记录见 §5。
 > **方法**：7 个只读审计单元并行执行，每单元对照 `AGENT_CORE.md` 的 Convergence Gap 协议，逐条把文档结论拿到代码与测试里找证据；所有结论要求 `文件:行号` 级证据，拿不准的一律归入「无法判定」。
 > **边界**：全程只读，未修改任何被审计对象；未运行 gradlew / python（避免写盘）。
 
@@ -299,7 +299,57 @@
 
 ---
 
-## 5. 方法与边界
+## 5. 真机复现记录（2026-09-11 · vivo V2425A / PD2425）
+
+### 5.1 闹钟会话状态位自相矛盾 → 挑战页白屏且无法退出
+
+**现象**：锁屏后在扫码挑战页长按电源键 → 出现锁屏语言助手界面 → 关机按钮 → 回到挑战页 → 扫码后**白屏**；熄屏再点亮后闹钟响并震动，但**不显示「关闭闹钟」与延迟倒计时**；用户无法退出。
+
+**证据**（`adb shell run-as com.decikeeper.app cat shared_prefs/alarm_prefs.xml`）：
+
+```text
+alarm_active               = true
+active_challenge_completed = true     ← 与下一条互斥
+active_first_stage_passed  = false
+active_alarm_attenuated    = true
+active_alarm_id            = 1
+active_schedule_token      = 90b261ca-0a4f-4168-9beb-41604a864894
+alarm_recovery_count_1     = 1
+```
+
+**推断**：`active_challenge_completed=true` 让 UI 走「已完成 → 显示完成后延迟倒计时与关闭按钮」分支，而 `active_first_stage_passed=false` 又要求继续挑战；两个渲染分支互相排斥，结果两边都不渲染 → 白屏。`active_alarm_attenuated=true` 解释了"铃声已经降下去"。
+
+**根因判断**：这四个标志位之间**没有原子写入，也没有进程启动时的一致性对账**；锁屏助手插入导致的中途退出把 `challenge_completed` 置位而 `first_stage_passed` 未同步更新。
+
+**窗口状态**：`mCurrentFocus = com.decikeeper.app/.ui.AlarmActivity`，且**不存在 `TYPE_APPLICATION_OVERLAY` 覆盖层**——本次挑战由 Activity 承载，悬浮窗路径未生效。
+
+### 5.2 无障碍枚举期间的框架级异常反复抛出
+
+```text
+java.lang.IllegalArgumentException: parameter must be a descendant of this view
+  at android.view.ViewGroup.offsetRectBetweenParentAndChild(...)
+  at ...AccessibilityInteractionController$AccessibilityNodePrefetcher...
+  at com.decikeeper.app.service.CoreService.onAccessibilityEventInternal(CoreService.kt:988)
+```
+
+单次会话内出现 **54 次**，均被 `AntiUninstallProtection` 的 `CRITICAL: Service Crash Prevention` 捕获。触发点在 `getRootInActiveWindow()`——系统在无障碍枚举 view 树时视图被并发修改的框架级竞态，属于锁屏/挑战切换期的高频噪声。
+
+### 5.3 「闹钟防关机」开关无效的真机验证（部分完成）
+
+用户实测：
+
+- **未锁屏**、处于扫码界面时长按电源键 → **无任何防关机行为**（与 §1.4 静态结论一致：拦截只由 `LockWindowManager.isAlarmOverlayShowing` 触发）；
+- **锁屏**时长按电源键 → 出现**不牢固的部分拦截**：关机菜单被短暂压制后仍回到挑战页，继而触发 §6.1 的白屏与死锁。
+
+> **状态**：静态分析（`AlarmPowerOffProtectionManager.isEnabled()` 无运行时消费点）与真机现象方向一致，但**开关开/关的对照实验尚未完成**，暂记为部分验证。
+
+### 5.4 处置
+
+按用户授权执行 `adb shell am force-stop com.decikeeper.app`（只杀进程，未改数据）：进程退出、前台通知清除、20 秒内未自行拉起。**但 `alarm_prefs.xml` 中的矛盾状态位仍然存在**，下次启动时存在再次恢复该坏会话的风险。
+
+---
+
+## 6. 方法与边界
 
 - 7 个只读审计单元并行执行，每单元负责一份或一组文档；所有结论要求 `文件:行号` 级证据，拿不准的归入「无法判定」。
 - 其中 6 条最高影响结论由主会话**独立复核**（已在正文标注「已独立复核」）；复核中修正了 2 条子代理判定的**严重度与归因**（alarm.md 提示按钮一条降级并改归因为文档措辞、protection.md 全局黑名单一条修正了文件坐标）。
