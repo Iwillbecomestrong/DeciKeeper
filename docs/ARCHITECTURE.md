@@ -3,7 +3,7 @@
 > 本文描述「决定守护 (DeciKeeper)」的目标架构与依赖方向。现有代码正在按此逐步重构，
 > 新代码必须遵守，旧代码在改动时顺手迁移。
 >
-> 本文只描述**当前生效的架构约束**与长期依赖方向；具体拆分步骤、排期与验收标准属于任务计划，放在 [`plans/`](plans/)。
+> 本文只描述**当前生效的架构约束**与长期依赖方向。§5 列出的拆分步骤是长期方向，**当前没有承载它的计划文件**；需要推进时先在 [`plans/`](plans/) 下建立当次任务计划。
 
 ## 1. 分层与依赖方向
 
@@ -67,7 +67,7 @@ MonitorService 收到前台证据
 - 变更性质一律与 **baseline** 比对：加严（有利）立即生效，放松（不利）次日生效。
 - 时段名单（listApps）变更走同一套分类：`null`=跟随全局（继承态），非空=独立名单（脱钩态）。
 
-## 5. 待收敛方向（具体计划见 [`plans/`](plans/)）
+## 5. 长期收敛方向（未登记为任务计划）
 
 1. 巨型文件按职责拆分，行为不变：TestScenarioManager（移出 main）→ LockWindowManager → TimeRuleManager → MonitorService → CreditManager。
 2. Fragment 业务逻辑下沉到 Manager/UseCase。

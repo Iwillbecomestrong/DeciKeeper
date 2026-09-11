@@ -60,7 +60,12 @@ class HelpManualSingleSourceContractTest {
         val manual = gettingStarted + "\n" + guide
 
         assertFalse(manual.contains("无障碍、悬浮窗、使用情况访问等必要权限稳定"))
-        assertTrue(gettingStarted.contains("首页的 5 项基础权限"))
+        // 首页「权限设置」引导的实际条目由 HomeFragment 的 addItem() 决定
+        // （悬浮窗 / 通知 / 后台耗电管理 / 自启动），文档必须与之一致；
+        // 早期手册里的"5 项"是错数字，不得回归。
+        assertTrue(gettingStarted.contains("悬浮窗权限"))
+        assertTrue(gettingStarted.contains("自启动权限"))
+        assertFalse(gettingStarted.contains("5 项基础权限"))
         assertTrue(gettingStarted.contains("不需要先开启无障碍"))
         assertTrue(gettingStarted.contains("无障碍是决定守护权限等级最高、能力最强的一项权限"))
 

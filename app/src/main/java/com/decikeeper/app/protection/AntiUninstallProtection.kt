@@ -148,7 +148,7 @@ class AntiUninstallProtection(private val context: Context) {
             "Kasaysayan ng paghahanap", "سجل البحث", "खोज इतिहास", "سجل", "تلاش کی سرگزشت"
         )
         
-        // 馃敀 [Safe Context] 鏃犻殰纰嶈缃鎯呴〉鍏抽敭璇?- 鐢ㄦ埛鍦ㄦ椤甸潰绠＄悊IronWill鐨勬棤闅滅鏉冮檺锛屼笉搴旇Е鍙戦槻鍗歌浇
+        // 🔒 [Safe Context] 无障碍设置详情页关键词 - 用户在此页面管理IronWill的无障碍权限，不应触发防卸载
         val ACCESSIBILITY_CONTEXT_KEYWORDS = listOf(
             // 中文
             "无障碍", "辅助功能", "已下载的服务", "已下载的应用",
@@ -172,7 +172,8 @@ class AntiUninstallProtection(private val context: Context) {
             "Специальные возможности", "Скачанные сервисы"
         )
 
-        // 馃敀 [Safe Context] 闀挎寜鑿滃崟瀹夊叏鍏抽敭璇?- 杩欎簺璇嶅嚭鐜版椂閫氬父琛ㄧず鏄暱鎸夎彍鍗曪紙鍖呭惈"鍗歌浇"閫夐」浣嗕笉涓€瀹氭槸绔嬪嵆鍗歌浇锛?        // 鎴戜滑甯屾湜鍏佽鐢ㄦ埛鐐瑰嚮"鍒嗕韩"鎴?搴旂敤淇℃伅"锛屼絾鍙湁鍦ㄥ嚭鐜扮湡姝ｅ嵏杞界‘璁ゆ鏃舵墠鎷︽埅
+        // 🔒 [Safe Context] 长按菜单安全关键词 - 这些词出现时通常表示是长按菜单（包含"卸载"选项但不一定是立即卸载）
+        // 我们希望允许用户点击"分享"或"应用信息"，但只有在出现真正卸载确认框时才拦截
         val SAFE_MENU_KEYWORDS = listOf(
             "Share", "分享", "Recommend", "推荐",
             "App Info", "应用信息", "App details", "应用详情",
@@ -361,7 +362,7 @@ class AntiUninstallProtection(private val context: Context) {
             return
         }
         
-        // 馃毇 [Self-Protection] Ignore our own AlertDialog to prevent self-harm!
+        // 🚫 [Self-Protection] Ignore our own AlertDialog to prevent self-harm!
         // Our anti-uninstall warning dialog must NOT be treated as a threat
         if (eventClassName.contains("AlertDialog", ignoreCase = true) && 
             (currentPackage == context.packageName || currentPackage == "android")) {
@@ -432,7 +433,7 @@ class AntiUninstallProtection(private val context: Context) {
             Log.d(TAG, "[Skip] Protection disabled")
         }
 
-        // 馃攳 [Internal Log] 璁板綍浜嬩欢鍒板唴瀛樼紦鍐插尯锛堢敤浜庢棩蹇楀鍑猴級
+        // 🔍 [Internal Log] 记录事件到内存缓冲区（用于日志导出）
         // Diagnostic event log is gated by anti-uninstall execution; the privacy
         // toggle MUST NOT authorize this log.
         if (antiUninstallEnforcing &&
@@ -487,7 +488,7 @@ class AntiUninstallProtection(private val context: Context) {
             if (!antiUninstallEnforcing) return
         }
 
-        // 馃敀 [App Info Page Interception]
+        // 🔒 [App Info Page Interception]
         // Only settings package - app info and permission pages
         val isSettingsPackage = currentPackage == "com.android.settings"
                                 || currentPackage.contains("settings", ignoreCase = true)
@@ -518,14 +519,14 @@ class AntiUninstallProtection(private val context: Context) {
                                 eventClassName.contains("AppInfoDashboardFragment", ignoreCase = true) ||
                                 eventClassName.contains("AppInfoBase", ignoreCase = true) ||
                                 eventClassName.contains("AppInfo", ignoreCase = true) ||
-                                eventClassName.contains("VivoSubSettings", ignoreCase = true)  // Vivo 璁剧疆瀛愰〉闈?            
-            // 绛栫暐2a: event.text 涓洿鎺ュ寘鍚垜浠殑搴旂敤鍚?(濡?Text=[IronWill] 鎴?Text=[搴旂敤淇℃伅])
+                                eventClassName.contains("VivoSubSettings", ignoreCase = true)  // Vivo 设置子页面
+            // 策略2a: event.text 中直接包含我们的应用名 (如 Text=[IronWill] 或 Text=[应用信息])
             val hasOurAppInEventText = PROTECTED_APP_NAMES.any { eventText.contains(it, ignoreCase = true) }
 
             val canBlockByEventText = !isVivoSubSettings
             if (isAppInfoPage && hasOurAppInEventText && canBlockByEventText) {
                 armUninstallHotWindow(now, "APP_INFO_EVENT_TEXT")
-                Log.w(TAG, "!!! [App Info] IronWill 鍦ㄤ簨浠舵枃鏈腑琚彂鐜? 绔嬪嵆鎷︽埅鏁翠釜椤甸潰. Class=$eventClassName Text=$eventText")
+                Log.w(TAG, "!!! [App Info] IronWill 在事件文本中被发现! 立即拦截整个页面. Class=$eventClassName Text=$eventText")
                 logBlock(
                     reason = "APP_INFO_EVENT_TEXT",
                     pkg = currentPackage,
@@ -544,8 +545,8 @@ class AntiUninstallProtection(private val context: Context) {
                 LogExporter.logEvent(TAG, "[Skip] VivoSubSettings event text only, waiting for deep-scan confirmation")
             }
             
-            // 绛栫暐2b: 娣卞害鎵弿椤リエ潰鍐呭锛屾鏌ユ槸鍚︽槸 IronWill 鐨勫簲鐢ㄤ俊鎭〉
-            // 鈿狅笍 淇敼锛氬彧瑕佹娴嬪埌 IronWill 灏辨嫤鎴紝涓嶅啀闇€瑕佹娴嬬壒瀹氭寜閽?
+            // 策略2b: 深度扫描页面内容，检查是否是 IronWill 的应用信息页
+            // ⚠️ 修改：只要检测到 IronWill 就拦截，不再需要检测特定按钮
             if (isAppInfoPage) {
                 val sb = StringBuilder()
                 collectAllText(root, sb)
@@ -558,7 +559,8 @@ class AntiUninstallProtection(private val context: Context) {
                                 || pageContent.contains("decikeeper", ignoreCase = true)
                                 || pageContent.contains("ironwill", ignoreCase = true)
                 
-                // 馃敀 鍙鏄?IronWill 鐨勫簲鐢ㄤ俊鎭〉灏辨嫤鎴紙鍚潈闄愰〉銆佸瓨鍌ㄩ〉绛夋墍鏈夊瓙椤甸潰锛?                // 鍥犱负鐢ㄦ埛鍙互閫氳繃"鏌ョ湅鎵€鏈夋潈闄?鍏抽棴鏃犻殰纰嶆潈闄愶紝蹇呴』鎷︽埅鏁翠釜椤甸潰
+                // 🔒 只要命中 IronWill 的应用信息页就拦截（含权限页、存储页等所有子页面）
+                // 因为用户可以通过"查看所有权限"关闭无障碍权限，必须拦截整个页面
                 val hasAccessibilityContext = ACCESSIBILITY_CONTEXT_KEYWORDS.any {
                     pageContent.contains(it, ignoreCase = true)
                 }
@@ -583,7 +585,7 @@ class AntiUninstallProtection(private val context: Context) {
 
                 if (isOurApp && shouldBlockCurrentPage) {
                     armUninstallHotWindow(now, "APP_INFO_DEEP_SCAN")
-                    Log.w(TAG, "!!! [App Info] IronWill 鐨勫簲鐢ㄤ俊鎭〉琚墦寮€! 绔嬪嵆鎷︽埅鏁翠釜椤リエ潰. Class=$eventClassName Content=${pageContent.take(200)}")
+                    Log.w(TAG, "!!! [App Info] IronWill 的应用信息页被打开! 立即拦截整个页面. Class=$eventClassName Content=${pageContent.take(200)}")
                     logBlock(
                         reason = "APP_INFO_DEEP_SCAN",
                         pkg = currentPackage,
@@ -602,7 +604,7 @@ class AntiUninstallProtection(private val context: Context) {
                 }
             }
             
-            // 绛栫暐3: 妫€娴嬫潈闄愮鐞嗛〉闈紙鍦?settings 鍖呭唴鐨勬潈闄?Activity锛?
+            // 策略3: 检测权限管理页面（如 settings 包内的权限 Activity）
             val isPermissionPage = eventClassName.contains("Permission", ignoreCase = true) ||
                                    eventClassName.contains("AppPermission", ignoreCase = true) ||
                                    eventClassName.contains("ManagePermissions", ignoreCase = true)
@@ -620,7 +622,7 @@ class AntiUninstallProtection(private val context: Context) {
                                 || pageContent.contains("ironwill", ignoreCase = true)
                 
                 if (isOurApp && !shouldSkipAccessibilitySettings(pageContent)) {
-                    Log.w(TAG, "!!! [Permission] IronWill 鐨勬潈闄愰〉闈㈣鎵撳紑! 绔嬪嵆鎷︽埅. Class=$eventClassName")
+                    Log.w(TAG, "!!! [Permission] IronWill 的权限页面被打开! 立即拦截. Class=$eventClassName")
                     logBlock(
                         reason = "PERMISSION_PAGE_DEEP_SCAN",
                         pkg = currentPackage,
@@ -648,9 +650,9 @@ class AntiUninstallProtection(private val context: Context) {
             }
         }
         
-        // 馃敀 [App Info CONTENT_CHANGED 寤惰繜妫€娴媇
-        // 瑙ｅ喅鏍稿績闂锛欼nstalledAppDetailsTop 鐨?STATE_CHANGED 浜嬩欢瑙﹀彂鏃堕〉闈㈠唴瀹瑰皻鏈姞杞藉畬鎴愶紝
-        // 娣卞害鎵弿鎵句笉鍒?"IronWill"銆傞渶瑕佸湪鍚庣画鐨?CONTENT_CHANGED 浜嬩欢涓噸鏂版娴嬨€?
+        // 🔒 [App Info CONTENT_CHANGED 延迟检测]
+        // 解决核心问题：InstalledAppDetailsTop 在 STATE_CHANGED 事件触发时页面内容尚未加载完成，
+        // 深度扫描找不到 "IronWill"。需要在后续的 CONTENT_CHANGED 事件中重新检测。
         val isInAppInfoTracking = mInAppInfoPagePackage != null
             && currentPackage == mInAppInfoPagePackage
             && System.currentTimeMillis() - mInAppInfoPageTime < APP_INFO_PAGE_TIMEOUT
@@ -681,7 +683,7 @@ class AntiUninstallProtection(private val context: Context) {
 
             if (isOurApp && shouldBlockDelayed) {
                 armUninstallHotWindow(now, "APP_INFO_CONTENT_DELAYED")
-                Log.w(TAG, "!!! [App Info CONTENT] IronWill 鐨勫簲鐢ㄤ俊鎭〉鍐呭宸插姞杞? 绔嬪嵆鎷︽埅. Content=${pageContent.take(200)}")
+                Log.w(TAG, "!!! [App Info CONTENT] IronWill 的应用信息页内容已加载! 立即拦截. Content=${pageContent.take(200)}")
                 logBlock(
                     reason = "APP_INFO_CONTENT_DELAYED",
                     pkg = currentPackage,
@@ -712,14 +714,15 @@ class AntiUninstallProtection(private val context: Context) {
              return
         }
         
-        // 馃敀 [Safe Context] 鏃犻殰纰嶈缃鎯呴〉妫€娴?        // 濡傛灉鍦ㄦ椤甸潰妫€娴嬪埌鍗歌浇/鍋滅敤鎰忓浘锛屾垜浠渶瑕佺壒娈婂鐞嗛€€鍑洪€昏緫
+        // 🔒 [Safe Context] 无障碍设置详情页检测
+        // 如果在此页面检测到卸载/停用意图，我们需要特殊处理退出逻辑
         val isAccessibilityContext = ACCESSIBILITY_CONTEXT_KEYWORDS.any { contentText.contains(it, ignoreCase = true) }
         if (isAccessibilityContext) {
             Log.d(TAG, "[Context] Accessibility settings context detected. Will use enhanced exit strategy.")
         }
 
         // 2. Debounce (Anti-ANR but fast enough for protection)
-        // 馃殌 [Fix] STATE_CHANGED events (dialog popup) bypass debounce for instant detection
+        // 🚀 [Fix] STATE_CHANGED events (dialog popup) bypass debounce for instant detection
         val isDialogEvent = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         if (!isDialogEvent && now - mLastBlockTime < 500) return // 500ms debounce for content changes only
 
@@ -734,9 +737,9 @@ class AntiUninstallProtection(private val context: Context) {
         var blockDetails: String? = null
         
         if (isVivoLauncher) {
-             // 馃殌 [Vivo Launcher] Detection Strategy:
+             // 🚀 [Vivo Launcher] Detection Strategy:
              // Vivo long-press menu shows: [鍗歌浇] [搴旂敤淇℃伅] [鍒嗕韩]
-             // When user clicks "鍗歌浇", a confirmation dialog pops up with [鐩存帴鍗歌浇] [鍙栨秷] etc.
+             // When user clicks "卸载", a confirmation dialog pops up with [直接卸载] [取消] etc.
              // 
              // KEY INSIGHT: The long-press MENU and the confirmation DIALOG are different UI states.
              // - Long-press Menu: TYPE_WINDOW_STATE_CHANGED with PopupWindow/ListView class
@@ -744,7 +747,7 @@ class AntiUninstallProtection(private val context: Context) {
              //
              // STRATEGY: 
              //   1. If we see a long-press menu (has 鍒嗕韩/搴旂敤淇℃伅 alongside 鍗歌浇) 鈫?ALLOW (don't block)
-             //   2. If we see a confirmation dialog (has 纭畾/鍙栨秷/鐩存帴鍗歌浇) 鈫?BLOCK
+             //   2. If we see a confirmation dialog (has 确定/取消/直接卸载) → BLOCK
              //   3. The menu itself is harmless; only the CONFIRMATION is dangerous.
              
              val eventText = event.text.toString()
@@ -823,13 +826,13 @@ class AntiUninstallProtection(private val context: Context) {
              
              // 3. Distinguish Long-Press Menu vs Confirmation Dialog
              // Long-press menu contains MULTIPLE action items together: 鍗歌浇 + 鍒嗕韩 + 搴旂敤淇℃伅
-             // Confirmation dialog contains: 鍗歌浇 + (纭畾/鐩存帴/鍙栨秷)
+             // Confirmation dialog contains: 卸载 + (确定/直接/取消)
              val isLongPressMenu = SAFE_MENU_KEYWORDS.any { combinedText.contains(it, ignoreCase = true) }
              
              // Confirmation keywords (buttons in a real uninstall dialog)
-             // 馃殌 [Fix] Enhanced English Support: Add "Uninstall", "Delete", "Yes" as confirmation actions.
+             // 🚀 [Fix] Enhanced English Support: Add "Uninstall", "Delete", "Yes" as confirmation actions.
              val confirmKeywords = listOf(
-                 "纭畾", "纭", "鐩存帴鍗歌浇", "鐩存帴", "纰哄畾", "纰鸿獚", "瑙ｉ櫎瀹夎",
+                 "确定", "确认", "直接卸载", "直接", "確定", "確認", "解除安裝",
                  "Confirm", "OK", "Yes", "Uninstall", "Delete", "Remove"
              )
              val cancelKeywords = listOf("鍙栨秷", "Cancel", "Annuler", "Cancelar", "Abbrechen", "No")
@@ -838,25 +841,25 @@ class AntiUninstallProtection(private val context: Context) {
              val hasConfirm = confirmKeywords.any { combinedText.contains(it, ignoreCase = true) }
              val hasCancel = cancelKeywords.any { combinedText.contains(it, ignoreCase = true) }
              
-             // 馃敀 鍒ゅ畾鏄惁涓哄嵏杞界‘璁ゅ璇濇鐨勬牳蹇冮€昏緫:
-             // - 鏂瑰紡1: Dialog 绫诲悕 + 鍗歌浇鍏抽敭璇?(濡?com.originui.widget.dialog.d 寮瑰嚭"鍗歌浇IronWill锛?)
+             // 🔒 判定是否为卸载确认对话框的核心逻辑:
+             // - 方式1: Dialog 类名 + 卸载关键词 (如 com.originui.widget.dialog.d 弹出"卸载IronWill")
              //   Vivo 纭妗嗘枃鏈? [鍗歌浇"IronWill"锛? "IronWill"鍙婂叾鏁版嵁灏嗕細琚垹闄ゃ€? 鍗歌浇, 鍙栨秷]
-             // - 鏂瑰紡2: 鏈夌‘璁ゆ寜閽?(纭畾/鐩存帴鍗歌浇)
-             // 鈿狅笍 鍏抽敭: 褰?isLongPressMenu=true 鏃? "鍙栨秷"鎸夐挳涓嶈兘鍗曠嫭鍒ゅ畾涓虹‘璁ゅ璇濇
-             //   鍥犱负鍒嗕韩闈㈡澘绛夋甯窾I涔熸湁鍙栨秷鎸夐挳, 浼氳鎷︽埅!
+             // - 方式2: 有确认按钮 (确定/直接卸载)
+             // ⚠️ 关键: 当 isLongPressMenu=true 时 "取消"按钮不能单独判定为确认对话框
+             //   因为分享面板等正常UI也有取消按钮, 会误拦截!
              val isDialogClassEvent = eventClass.contains("dialog", ignoreCase = true) ||
                                       eventClass.contains("alert", ignoreCase = true)
              val isConfirmationDialog = hasConfirm ||
                                         (isDialogClassEvent && hasCancel) ||  // Dialog 绫诲悕 + 鍙栨秷 = 纭妗?
-                                        (!isLongPressMenu && hasCancel)       // 鏃犺彍鍗曠壒寰?+ 鍙栨秷 = 纭妗?
+                                        (!isLongPressMenu && hasCancel)       // 无菜单特征 + 取消 = 确认框
              if (hasAppName && hasUninstall) {
                  if (isLongPressMenu && !isConfirmationDialog) {
                      // This is the long-press popup menu with [鍗歌浇][鍒嗕韩][搴旂敤淇℃伅]
-                     // 鎴栬€呯敤鎴风偣浜?鍒嗕韩"鍚庡脊鍑轰簡鍒嗕韩闈㈡澘锛堜粛鏈夎彍鍗曠壒寰佽瘝锛屼絾鏃犵‘璁ょ被鍚嶏級
-                     // Do NOT block - 鍏佽鍒嗕韩绛夋甯告搷浣?
+                     // 或者用户点击"分享"后弹出了分享面板（仍有菜单特征词，但无确认类名）
+                     // Do NOT block - 允许分享等正常操作
                      Log.d(TAG, "[Vivo Scan] Long-press menu or share panel detected (has Share/AppInfo, no Dialog class). Allowing.")
                  } else if (isConfirmationDialog) {
-                     // This is a real confirmation dialog with 纭畾/鐩存帴鍗歌浇锛屾垨鑰?Dialog 绫诲悕+鍙栨秷
+                     // This is a real confirmation dialog with 确定/直接卸载，或者 Dialog 类名+取消
                      Log.w(TAG, "!!! [Vivo] Uninstall CONFIRMATION dialog detected !!! Blocking. isDialogClass=$isDialogClassEvent")
                      LogExporter.logEvent(TAG, "[BLOCK] Vivo confirmation dialog. Confirm=$hasConfirm Cancel=$hasCancel DialogClass=$isDialogClassEvent")
                     blockReason = "VIVO_CONFIRM_DIALOG"
@@ -924,7 +927,7 @@ class AntiUninstallProtection(private val context: Context) {
             if (isMonitoredPackage && !detected) {
                 val uninstallSample = detectUninstallAttemptSample(root, currentPackage)
                 if (uninstallSample != null) {
-                    Log.w(TAG, "!!! [Global Scan] 鎹曡幏鍒板嵏杞藉皾璇? $currentPackage !!!")
+                    Log.w(TAG, "!!! [Global Scan] 捕获到卸载尝试! $currentPackage !!!")
                     LogExporter.logEvent(TAG, "[BLOCK] Global scan detected uninstall in $currentPackage")
                     blockReason = "GLOBAL_UNINSTALL_SCAN"
                     blockDetails = "monitoredPkg=$currentPackage"
@@ -1313,7 +1316,7 @@ class AntiUninstallProtection(private val context: Context) {
         return null
     }
 
-    // 娉ㄦ剰锛歩sDialogShowing 鍜?hasPendingDialog 宸茬Щ鑷?companion object 渚涘叏灞€鍏变韩
+    // 注意：isDialogShowing 和 hasPendingDialog 已移至 companion object 供全局共享
     private var lastDialogShowTime = 0L
     private var lastDialogDismissTime = 0L
     private val MIN_DIALOG_INTERVAL_MS = 900L
@@ -1324,11 +1327,11 @@ class AntiUninstallProtection(private val context: Context) {
     private val LAUNCHER_HOME_DELAY_MS = 20L
     private val LAUNCHER_REPEAT_SUPPRESS_MS = 180L
     
-    // 馃攧 [寰呮樉绀哄脊绐楀幓閲峕 闃叉澶氫釜 Handler 浠诲姟鍫嗙Н
+    // 🔄 [待显示弹窗去重] 防止多个 Handler 任务堆积
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingWarmupTask: Runnable? = null
     
-    // 锟金煔€ [Performance] 缂撳瓨瀵硅瘽妗嗭紝閬垮厤姣忔鍒涘缓
+    // 🚀 [Performance] 缓存对话框，避免每次创建
     private var cachedDialog: android.app.AlertDialog? = null
     private var cachedDialogLocale: String? = null
     private var lastConfigResetLocale: String? = null
@@ -1336,7 +1339,7 @@ class AntiUninstallProtection(private val context: Context) {
     private val CONFIG_RESET_BURST_GUARD_MS = 1200L
     private val CONFIG_WARMUP_DELAY_MS = 600L
     
-    // 馃殌 [Performance Metrics]
+    // 🚀 [Performance Metrics]
     private var scanStartTime = 0L
 
     private fun handleDetection(
@@ -1351,7 +1354,7 @@ class AntiUninstallProtection(private val context: Context) {
         val signature = "$pkg|$reason|$details"
         
         val detectionTime = now - scanStartTime
-        Log.w(TAG, "!!! 鎷︽埅鍒伴槻鍗歌浇鍔ㄤ綔 ($pkg) !!!")
+        Log.w(TAG, "!!! 拦截到防卸载动作 ($pkg) !!!")
         LogExporter.logEvent(
             TAG,
             "[HANDLE] Anti-uninstall triggered for $pkg reason=$reason details=$details (latency=${detectionTime}ms isAcc=$isAccessibilityContext)"
@@ -1360,7 +1363,7 @@ class AntiUninstallProtection(private val context: Context) {
             // Close the dialog, then return to home.
         val actionStartTime = System.currentTimeMillis()
         
-        // 馃殌 [Fix] Different exit strategies based on context
+        // 🚀 [Fix] Different exit strategies based on context
         val isLauncherContext = VIVO_LAUNCHER_PACKAGES.contains(pkg) || 
                                 listOf("launcher", "home").any { pkg.contains(it, ignoreCase = true) }
 
@@ -1390,7 +1393,7 @@ class AntiUninstallProtection(private val context: Context) {
                 }, ACCESSIBILITY_HOME_DELAY_MS)
             }, ACCESSIBILITY_SECOND_BACK_DELAY_MS)
         } else if (isLauncherContext) {
-            // 馃殌 [Fix] On launcher: just press BACK to dismiss popup menu, then HOME
+            // 🚀 [Fix] On launcher: just press BACK to dismiss popup menu, then HOME
             // Do NOT do aggressive navigation that might accidentally enter settings
             Log.i(TAG, "[Exit Strategy] Launcher Context: BACK to dismiss popup, then HOME")
             LogExporter.logEvent(TAG, "[ACTION] Exit strategy: BACK+HOME (Launcher Context)")
@@ -1415,14 +1418,16 @@ class AntiUninstallProtection(private val context: Context) {
     }
 
     private fun showWarningDialog(context: Context, triggerTime: Long) {
-        // 馃毇 [Self-Protection] 绔嬪嵆璁剧疆 isDialogShowing = true锛岄槻姝㈡椂闂寸獥鍙ｈ鍒╃敤
-        // 杩欐牱鍦ㄤ换浣?early return 涔嬪墠锛宑heck() 鍑芥暟閮戒細璺宠繃妫€娴?        // 濡傛灉鏈€缁堜笉鏄剧ず寮圭獥锛屽啀璁惧洖 false
+        // 🚫 [Self-Protection] 立即设置 isDialogShowing = true，防止时间窗口被利用
+        // 这样在任何 early return 之前，check() 函数都会跳过检测
+        // 如果最终不显示弹窗，再设回 false
         val wasDialogShowing = isDialogShowing
-        isDialogShowing = true  // 鍏堝崰浣嶏紒
+        isDialogShowing = true  // 先占位！
         hasPendingDialog = false  // 宸茬粡杩涘叆澶勭悊娴佺▼
         
         if (wasDialogShowing) {
-            // 涔嬪墠灏卞湪鏄剧ず锛屼笉闇€瑕佸啀寮?            Log.d(TAG, "[Dialog] Skip: wasDialogShowing=true")
+            // 之前就在显示，不需要再设
+                        Log.d(TAG, "[Dialog] Skip: wasDialogShowing=true")
             Log.d(TAG, "[Dialog] Skip: wasDialogShowing=true")
             LogExporter.logEvent(TAG, "[Dialog] Skip: already showing")
             return
@@ -1441,15 +1446,15 @@ class AntiUninstallProtection(private val context: Context) {
             Log.d(TAG, "[Dialog] Skip: post-dismiss cooldown, ${remaining}ms remaining")
             LogExporter.logEvent(TAG, "[Dialog] Skip: post-dismiss (${remaining}ms left)")
             isDialogShowing = false  // 鎭㈠
-            return  // dismiss 鍚?3 绉掑唴涓嶅啀寮?
+            return  // dismiss 后 3 秒内不再锁
         }
 
         try {
             val startTime = System.currentTimeMillis()
             val currentLocale = context.resources.configuration.locales[0].language
             
-            // 馃殌 [Performance Fix] 浼樺厛浣্চ中的棰勭儹鐨勭紦瀛樺璇濇
-            // 濡傛灯缂撳瓨瀛樺湪涓旇瑷€鍖归厤锛岀洿鎺ユ樉绀猴紱鍚﹀垯鎵嶉噸鏂板垱寤?
+            // 🚀 [Performance Fix] 优先使用已预热的缓存对话框
+            // 如果缓存存在且语言匹配，直接显示；否则才重新创建
             val dialogToShow: android.app.AlertDialog
 
             if (cachedDialog != null && cachedDialogLocale == currentLocale) {
@@ -1465,10 +1470,10 @@ class AntiUninstallProtection(private val context: Context) {
                     .setOnDismissListener { isDialogShowing = false }
                 
                 dialogToShow = builder.create()
-                // 馃殌 [Fix] Must set type to OVERLAY for Service context
+                // 🚀 [Fix] Must set type to OVERLAY for Service context
                 dialogToShow.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
                 
-                // 鏇存柊缂撳瓨
+                // 更新缓存
                 cachedDialog = dialogToShow
                 cachedDialogLocale = currentLocale
             }
@@ -1481,12 +1486,12 @@ class AntiUninstallProtection(private val context: Context) {
                 LogExporter.logEvent(TAG, "[Dialog] Dismissed")
             }
             dialogToShow.show()
-            // isDialogShowing 宸茬粡鍦ㄥ嚱鏁板紑澶磋涓?true锛屾棤闇€鍐嶆璁剧疆
+            // isDialogShowing 已经在函数开头设为 true，无需再次设置
             lastDialogShowTime = System.currentTimeMillis()
             Log.d(TAG, "[Dialog] Successfully shown, isDialogShowing=true")
             LogExporter.logEvent(TAG, "[Dialog] Shown successfully")
 
-            // 馃殌 [Secret] 5-tap on Message to export logs
+            // 🚀 [Secret] 5-tap on Message to export logs
             try {
                 // Try to find the message text view by system ID
                 val messageView = dialogToShow.findViewById<android.widget.TextView>(android.R.id.message)
@@ -1505,11 +1510,11 @@ class AntiUninstallProtection(private val context: Context) {
                             tapCount = 0
                             // Show Selection Dialog
                             android.app.AlertDialog.Builder(context)
-                                .setTitle("瀵煎嚭鏃ュ織 (闃插嵏杞?")
+                                .setTitle("导出日志 (防卸载)")
                                 .setItems(com.decikeeper.app.data.LogExporter.LOG_OPTIONS) { _, which ->
                                     val duration = com.decikeeper.app.data.LogExporter.LOG_DURATIONS[which]
                                     val label = com.decikeeper.app.data.LogExporter.LOG_OPTIONS[which]
-                                    com.decikeeper.app.data.LogExporter.exportAndShareRecent(context, duration, com.decikeeper.app.data.LogExporter.DEFAULT_RECIPIENT, "IronWill 闃插嵏杞芥棩蹇?($label)")
+                                    com.decikeeper.app.data.LogExporter.exportAndShareRecent(context, duration, com.decikeeper.app.data.LogExporter.DEFAULT_RECIPIENT, "IronWill 防卸载日志($label)")
                                 }
                                 .show()
                         }
@@ -1524,7 +1529,7 @@ class AntiUninstallProtection(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "CRITICAL: Failed to show Warning Dialog (BadToken/Permission)", e)
             isDialogShowing = false
-            // 馃敡 娓呴櫎鍙兘鎹熷潖鐨勭紦瀛橈紝涓嬫寮哄埗閲嶆柊鍒涘缓
+            // 🔧 清除可能损坏的缓存，下次强制重新创建
             cachedDialog = null
             cachedDialogLocale = null
             // Suppress crash to keep Service alive so Back/Home actions still work!
@@ -1532,7 +1537,7 @@ class AntiUninstallProtection(private val context: Context) {
     }
     
     /**
-     * 馃殌 [Warmup] 棰勫垱寤哄璇濇锛屼緵澶栭儴璋冪敤
+     * 🚀 [Warmup] 预创建对话框，供外部调用
      */
     private fun logBlock(
         reason: String,
@@ -1559,8 +1564,8 @@ class AntiUninstallProtection(private val context: Context) {
     }
 
     /**
-     * 馃殌 [Config Change] Reset cache with debounce and delayed warmup.
-     * 馃敟 Keep main thread free for FastLockService first paint during locale switch.
+     * 🚀 [Config Change] Reset cache with debounce and delayed warmup.
+     * 🔥 Keep main thread free for FastLockService first paint during locale switch.
      */
     fun resetDialogCache(context: Context) {
         hasPendingDialog = false
@@ -1575,7 +1580,7 @@ class AntiUninstallProtection(private val context: Context) {
         if (node == null) return
         if (node.isEditable || node.className == "android.widget.EditText") return
         
-        // 馃殌 [Performance] Safety Limits - balanced for detection speed
+        // 🚀 [Performance] Safety Limits - balanced for detection speed
         if (depth > maxDepth) return
         if (sb.length > 5000) return
         
@@ -1583,7 +1588,7 @@ class AntiUninstallProtection(private val context: Context) {
         if (!node.contentDescription.isNullOrEmpty()) sb.append(node.contentDescription).append(" ")
         
         val count = node.childCount
-        // 馃殌 [Performance] Limit children - use parameter
+        // 🚀 [Performance] Limit children - use parameter
         // Increase limit for root to scan wide menus
         val effectiveLimit = if (depth == 0) maxChildren else 15
         val effectiveCount = kotlin.math.min(count, effectiveLimit)
@@ -1625,7 +1630,7 @@ class AntiUninstallProtection(private val context: Context) {
         }
     }
 
-    // 馃殌 [Fix] Robust App Name Detection
+    // 🚀 [Fix] Robust App Name Detection
     // Ignores "Clickable" occurrences (likely Desktop Icons)
     // Only flags "Static" occurrences (Likely Dialog Messages)
     private fun hasStaticAppNameMention(root: AccessibilityNodeInfo?): Boolean {
@@ -1645,7 +1650,7 @@ class AntiUninstallProtection(private val context: Context) {
 
         // Check children
         val count = root.childCount
-        // 馃殌 [Performance] Limit children check here too
+        // 🚀 [Performance] Limit children check here too
         val effectiveCount = kotlin.math.min(count, 20)
         
         for (i in 0 until effectiveCount) {
