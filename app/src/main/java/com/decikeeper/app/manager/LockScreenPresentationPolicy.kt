@@ -46,7 +46,7 @@ internal fun resolveLockOverlayRestrictionMode(
 internal fun shouldRouteEmergencyToPrivilege(
     mode: LockOverlayRestrictionMode
 ): Boolean {
-    // 兼容历史调用：特权现已作为所有锁屏的独立常驻按钮，主操作按钮分流为：时间窗->临时放行，勿扰->申请休息
+    // 兼容历史调用：特权现已作为所有锁屏的独立常驻按钮，主操作按钮分流为：时间窗->临时解锁，勿扰->申请休息
     return false
 }
 

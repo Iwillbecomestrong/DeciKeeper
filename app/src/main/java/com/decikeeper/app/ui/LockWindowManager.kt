@@ -601,7 +601,7 @@ object LockWindowManager {
     @Volatile
     private var mLockEntryReasonRaw: String? = null
 
-    // 临时放行（秒级）状态：用于扫码/短查看，不计入休息/特权
+    // 临时解锁（秒级）状态：用于扫码/短查看，不计入休息/特权
     @Volatile
     private var temporaryAccessUntil = 0L
     @Volatile
@@ -2439,7 +2439,7 @@ object LockWindowManager {
         }
 
         // 2. 场景专属主操作按钮：
-        //    - 应用时间窗锁屏：⚡ 临时放行（短期解开任意锁，无额外勾选）
+        //    - 应用时间窗锁屏：⚡ 临时解锁（短期解开任意锁，无额外勾选）
         //    - 勿扰时段锁机：🌱 申请休息（专解勿扰锁）
         btnEmergency?.setSafeOnClickListener {
             if (shouldRouteEmergencyToTempAccess(currentLockRestrictionMode)) {
@@ -2466,7 +2466,7 @@ object LockWindowManager {
             showTemporaryAccessDialog(context)
         }
 
-        // 二级应急按钮：冷却中可用时提供 10s 临时放行
+        // 二级应急按钮：冷却中可用时提供 10s 临时解锁
         btnTemporaryAccessQuickTen?.setSafeOnClickListener {
             val reuseRemain = getTemporaryReuseCooldownRemainingSeconds()
             val emergencyRemainingUses = resolveTemporaryEmergencyRemainingUses(
@@ -3044,7 +3044,7 @@ object LockWindowManager {
         val tempCoolActive = tempCooldownRemain > 0
         val inAnyCooling = now < restCoolEnd || tempCoolActive
 
-        // 🌟 纯粹三出口架构渲染：DND 模式下主操作为申请休息，同时保留独立的临时放行入口
+        // 🌟 纯粹三出口架构渲染：DND 模式下主操作为申请休息，同时保留独立的临时解锁入口
         val tempPresentation = resolveTemporaryAccessPresentation(
             isTemporaryAccessExhausted = tempExhausted,
             inAnyCooling = inAnyCooling,
@@ -3078,7 +3078,7 @@ object LockWindowManager {
             btnWeeklyPrivilege?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
         }
 
-        // 2. 场景专属主操作按钮更新 (时间窗->临时放行, 勿扰->申请休息)
+        // 2. 场景专属主操作按钮更新 (时间窗->临时解锁, 勿扰->申请休息)
         val emergencyPresentation = resolveEmergencyActionPresentation(
             mode = currentLockRestrictionMode,
             privilegeUnavailableReason = privilegeReason,
@@ -4173,7 +4173,7 @@ object LockWindowManager {
         val dialog = AlertDialog.Builder(dialogContext)
             .setTitle("临时解锁使用说明")
             .setMessage(
-                "可临时放行 1~$maxSeconds 秒。\n" +
+                "可临时解锁 1~$maxSeconds 秒。\n" +
                     "结束后不再强制锁机；冷却规则按时长分段递增：1分钟内按1倍，2分钟内按2倍，3分钟内按3倍。比如放行3分钟，冷却就是6分钟。二级临时总次数按本轮初始冷却秒数÷60四舍五入后固定，仅在实际使用10秒二级临时时扣减，且两次至少间隔60秒。" +
                     coolMsg
             )
@@ -4206,7 +4206,7 @@ object LockWindowManager {
 
         val message = buildString {
             append("⚠️ 勿扰时段内使用临时解锁将消耗休息额度\n\n")
-            append("• 临时放行时长: ${rawSeconds} 秒\n")
+            append("• 临时解锁时长: ${rawSeconds} 秒\n")
             append("• 需扣除额度: ${formatMinutesForLock(minutesToDeduct)} 分钟\n")
             append("• 当前可用额度: ${formatMinutesForLock(remainingMins)} 分钟\n")
             if (remainingMins < minutesToDeduct) {
@@ -4252,7 +4252,7 @@ object LockWindowManager {
         val dialogContext = if (isA11y) mCoreService!! else context
 
         val message = buildString {
-            append("⚠️ 二级应急（10 秒临时放行）\n\n")
+            append("⚠️ 二级应急（10 秒临时解锁）\n\n")
             append("• 用途：应急扫码、快速查看等场景\n")
             append("• 本次剩余可使用次数: ${remainingUses} 次\n")
             append("• 10秒内不消耗休息额度\n")
@@ -4431,7 +4431,7 @@ object LockWindowManager {
 
         val activeCooldownUntil = if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L
 
-        // 二级应急：10s 临时放行，若未切换 App 则到点自动锁屏
+        // 二级应急：10s 临时解锁，若未切换 App 则到点自动锁屏
         // 期间和普通临时解锁一样可自由访问黑名单 App
         if (isEmergencyInCooldown) {
             val emergencyAccessUntil = now + seconds * 1000L
@@ -4467,7 +4467,7 @@ object LockWindowManager {
             // 共用：解锁并重置状态
             resetConsecutiveNormalLockState("temporary_access_started")
             totalSegmentBlacklistHits = 0
-            Toast.makeText(context, "已临时放行10s，若未切换App则到时自动锁定", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "已临时解锁10s，若未切换App则到时自动锁定", Toast.LENGTH_SHORT).show()
 
             dismissLockScreen(LockDismissAuthority.TEMPORARY_ACCESS)
             return
@@ -4666,7 +4666,7 @@ object LockWindowManager {
         requestedSeconds: Int,
         maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS
     ): Boolean {
-        // SPEC §3.2 契约：冷静期再犯进入加权双倍扣除，不再硬性阻断临时放行
+        // SPEC §3.2 契约：冷静期再犯进入加权双倍扣除，不再硬性阻断临时解锁
         return false
     }
 
@@ -5885,180 +5885,6 @@ object LockWindowManager {
 
         val msg = if (isBorrowed) "预支成功！开启休息: $requestedMins 分钟" else "开启休息: $requestedMins 分钟"
         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-    }
-
-    /**
-     * 休息冷却期内临时解锁弹窗：说明本次申请整单翻倍。
-     */
-    private fun showRestCoolingTempAccessDialog(
-        dialogContext: Context,
-        maxSeconds: Int,
-        isA11y: Boolean,
-        coolRemainMs: Long
-    ) {
-        val coolRemainSec = (coolRemainMs + 999) / 1000
-        val maxMinutes = maxSeconds / 60.0
-        val input = EditText(dialogContext).apply {
-            hint = "请输入分钟(0.1-${formatTemporaryAccessSecondsAsMinutes(maxSeconds)})"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
-        }
-        isInputPanelOpen = true
-
-        // 实时扣除明细 TextView
-        val tvDetail = TextView(dialogContext).apply {
-            textSize = 13f
-            setTextColor(android.graphics.Color.parseColor("#000000"))
-            setPadding(0, 24, 0, 0)
-        }
-
-        fun fmt(v: Double): String = if (kotlin.math.abs(v - v.toLong().toDouble()) < 0.0001) v.toLong().toString() else "%.1f".format(v)
-
-        fun updateDetail() {
-            val minutes = input.text?.toString()?.trim()?.toDoubleOrNull()
-            if (minutes == null || !isTemporaryAccessMinuteInputValid(input.text?.toString()?.trim(), maxMinutes)) {
-                tvDetail.text = ""
-                return
-            }
-            val sec = temporaryAccessMinutesToSeconds(minutes)
-            val overlapSec = sec.coerceAtMost(coolRemainSec.toInt())
-            val normalSec = sec - overlapSec
-            // 先算秒再统一转分钟
-            val totalEffectiveSec = overlapSec * 2 + normalSec
-            val totalMins = calculateTemporaryAccessMinutes(totalEffectiveSec)
-            tvDetail.text = "扣除详情：触碰冷却${fmt(overlapSec / 60.0)}分钟(加权) + 正常${fmt(normalSec / 60.0)}分钟 → 共扣${fmt(totalMins)}分钟"
-        }
-
-        input.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateDetail() }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-
-        // 组装弹窗内容
-        val layout = android.widget.LinearLayout(dialogContext).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(56, 24, 56, 0)
-            addView(input)
-            addView(tvDetail)
-        }
-
-        val dialog = AlertDialog.Builder(dialogContext)
-            .setTitle("⚠️ 冷却中临时解锁")
-            .setMessage("当前处于休息冷却期（剩余 ${formatTemporaryAccessSecondsAsMinutes(coolRemainSec.toInt())} 分钟）。本次申请的时间与次数整单翻倍（×2）。")
-            .setView(layout)
-            .setPositiveButton("确认") { _, _ ->
-                val raw = input.text?.toString()?.trim()
-                if (!isTemporaryAccessMinuteInputValid(raw, maxMinutes)) {
-                    Toast.makeText(dialogContext, "请输入有效分钟数(0.1-${formatTemporaryAccessSecondsAsMinutes(maxSeconds)})", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                val seconds = temporaryAccessMinutesToSeconds(raw!!.toDouble())
-                startTemporaryAccess(dialogContext, seconds, maxSeconds)
-            }
-            .setNegativeButton("取消", null)
-            .create()
-
-        dialog.setOnDismissListener {
-            isInputPanelOpen = false
-            if (isLocked) exitSettingsPassThrough("rest_cooling_temp_dialog_dismiss")
-        }
-
-        if (isA11y) {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-        } else {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_PHONE)
-        }
-        dialog.window?.clearFlags(
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
-        )
-        dialog.window?.setSoftInputMode(
-            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
-                WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
-        )
-        dialog.setOnShowListener {
-            input.requestFocus()
-            input.post {
-                val imm = dialogContext.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                imm?.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-            }
-        }
-        dialog.show()
-        dialog.applyEscapeDisciplineColors()
-    }
-
-    /**
-     * 冷却期确认弹窗：告知用户冷静期内申请将整单翻倍，必须用户确认后才执行。
-     */
-    private fun showCoolingConfirmDialog(
-        context: Context,
-        requestedSec: Int,
-        totalCost: Double,
-        overlapSec: Int,
-        isTempAccess: Boolean = false
-    ) {
-        val isA11y = isServiceActive()
-        val dialogContext = if (isA11y) mCoreService!! else context
-
-        fun fmt(v: Double): String = if (v == v.toLong().toDouble()) v.toLong().toString()
-        else "%.1f".format(v)
-
-        val actionLabel = if (isTempAccess) "临时解锁" else "申请休息"
-        val normalSec = (requestedSec - overlapSec).coerceAtLeast(0)
-        val totalEffectiveSec = normalSec + overlapSec * 2
-
-        // 计算次数消耗：基于传入 overlapSec（而非重新查询 isCooling，避免休息开始后状态变化）
-        // 此函数调用者（休息申请/临时解锁）一定处于 DND 时段，freeSec/gapSec=0，
-        // 加权公式收敛为 (requestedSec + overlapSec) / requestedSec，结果 ∈ [1, 2]
-        val countCost = calculateWeightedRestCount(
-            freeSec = 0,
-            dndSec = requestedSec,
-            coolOverlapSec = overlapSec,
-            totalSec = requestedSec
-        )
-
-        val message = buildString {
-            append("⚠️ 当前处于冷静期（冷却期）\n\n")
-            append("• ${actionLabel}时长: ${fmt(requestedSec / 60.0)} 分钟\n")
-            if (overlapSec > 0 && normalSec > 0) {
-                append("• 正常扣费: ${fmt(normalSec / 60.0)} 分钟\n")
-                append("• 冷却重叠(×2): ${fmt(overlapSec / 60.0)} 分钟 → 扣 ${fmt(overlapSec * 2 / 60.0)} 分钟\n")
-                append("• 合计有效: ${fmt(totalCost)} 分钟\n")
-            } else if (overlapSec > 0) {
-                append("• 全部处于冷却期: ${fmt(overlapSec / 60.0)} 分钟 × 2 = ${fmt(totalCost)} 分钟\n")
-            } else {
-                append("• 实际消耗额度: ${fmt(totalCost)} 分钟\n")
-            }
-            append("• 次数消耗: ${countCost}次\n")
-            append("\n确定要在冷静期内${actionLabel}吗？")
-        }
-
-        val dialog = AlertDialog.Builder(dialogContext)
-            .setTitle("冷静期确认")
-            .setMessage(message)
-            .setPositiveButton("确认") { _, _ ->
-                if (isTempAccess) {
-                    startTemporaryAccess(context, requestedSec, requestedSec.coerceAtMost(getTemporaryAccessMaxSeconds(context)))
-                } else {
-                    performGrant(context, requestedSec / 60.0, totalCost, false, countCost)
-                }
-            }
-            .setNegativeButton("取消", null)
-            .create()
-
-        if (isA11y) {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-        } else {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_PHONE)
-        }
-
-        dialog.show()
-        dialog.applyEscapeDisciplineColors()
     }
 
     private fun showBorrowConfirmDialog(context: Context, requestedMins: Double, totalCost: Double, borrowMins: Double) {

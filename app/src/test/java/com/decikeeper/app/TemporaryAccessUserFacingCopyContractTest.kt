@@ -32,7 +32,14 @@ class TemporaryAccessUserFacingCopyContractTest {
         val joined = files.joinToString("\n")
 
         assertFalse(joined.contains("超级临时"))
+        // 「超级临时放行」被下一条的「临时放行」覆盖，保留此行以标明历史术语
         assertFalse(joined.contains("超级临时放行"))
+        // 正式术语只有「临时解锁」；「临时放行」曾长期混用于用户可见文案，
+        // 且原断言只拦「超级临时」，导致 Toast / 全局参数页仍在使用旧词。
+        assertFalse(
+            "用户可见文案不得再使用「临时放行」，正式术语是「临时解锁」",
+            joined.contains("临时放行")
+        )
         assertTrue(joined.contains("临时解锁"))
     }
 }
