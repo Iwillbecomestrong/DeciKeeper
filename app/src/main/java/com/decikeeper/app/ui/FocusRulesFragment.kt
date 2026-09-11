@@ -13,6 +13,8 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.tabs.TabLayout
 import com.decikeeper.app.R
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
+import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
+import com.decikeeper.app.manager.TimeRuleManager
 
 class FocusRulesFragment : Fragment() {
 
@@ -136,6 +138,16 @@ class FocusRulesFragment : Fragment() {
             if (policyUiUpdating || !isAdded) return@setOnCheckedChangeListener
 
             val context = requireContext()
+            if (TimeRuleManager.isTimeRuleEditLocked(context)) {
+                Toast.makeText(
+                    context,
+                    TimeRuleEditWindowPolicyManager.getLockoutHintText(context),
+                    Toast.LENGTH_SHORT
+                ).show()
+                updateEffectivePolicyUI()
+                return@setOnCheckedChangeListener
+            }
+
             val selected = if (checkedId == R.id.rb_policy_all_next_day) {
                 EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
             } else {
@@ -156,12 +168,24 @@ class FocusRulesFragment : Fragment() {
 
     private fun updateEffectivePolicyUI() {
         if (!isAdded) return
+        val context = context ?: return
 
-        val policy = EffectiveActivationPolicyManager.getPolicy(requireContext())
+        val policy = EffectiveActivationPolicyManager.getPolicy(context)
         val targetId = if (policy == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY) {
             R.id.rb_policy_all_next_day
         } else {
             R.id.rb_policy_favorable
+        }
+
+        val locked = TimeRuleManager.isTimeRuleEditLocked(context)
+        val alpha = if (locked) 0.5f else 1.0f
+        view?.findViewById<RadioButton>(R.id.rb_policy_favorable)?.apply {
+            isEnabled = !locked
+            this.alpha = alpha
+        }
+        view?.findViewById<RadioButton>(R.id.rb_policy_all_next_day)?.apply {
+            isEnabled = !locked
+            this.alpha = alpha
         }
 
         policyUiUpdating = true

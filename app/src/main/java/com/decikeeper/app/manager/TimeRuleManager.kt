@@ -298,7 +298,7 @@ object TimeRuleManager {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    private fun getDeviceProtectedPrefs(context: Context): SharedPreferences? {
+    internal fun getDeviceProtectedPrefs(context: Context): SharedPreferences? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             context.createDeviceProtectedStorageContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         } else null
@@ -920,7 +920,8 @@ object TimeRuleManager {
         newWeeklyCount: Int, newWeeklyDuration: Int, newRefreshTime: String,
         newTempRestrictedAccessMaxSeconds: Int = getTemporaryRestrictedAccessMaxSeconds(context),
         newPrivilegeWindowStart: String = getPrivilegeWindowStart(context),
-        newPrivilegeWindowEnd: String = getPrivilegeWindowEnd(context)
+        newPrivilegeWindowEnd: String = getPrivilegeWindowEnd(context),
+        newEditWindowPolicy: String = TimeRuleEditWindowPolicyManager.getPolicy(context).key
     ): AnalysisResult {
         ensureFreshBaseline(context)
 
@@ -942,6 +943,11 @@ object TimeRuleManager {
                 putString(KEY_PRIVILEGE_WINDOW_START, newPrivilegeWindowStart)
                 putString(KEY_PRIVILEGE_WINDOW_END, newPrivilegeWindowEnd)
             }.apply()
+            
+            TimeRuleEditWindowPolicyManager.setPolicy(
+                context,
+                TimeRuleEditWindowPolicyManager.Policy.fromKey(newEditWindowPolicy)
+            )
             
             creditPrefs.edit().apply {
                 putLong("strict_penalty_duration", newLockDuration * 1000)
@@ -974,6 +980,7 @@ object TimeRuleManager {
             pEdit.remove("config_refresh_time")
             pEdit.remove(KEY_PRIVILEGE_WINDOW_START)
             pEdit.remove(KEY_PRIVILEGE_WINDOW_END)
+            pEdit.remove(TimeRuleEditWindowPolicyManager.KEY_POLICY)
             
             if (!pendingPrefs.contains(KEY_SEGMENTS_JSON)) {
                  pEdit.clear() // Safe clear if no segments
@@ -1002,6 +1009,10 @@ object TimeRuleManager {
         val basNotifyNear = basPrefs.getInt("notify_entry_near_minutes", 5)
         val basPrivWindowStart = basPrefs.getString(KEY_PRIVILEGE_WINDOW_START, null) ?: getPrivilegeWindowStart(context)
         val basPrivWindowEnd = basPrefs.getString(KEY_PRIVILEGE_WINDOW_END, null) ?: getPrivilegeWindowEnd(context)
+        val basEditWindowPolicy = basPrefs.getString(
+            TimeRuleEditWindowPolicyManager.KEY_POLICY,
+            TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
+        ) ?: TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
 
         // 1. Current Values (Baseline/Active for Strictness Check)
         val curRest = getCoolDownRestSeconds(context)
@@ -1016,6 +1027,7 @@ object TimeRuleManager {
         val curNotifyNear = getNotifyEntryNearMinutes(context)
         val curPrivWindowStart = getPrivilegeWindowStart(context)
         val curPrivWindowEnd = getPrivilegeWindowEnd(context)
+        val curEditWindowPolicy = TimeRuleEditWindowPolicyManager.getPolicy(context).key
         
         // 🚀 [Diff Base] Always compare against BASELINE (Snapshot) values for specific Parameter changes
         // User Request: Comparison should be "Baseline -> New" to define Adverse/Benign relative to day start.
@@ -1027,6 +1039,7 @@ object TimeRuleManager {
         val diffBaseWeekly = basWeekly
         val diffBaseWeeklyDuration = basWeeklyDuration
         val diffBaseRefresh = basRefresh
+        val diffBaseEditWindowPolicy = basEditWindowPolicy
         
         // 2. Identify Changes
         val immList = mutableListOf<String>()
@@ -1064,6 +1077,7 @@ object TimeRuleManager {
         val pendNotifyNear = getPending("notify_entry_near_minutes", curNotifyNear)
         val pendPrivWindowStart = getPendingStr(KEY_PRIVILEGE_WINDOW_START, curPrivWindowStart)
         val pendPrivWindowEnd = getPendingStr(KEY_PRIVILEGE_WINDOW_END, curPrivWindowEnd)
+        val pendEditWindowPolicy = getPendingStr(TimeRuleEditWindowPolicyManager.KEY_POLICY, curEditWindowPolicy)
         
         // ...
 
@@ -1151,6 +1165,33 @@ object TimeRuleManager {
             "temp_restricted_access_max_seconds",
             pendTempRestrictedAccess
         )
+
+        // 时间规则可修改时段
+        val isEditPolicyRestored = (newEditWindowPolicy == basEditWindowPolicy)
+        val isEditPolicyBenign = (newEditWindowPolicy == TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT.key &&
+                basEditWindowPolicy == TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key)
+
+        if (newEditWindowPolicy == pendEditWindowPolicy) {
+            if (!isEditPolicyRestored && !isEditPolicyBenign) anyAdverseRemaining = true
+        } else {
+            if (isEditPolicyRestored) {
+                if (curEditWindowPolicy != newEditWindowPolicy || diffBaseEditWindowPolicy != newEditWindowPolicy) {
+                    resList.add("时间规则可修改时段: ${TimeRuleEditWindowPolicyManager.getPolicyTitle(TimeRuleEditWindowPolicyManager.Policy.fromKey(curEditWindowPolicy))} -> ${TimeRuleEditWindowPolicyManager.getPolicyTitle(TimeRuleEditWindowPolicyManager.Policy.fromKey(newEditWindowPolicy))} [恢复]")
+                }
+                ChangeLogManager.removePendingEntriesByTag(context, "global_params", "edit_window_policy")
+            } else if (isEditPolicyBenign) {
+                if (diffBaseEditWindowPolicy != newEditWindowPolicy) {
+                    immList.add("时间规则可修改时段: 全天可修改 -> 仅生效时间至 24:00 可修改 (有利)")
+                }
+                ChangeLogManager.removePendingEntriesByTag(context, "global_params", "edit_window_policy")
+            } else {
+                anyAdverseRemaining = true
+                if (diffBaseEditWindowPolicy != newEditWindowPolicy) {
+                    delList.add("时间规则可修改时段: 仅生效时间至 24:00 可修改 -> 全天可修改 (不利)")
+                    hasNewAdverse = true
+                }
+            }
+        }
         
         // Warnings & Refresh (Always Benign/Immediate - BUT check pending to see if we should skip logging)
         if (newNotifyFar != curNotifyFar && newNotifyFar != pendNotifyFar) {
@@ -1262,6 +1303,8 @@ object TimeRuleManager {
         // Warnings: Always New
         activeEdit.putInt("notify_advance_minutes", actNotifyFar)
         activeEdit.putInt("notify_entry_near_minutes", actNotifyNear)
+        val activeEditPolicy = if (isEditPolicyBenign || isEditPolicyRestored) newEditWindowPolicy else curEditWindowPolicy
+        activeEdit.putString(TimeRuleEditWindowPolicyManager.KEY_POLICY, activeEditPolicy)
         
         // 🚀 [Fix] Sync to Device Protected Prefs
         dpEdit?.apply {
@@ -1271,6 +1314,7 @@ object TimeRuleManager {
             putInt(KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS, actTempRestrictedAccess)
             putInt("notify_advance_minutes", actNotifyFar)
             putInt("notify_entry_near_minutes", actNotifyNear)
+            putString(TimeRuleEditWindowPolicyManager.KEY_POLICY, activeEditPolicy)
         }
 
         // 🚀 [Fix] Refresh Time: Always Update Immediate
@@ -1364,6 +1408,12 @@ object TimeRuleManager {
                  pendingEdit.putString(KEY_PRIVILEGE_WINDOW_END, newPrivilegeWindowEnd)
              }
 
+             if (!isEditPolicyBenign && !isEditPolicyRestored) {
+                 pendingEdit.putString(TimeRuleEditWindowPolicyManager.KEY_POLICY, newEditWindowPolicy)
+             } else {
+                 pendingEdit.remove(TimeRuleEditWindowPolicyManager.KEY_POLICY)
+             }
+
              // 🚀 [Fix] Weekly Privilege Pending Storage
              // Resolve: Stricter = Immediate. Looser = Pending.
              // If resolveActive took the NEW value (meaning it was Stricter), then NO pending is needed.
@@ -1441,6 +1491,7 @@ object TimeRuleManager {
               pendingEdit.remove("notify_entry_near_minutes")
               pendingEdit.remove(KEY_PRIVILEGE_WINDOW_START)
               pendingEdit.remove(KEY_PRIVILEGE_WINDOW_END)
+              pendingEdit.remove(TimeRuleEditWindowPolicyManager.KEY_POLICY)
               
               // Check if Segments or Weekly Privilege exist in Pending
               val hasPendingSegments = pendingPrefs.contains(KEY_SEGMENTS_JSON)
@@ -2345,6 +2396,17 @@ object TimeRuleManager {
         editor.putString(KEY_PRIVILEGE_WINDOW_END, pwEnd)
     }
 
+    if (pendingPrefs.contains(TimeRuleEditWindowPolicyManager.KEY_POLICY)) {
+        val policyStr = pendingPrefs.getString(
+            TimeRuleEditWindowPolicyManager.KEY_POLICY,
+            TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
+        ) ?: TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
+        editor.putString(TimeRuleEditWindowPolicyManager.KEY_POLICY, policyStr)
+        getDeviceProtectedPrefs(context)?.edit()
+            ?.putString(TimeRuleEditWindowPolicyManager.KEY_POLICY, policyStr)
+            ?.apply()
+    }
+
 	    editor.apply()
 	    
 	    // 🚀 [Fix] Mark ChangeLogs as Applied so they disappear from "Pending" UI
@@ -2704,7 +2766,7 @@ object TimeRuleManager {
      * HH ∈ [0, 23] and MM ∈ [0, 59] (24:00 = 1440 is also accepted as a
      * minute-of-day upper bound for compatibility with `MinuteBoundary`).
      */
-    private fun parseHHMMToMinutes(time: String?): Int? {
+    internal fun parseHHMMToMinutes(time: String?): Int? {
         if (time.isNullOrBlank()) return null
         val parts = time.split(":")
         if (parts.size != 2) return null
@@ -2771,6 +2833,13 @@ object TimeRuleManager {
      */
     fun isInSettingsLockoutPeriod(context: Context): Boolean {
         return false
+    }
+
+    /**
+     * 判定当前时间是否处于时间规则与参数禁止修改时段
+     */
+    fun isTimeRuleEditLocked(context: Context, nowCalendar: java.util.Calendar = java.util.Calendar.getInstance()): Boolean {
+        return TimeRuleEditWindowPolicyManager.isTimeRuleEditLocked(context, nowCalendar)
     }
 
     /**

@@ -23,6 +23,7 @@ import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.MinuteBoundary
 import com.decikeeper.app.manager.ProbationManager
+import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.service.MonitorService
 
@@ -66,7 +67,7 @@ class GlobalParamsActivity : AppCompatActivity() {
             insets
         }
 
-        setupUI(TimeRuleManager.isInSettingsLockoutPeriod(this))
+        setupUI(TimeRuleManager.isTimeRuleEditLocked(this))
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { doFinish() }
         })
@@ -122,6 +123,21 @@ class GlobalParamsActivity : AppCompatActivity() {
         val pendingRefresh = if (hasPending) TimeRuleManager.getPendingRefreshTime(this) ?: currentRefreshTime else currentRefreshTime
         val pendingStrict = if (hasPending) TimeRuleManager.getPendingStrictPenaltyDurationSeconds(this) ?: currentStrict else currentStrict
 
+        val rgEditWindowPolicy = findViewById<android.widget.RadioGroup>(R.id.rg_edit_window_policy)
+        val rbEditWindowAllDay = findViewById<android.widget.RadioButton>(R.id.rb_edit_window_all_day)
+        val rbEditWindowEffectiveToMidnight = findViewById<android.widget.RadioButton>(R.id.rb_edit_window_effective_to_midnight)
+
+        val currentEditWindowPolicy = TimeRuleEditWindowPolicyManager.getPolicy(this)
+        val pendingEditWindowPolicy = if (hasPending) {
+            TimeRuleEditWindowPolicyManager.getPendingPolicy(this) ?: currentEditWindowPolicy
+        } else currentEditWindowPolicy
+
+        if (pendingEditWindowPolicy == TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT) {
+            rgEditWindowPolicy.check(R.id.rb_edit_window_effective_to_midnight)
+        } else {
+            rgEditWindowPolicy.check(R.id.rb_edit_window_all_day)
+        }
+
         etRest.setText(pendingCoolDownRest.toString())
         etGap.setText(pendingCoolDownGap.toString())
         etBlacklist.setText(pendingStrict.toString())
@@ -139,12 +155,20 @@ class GlobalParamsActivity : AppCompatActivity() {
             listOf(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax, etRefreshTime,
                 etNotifyEntryFar, etNotifyEntryNear, etWeeklyPrivilegeCount, etWeeklyPrivilegeDuration,
                 etPrivWindowStart, etPrivWindowEnd).forEach { it.isEnabled = false }
+            rbEditWindowAllDay.isEnabled = false
+            rbEditWindowEffectiveToMidnight.isEnabled = false
         }
 
         val cardPending = findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)
         val tvPending = findViewById<android.widget.TextView>(R.id.tv_pending_changes)
         val tvLockout = findViewById<android.widget.TextView>(R.id.tv_lockout_hint)
-        if (!isLocked) tvLockout.visibility = android.view.View.GONE
+        if (isLocked) {
+            cardPending.visibility = android.view.View.VISIBLE
+            tvLockout.visibility = android.view.View.VISIBLE
+            tvLockout.text = TimeRuleEditWindowPolicyManager.getLockoutHintText(this)
+        } else {
+            tvLockout.visibility = android.view.View.GONE
+        }
         val isAdaptation = TimeRuleManager.isInAdaptationPeriod(this)
         val finalText = ChangeLogManager.getFormattedLogForCategory(this, "global_params").trim()
         if (!isAdaptation && finalText.isNotEmpty()) {
@@ -178,7 +202,12 @@ class GlobalParamsActivity : AppCompatActivity() {
         TimeRuleManager.setPrivilegeWindowSynced(this, false)
 
         val btnSave = findViewById<android.view.View>(R.id.btn_save)
-        if (isLocked) { switchSync.isEnabled = false; btnSave.isEnabled = false; btnSave.alpha = 0.5f }
+        if (isLocked) {
+            switchSync.isEnabled = false
+            btnSave.isEnabled = false
+            btnSave.alpha = 0.5f
+            etRefreshTime.isEnabled = false
+        }
 
         btnSave.setOnClickListener {
             if (isLocked) return@setOnClickListener
@@ -233,10 +262,15 @@ class GlobalParamsActivity : AppCompatActivity() {
             newPrivWindowEnd = formatTime(newPrivWindowEnd)
             TimeRuleManager.setRefreshTimeSynced(this, switchSync.isChecked)
             TimeRuleManager.setPrivilegeWindowSynced(this, false)
+            val newEditWindowPolicy = if (rgEditWindowPolicy.checkedRadioButtonId == R.id.rb_edit_window_effective_to_midnight) {
+                TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT.key
+            } else {
+                TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
+            }
             val result = TimeRuleManager.analyzeAndSaveGlobalParams(
                 this, newRest, newGap, newLockDuration, newBorrow, newNotifyFar, newNotifyNear,
                 newWeeklyCount, newWeeklyDuration, newRefreshTime, newTempRestrictedAccessMax,
-                newPrivWindowStart, newPrivWindowEnd
+                newPrivWindowStart, newPrivWindowEnd, newEditWindowPolicy
             )
             AdverseAnalysis.showAnalysisDialog(this, result) { finish() }
         }
@@ -254,7 +288,7 @@ class GlobalParamsActivity : AppCompatActivity() {
             val derived = TimeRuleManager.findRefreshTimeFromSegments(segments)
             findViewById<EditText>(R.id.et_refresh_time).setText(derived)
         }
-        setupUI(TimeRuleManager.isInSettingsLockoutPeriod(this))
+        setupUI(TimeRuleManager.isTimeRuleEditLocked(this))
     }
 
     private fun doFinish() {

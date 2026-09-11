@@ -34,6 +34,7 @@ import com.decikeeper.app.manager.BoundaryResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.MinuteBoundary
+import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.service.MonitorService
 
@@ -176,13 +177,15 @@ class TimeConfigFragment : Fragment() {
 
     private fun isSettingsLocked(): Boolean {
         val ctx = requireContext()
-        if (!TimeRuleManager.isInSettingsLockoutPeriod(ctx)) return false
-        Toast.makeText(ctx, "当前处于深夜保护期，无法修改设置", Toast.LENGTH_SHORT).show()
+        if (!TimeRuleManager.isTimeRuleEditLocked(ctx)) return false
+        Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
         return true
     }
 
     private fun applySettingsLockoutState() {
-        val locked = TimeRuleManager.isInSettingsLockoutPeriod(requireContext())
+        val ctx = context ?: return
+        val locked = TimeRuleManager.isTimeRuleEditLocked(ctx)
+        adapter?.isReadOnly = locked
         val alpha = if (locked) 0.5f else 1.0f
         view?.findViewById<Button>(R.id.btn_add_segment)?.apply {
             isEnabled = !locked; this.alpha = alpha
@@ -202,7 +205,7 @@ class TimeConfigFragment : Fragment() {
         
         adapter = TimeSegmentAdapter(
             segments,
-            isReadOnly = TimeRuleManager.isInSettingsLockoutPeriod(requireContext()),
+            isReadOnly = TimeRuleManager.isTimeRuleEditLocked(requireContext()),
             onEdit = { pos -> showEditSegmentDialog(pos) },
             onDelete = { pos -> deleteSegment(pos) },
             onToggle = { pos, isChecked -> onToggleSegment(pos, isChecked) }
@@ -296,21 +299,24 @@ class TimeConfigFragment : Fragment() {
 
     private fun showPendingChanges() {
         val ctx = context ?: return
-        // DA-C: 废弃"深夜设置锁定" UI 分支已移除 (WP-04-T01 v3)。
-        // 兼容方法 TimeRuleManager.isInSettingsLockoutPeriod() 仍返回 false,占位控件
-        // tv_lockout_hint 也保留以免破坏 layout。lockout hint 永远 GONE。
-        view?.findViewById<TextView>(R.id.tv_lockout_hint)?.visibility = View.GONE
+        val isLocked = TimeRuleManager.isTimeRuleEditLocked(ctx)
+        val tvLockout = view?.findViewById<TextView>(R.id.tv_lockout_hint)
+        if (isLocked) {
+            tvLockout?.visibility = View.VISIBLE
+            tvLockout?.text = TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx)
+            cardPending?.visibility = View.VISIBLE
+        } else {
+            tvLockout?.visibility = View.GONE
+        }
 
         if (TimeRuleManager.isInAdaptationPeriod(ctx)) {
-            cardPending?.visibility = View.GONE
+            if (!isLocked) cardPending?.visibility = View.GONE
             return
         }
 
         val pendingSegments = TimeRuleManager.getPendingTimeSegments(ctx)
         if (pendingSegments.isNullOrEmpty()) {
-            // [Fix: strategy switch UI refresh] 不移除 ChangeLog 条目（由 apply/cancel 路径清理），
-            // 仅隐藏卡片。防止策略切换刚添加的变更日志被冲掉。
-            cardPending?.visibility = View.GONE
+            if (!isLocked) cardPending?.visibility = View.GONE else tvPendingChanges?.text = ""
             return
         }
 
@@ -324,8 +330,10 @@ class TimeConfigFragment : Fragment() {
         if (displayText.isNotEmpty()) {
             cardPending?.visibility = View.VISIBLE
             tvPendingChanges?.text = displayText
-        } else {
+        } else if (!isLocked) {
             cardPending?.visibility = View.GONE
+        } else {
+            tvPendingChanges?.text = ""
         }
     }
 

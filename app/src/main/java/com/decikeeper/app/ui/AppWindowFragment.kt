@@ -43,6 +43,7 @@ import com.decikeeper.app.manager.AppWindowManager
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
+import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
 import java.util.Calendar
 
@@ -151,7 +152,7 @@ class AppWindowFragment : Fragment() {
     }
 
     private fun applySettingsLockoutState() {
-        val locked = TimeRuleManager.isInSettingsLockoutPeriod(requireContext())
+        val locked = TimeRuleManager.isTimeRuleEditLocked(requireContext())
         val alpha = if (locked) 0.5f else 1.0f
         btnAdd.isEnabled = !locked
         btnBatchCycle.isEnabled = !locked
@@ -161,9 +162,8 @@ class AppWindowFragment : Fragment() {
 
     private fun isSettingsLocked(): Boolean {
         val ctx = requireContext()
-        if (!TimeRuleManager.isInSettingsLockoutPeriod(ctx)) return false
-        val refreshTime = TimeRuleManager.getRefreshTime(ctx)
-        Toast.makeText(ctx, "当前处于深夜保护期(00:00 ~ $refreshTime)，无法修改时间窗设置", Toast.LENGTH_SHORT).show()
+        if (!TimeRuleManager.isTimeRuleEditLocked(ctx)) return false
+        Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
         return true
     }
 
@@ -179,13 +179,12 @@ class AppWindowFragment : Fragment() {
     
     private fun showPendingChanges() {
         val ctx = context ?: return
-        val isLocked = TimeRuleManager.isInSettingsLockoutPeriod(ctx)
+        val isLocked = TimeRuleManager.isTimeRuleEditLocked(ctx)
         if (isLocked) {
-            val refreshTime = TimeRuleManager.getRefreshTime(ctx)
             cardPending.visibility = View.VISIBLE
             cardPending.setCardBackgroundColor(Color.parseColor("#FFF3E0"))
             tvLockoutHint.visibility = View.VISIBLE
-            tvLockoutHint.text = "🔒 设置已锁定 (深夜保护期 00:00 ~ $refreshTime)\n当前仅供查看，无法修改配置。"
+            tvLockoutHint.text = TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx)
         } else {
             tvLockoutHint.visibility = View.GONE
             cardPending.setCardBackgroundColor(Color.parseColor("#FFF8E1"))
