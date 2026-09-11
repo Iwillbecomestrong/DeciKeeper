@@ -41,6 +41,7 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.A11ySelfDisableAuthorization
+import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.AppWindowManager
@@ -870,7 +871,7 @@ class CoreService : AccessibilityService() {
         // 褰撻攣灞忚鐩栨椂锛岀郴缁熷璇濇浼氳鎸′綇瀵艰嚧鏃犳硶鍏虫満銆?
         // 妫€娴嬪埌绯荤粺绾у璇濇绐楀彛鐘舵€佸彉鍖栨椂锛屼复鏃惰鍑虹劍鐐广€?
         // 鍏煎锛欰OSP (android), Vivo (com.vivo.systemuiplugin), Samsung (com.android.systemui) 绛?
-        if (LockWindowManager.isAlarmOverlayShowing) {
+        if (LockWindowManager.isAlarmOverlayShowing && AlarmPowerOffProtectionManager.isEnabled(this)) {
             val className = event.className?.toString()
             val shutdownDialog = shouldHandleShutdownDialogEvent(event.eventType, pkgName, className)
             val voiceAssistant = com.decikeeper.app.manager
