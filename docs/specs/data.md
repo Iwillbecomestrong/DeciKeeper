@@ -65,7 +65,7 @@
 - pending 的下一合法生效点；
 - 首页和统计对“今天”的解释。
 
-当前实现会根据规则边界推导业务日，使跨午夜的深夜时段仍归属于它开始时所在的一侧，而不是午夜突然清空上下文。
+当前实现的业务日以**用户偏好的配置刷新时点（`config_refresh_time`，默认 08:00）**为首要真理源（v3 反转优先级）；若未配置或处于特殊跨天时段，以规则时段边界作为 fallback，使跨午夜的深夜时段仍归属于它开始时所在的一侧，而不是午夜突然清空上下文。
 
 ### 3.1 跨模块红线
 
@@ -83,7 +83,7 @@
 
 ## 4. 当前本地持久化
 
-当前实现主要使用 SharedPreferences，并辅以 Device Protected Storage 保存需要在 Direct Boot 阶段恢复的关键闹钟状态。
+当前实现主要使用 SharedPreferences，并辅以 Device Protected Storage (DPS) 保存需要在 Direct Boot 阶段恢复的关键状态。
 
 典型数据域包括：
 
@@ -96,7 +96,7 @@
 | Accessibility control | 防关权限业务状态 |
 | Privacy protection | 隐私空间保护状态 |
 | Alarm prefs | 闹钟条目、默认设置、active session 等 |
-| Device Protected Storage | 重启后需要在用户解锁前恢复的闹钟/震动关键标记 |
+| Device Protected Storage (DPS) | Direct Boot 阶段可用数据：关键闹钟状态、时段规则缓存、额度账本镜像与无障碍启动凭据 |
 | Change log / diagnostics | 变更记录与排障信息 |
 
 具体 SharedPreferences 文件名属于当前实现细节；新增数据域时应优先保证语义清晰、迁移安全和可恢复，而不是依赖历史 `decikeeper_*` 命名永远不变。
@@ -119,31 +119,31 @@
 
 ---
 
-## 6. 设置备份格式
+## 6. 设置备份协议与自动备份
 
-当前 `SettingsBackupManager` 使用：
+当前备份体系包含**手动备份/恢复**与**后台自动备份**两条通道：
 
-- 当前类型标识：`decikeeper_settings_backup`；
-- 当前 schema version：`2`；
-- 兼容旧类型标识：`ironwill_settings_backup`。
+### 6.1 备份格式与兼容标识
 
-### 6.1 兼容原则
+`SettingsBackupManager` 支持：
 
-- 合法旧 IronWill 备份必须继续能够迁移到 DeciKeeper；
-- 不能仅因包名/品牌更名拒绝历史用户数据；
-- 新 schema 如果新增字段，应提供缺省值或版本迁移，不依赖旧文件一定包含新字段；
+- **当前类型标识**：`decikeeper_settings_backup`；
+- **当前 schema version**：`2`；
+- **兼容历史类型标识**：`zhizhi_settings_backup`、`ironwill_settings_backup`（全面受理并自动平滑迁移）。
+
+### 6.2 自动备份通道 (AutoBackupManager)
+
+系统通过 `AutoBackupManager` 提供本地自动容灾双写：
+- 写入公共存储（`Documents/DeciKeeper/`）与应用私有目录（`files/auto_backup/`）；
+- 具备历史 `ZhiZhi` 目录的回退与自动平滑收敛能力；
+- 规则变动或关键时间节点自动创建快照，防范误操作与极端异常丢失。
+
+### 6.3 隐私与排除红线
+
+- **隐私授权状态绝不备份**：根据 `backup_rules.xml` 与 `data_extraction_rules.xml`，用户隐私政策同意状态（`privacy_policy_accepted` 等 consent）**严格排除在备份/云恢复之外**，恢复或迁移后必须由当前设备用户重新确认授权；
+- 合法旧备份必须继续能够迁移到 DeciKeeper，不能仅因品牌更名拒绝老数据；
 - 导入不能把格式无法识别的数据静默当成成功；
-- 导入完成后，受影响的运行规则必须触发必要的刷新/重新判定。
-
-### 6.2 分类导入导出
-
-当前设置页支持按分类选择导入/导出。
-
-导入涉及受保护配置时：
-
-- 不能绕过该模块正常的 Active / Baseline / Pending 语义；
-- 适应期与正常保护期的差异必须按当前实现处理；
-- 文案要明确本次导入是立即生效还是会进入 pending。
+- 导入涉及受保护规则时，必须尊重当前模块的 Active / Baseline / Pending 语义与适应期状态。
 
 ---
 
