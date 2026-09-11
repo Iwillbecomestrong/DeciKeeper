@@ -58,6 +58,10 @@ import androidx.gridlayout.widget.GridLayout
 import com.decikeeper.app.R
 import com.decikeeper.app.data.AndroidLogcatNormalEventSink
 import com.decikeeper.app.data.CountAction
+import com.decikeeper.app.manager.expiry.ExpiryCoordinator
+import com.decikeeper.app.manager.expiry.ExpiryDecision
+import com.decikeeper.app.manager.expiry.ExpiryReason
+import com.decikeeper.app.manager.expiry.ExpiryResolver
 import com.decikeeper.app.data.DefaultLogDebugConfig
 import com.decikeeper.app.manager.StartupProtectionManager
 import com.decikeeper.app.data.DefaultNormalEventRenderer
@@ -305,9 +309,19 @@ object LockWindowManager {
             val totalMs = desktopStreakAccumMs + streakMs
             temporaryAccessLogSessionId?.let { lifecycleNormalEventBridge.recordDesktopTimerTick(it, totalMs) }
             if (totalMs >= DESKTOP_STREAK_LOCK_MS) {
-                // 60s 满，此时才穿透
-                val lastPkg = temporaryAccessLastNonLauncherPkg
-                val lockPkg = if (lastPkg != null && SegmentBlacklist.shouldLock(context, lastPkg)) lastPkg else null
+                // 35s 满，使用 ExpiryResolver History fallback 综合裁决
+                val recentRecords = getRecentForegroundRecords().reversed().map { it.pkg }
+                val candidateHistory = if (recentRecords.isNotEmpty()) recentRecords else listOfNotNull(temporaryAccessLastNonLauncherPkg)
+                val (fallbackDecision, _) = ExpiryResolver.resolveHistoryFallback(
+                    recentForegroundPackages = candidateHistory,
+                    isBlacklist = { SegmentBlacklist.shouldLock(context, it) },
+                    isLauncher = { CreditManager.isLauncher(it) }
+                )
+                val lockPkg = if (fallbackDecision == ExpiryDecision.LOCK) {
+                    candidateHistory.firstOrNull { !CreditManager.isLauncher(it) && SegmentBlacklist.shouldLock(context, it) }
+                        ?: temporaryAccessLastNonLauncherPkg
+                } else null
+
                 if (lockPkg == null) {
                     resetDesktopStreak()
                     privilegeDesktopStreakTargetPkg = null
@@ -378,9 +392,19 @@ object LockWindowManager {
         val totalMs = desktopStreakAccumMs + streakMs
         temporaryAccessLogSessionId?.let { lifecycleNormalEventBridge.recordDesktopTimerTick(it, totalMs) }
         if (totalMs >= DESKTOP_STREAK_LOCK_MS) {
-            // 60s 满，此时才穿透
-            val lastPkg = temporaryAccessLastNonLauncherPkg
-            val lockPkg = if (lastPkg != null && SegmentBlacklist.shouldLock(context, lastPkg)) lastPkg else null
+            // 35s 满，使用 ExpiryResolver History fallback 综合裁决
+            val recentRecords = getRecentForegroundRecords().reversed().map { it.pkg }
+            val candidateHistory = if (recentRecords.isNotEmpty()) recentRecords else listOfNotNull(temporaryAccessLastNonLauncherPkg)
+            val (fallbackDecision, _) = ExpiryResolver.resolveHistoryFallback(
+                recentForegroundPackages = candidateHistory,
+                isBlacklist = { SegmentBlacklist.shouldLock(context, it) },
+                isLauncher = { CreditManager.isLauncher(it) }
+            )
+            val lockPkg = if (fallbackDecision == ExpiryDecision.LOCK) {
+                candidateHistory.firstOrNull { !CreditManager.isLauncher(it) && SegmentBlacklist.shouldLock(context, it) }
+                    ?: temporaryAccessLastNonLauncherPkg
+            } else null
+
             if (lockPkg == null) {
                 resetDesktopStreak()
                 temporaryAccessExpiredAt = 0L
@@ -611,8 +635,8 @@ object LockWindowManager {
         private set
 
     // --- 频繁锁屏惩罚 ---
-    private var mPenaltyWindowStart = 0L           // 当前10秒窗口起始时间
-    private var mPenaltyHitCount = 0               // 当前窗口内锁屏出现次数
+    private var mPenaltyWindowStart = 0L           // 当前30秒窗口起始时间
+    private var mPenaltyHitCount = 0               // 当前窗口内返回桌面次数
     private val PENALTY_WINDOW_MS = 30_000L        // 30秒窗口
     private val PENALTY_EXTEND_COOL_MS = 30_000L   // 冷却延长 +30s
     private val PENALTY_DEDUCT_SECS = 30           // 扣除额度 30s
@@ -1131,8 +1155,7 @@ object LockWindowManager {
 
     fun showSystemInitOverlay(reason: String, durationMs: Long = 10000L) {
         val context = mContext ?: return
-        val antiUninstallState = AntiUninstallManager.getProtectionState(context)
-        if (!AntiUninstallManager.shouldShowInitialization(antiUninstallState)) {
+        if (!StartupProtectionManager.shouldKeepInitialization(context)) {
             LogExporter.logEvent("InitOverlay", "[SKIP] anti-uninstall initialization disabled, reason=$reason")
             return
         }
@@ -1647,26 +1670,6 @@ object LockWindowManager {
         }
         mLastLockTime = now
 
-        // Boundary 2 — real-display hit authority.
-        // Hit counting + threshold-triggered penalty commit moved out of the
-        // front of `showLockScreen` into [recordSuccessfulPenaltyEligibleDisplay],
-        // which is invoked ONLY from the `targetWM.addView` success callback.
-        // Deferred / cancelled / reasserted / blocked attaches must NEVER
-        // contribute to the hit count.
-        // Eligibility is preserved: DND-active AND not a screen-on redetection.
-        val isDndActive = isBlacklist && TimeRuleManager.getCurrentSegment(context) != null
-                && System.currentTimeMillis() >= CreditManager.getFreeTimeEnd(context)
-        if (isDndActive && isScreenOnRedetection) {
-            if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] screen-on re-detection, skip penalty increment (count=$mPenaltyHitCount/$PENALTY_THRESHOLD)")
-            }
-        }
-        if (!isDndActive) {
-            if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] DND not active, skip | isBlacklist=$isBlacklist, hasSegment=${TimeRuleManager.getCurrentSegment(context) != null}, freeTimeEnded=${System.currentTimeMillis() >= CreditManager.getFreeTimeEnd(context)}")
-            }
-        }
-
         Log.w(TAG, "[DEBUG] showLockScreen PASSED debounce checks")
 
         // 🚀 [FIX: 空档期/休息/特权保护] 黑名单锁屏不应该在空档期/休息/特权时创建
@@ -1844,16 +1847,8 @@ object LockWindowManager {
                     } catch (_: Throwable) {}
                 }
 
-                // Boundary 2 — real-display hit authority. This is the ONLY
-                // place where penalty hit counting + transaction commit fires.
-                // Deferred / cancelled / reasserted / blocked attaches bail
-                // before reaching this line, so they can never increment.
-                recordSuccessfulPenaltyEligibleDisplay(
-                    context = context,
-                    reason = reason,
-                    isBlacklist = isBlacklist,
-                    isScreenOnRedetection = isScreenOnRedetection
-                )
+                // Repeated-return-home penalty is user-action driven.
+                // Overlay attach/re-attach is a system action and never increments it.
 
                 // 如果有待显示的惩罚弹窗，在锁屏 in-layout overlay 上展示（不会被锁屏遮挡）
                 if (mPendingPenaltyMessage != null) {
@@ -1893,51 +1888,36 @@ object LockWindowManager {
     }
 
     /**
-     * Boundary 2 — real-display hit authority.
+     * Repeated-return-home penalty authority.
      *
-     * Invoked ONLY from the `targetWM.addView` success callback (line ~3670).
-     * Deferred / cancelled / reasserted / blocked attaches never reach this
-     * method, so they cannot contribute to the hit count or trigger a penalty
-     * transaction.
-     *
-     * Algorithm (mirrors [ExpiryStormController] in T1 + this test mirror):
-     *   1. Window reset / increment: 30s rolling window, max 5 hits.
-     *   2. Threshold (5/30s) → exactly ONE penalty transaction per cycle:
-     *      one `transactionId`, one consumePenaltySeconds call, one receipt
-     *      cached in [mPendingPenaltyMessage].
-     *   3. Overlay (`penaltyOverlay` at line ~3677) only renders the cached
-     *      receipt; click / close paths cannot invoke consumePenaltySeconds.
-     *
-     * Eligibility is unchanged from the pre-Boundary-2 logic: DND active
-     * AND not a screen-on redetection.
-     *
-     * @return `true` when this call counted as a real-display hit (regardless
-     *   of whether the threshold was reached).
+     * Only the explicit RETURN_HOME button calls this method. Foreground detection,
+     * overlay attach/re-attach, Accessibility replay and OEM launcher noise have no
+     * authority to increment the counter.
      */
-    private fun recordSuccessfulPenaltyEligibleDisplay(
+    private fun recordReturnHomePenaltyHit(
         context: Context,
-        reason: String,
-        isBlacklist: Boolean,
-        isScreenOnRedetection: Boolean
+        now: Long,
+        reason: String
     ): Boolean {
-        val now = System.currentTimeMillis()
-        val isDndActive = isBlacklist && TimeRuleManager.getCurrentSegment(context) != null
+        val isDndActive = isBlacklistLock && TimeRuleManager.getCurrentSegment(context) != null
                 && now >= CreditManager.getFreeTimeEnd(context)
-        if (!isDndActive || isScreenOnRedetection) {
+        if (!isDndActive) {
+            if (DefaultLogDebugConfig.quotaCalculation) {
+                Log.d(TAG, "[Penalty] return-home click not eligible | blacklist=$isBlacklistLock, hasSegment=${TimeRuleManager.getCurrentSegment(context) != null}, freeTimeEnded=${now >= CreditManager.getFreeTimeEnd(context)}")
+            }
             return false
         }
 
-        // Window reset / hit-count increment.
         if (now - mPenaltyWindowStart > PENALTY_WINDOW_MS) {
             mPenaltyWindowStart = now
             mPenaltyHitCount = 1
             if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] window reset, count=1 | reason=$reason, isScreenOnRedetection=$isScreenOnRedetection")
+                Log.d(TAG, "[Penalty] return-home window reset, count=1/$PENALTY_THRESHOLD | reason=$reason")
             }
         } else {
             mPenaltyHitCount++
             if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] increment, count=$mPenaltyHitCount/$PENALTY_THRESHOLD | reason=$reason, isScreenOnRedetection=$isScreenOnRedetection")
+                Log.d(TAG, "[Penalty] return-home increment, count=$mPenaltyHitCount/$PENALTY_THRESHOLD | reason=$reason")
             }
         }
 
@@ -1950,8 +1930,8 @@ object LockWindowManager {
 
     /**
      * Issue exactly one penalty transaction per cycle. Extracted from
-     * [recordSuccessfulPenaltyEligibleDisplay] so the Boundary-2 contract
-     * (one transaction per threshold crossing) is visible at a glance.
+     * [recordReturnHomePenaltyHit] so the one-transaction-per-threshold
+     * contract is visible at a glance.
      */
     private fun issuePenaltyTransactionOnce(context: Context, now: Long, reason: String) {
         // 🚀 额度彻底用完且不可借 → 免惩罚（和空档期一致）
@@ -1991,7 +1971,7 @@ object LockWindowManager {
         // `══════ 每日状态播报 ══════` 行的 retainedEvidence 字段。
 
         mPendingPenaltyMessage = buildString {
-            append("⚠️ 30秒内锁屏${PENALTY_THRESHOLD}次，触发惩罚\n\n")
+            append("⚠️ 30秒内返回桌面${PENALTY_THRESHOLD}次，触发惩罚\n\n")
             append("• 扣除时长: ${chargeResult.timeDeductSec}s\n")
             if (chargeResult.borrowedTimeSec > 0) {
                 if (chargeResult.normalTimeSec > 0) {
@@ -2281,8 +2261,11 @@ object LockWindowManager {
         )
         if (!decision.dismissBlacklistOverlay) return false
 
-        LogExporter.i("LockScreen", "[AUTO_RELEASE_BLOCKED] restrictions cleared for pkg=$targetPackage but visible lock requires explicit exit")
-        return false
+        LogExporter.i("LockScreen", "[AUTO_RELEASE] restrictions cleared naturally for pkg=$targetPackage, dismissing lock screen")
+        mUiHandler.post {
+            dismissLockScreen(LockDismissAuthority.NATURAL_RULE_RELEASE)
+        }
+        return true
     }
 
     private fun stopLockRefreshTimer() {
@@ -2427,6 +2410,7 @@ object LockWindowManager {
             setDesktopReturnGrace(now)
             recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
             clearBlacklistHitDebounceForUserAction()
+            recordReturnHomePenaltyHit(context, now, "RETURN_HOME_BUTTON")
             Log.i(
                 "PresenceDiag",
                 "[HOME_CLICK] action=RETURN_HOME_ONLY target=${lastBlockedPackageName ?: "unknown"}"
@@ -2824,7 +2808,7 @@ object LockWindowManager {
                         && System.currentTimeMillis() >= CreditManager.getFreeTimeEnd(context)
                 if (isDndActiveNow && inPenaltyWindow && mPenaltyHitCount < PENALTY_THRESHOLD) {
                     tvPenaltyHitCount?.visibility = View.VISIBLE
-                    tvPenaltyHitCount?.text = "⚠️ 30秒内锁屏 ${mPenaltyHitCount}/${PENALTY_THRESHOLD} 次"
+                    tvPenaltyHitCount?.text = "⚠️ 30秒内返回桌面 ${mPenaltyHitCount}/${PENALTY_THRESHOLD} 次"
                 } else {
                     tvPenaltyHitCount?.visibility = View.GONE
                 }
@@ -5391,6 +5375,14 @@ object LockWindowManager {
             mUiHandler.post { updateStatus(context) }
         }
         if (cooldownRemain <= 0L) return
+
+        // 🚀 [Unified Expiry] 统一通过 ExpiryCoordinator 评估临时解锁到期决策
+        val decision = ExpiryCoordinator.evaluate(context, ExpiryReason.TEMP_ACCESS_END)
+        if (decision == ExpiryDecision.LOCK) {
+            cancelTemporaryAccessExpiryRelockRetry()
+            return
+        }
+
         triggerTemporaryAccessExpiryRelock(context)
     }
 

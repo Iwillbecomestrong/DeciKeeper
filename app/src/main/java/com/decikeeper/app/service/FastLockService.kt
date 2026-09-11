@@ -34,7 +34,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import com.decikeeper.app.R
-import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.StartupA11yCache
 import com.decikeeper.app.manager.StartupProtectionManager
 
@@ -60,13 +59,12 @@ class FastLockService : Service() {
     private var mStartedAtMs = 0L
     private var mPendingCloseRunnable: Runnable? = null
     private var mExtensionCount = 0
-    private val mMaxExtensions = 0 // 超时后不再延长，最多等 30s 即关闭覆盖层
+    private val mMaxExtensions = 0 // 超时后不再延长，最多等 10s 即关闭覆盖层
     private var mCountdownTextView: android.widget.TextView? = null
     private var mCountdownRunnable: Runnable? = null
     private var mLastDisplayedSeconds: Int = -1
-    // [2026-07-06] 问题 3 (Codex review):maxVisibleMs 由启动方传入(boot/cold-start 30s,
-    // config-change 10s),不再 hardcode 默认常量。启动时如果未传 intent extra,
-    // 兜底使用 FAST_LOCK_MAX_VISIBLE_MS(30s)以兼容旧调用路径。
+    // [2026-07-06] 问题 3 (Codex review):maxVisibleMs 由启动方传入，
+    // 启动时如果未传 intent extra，兜底使用 FAST_LOCK_MAX_VISIBLE_MS(10s)。
     private var mMaxVisibleMs: Long = StartupProtectionManager.FAST_LOCK_MAX_VISIBLE_MS
     // [2026-07-06] 问题 2 (Codex review):记录当前挂起的 countdown runnable 个数。
     // 期望 ≤ 1 — 同时刻只能有 1 个 tick 续帧,避免双链调度。
@@ -93,10 +91,7 @@ class FastLockService : Service() {
         super.onCreate()
         isRunning = true
         startForegroundCompat()
-        if (!AntiUninstallManager.shouldShowInitialization(
-                AntiUninstallManager.getProtectionState(this)
-            )
-        ) {
+        if (!StartupProtectionManager.shouldKeepInitialization(this)) {
             Log.i(TAG, "FastLockService: anti-uninstall initialization disabled, stopping without overlay")
             isRunning = false
             stopSelf()
@@ -181,8 +176,14 @@ class FastLockService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 保护被关闭或系统无障碍已掉线时，立即退出初始化界面，不进入预热重试。
+        if (!StartupProtectionManager.shouldKeepInitialization(this)) {
+            Log.i(TAG, "FastLockService: initialization no longer required, stopping immediately")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // [2026-07-06] 问题 3 (Codex review):读取启动方传入的 maxVisibleMs extra。
-        // 启动路径(BootReceiver/MyApplication):不传 extra → 兜底 FAST_LOCK_MAX_VISIBLE_MS(30s)。
+        // 启动路径(BootReceiver/MyApplication):不传 extra → 兜底 FAST_LOCK_MAX_VISIBLE_MS(10s)。
         // 配置变化路径(CoreService):传 EXTRA_MAX_VISIBLE_MS=10_000L。
         // 这里拿到 intent 是第一个可能产生配置变化的入口,必须重启 tick 以让新的 maxVisibleMs 生效。
         //
@@ -196,7 +197,7 @@ class FastLockService : Service() {
                 val oldDeadline = mDeadlineMs
                 Log.d(TAG, "FastLockService: maxVisible override ${mMaxVisibleMs}ms → ${extraMax}ms")
                 mMaxVisibleMs = extraMax
-                // 用纯函数计算新 deadline:缩短(config-change 30→10)允许,扩大不缩短
+                // 用纯函数计算新 deadline:允许缩短,扩大不缩短
                 val now = System.currentTimeMillis()
                 val newDeadline = StartupProtectionManager.computeOverrideDeadlineMs(
                     currentDeadlineMs = mDeadlineMs,
@@ -223,7 +224,7 @@ class FastLockService : Service() {
                         "shrinkDeltaMs=${if (extraMax < oldMax) (oldDeadline - newDeadline) else 0L}"
                 )
                 mDeadlineMs = newDeadline
-                // 重新调度 timeout runnable:与 mDeadlineMs 同步,而不是固定 30s
+                // 重新调度 timeout runnable:与 mDeadlineMs 同步,而不是固定 10s
                 rescheduleMaxTimeout()
                 // 重启 tick:清旧 runnable + 用新 maxVisibleMs 重新驱动(单一调度链,不会留残留)
                 if (mStartedAtMs > 0L) {
@@ -448,7 +449,7 @@ class FastLockService : Service() {
         // [2026-07-06 session 3 返工] Codex review 问题 1:
         // refresh 路径的 mDeadlineMs = max(当前 deadline, now + mMaxVisibleMs) — 不缩短。
         // 这样 countdown 显示与 timeout 关闭都从这一刻重新算 maxVisibleMs,
-        // 而不是只重置 mStartedAtMs 让 countdown 跳 30 但 timeout 还是旧的 onCreate + 30s。
+        // 而不是只重置 mStartedAtMs 让 countdown 跳 10 但 timeout 还是旧的 onCreate + 10s。
         mDeadlineMs = StartupProtectionManager.computeRefreshDeadlineMs(
             currentDeadlineMs = mDeadlineMs,
             nowMs = now,
@@ -465,6 +466,11 @@ class FastLockService : Service() {
     }
 
     private fun closeAfterMinimumVisibleWindow(reason: String) {
+        if (!StartupProtectionManager.shouldKeepInitialization(this)) {
+            Log.i(TAG, "FastLockService: initialization no longer required, closing immediately reason=$reason")
+            stopSelf()
+            return
+        }
         // CE 存储尚未就绪时拒绝 handoff
         if (reason == "handoff_request" && !isCeStorageAvailable()) {
             Log.d(TAG, "FastLockService: refusing handoff, CE storage not ready; extending protection")
@@ -487,7 +493,7 @@ class FastLockService : Service() {
         // handoff 时重置计时器：保证 CoreService 接管后覆盖层至少再留 minHold 时间
         if (reason == "handoff_request") {
             // [2026-07-06 REQ-2 诊断] handoff 入口:记录 reason、deadline、CoreService 状态、
-            // shouldKeepStartupProtection 当前结果 — 用于排查"为什么总是跑满 30s 不提前关"。
+            // shouldKeepStartupProtection 当前结果 — 用于排查"为什么总是跑满 10s 不提前关"。
             Log.i(
                 "DeciKeeper",
                 "[FastLock_HandoffEntry] reason=$reason mDeadlineMs=$mDeadlineMs " +
@@ -552,9 +558,9 @@ class FastLockService : Service() {
     private fun scheduleMaxTimeout() {
         // [2026-07-06 session 3 返工] Codex review 问题 1:
         // timeout runnable 现在调度到 mDeadlineMs 时刻(单一来源),
-        // 不再 hardcode "onCreate + 30s"。这样:
-        // - adopt: deadline = 真实起点 + 30s,timeout 在那一刻关闭
-        // - inflate: deadline = now + 30s
+        // 不再 hardcode "onCreate + 10s"。这样:
+        // - adopt: deadline = 真实起点 + 10s,timeout 在那一刻关闭
+        // - inflate: deadline = now + 10s
         // - refresh: deadline = max(当前, now + maxVisible)
         // - handoff: deadline = now + delayMs(timeout 与 countdown 与 minHold 同步)
         // - config-change: deadline = now + 10s(由 onStartCommand 走 computeOverrideDeadlineMs)
@@ -589,9 +595,7 @@ class FastLockService : Service() {
 
 
     private fun shouldKeepStartupProtection(): Boolean {
-        val antiUninstallEnabled = AntiUninstallManager.shouldShowInitialization(
-            AntiUninstallManager.getProtectionState(this)
-        )
+        val antiUninstallEnabled = StartupProtectionManager.shouldKeepInitialization(this)
         val a11yWasEnabled = StartupA11yCache.isA11yWasEnabledForStartup(this)
         val result = antiUninstallEnabled && a11yWasEnabled
         Log.i("DeciKeeper", "[FastLock_ShouldKeep] antiUninstallEnabled=$antiUninstallEnabled isA11yWasEnabledForStartup=$a11yWasEnabled result=$result isServiceActive=${CoreService.isServiceActive} lastAccessibilitySignalTime=${CoreService.lastAccessibilitySignalTime} isRunning=$isRunning")
@@ -600,7 +604,7 @@ class FastLockService : Service() {
 
     private val mTimeoutRunnable = Runnable {
         // [2026-07-06 REQ-2 诊断] Runnable 入口:完整记录所有判定输入与即将走的分支,
-        // 用于排查"为什么总是跑满 30s 不提前关"。
+        // 用于排查"为什么总是跑满 10s 不提前关"。
         val now = System.currentTimeMillis()
         val keepProtection = shouldKeepStartupProtection()
         val neverConnected = coreServiceNeverConnected()
@@ -672,7 +676,7 @@ class FastLockService : Service() {
     companion object {
         private const val TAG = "FastLockService"
         // [2026-07-06] 问题 3 (Codex review):启动方在 intent extra 里传入覆盖层最大可见时长,
-        // 用于让 countdown 显示与真实持有窗口一致(config-change 路径 10s,启动路径 30s)。
+        // 用于让 countdown 显示与真实持有窗口一致(启动与 config-change 均按实际窗口)。
         const val EXTRA_MAX_VISIBLE_MS = "com.decikeeper.app.extra.MAX_VISIBLE_MS"
         @Volatile
         var isRunning: Boolean = false

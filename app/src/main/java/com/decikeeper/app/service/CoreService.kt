@@ -578,6 +578,12 @@ class CoreService : AccessibilityService() {
             // 防止在用户刚解锁、CE 尚未可用时就关掉覆盖层留下真空期。
             mHandler.postDelayed(object : Runnable {
                 override fun run() {
+                    if (!StartupProtectionManager.shouldKeepInitialization(this@CoreService)) {
+                        StartupProtectionManager.stopFastLock(this@CoreService)
+                        LockWindowManager.dismissSystemInitOverlay("initialization_disabled")
+                        Log.i("AntiUninstall", "CoreService: initialization no longer required, stopped FastLock")
+                        return
+                    }
                     if (!isCeStorageAvailable()) {
                         Log.d("AntiUninstall", "CoreService: CE storage not ready, deferring FastLock handoff")
                         mHandler.postDelayed(this, 2000L)
@@ -594,13 +600,6 @@ class CoreService : AccessibilityService() {
                     }
                 }
             }, StartupProtectionManager.CORE_HANDOFF_REQUEST_DELAY_MS)
-
-            // Ensure Anti-Uninstall is ENABLED and synced when service starts
-            try {
-                AntiUninstallManager.setProtectionEnabled(this, true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to enable anti-uninstall protection", e)
-            }
 
             // 馃殌 [JIT Warmup] Pre-compile critical code paths in background
             // This prevents the "first few times slow" issue by triggering JIT compilation early
@@ -672,6 +671,12 @@ class CoreService : AccessibilityService() {
                 
                 Log.d(TAG, "馃殌 [Warmup] Phase 2 completed! (500 iterations done)")
                 markAntiUninstallWarmupComplete()
+                // 预热完成即请求接管；若快锁仍在显示，可提前结束，不必等满 10 秒。
+                mHandler.post {
+                    if (StartupProtectionManager.shouldKeepInitialization(this@CoreService)) {
+                        StartupProtectionManager.requestFastLockHandoff(this@CoreService)
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Background Warmup error (non-fatal)", e)
             }
@@ -1393,10 +1398,11 @@ class CoreService : AccessibilityService() {
         stateInitialized = false
         emitServiceStateIfChanged("STOPPED", "ON_UNBIND")
         emitProtectionStateChangeIfChanged("accessibility", "OK", "REVOKED", "ON_UNBIND")
-        AccessibilityDependencyManager.reconcile(
-            this,
-            systemAccessibilityEnabled = com.decikeeper.app.manager.PermissionManager.isAccessibilityEnabled(this)
-        )
+        val systemAccessibilityEnabled = com.decikeeper.app.manager.PermissionManager.isAccessibilityEnabled(this)
+        AccessibilityDependencyManager.reconcile(this, systemAccessibilityEnabled)
+        // 无障碍服务已解绑时，初始化覆盖层没有继续存在的意义，立即释放，避免卡到超时。
+        StartupProtectionManager.stopFastLock(this)
+        LockWindowManager.dismissSystemInitOverlay("accessibility_unbound")
         // [Diagnostics-only] clear lifecycle flag for ForegroundDiagnosticCycle
         diagnosticsServiceConnected = false
         mHandler.removeCallbacks(mReminderRunnable)

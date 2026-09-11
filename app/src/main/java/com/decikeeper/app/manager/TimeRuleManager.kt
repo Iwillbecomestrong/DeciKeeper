@@ -473,7 +473,7 @@ object TimeRuleManager {
      * 规则：扫描所有启用时段，找结束时间落在 06:00-10:00 窗口内的时段，
      * 取最早结束时间；若无匹配时段则默认 08:00。
      */
-    internal fun findRefreshTimeFromSegments(segments: List<TimeSegment>): String {
+    fun findRefreshTimeFromSegments(segments: List<TimeSegment>): String {
         val windowStart = 6 * 60  // 06:00
         val windowEnd = 10 * 60   // 10:00
 
@@ -591,6 +591,10 @@ object TimeRuleManager {
 
     fun getBaselinePrivacyProtectionState(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getBoolean("is_privacy_protection_enabled", false)
+    }
+
+    fun getBaselineFloatingWindowProtectionState(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getBoolean("is_floating_window_protection_enabled", false)
     }
 
 
@@ -1998,6 +2002,10 @@ object TimeRuleManager {
             putBoolean(
                 "is_privacy_protection_enabled",
                 PrivacyProtectionManager.getProtectionState(context) == PrivacyProtectionManager.State.ACTIVE
+            )
+            putBoolean(
+                "is_floating_window_protection_enabled",
+                FloatingWindowProtectionManager.getProtectionState(context) == FloatingWindowProtectionManager.State.ACTIVE
             )
 
             val segJson = activePrefs.getString(KEY_SEGMENTS_JSON, null)

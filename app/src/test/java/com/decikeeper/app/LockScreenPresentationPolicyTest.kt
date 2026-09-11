@@ -181,8 +181,9 @@ class LockScreenPresentationPolicyTest {
     }
 
     @Test
-    fun dndStillExposesStandaloneTemporaryRelease() {
-        assertTrue(
+    fun dndDoesNotExposeStandaloneTemporaryRelease() {
+        assertFalse(
+            "Spec v1.0 纯勿扰锁屏彻底移除临时解锁入口，仅提供申请休息与特权",
             shouldShowStandaloneTemporaryAccess(
                 LockOverlayRestrictionMode.DND
             )

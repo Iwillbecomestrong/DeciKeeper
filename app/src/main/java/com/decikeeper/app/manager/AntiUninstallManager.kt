@@ -26,7 +26,7 @@ import com.decikeeper.app.receiver.DeviceAdmin
 /**
  * Manages the Anti-Uninstall protection state.
  * Implements delayed-disable mechanism:
- * 1. Default: ACTIVE (Locked)
+ * 1. Default: DISABLED (用户需在设置页显式开启)
  * 2. User Request: Starts next-day countdown (PENDING)
  * 3. Time Reached: Becomes DISABLED (no auto-recover)
  */

@@ -41,7 +41,7 @@ object StartupProtectionManager {
     const val ACTION_REFRESH_FAST_LOCK_HOLD =
         "com.decikeeper.app.action.REFRESH_FAST_LOCK_HOLD"
     const val FAST_LOCK_MIN_VISIBLE_MS = 10_000L
-    const val FAST_LOCK_MAX_VISIBLE_MS = 30_000L
+    const val FAST_LOCK_MAX_VISIBLE_MS = 10_000L
     const val CORE_HANDOFF_REQUEST_DELAY_MS = 4_000L
     const val EARLY_BOOT_FAST_LOCK_WINDOW_MS = 120_000L
 
@@ -64,10 +64,7 @@ object StartupProtectionManager {
      * 返回 true 表示覆盖层已成功添加到 WindowManager。
      */
     fun attachEarlyBootFastLock(context: Context): Boolean {
-        if (!AntiUninstallManager.shouldShowInitialization(
-                AntiUninstallManager.getProtectionState(context)
-            )
-        ) {
+        if (!shouldKeepInitialization(context)) {
             Log.i("DeciKeeper", "StartupProtectionManager: anti-uninstall initialization disabled, skip early boot overlay")
             return false
         }
@@ -124,7 +121,7 @@ object StartupProtectionManager {
             val countdownTv = view.findViewById<android.widget.TextView>(R.id.countdown_text)
             startEarlyBootCountdown(countdownTv, attachedAt, FAST_LOCK_MAX_VISIBLE_MS)
 
-            // 设定最大超时安全兜底（30s），防止 Service 未启动或被系统拦截时永久卡死在屏幕上
+            // 设定最大超时安全兜底（10s），防止 Service 未启动或被系统拦截时永久卡死在屏幕上
             scheduleEarlyBootTimeout(context, FAST_LOCK_MAX_VISIBLE_MS)
             true
         } catch (e: Exception) {
@@ -219,6 +216,13 @@ object StartupProtectionManager {
 
     fun isEarlyBootOverlayAttached(): Boolean = earlyBootOverlayView != null
 
+    /** 只有防卸载保护仍开启且系统无障碍仍开启时，才需要初始化覆盖层。 */
+    fun shouldKeepInitialization(context: Context): Boolean {
+        return AntiUninstallManager.shouldShowInitialization(
+            AntiUninstallManager.getProtectionState(context)
+        ) && PermissionManager.isAccessibilityEnabled(context)
+    }
+
     fun shouldStartFastLock(
         isInSegment: Boolean,
         isAdaptation: Boolean,
@@ -269,7 +273,7 @@ object StartupProtectionManager {
     ): Int {
         val elapsedMs = (nowMs - startedAtMs).coerceAtLeast(0L)
         val remainingMs = (maxVisibleMs - elapsedMs).coerceAtLeast(0L)
-        // 向上取整，让秒数在跨秒前仍能正确显示一帧。例如 elapsed=999ms 显示 30 秒，符合 UI 直觉。
+        // 向上取整，让秒数在跨秒前仍能正确显示一帧。例如 elapsed=999ms 显示 10 秒，符合 UI 直觉。
         val totalSeconds = (remainingMs + 999L) / 1000L
         return totalSeconds.coerceAtMost((maxVisibleMs + 999L) / 1000L).toInt().coerceAtLeast(0)
     }
@@ -391,7 +395,7 @@ object StartupProtectionManager {
      * 纯函数：onStartCommand 收到 EXTRA_MAX_VISIBLE_MS 时的 deadline 更新。
      *
      * - 新 maxVisibleMs >= 当前 maxVisibleMs（refresh-like）：不缩短。
-     * - 新 maxVisibleMs < 当前 maxVisibleMs（config-change 10s vs 30s）：缩短到新窗口。
+     * - 新 maxVisibleMs < 当前 maxVisibleMs：缩短到新窗口。
      */
     fun computeOverrideDeadlineMs(
         currentDeadlineMs: Long,
@@ -401,7 +405,7 @@ object StartupProtectionManager {
     ): Long {
         // 防御：负数 maxVisibleMs 直接当成"不变化"
         if (newMaxVisibleMs <= 0L) return currentDeadlineMs
-        // 缩短场景（如 30s → 10s）：新 deadline 从 nowMs 重新计
+        // 缩短场景：新 deadline 从 nowMs 重新计
         if (newMaxVisibleMs < oldMaxVisibleMs) {
             return nowMs + newMaxVisibleMs
         }
@@ -412,8 +416,8 @@ object StartupProtectionManager {
     fun buildFastLockIntent(context: Context, maxVisibleMs: Long = FAST_LOCK_MAX_VISIBLE_MS): Intent {
         return Intent(context, FastLockService::class.java).apply {
             // [2026-07-06] 问题 3 (Codex review):把 maxVisibleMs 通过 extra 传入 FastLockService,
-            // 让服务用真实持有窗口计算 countdown,而不是 hardcode 30s。
-            // 启动路径(BootReceiver/MyApplication):默认 30s,与原行为一致。
+            // 让服务用真实持有窗口计算 countdown,而不是 hardcode 10s。
+            // 启动路径(BootReceiver/MyApplication):默认 10s。
             // config-change 路径(CoreService):传 10s。
             putExtra(FastLockService.EXTRA_MAX_VISIBLE_MS, maxVisibleMs)
             if (FastLockService.isRunning) {
@@ -429,16 +433,13 @@ object StartupProtectionManager {
     }
 
     fun startFastLock(context: Context, maxVisibleMs: Long = FAST_LOCK_MAX_VISIBLE_MS) {
-        if (!AntiUninstallManager.shouldShowInitialization(
-                AntiUninstallManager.getProtectionState(context)
-            )
-        ) {
+        if (!shouldKeepInitialization(context)) {
             Log.i("DeciKeeper", "StartupProtectionManager: anti-uninstall initialization disabled, skip FastLock service")
             return
         }
         // [2026-07-06 REQ-2 诊断] 记录 startFastLock 入口上下文：
         // - 调用方（栈追溯）— 用于定位是哪个组件触发（划掉任务 / config-change / boot）
-        // - 传入 maxVisibleMs — 标识期望的窗口上限（30s vs 10s）
+        // - 传入 maxVisibleMs — 标识期望的窗口上限
         // - FastLockService.isRunning — 标识是否会走 ACTION_REFRESH_FAST_LOCK_HOLD 路径
         //   （buildFastLockIntent 内 isRunning=true 会把 action 改为 REFRESH）
         // 注：当前 FastLockService 实例持有的 mDeadlineMs 是 private 字段，
@@ -483,6 +484,7 @@ object StartupProtectionManager {
     }
 
     fun stopFastLock(context: Context) {
+        dismissEarlyBootOverlay(context, "stop_fast_lock")
         context.stopService(buildFastLockIntent(context))
     }
 }

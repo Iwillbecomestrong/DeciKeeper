@@ -23,6 +23,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
+import java.util.Calendar
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -290,13 +291,18 @@ class HomeFragment : Fragment() {
     private var tvWeeklyPrivilegeEntryStatus: TextView? = null
     private var btnWeeklyPrivilegeEntry: Button? = null
     private var btnPermission: Button? = null
-    private var btnHelp: Button? = null
     
     // 休息时间卡片
     private var cardFreeTime: CardView? = null
     private var tvFreeTimeCountdown: TextView? = null
     private var btnStopFreeTime: Button? = null
     private var freeTimeTimer: CountDownTimer? = null
+
+    // 今日闹钟卡片
+    private var cardTodayAlarm: CardView? = null
+    private var tvHomeAlarmStatusBadge: TextView? = null
+    private var tvHomeNextAlarmCountdown: TextView? = null
+    private var viewTodayAlarmTimeline: TodayAlarmView? = null
 
     // 休息冷却紧凑胶囊条
     private var layoutCooldownPill: View? = null
@@ -434,7 +440,14 @@ class HomeFragment : Fragment() {
         btnWeeklyPrivilegeEntry = view.findViewById(R.id.btn_weekly_privilege_entry)
         
         btnPermission = view.findViewById(R.id.btn_open_permission)
-        btnHelp = view.findViewById(R.id.btn_help)
+        
+        cardTodayAlarm = view.findViewById(R.id.card_today_alarm)
+        tvHomeAlarmStatusBadge = view.findViewById(R.id.tv_home_alarm_status_badge)
+        tvHomeNextAlarmCountdown = view.findViewById(R.id.tv_home_next_alarm_countdown)
+        viewTodayAlarmTimeline = view.findViewById(R.id.view_today_alarm_timeline)
+        cardTodayAlarm?.setOnClickListener {
+            (activity as? MainActivity)?.findViewById<BottomNavigationView>(R.id.bottom_navigation)?.selectedItemId = R.id.nav_alarm
+        }
         
         // 休息时间卡片与冷却胶囊条
         layoutCooldownPill = view.findViewById(R.id.layout_cooldown_pill)
@@ -487,7 +500,6 @@ class HomeFragment : Fragment() {
                 button.postDelayed(r, doubleClickWindowMs)
             }
         }
-        btnHelp?.setOnClickListener { startActivity(Intent(ctx, HelpActivity::class.java)) }
 
         btnWeeklyPrivilegeEntry?.setOnClickListener {
             val context = context ?: return@setOnClickListener
@@ -983,6 +995,54 @@ class HomeFragment : Fragment() {
             tvNextSegmentInfo?.visibility = View.VISIBLE
         }
 
+        updateTodayAlarmDisplay()
+    }
+
+    private fun updateTodayAlarmDisplay() {
+        val ctx = context ?: return
+        val alarms = try {
+            com.decikeeper.app.manager.AlarmScheduler.getAlarms(ctx).filter { it.enabled }
+        } catch (_: Exception) {
+            emptyList()
+        }
+
+        if (alarms.isEmpty()) {
+            tvHomeAlarmStatusBadge?.text = "0 个开启"
+            tvHomeAlarmStatusBadge?.backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            tvHomeAlarmStatusBadge?.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            tvHomeNextAlarmCountdown?.text = "暂无开启中的闹钟，点击卡片去设置"
+            viewTodayAlarmTimeline?.setAlarms(emptyList())
+            return
+        }
+
+        tvHomeAlarmStatusBadge?.text = "${alarms.size} 个开启"
+        tvHomeAlarmStatusBadge?.backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccentSoft))
+        tvHomeAlarmStatusBadge?.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzAccentStrong))
+
+        val now = Calendar.getInstance()
+        val currentMin = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        val alarmMins = alarms.map { it.hour * 60 + it.minute }
+        viewTodayAlarmTimeline?.setAlarms(alarmMins)
+
+        // 计算下一次响铃倒计时
+        val todayUpcoming = alarms.filter { (it.hour * 60 + it.minute) >= currentMin }
+            .minByOrNull { (it.hour * 60 + it.minute) }
+        val nextAlarm = todayUpcoming ?: alarms.minByOrNull { (it.hour * 60 + it.minute) }
+
+        if (nextAlarm != null) {
+            val targetMin = nextAlarm.hour * 60 + nextAlarm.minute
+            val diffMins = if (targetMin >= currentMin) {
+                targetMin - currentMin
+            } else {
+                1440 - currentMin + targetMin
+            }
+            val h = diffMins / 60
+            val m = diffMins % 60
+            val dayPrefix = if (targetMin >= currentMin) "今天" else "明天"
+            val timeStr = String.format(Locale.getDefault(), "%02d:%02d", nextAlarm.hour, nextAlarm.minute)
+            val countdownStr = if (h > 0) "${h} 小时 ${m} 分钟" else "${m} 分钟"
+            tvHomeNextAlarmCountdown?.text = "距下一次响铃还剩 $countdownStr ($dayPrefix $timeStr)"
+        }
     }
 
     private fun formatMinutesForHome(minutes: Double): String {

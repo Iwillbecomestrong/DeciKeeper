@@ -1,1 +1,753 @@
 #AOCI-CODE-VOLUME: 1
+
+===G:/IronWIl0329/IronWill-OpenSource/.codex/===
+config.toml[FC7T]: F:配置AOCI MCP服务器及其仓库绑定 | R:code:AGENTS.md | A:项目级工具配置 | S:禁止重复init以避免覆盖现有认知资产
+
+===G:/IronWIl0329/IronWill-OpenSource/===
+.gitattributes[FC5T]: F:声明仓库文件属性与文本处理规则 | R:code:.gitignore | A:版本控制基础配置 | S:-
+.gitignore[FC6S]: F:声明不应进入版本控制的构建、运行和本地环境文件 | R:code:.gitattributes | A:仓库忽略配置 | S:避免把本地凭据和生成物纳入交付
+.history_full.md[SG7L]: F:保存项目历史协作记录的完整镜像 | R:code:HISTORY.md | A:历史记录归档 | S:历史记录不能替代当前代码与规格
+AGENTS.md[SG8M]: F:提供通用Agent进入仓库的治理入口与AOCI认知协议 | R:code:AGENT_CORE.md | A:仓库级Agent入口 | S:进入子目录前必须通过最近README门禁
+AGENT_CORE.md[SG9M]: F:规定AI协作、业务红线、证据隔离与安全验证协议 | R:code:SPEC.md | A:跨平台协作核心规范 | S:不得以测试通过替代规格与证据复核
+CHANGELOG.md[SG6M]: F:记录版本变化、修复和产品演进摘要 | R:code:HISTORY.md | A:变更日志 | S:不得把未验证内容写成已完成
+CLAUDE.md[SG5T]: F:提供Claude进入仓库时的薄平台入口 | R:code:AGENTS.md | A:平台协作入口 | S:-
+GEMINI.md[SG5T]: F:提供Gemini进入仓库时的薄平台入口 | R:code:AGENTS.md | A:平台协作入口 | S:-
+HISTORY.md[SG9L]: F:保存高价值架构决策、问题根因与防回归经验 | R:code:AGENT_CORE.md | A:项目历史权威补充 | S:真实OEM证据链未理解前不得删除防御逻辑
+LICENSE[SG7L]: F:规定项目GPL-3.0许可授予、条件与免责声明 | R:code:README.md | A:开源许可权威 | S:发布时必须保留许可与版权声明
+PLAN.md[SG8M]: F:记录当前产品规格收敛与工程实施路线 | R:code:SPEC.md | A:实施计划权威 | S:未确认方案不得当作已完成路线
+README.md[SG8L]: F:介绍DeciKeeper定位、核心场景、安装使用与开发入口 | R:code:SPEC.md | A:仓库地图与用户入口 | S:产品行为描述须受规格和实现证据约束
+SPEC.md[SG9L]: F:定义DeciKeeper产品意图、跨模块行为契约与验收边界 | R:code:PLAN.md | A:产品规格权威 | S:规格与代码测试冲突必须显式审计
+build.gradle.kts[FV8M]: F:配置根项目插件、模块与构建依赖 | R:code:settings.gradle.kts | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+gradle.properties[FV7M]: F:配置Gradle构建属性与工程级测试参数 | R:code:build.gradle.kts | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+gradlew[FV7M]: F:提供Unix环境Gradle Wrapper启动入口 | R:code:gradle/wrapper/gradle-wrapper.properties | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+gradlew.bat[FV7M]: F:提供Windows环境Gradle Wrapper启动入口 | R:code:gradle/wrapper/gradle-wrapper.properties | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+notes.md[SG6M]: F:记录项目临时但可追溯的维护备注 | R:code:HISTORY.md | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+penalty-charge-implementation.md[SG7M]: F:记录惩罚计费实现方案与验证边界 | R:code:SPEC.md | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+settings.gradle.kts[FV8M]: F:声明Android模块与项目插件管理入口 | R:code:build.gradle.kts | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+task_plan.md[SG7M]: F:记录当前任务拆分、执行顺序与验收状态 | R:code:PLAN.md | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+
+===G:/IronWIl0329/IronWill-OpenSource/.github/===
+CONTRIBUTING.md[SG7M]: F:规定项目贡献、构建验证、分层命名与业务红线 | R:code:SPEC.md | A:协作规范权威 | S:行为改动须先读对应规格
+PULL_REQUEST_TEMPLATE.md[SG6T]: F:规范Pull Request的变更说明、影响范围与验证记录 | R:code:.github/CONTRIBUTING.md | A:交付审查模板 | S:未验证项目必须明确披露
+SECURITY.md[SG7T]: F:说明安全漏洞的私下报告与披露边界 | R:code:AGENT_CORE.md | A:安全响应规范 | S:避免公开披露可利用细节
+
+===G:/IronWIl0329/IronWill-OpenSource/.github/ISSUE_TEMPLATE/===
+bug_report.md[SG5T]: F:收集可复现缺陷的环境、步骤、日志与期望结果 | R:code:.github/CONTRIBUTING.md | A:缺陷报告模板 | S:要求提供最小可复现证据
+feature_request.md[SG5T]: F:收集功能建议的背景、方案、替代方案与补充信息 | R:code:SPEC.md | A:功能请求模板 | S:-
+
+===G:/IronWIl0329/IronWill-OpenSource/.github/workflows/===
+alarm-reminder-redesign.yml[OV7S]: F:在CI中验证闹钟提醒重构相关测试与构建 | R:code:scripts/test_alarm_alert_cycle_contract.py | A:持续集成工作流 | S:关键闹钟行为须保持可测试
+alarm-snooze-contract.yml[OV7S]: F:在CI中验证闹钟再响契约 | R:code:scripts/test_alarm_snooze_contract.py | A:持续集成工作流 | S:再响不得通过替代闹钟会话绕过挑战
+android-build.yml[OV8S]: F:执行Android项目的持续集成构建与单元测试 | R:code:app/build.gradle.kts | A:Android构建工作流 | S:构建或测试失败时不得伪报通过
+apply-alarm-reminder-redesign.yml[OV6S]: F:按受控流程应用闹钟提醒重构变更 | R:code:scripts/apply_alarm_reminder_redesign.py | A:持续集成变更工作流 | S:应用前必须保留规格和测试约束
+
+===G:/IronWIl0329/IronWill-OpenSource/app/===
+.gitignore[FC5T]: F:排除Android模块构建目录 | R:code:app/build.gradle.kts | A:模块构建边界配置 | S:-
+README.md[SG8M]: F:说明Android app模块构建、分层职责、核心对象与验证约定 | R:code:app/build.gradle.kts | A:应用模块地图与门禁 | S:业务判定应沿UI到Manager到Data分层
+build.gradle.kts[FV8M]: F:配置Android应用插件、SDK、构建类型、源码集、测试与依赖 | R:code:app/README.md | A:模块构建配置 | S:测试任务保留ASCII类路径修复以支持中文工程路径
+lint-baseline.xml[FQ5L]: F:记录Android Lint已知问题的基线与定位信息 | R:code:app/build.gradle.kts | A:静态检查基线 | S:基线不等于忽略新增构建失败
+proguard-rules.pro[FC4S]: F:提供应用发布压缩与保留规则扩展点 | R:code:app/build.gradle.kts | A:发布构建配置 | S:-
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/androidTest/java/com/decikeeper/app/===
+ExampleInstrumentedTest.kt[TQ5T]: F:验证仪器测试环境中的应用包名与目标Context | R:code:app/build.gradle.kts | A:Android仪器测试 | S:-
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/===
+AndroidManifest.xml[FC8M]: F:声明Android权限、组件、查询能力与应用入口 | R:code:app/build.gradle.kts | A:运行配置清单 | S:系统保护能力必须与实际权限和组件声明一致
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/assets/===
+duilian.json[PE6L]: F:提供带出处与答案的对联填空题库 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:闹钟题库资源 | S:题面与答案字段须保持可解析
+duilian_single.json[PE5M]: F:提供单句方向的对联填空题库 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:闹钟题库资源 | S:题面方向和答案必须成对
+passage_words.json[PE6L]: F:提供英文词汇到中文释义的段落词表 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:题库数据资源 | S:JSON映射必须保持有效
+vocab_merged.json[PE7L]: F:汇总多来源英文词汇、音标、释义与来源字段 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:题库聚合资源 | S:合并数据必须保留可追溯来源
+vocabulary_kaoyan.json[PE6L]: F:提供考研英语词汇及英美音标和释义 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:题库数据资源 | S:词条字段须保持题库解析契约
+wordlist.json[PE7L]: F:提供英文词汇、音标、完整释义和简释 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:题库基础资源 | S:词条结构必须保持可读取
+考研词汇.txt[PE6M]: F:提供按行排列的考研词汇清单 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:词汇输入资源 | S:每行词条格式须保持稳定
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/===
+MyApplication.kt[EA8M]: F:执行应用级轻量初始化、全局回调注册与异常防护 | R:code:app/src/main/java/com/decikeeper/app/data/CrashRecorder.kt | A:Android应用入口 | S:初始化不得在主线程执行耗时工作
+WordLookupTextView.kt[EU4S]: F:为既有闹钟布局提供兼容的词汇自定义View入口 | R:code:app/src/main/java/com/decikeeper/app/ui/WordLookupTextView.kt | A:UI兼容适配 | S:保持XML引用与真实实现的兼容关系
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/data/===
+AdverseAnalysis.kt[DB7S]: F:定义规则变更分析结果并向用户展示立即、延迟和恢复信息 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:领域分析与提示 | S:适应期和生效策略例外必须保留
+BlacklistStore.kt[DB8M]: F:集中持久化黑名单、自动分类与内存缓存状态 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:黑名单数据存储 | S:偏好键与缓存失效必须保持兼容
+CrashRecorder.kt[DR8M]: F:捕获未处理异常并将线程与堆栈追加持久化到崩溃日志 | R:code:app/src/main/java/com/decikeeper/app/MyApplication.kt | A:全局崩溃记录 | S:记录失败仍须交给默认异常处理器
+EventLog.kt[DB8M]: F:统一前台、解锁和决策来源的关键事件日志枚举与格式化 | R:code:app/src/main/java/com/decikeeper/app/data/LogExporter.kt | A:事件日志语义工具 | S:不得在日志工具中加入业务判定
+ForegroundDetectionLog.kt[DB8M]: F:构造并压缩前台应用检测状态与配额诊断日志 | R:code:app/src/main/java/com/decikeeper/app/data/EventLog.kt | A:前台检测诊断数据 | S:摘要压缩不得丢失锁定与来源变化
+ForegroundDiagnosticReport.kt[DB8M]: F:定义三源前台诊断、执法处置、触发器与评估结果模型 | R:code:app/src/main/java/com/decikeeper/app/service/MonitorService.kt | A:前台诊断领域模型 | S:来源关系与业务处置必须保持独立
+LegalDocumentRepository.kt[DB7M]: F:注册关于页与首屏同意流程使用的法务文档及占位版本 | R:code:app/src/main/java/com/decikeeper/app/ui/AboutActivity.kt | A:法务文档数据注册 | S:排序、资源ID和待审核版本占位不可凭空改写
+LogExporter.kt[DR8M]: F:将统一事件和诊断内容安全写入应用日志并提供导出能力 | R:code:app/src/main/java/com/decikeeper/app/data/EventLog.kt | A:日志持久化与导出 | S:文件写入异常不得破坏主业务流程
+NormalEventLog.kt[DB6S]: F:表示普通前台事件日志的结构化数据 | R:code:app/src/main/java/com/decikeeper/app/data/EventLog.kt | A:普通事件日志模型 | S:字段语义须与日志导出格式一致
+QuotaDetailModel.kt[DB6M]: F:封装时间配额与次数配额明细供业务展示和计算使用 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:配额明细领域模型 | S:时间与次数维度必须保持可区分
+SegmentAdverseAnalysis.kt[DB7M]: F:定义时间段规则变更的不利影响分析结果与恢复状态 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:时间段变更分析模型 | S:立即、延迟和恢复语义必须可区分
+SegmentBlacklist.kt[DB7M]: F:表示时间段级黑名单规则及其启用、范围和统计状态 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:分段黑名单领域模型 | S:规则边界与启用状态必须保持一致
+TemporaryAccessQuotaPlan.kt[DB7M]: F:计算临时访问的当前消耗、借用额度与后续配额计划 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:临时访问配额模型 | S:时间和次数借用必须分别核算
+TimeSegmentJson.kt[DB9L]: F:提供逻辑日时钟、分段激活策略与时间规则JSON模型 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:时间规则数据与策略 | S:刷新边界决定逻辑日而非自然日
+UsableCount.kt[DB7S]: F:解析、格式化并按时长和冷却重叠计算可用次数半单位 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:次数配额计算工具 | S:半单位换算与舍入规则须稳定
+UsableCountLedgerMigration.kt[DR7M]: F:从旧整数次数迁移到半单位次数并决定新键写入资格 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:次数账本兼容迁移 | S:迁移写入失败时不得提前切换新键
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/data/questionbank/===
+CustomQuestionModels.kt[DB7M]: F:定义自定义题库、题目、解析提示与解析告警数据模型 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:自定义题库领域模型 | S:答案、选项和提示必须保持可区分
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/data/statistics/===
+StatisticsModels.kt[DB8M]: F:定义统计分区、指标维度、聚合粒度、图表和日期范围模型 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsActivity.kt | A:统计视图领域模型 | S:时长、次数与规则事件维度不得混用
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/manager/===
+A11ySelfDisableAuthorization.kt[DR8M]: F:管理无障碍自关的短期原因、截止时间与清理日志 | R:code:app/src/main/java/com/decikeeper/app/manager/AccessibilityControlManager.kt | A:无障碍临时授权状态 | S:授权只允许内存保存且最长十秒
+AccessibilityControlManager.kt[DB8M]: F:维护无障碍增强开关的启用、待生效和禁用状态 | R:code:app/src/main/java/com/decikeeper/app/manager/ConfigPendingManager.kt | A:无障碍业务状态机 | S:只管理业务状态不直接操作系统无障碍开关
+AccessibilityDependencyManager.kt[DB7M]: F:在系统无障碍不可用时协调关闭依赖它的增强保护 | R:code:app/src/main/java/com/decikeeper/app/manager/AccessibilityControlManager.kt | A:无障碍依赖协调 | S:系统权限关闭后不得恢复依赖增强
+AlarmAlertPolicy.kt[AB8M]: F:根据闹钟阶段和经过时间解析渐进振动与响铃策略 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:闹钟提醒策略 | S:阶段等级与强度边界必须保持确定性
+AlarmBootstrapStorage.kt[DR7M]: F:在设备保护存储中读写闹钟启动引导条目并支持增删改 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:闹钟引导持久化 | S:直启场景必须使用设备保护上下文
+AlarmChallengeEmergencyWhitelist.kt[DB8M]: F:管理闹钟挑战期间允许的紧急应用清单及设备可选性 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:挑战紧急白名单 | S:危险应用筛选不得绕过安装状态校验
+AlarmChallengeManager.kt[AE9L]: F:加载多来源题库、解析并生成闹钟填空挑战 | R:code:app/src/main/java/com/decikeeper/app/data/CustomQuestionModels.kt | A:闹钟挑战编排 | S:题库解析失败不得生成无效题目
+AlarmHeartbeatScheduler.kt[AB7M]: F:安排和取消闹钟心跳任务以维持提醒监测 | R:code:app/src/main/java/com/decikeeper/app/worker/AlarmHeartbeatWorker.kt | A:闹钟心跳调度 | S:下一次触发时间必须绑定具体闹钟
+AlarmOverlayRequirement.kt[FC5S]: F:集中判断闹钟锁屏覆盖层所需的悬浮窗权限 | R:code:app/src/main/java/com/decikeeper/app/manager/PermissionManager.kt | A:覆盖层权限门禁 | S:权限判断必须复用现有权限管理器
+AlarmPowerOffProtectionManager.kt[DB9L]: F:管理关机防护开关、无障碍与通知等启用前置条件 | R:code:app/src/main/java/com/decikeeper/app/protection/ProtectionManager.kt | A:闹钟关机防护状态 | S:系统前置条件不足时不得启用保护
+AlarmProtectionEventBridge.kt[AB8M]: F:把闹钟调度、响铃、挑战、再响、恢复和保护变化写入事件日志 | R:code:app/src/main/java/com/decikeeper/app/data/EventLog.kt | A:闹钟保护事件桥接 | S:事件必须携带闹钟身份与阶段上下文
+AlarmScheduler.kt[AB9L]: F:创建、保存、编号和清理应用闹钟及其再响配置 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmBootstrapStorage.kt | A:闹钟生命周期调度 | S:闹钟编号变化必须同步清理关联状态
+AlarmSystemBackupUseCase.kt[AB8M]: F:解析系统时钟应用候选并构造闹钟触发后的备份启动计划 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:系统闹钟备份用例 | S:候选选择与后台启动状态必须可测试
+AlarmWindowManager.kt[EU9L]: F:显示、重入、唤醒和关闭闹钟锁屏窗口并处理权限回退 | R:code:app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt | A:闹钟窗口编排 | S:覆盖层不可用时必须走既有Activity回退
+AntiUninstallManager.kt[DB9L]: F:管理防卸载保护状态、设备管理激活与延迟解锁时间 | R:code:app/src/main/java/com/decikeeper/app/protection/AntiUninstallProtection.kt | A:防卸载保护状态机 | S:系统无障碍不可用时不得残留不可恢复状态
+AppSafetyClassifiers.kt[DB7M]: F:识别启动器、输入法以及安全系统或厂商应用 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:应用安全分类 | S:分类器不得把业务黑名单判定隐式移入
+AppVisibilityTracker.kt[DB5S]: F:记录应用自身首页是否可见并提供线程安全读取 | R:code:app/src/main/java/com/decikeeper/app/ui/HomeFragment.kt | A:应用可见性状态 | S:可见性标志不应承担锁定业务决策
+AppWindowManager.kt[DB9L]: F:持久化应用窗口规则、待生效变更、撤销快照与按日拆分 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:应用窗口规则管理 | S:立即变更与延迟规则必须保持可恢复
+AutoBackupManager.kt[DR8M]: F:执行防抖自动备份、快照写入以及必要时的恢复 | R:code:app/src/main/java/com/decikeeper/app/manager/SettingsBackupManager.kt | A:自动备份恢复编排 | S:新安装与恢复判断必须避免覆盖有效配置
+AutomaticRestrictionReleasePolicy.kt[DB6M]: F:根据状态与有效时间计算自动解除限制的决策 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:限制解除策略 | S:决策函数应保持纯计算且不直接修改持久状态
+ChangeLogManager.kt[DB8M]: F:记录规则变化、待生效标记、分类筛选和用户可见变更日志 | R:code:app/src/main/java/com/decikeeper/app/data/EventLog.kt | A:规则变更日志管理 | S:不利变更与恢复记录必须保持可追溯
+ConfigPendingManager.kt[DB8M]: F:计算配置生效时间并提交、查询和清理待生效变更 | R:code:app/src/main/java/com/decikeeper/app/manager/ChangeLogManager.kt | A:延迟配置状态管理 | S:生效时间必须由统一逻辑日规则计算
+CreditManager.kt[DB9L]: F:协调应用限制判定、时间与次数额度、借用、惩罚和黑名单转发 | R:code:app/src/main/java/com/decikeeper/app/data/BlacklistStore.kt | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+EffectiveActivationPolicyManager.kt[DB8M]: F:统一读取、持久化和展示时间规则的生效策略 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:规则生效策略管理 | S:策略仅作用于勿扰时段和应用时间窗
+FloatingWindowProtectionManager.kt[DB8M]: F:管理小窗可见性增强的状态、延迟生效和识别判定 | R:code:app/src/main/java/com/decikeeper/app/manager/ConfigPendingManager.kt | A:小窗保护策略 | S:关闭等不利变更必须遵循延迟规则
+ForegroundEvidencePolicy.kt[DB8M]: F:依据前台事件和可见时间戳判断证据的因果关联 | R:code:app/src/main/java/com/decikeeper/app/manager/PackageForegroundEventExtractor.kt | A:前台证据纯策略 | S:不得用当前检查时间替代事件发生时间
+LockDecision.kt[DB9L]: F:按勿扰锁、应用时间窗、特权和安全状态顺序计算是否拦截 | R:code:app/src/main/java/com/decikeeper/app/service/MonitorService.kt | A:双锁纯判定策略 | S:短路顺序必须与既有生产行为一致
+LockScreenPresentationPolicy.kt[EU8M]: F:定义锁屏请求处理、取消和已处理状态的展示策略结果 | R:code:app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt | A:锁屏展示策略 | S:状态结果必须覆盖过期流程的已处理分支
+ManualPermissionRecoveryManager.kt[DR7M]: F:记录设置访问并依据引导访问痕迹判断权限自动回填 | R:code:app/src/main/java/com/decikeeper/app/manager/PermissionManager.kt | A:手动权限恢复 | S:检测异常必须安全返回未确认
+NormalEventStateTracker.kt[DB7M]: F:以进程内原子状态记录普通事件基线与重复锁定聚合 | R:code:app/src/main/java/com/decikeeper/app/data/EventLog.kt | A:普通事件状态跟踪 | S:跟踪器只提供数据不决定业务策略
+PackageForegroundEventExtractor.kt[DB7M]: F:按应用包精确提取UsageEvents中的前台与后台时间事件 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundEvidencePolicy.kt | A:前台事件提取 | S:不同包的事件不得相互污染
+PermissionManager.kt[FC9L]: F:统一检测关键系统权限、处理版本差异并提供引导状态 | R:code:app/src/main/java/com/decikeeper/app/manager/SettingsNavigator.kt | A:系统权限管理 | S:权限状态返回必须稳定且异常可兜底
+PrivacyConsentManager.kt[DB8M]: F:持久化并同步读取用户协议与隐私政策同意状态 | R:code:app/src/main/java/com/decikeeper/app/ui/PrivacyConsentActivity.kt | A:隐私同意合规闸门 | S:读取失败必须按未同意处理且不得随备份迁移
+PrivacyProtectionManager.kt[DB8M]: F:管理隐私系统拦截保护的开关、延迟生效和状态判定 | R:code:app/src/main/java/com/decikeeper/app/manager/ConfigPendingManager.kt | A:隐私保护策略 | S:保护状态变更必须遵循适应期和延迟规则
+ProbationManager.kt[DR6M]: F:清理已移除的旧延迟基准状态并保持历史调用兼容 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:旧基准兼容清理 | S:清理不得改变当前保存点的生效策略
+PwaBypassManager.kt[DB8M]: F:识别Chrome WebAPK特征并管理白名单PWA短时放行会话 | R:code:app/src/main/java/com/decikeeper/app/service/CoreService.kt | A:PWA放行会话 | S:不得借PWA放行普通浏览器且会话须自动过期
+QuotaConfigEventBridge.kt[AB8M]: F:把配置、借用、结转、惩罚和放行事实转成统一事件记录 | R:code:app/src/main/java/com/decikeeper/app/data/EventLog.kt | A:额度配置事件桥接 | S:桥接层不拥有额度计算或决策权
+RecentTasksHideManager.kt[DB6M]: F:按开关将当前Activity所在任务加入或移出最近任务列表 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:最近任务可见性管理 | S:关闭路径必须显式恢复任务显示
+ReminderManager.kt[AB8M]: F:计算下一个受监控时间段并调度提醒通知与回调 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:双提醒调度 | S:系统版本差异和通知失败不得阻塞主流程
+RomPermissionDetector.kt[FC8M]: F:探测不同ROM的自启动、后台弹出和关联启动私有权限 | R:code:app/src/main/java/com/decikeeper/app/manager/PermissionManager.kt | A:ROM权限探测 | S:不可探测返回空值交给人工复核
+SettingsBackupManager.kt[DR9L]: F:按分类导出和导入SharedPreferences设置快照并刷新相关缓存 | R:code:app/src/main/java/com/decikeeper/app/manager/AutoBackupManager.kt | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+SettingsNavigator.kt[FC8M]: F:集中处理Android标准设置、Vivo私有设置和应用详情回退跳转 | R:code:app/src/main/java/com/decikeeper/app/manager/PermissionManager.kt | A:系统设置导航 | S:组件缺失必须保留多候选回退且不得崩溃
+StartupA11yCache.kt[DR7M]: F:双写普通与设备保护存储中的启动阶段无障碍状态缓存 | R:code:app/src/main/java/com/decikeeper/app/service/CoreService.kt | A:直启无障碍缓存 | S:用户解锁前必须可从设备保护存储读取
+StartupProtectionManager.kt[DB9L]: F:协调重启和进程恢复阶段的快速锁屏保护与主程序接管 | R:code:app/src/main/java/com/decikeeper/app/service/FastLockService.kt | A:启动保护策略 | S:早期无障碍未连接时必须保留安全窗口
+TimeRuleManager.kt[DB9L]: F:计算、读取、持久化和应用勿扰时间段规则及跨日自由时间 | R:code:app/src/main/java/com/decikeeper/app/data/TimeSegmentJson.kt | A:时间规则核心管理 | S:正式配置与待生效配置必须分离
+TimeRulesAccessGate.kt[FC5S]: F:根据使用情况访问权限决定是否允许进入时间规则页 | R:code:app/src/main/java/com/decikeeper/app/manager/PermissionManager.kt | A:时间规则进入门禁 | S:未授权不得进入规则配置
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/manager/expiry/===
+ExpiryCoordinator.kt[AB9L]: F:统一协调临时放行到期评估与桌面等待确认状态流转 | R:code:app/src/main/java/com/decikeeper/app/manager/expiry/ExpiryResolver.kt | A:到期流程编排 | S:到期事件必须重新评估而非无条件立即加锁
+ExpiryDecision.kt[DB7M]: F:定义临时放行到期原因、上下文输入和决策结果模型 | R:code:app/src/main/java/com/decikeeper/app/manager/expiry/ExpiryResolver.kt | A:到期决策模型 | S:黑名单、白名单与桌面状态必须可区分
+ExpiryResolver.kt[DB9L]: F:按可见容器、黑名单、白名单和桌面历史解析放行到期决策 | R:code:app/src/main/java/com/decikeeper/app/manager/expiry/ExpiryDecision.kt | A:到期纯策略解析 | S:黑名单拥有最高否决权且未知状态进入等待确认
+VisibleContainerResolver.kt[DB8M]: F:收集前台应用、小窗和浮窗的可见容器并构造到期上下文 | R:code:app/src/main/java/com/decikeeper/app/service/AccessibilityWindowSnapshot.kt | A:可见容器解析 | S:无障碍不可用时不得猜测小窗或画中画
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/manager/questionbank/===
+CustomQuestionBankManager.kt[DB9L]: F:持久化自定义题库并支持增删改查、抽题、答题记录和错题归档 | R:code:app/src/main/java/com/decikeeper/app/data/questionbank/CustomQuestionModels.kt | A:自定义题库仓储管理 | S:仅启用题库参与闹钟抽题
+CustomQuestionBankParser.kt[DB8M]: F:容错解析Markdown、纯文本和JSON题库中的题干选项答案解析与提示 | R:code:app/src/main/java/com/decikeeper/app/manager/questionbank/CustomQuestionBankManager.kt | A:题库格式解析 | S:提示字段不得泄露答案
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/manager/statistics/===
+AlarmWakeStatsRecorder.kt[DB8M]: F:记录正式闹钟挑战完成所对应的起床统计会话和阶段时间 | R:code:app/src/main/java/com/decikeeper/app/data/statistics/StatisticsModels.kt | A:起床统计记录 | S:测试闹钟不得进入真实统计
+RestStatsRecorder.kt[DB9L]: F:维护休息额度与使用流水并记录常规、借用、特权、惩罚和退款 | R:code:app/src/main/java/com/decikeeper/app/data/statistics/StatisticsModels.kt | A:休息统计账本 | S:申请、实际、扣减和结余字段必须分开
+RuleChangeLedger.kt[DB8M]: F:记录有利规则变更、不利放宽及待生效期内撤销恢复 | R:code:app/src/main/java/com/decikeeper/app/manager/ChangeLogManager.kt | A:规则变化统计账本 | S:撤销只反映相应待生效不利变更
+StatisticsRepository.kt[DB9L]: F:从真实UsageStats和本地账本聚合休息、起床、应用与规则保护统计 | R:code:app/src/main/java/com/decikeeper/app/data/statistics/StatisticsModels.kt | A:统计数据仓储 | S:无历史记录必须严格归零不得生成模拟数据
+StatsDateRangeResolver.kt[DB8M]: F:把统计日期范围解析为时间桶并推导粒度、星期过滤和图表形式 | R:code:app/src/main/java/com/decikeeper/app/data/statistics/StatisticsModels.kt | A:统计范围分桶 | S:桶边界与图表阈值必须稳定
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/protection/===
+AccessibilityProtection.kt[DB8M]: F:检测无障碍权限变化并触发保护与恢复处理 | R:code:app/src/main/java/com/decikeeper/app/manager/ProtectionManager.kt | A:无障碍权限保护 | S:权限版本差异与异常必须安全兜底
+AntiUninstallProtection.kt[DB8M]: F:识别卸载相关界面并执行防卸载拦截和告警 | R:code:app/src/main/java/com/decikeeper/app/manager/ProtectionManager.kt | A:防卸载拦截保护 | S:需快速响应且不得依赖UI组件
+PermissionProtection.kt[DB8M]: F:识别权限管理入口并执行保护拦截与安全回退 | R:code:app/src/main/java/com/decikeeper/app/manager/ProtectionManager.kt | A:权限页面保护 | S:只在目标权限管理包和入口上拦截
+ProtectionManager.kt[AB9L]: F:协调无障碍、权限和防卸载保护模块的启停与统一状态 | R:code:app/src/main/java/com/decikeeper/app/protection/AccessibilityProtection.kt | A:保护策略调度 | S:各保护模块状态必须保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/receiver/===
+AlarmHeartbeatReceiver.kt[AB8M]: F:接收闹钟心跳广播、拉起Guardian服务并续期心跳可见性 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmHeartbeatScheduler.kt | A:闹钟心跳接收 | S:远距场景应由Worker负责避免广播批量延迟
+AlarmReceiver.kt[AB9L]: F:接收闹钟触发与恢复广播并经校验后显示窗口和启动振动 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmWindowManager.kt | A:闹钟广播分发 | S:正式触发必须先通过数据库、令牌和时间校验
+AutoStartTestReceiver.kt[AB5S]: F:接收自动启动测试广播并触发受控的启动验证 | R:code:app/src/main/java/com/decikeeper/app/manager/StartupProtectionManager.kt | A:自动启动测试接收 | S:测试触发不得混入正式闹钟流程
+BootReceiver.kt[AB9L]: F:处理系统启动和锁屏启动广播以恢复闹钟及启动保护 | R:code:app/src/main/java/com/decikeeper/app/manager/StartupProtectionManager.kt | A:启动广播恢复 | S:直启阶段必须区分设备保护存储可用性
+DeviceAdmin.kt[DB7M]: F:承载设备管理器回调以支持防卸载保护的激活与状态变化 | R:code:app/src/main/java/com/decikeeper/app/manager/AntiUninstallManager.kt | A:设备管理回调 | S:系统回调不得绕过保护状态管理
+PackageInstallReceiver.kt[AB7M]: F:接收应用安装、更新或移除广播并通知黑名单相关状态刷新 | R:code:app/src/main/java/com/decikeeper/app/data/BlacklistStore.kt | A:应用包变化接收 | S:包变化处理不得阻塞广播主线程
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/service/===
+A11yGuardService.kt[AB9L]: F:运行无障碍守护服务并将窗口变化交给前台和保护链路 | R:code:app/src/main/java/com/decikeeper/app/service/AccessibilityWindowSnapshot.kt | A:无障碍守护服务 | S:服务生命周期变化必须可恢复并可观测
+AccessibilityWindowPresenceProbe.kt[DB8M]: F:从无障碍窗口树探测当前可见应用容器和存在性证据 | R:code:app/src/main/java/com/decikeeper/app/service/AccessibilityWindowSnapshot.kt | A:窗口存在性探测 | S:探测结果必须区分空结果与不可用
+AccessibilityWindowSnapshot.kt[DB8M]: F:封装无障碍窗口快照、前台包和可见容器的结构化证据 | R:code:app/src/main/java/com/decikeeper/app/manager/expiry/VisibleContainerResolver.kt | A:窗口快照数据 | S:快照必须保留来源和时间上下文
+AlarmChallengeEmergencyGuardService.kt[AB8M]: F:在闹钟挑战期间守护紧急白名单放行和服务状态 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeEmergencyWhitelist.kt | A:挑战紧急守护服务 | S:紧急放行不得扩大到普通应用
+AlarmGuardianService.kt[AB9L]: F:维持闹钟监护前台服务、心跳续期和触发恢复状态 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmHeartbeatScheduler.kt | A:闹钟监护服务 | S:监护服务必须绑定当前闹钟会话
+AlarmVibrationService.kt[AB8M]: F:执行闹钟振动策略并在阶段变化时更新提醒强度 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt | A:闹钟振动服务 | S:服务停止与再入必须保持幂等
+AlarmWatchdogService.kt[AB8M]: F:监控闹钟服务存活与异常退出并执行恢复或续期动作 | R:code:app/src/main/java/com/decikeeper/app/service/AlarmGuardianService.kt | A:闹钟看门狗服务 | S:恢复动作必须避免重复启动风暴
+CoreService.kt[AB9L]: F:运行核心后台监测、前台判定、提醒和保护协调循环 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:核心服务编排 | S:后台循环不得绕过现有业务门禁
+FastLockService.kt[AB9L]: F:在启动早期提供快速锁屏并按接管时机交给主保护流程 | R:code:app/src/main/java/com/decikeeper/app/manager/StartupProtectionManager.kt | A:快速锁屏服务 | S:最短持有和最长兜底时间必须受策略控制
+ForegroundGuardFallbackGate.kt[DB8M]: F:在前台证据退化时决定是否允许守护回退锁定 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundEvidencePolicy.kt | A:前台守护回退门禁 | S:退化证据不得静默升级为确定锁定
+ForegroundSessionTracker.kt[DB8M]: F:跟踪前台应用会话、来源、时间变化和锁定相关状态 | R:code:app/src/main/java/com/decikeeper/app/data/ForegroundDetectionLog.kt | A:前台会话跟踪 | S:会话切换必须保留时间顺序和来源
+MonitorService.kt[AB9L]: F:监测前台应用并串联证据、双锁判定、日志和锁屏触发 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecision.kt | A:前台监测主服务 | S:显式返回首页惩罚与生命周期副作用必须分开
+PresenceNotificationListener.kt[AB7M]: F:监听通知存在性信号并为前台窗口保护提供辅助证据 | R:code:app/src/main/java/com/decikeeper/app/service/VisibleBlacklistPresenceTracker.kt | A:通知存在性监听 | S:辅助信号不得替代明确窗口证据
+VisibleBlacklistLockPolicy.kt[DB9L]: F:根据可见黑名单窗口、状态重验证和存在性决定是否锁定 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecision.kt | A:可见黑名单锁定策略 | S:可见窗口变化必须触发重新验证
+VisibleBlacklistPresenceTracker.kt[DB8M]: F:跟踪可见黑名单窗口的出现、消失和重新锁定条件 | R:code:app/src/main/java/com/decikeeper/app/service/VisibleBlacklistLockPolicy.kt | A:可见黑名单存在跟踪 | S:无障碍不可用时不得伪造存在证据
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/test/===
+PermissionTestRunner.kt[TQ6M]: F:为权限相关仪器测试提供定制测试运行入口和环境初始化 | R:code:app/src/main/java/com/decikeeper/app/manager/PermissionManager.kt | A:权限测试运行器 | S:测试环境初始化不得改变正式权限逻辑
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/ui/===
+AboutActivity.kt[EU8M]: F:展示关于、版本、法务和开源信息入口 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:关于页面 | S:公开信息必须来自已审核或明确占位的数据
+AlarmActivity.kt[EU8M]: F:承载闹钟挑战和响铃交互的Activity界面 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:闹钟挑战界面 | S:挑战完成与关闭必须服从正式闹钟会话状态
+AlarmEmergencyWhitelistPickerActivity.kt[EU7M]: F:将历史紧急白名单选择入口转发到统一应用选择界面 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeEmergencyWhitelist.kt | A:紧急白名单选择入口 | S:旧入口不得产生与新选择页不一致的状态
+AlarmEmergencyWhitelistSettingsCard.kt[EU7M]: F:展示和操作闹钟挑战紧急应用白名单设置卡片 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeEmergencyWhitelist.kt | A:紧急白名单设置卡片 | S:UI操作只通过管理器保存选择
+AlarmEmergencyWhitelistUiProvider.kt[EU6S]: F:在运行时为紧急白名单相关页面安装轻量UI调整 | R:code:app/src/main/java/com/decikeeper/app/ui/HelpActivity.kt | A:紧急白名单UI适配 | S:运行时调整不得承担业务判定
+AlarmFragment.kt[EU8M]: F:提供每日闹钟时间、重复规则和测试入口配置界面 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:闹钟配置界面 | S:复杂调度逻辑必须留在调度管理器
+AlarmListAdapter.kt[EU6S]: F:把闹钟时间、重复信息和编辑删除状态绑定到列表项 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt | A:闹钟列表适配 | S:适配器不得承载闹钟业务判定
+AppListAdapter.kt[EU7M]: F:把应用图标、名称、选择和规则状态绑定到列表项 | R:code:app/src/main/java/com/decikeeper/app/ui/AppSelectionActivity.kt | A:应用列表适配 | S:勾选回调必须保留适应期和正式期状态
+AppSelectionActivity.kt[EU9L]: F:展示已安装应用和黑名单选择并按阶段保存选择 | R:code:app/src/main/java/com/decikeeper/app/data/BlacklistStore.kt | A:黑名单应用选择页 | S:适应期与正式期保存语义不得混用
+AppSelectionAdapter.kt[EU6S]: F:在RecyclerView中绑定应用信息和勾选变化回调 | R:code:app/src/main/java/com/decikeeper/app/ui/AppSelectionActivity.kt | A:应用选择适配 | S:适配器不得执行耗时查询
+AppWindowAdapter.kt[EU6S]: F:展示应用时间窗规则状态并发出编辑和撤销回调 | R:code:app/src/main/java/com/decikeeper/app/ui/AppWindowFragment.kt | A:应用时间窗列表适配 | S:适配器只负责绑定和回调
+AppWindowFragment.kt[EU8M]: F:提供应用时间窗规则列表、新增、编辑和撤销界面 | R:code:app/src/main/java/com/decikeeper/app/manager/AppWindowManager.kt | A:应用时间窗配置界面 | S:待生效状态必须与管理器保持一致
+AppWindowPreviewActivity.kt[EU7M]: F:渲染应用时间窗叠加预览并切换展示模式 | R:code:app/src/main/java/com/decikeeper/app/manager/AppWindowManager.kt | A:应用时间窗预览 | S:预览只展示规则不得改变规则
+BookmarkActivity.kt[EU7M]: F:展示词汇和题库收藏内容及其分类入口 | R:code:app/src/main/java/com/decikeeper/app/manager/questionbank/CustomQuestionBankManager.kt | A:收藏页面 | S:收藏数据必须来自实际题库与词汇状态
+ClozeChallengeUi.kt[EU6S]: F:清理填空题展示文本中的多余下划线并保留有效空格 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:填空挑战显示适配 | S:展示清理不得改写题库答案
+FocusRulesFragment.kt[EU8M]: F:展示勿扰规则和生效策略配置入口 | R:code:app/src/main/java/com/decikeeper/app/manager/EffectiveActivationPolicyManager.kt | A:勿扰规则界面 | S:策略范围必须限定在对应规则类型
+GlobalParamsActivity.kt[EU7M]: F:承载全局参数配置页面入口和生命周期 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:全局参数界面 | S:参数保存必须经过现有管理器
+GlobalParamsFragment.kt[EU8M]: F:提供全局额度和保护参数的配置交互 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:全局参数配置 | S:用户输入校验不得绕过业务边界
+HelpActivity.kt[EU8M]: F:读取并渲染使用手册并提供搜索和目录跳转 | R:code:app/src/main/res/raw/feedback_email.txt | A:帮助页面 | S:帮助文案必须与真实功能保持一致
+HomeFragment.kt[EU9L]: F:展示权限状态、额度概览和常用功能引导入口 | R:code:app/src/main/java/com/decikeeper/app/manager/PermissionManager.kt | A:首页状态界面 | S:首页展示必须读取真实状态不得伪造统计
+LegalDocumentActivity.kt[EU7M]: F:读取并展示注册法务文档内容 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:法务文档页面 | S:文档顺序和资源映射必须与注册表一致
+LockAlarmOverlay.kt[EU9L]: F:展示锁定闹钟覆盖层、挑战内容和关闭交互 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:锁定闹钟覆盖层 | S:关闭授权必须遵循当前锁定会话
+LockDismissAuthority.kt[DB8M]: F:定义锁屏关闭请求的来源、会话和授权判定 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecision.kt | A:锁屏关闭授权 | S:系统或生命周期副作用不得冒充用户关闭
+LockWindowManager.kt[EU9L]: F:创建、刷新、关闭和恢复锁屏窗口及其覆盖层会话 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmWindowManager.kt | A:锁屏窗口管理 | S:窗口代际和关闭原因必须保持隔离
+MainActivity.kt[EU9L]: F:承载主页面导航、初始化和前台状态入口 | R:code:app/src/main/java/com/decikeeper/app/service/CoreService.kt | A:主Activity | S:导航不得绕过同意和权限门禁
+MainActivityEntry.kt[EU8M]: F:解析主Activity进入参数并选择待处理的入口流程 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:主入口决策 | S:待处理参数必须按来源和会话校验
+PendingMainActivityExtras.kt[DB6M]: F:封装主Activity待处理Intent参数的保存与消费 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivityEntry.kt | A:主入口待处理参数 | S:消费后不得重复触发入口副作用
+PrivacyConsentActivity.kt[EU8M]: F:展示用户协议和隐私政策同意流程并决定是否进入主页 | R:code:app/src/main/java/com/decikeeper/app/manager/PrivacyConsentManager.kt | A:隐私同意页面 | S:未同意不得运行同意后初始化
+RulesFragment.kt[EU9L]: F:提供规则保护、权限增强和时间规则设置交互 | R:code:app/src/main/java/com/decikeeper/app/manager/ProtectionManager.kt | A:规则设置页面 | S:设置项状态必须来自对应管理器
+SchedulePreviewActivity.kt[EU7M]: F:展示当前时间段和闹钟计划的预览 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:计划预览页面 | S:预览不得修改正式规则
+SeasonalRuntimeRethemer.kt[EU6S]: F:按季节或运行时条件应用页面主题微调 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:季节主题适配 | S:主题调整不得改变业务状态
+StatisticsFragment.kt[EU8M]: F:展示真实休息、起床、应用和规则保护统计 | R:code:app/src/main/java/com/decikeeper/app/manager/statistics/StatisticsRepository.kt | A:统计页面 | S:无数据时必须展示真实零值
+ThemeManager.kt[EU8M]: F:统一读取、应用和持久化应用主题选择 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeSummaryView.kt | A:主题管理 | S:主题状态不得与业务配置混淆
+ThemeSummaryView.kt[EU6S]: F:展示主题当前状态和摘要说明 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:主题摘要视图 | S:视图只反映当前主题状态
+ThemedStatusTextView.kt[EU6S]: F:提供带主题样式的状态文本视图 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:主题状态文本 | S:样式适配不得改写状态语义
+TimeConfigFragment.kt[EU8M]: F:编辑时间段、刷新边界和规则生效配置 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:时间配置页面 | S:保存前必须执行规则边界校验
+TimeSegmentAdapter.kt[EU6S]: F:把时间段启用状态、时间范围和配额绑定到列表项 | R:code:app/src/main/java/com/decikeeper/app/ui/TimeConfigFragment.kt | A:时间段列表适配 | S:适配器只负责展示和回调
+TodayAlarmView.kt[EU7M]: F:展示今日闹钟状态、阶段和下一步提示 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:今日闹钟视图 | S:展示必须对应真实闹钟状态
+TodayRulesView.kt[EU7M]: F:展示今日生效时间规则和保护状态摘要 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:今日规则视图 | S:摘要不得虚构未生效规则
+TypewriterTextView.kt[EU6S]: F:提供逐字显示文本的轻量自定义View | R:code:app/src/main/java/com/decikeeper/app/ui/HelpActivity.kt | A:逐字文本视图 | S:动画效果不得阻塞主线程
+WordLookupTextView.kt[EU6S]: F:为既有布局提供词汇查询自定义View兼容入口 | R:code:app/src/main/java/com/decikeeper/app/ui/WordLookupTextView.kt | A:词汇View兼容适配 | S:XML引用必须保持与真实实现兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/ui/questionbank/===
+CustomQuestionBankActivity.kt[EU8M]: F:展示自定义题库列表、启停状态和管理入口 | R:code:app/src/main/java/com/decikeeper/app/manager/questionbank/CustomQuestionBankManager.kt | A:自定义题库页面 | S:题库状态必须来自仓储
+CustomQuestionBankImportActivity.kt[EU8M]: F:提供自定义题库文件导入和解析结果交互 | R:code:app/src/main/java/com/decikeeper/app/manager/questionbank/CustomQuestionBankParser.kt | A:题库导入页面 | S:解析告警必须向用户可见
+CustomQuestionReviewActivity.kt[EU8M]: F:展示题目作答后的解析、提示和复习内容 | R:code:app/src/main/java/com/decikeeper/app/manager/questionbank/CustomQuestionBankManager.kt | A:题库复习页面 | S:复习页不得提前泄露未提交答案
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/ui/statistics/===
+AppCategoryDetailActivity.kt[EU7M]: F:展示单个应用分类的真实统计明细 | R:code:app/src/main/java/com/decikeeper/app/manager/statistics/StatisticsRepository.kt | A:应用分类统计 | S:统计数据必须来自真实使用记录
+StatisticsChartRenderer.kt[EU7M]: F:把统计数据桶渲染为柱状或折线图 | R:code:app/src/main/java/com/decikeeper/app/data/statistics/StatisticsModels.kt | A:统计图表渲染 | S:图表类型必须遵循分桶规则
+StatisticsFilterBottomSheet.kt[EU7M]: F:提供统计日期、粒度和维度筛选交互 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:统计筛选面板 | S:筛选项必须与统计模型一致
+StatsFilterActivity.kt[EU7M]: F:承载统计筛选页面并返回用户选择 | R:code:app/src/main/java/com/decikeeper/app/manager/statistics/StatsDateRangeResolver.kt | A:统计筛选页面 | S:返回的范围必须可重现
+StatsHistoryActivity.kt[EU7M]: F:展示统计历史记录和按范围聚合结果 | R:code:app/src/main/java/com/decikeeper/app/manager/statistics/StatisticsRepository.kt | A:统计历史页面 | S:历史无记录时不得补造数据
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/util/===
+BorrowLimitCalculations.kt[DB7S]: F:计算休息借用额度和容量边界 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:借用额度计算 | S:借用上限必须保持非负和可解释
+BorrowRemainingCalculator.kt[DB7S]: F:计算当前借用剩余量及时间边界 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:借用剩余额度 | S:剩余计算不得跨越错误逻辑日
+ContrastHelper.kt[FC6S]: F:提供界面文字与背景的对比度辅助计算 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:主题对比度工具 | S:对比度修正不得改写业务文案
+DiagnosticLogCompressor.kt[DB7M]: F:压缩重复诊断日志并保留关键状态变化 | R:code:app/src/main/java/com/decikeeper/app/data/LogExporter.kt | A:诊断日志压缩 | S:压缩不得丢失故障转折点
+DiagnosticTimestampFormatter.kt[FC5S]: F:统一格式化诊断时间戳并保留原始毫秒信息 | R:code:app/src/main/java/com/decikeeper/app/data/ForegroundDetectionLog.kt | A:诊断时间格式 | S:格式化不得改变原始时间值
+ForegroundReportFormatter.kt[DB7M]: F:把前台诊断报告转换为可读日志和摘要文本 | R:code:app/src/main/java/com/decikeeper/app/data/ForegroundDiagnosticReport.kt | A:前台报告格式化 | S:格式化不得改变报告判定
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/worker/===
+AlarmHeartbeatWorker.kt[AB8M]: F:执行远距闹钟心跳工作并按计划续期监护 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmHeartbeatScheduler.kt | A:闹钟心跳Worker | S:远距调度必须避免重复心跳
+AlarmWorker.kt[AB8M]: F:执行WorkManager闹钟任务并分发触发或恢复动作 | R:code:app/src/main/java/com/decikeeper/app/receiver/AlarmReceiver.kt | A:闹钟Worker | S:任务失败必须保留可观测恢复路径
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/color/===
+nav_item_color.xml[FC5S]: F:定义导航项状态的颜色选择资源 | R:code:app/src/main/res/values/colors.xml | A:导航颜色资源 | S:资源选择器必须覆盖启用和禁用状态
+selector_mode_text.xml[FC5S]: F:定义模式文本在不同状态下的颜色选择 | R:code:app/src/main/res/values/colors.xml | A:模式文本颜色资源 | S:状态颜色必须与主题契约一致
+selector_text_color_toggle.xml[FC5S]: F:定义开关文本在选中和未选中状态下的颜色 | R:code:app/src/main/res/values/colors.xml | A:开关文本颜色资源 | S:颜色资源不得承担开关业务逻辑
+switch_thumb_color.xml[FC5S]: F:定义开关滑块在状态变化时的颜色选择 | R:code:app/src/main/res/values/colors.xml | A:开关滑块颜色资源 | S:资源只负责界面样式，不承担业务判定
+switch_track_color.xml[FC5S]: F:定义开关轨道在状态变化时的颜色选择 | R:code:app/src/main/res/values/colors.xml | A:开关轨道颜色资源 | S:资源只负责界面样式，不承担业务判定
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/drawable/===
+bg_badge_new.xml[FC5S]: F:定义新状态徽标的背景形状和颜色 | R:code:app/src/main/res/values/colors.xml | A:新徽标背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_bottom_nav_item.xml[FC5S]: F:定义底部导航项的背景状态 | R:code:app/src/main/res/color/nav_item_color.xml | A:底部导航背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_dialog_button_outline.xml[FC5S]: F:定义对话框描边按钮的背景形状 | R:code:app/src/main/res/values/colors.xml | A:对话框按钮背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_focus_rules_tab_container.xml[FC5S]: F:定义勿扰规则标签容器的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt | A:勿扰规则标签背景 | S:资源只负责界面样式，不承担业务判定
+bg_input_field.xml[FC5S]: F:定义输入字段的边框和填充背景 | R:code:app/src/main/java/com/decikeeper/app/ui/GlobalParamsFragment.kt | A:输入字段背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_quota_current.xml[FC5S]: F:定义当前额度卡片的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/TodayRulesView.kt | A:当前额度背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_quota_next.xml[FC5S]: F:定义后续额度卡片的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/TodayRulesView.kt | A:后续额度背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_quota_note.xml[FC5S]: F:定义额度说明区域的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/TodayRulesView.kt | A:额度说明背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_quota_required.xml[FC5S]: F:定义额度必需提示区域的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/TodayRulesView.kt | A:额度提示背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_sea_bubble.xml[FC5S]: F:定义海洋主题气泡装饰背景 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:海洋气泡背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_sea_depths.xml[FC5S]: F:定义海洋主题深色背景层 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:海洋深度背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_sea_porthole.xml[FC5S]: F:定义海洋主题舷窗装饰背景 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:海洋舷窗背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_sea_surface.xml[FC5S]: F:定义海洋主题表层背景 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:海洋表层背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_zz_badge.xml[FC5S]: F:定义决定守护徽标的通用背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:决定守护徽标背景 | S:资源只负责界面样式，不承担业务判定
+bg_zz_card.xml[FC5S]: F:定义决定守护卡片的通用背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:决定守护卡片背景 | S:资源只负责界面样式，不承担业务判定
+bg_zz_card_soft.xml[FC5S]: F:定义决定守护柔和卡片的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:柔和卡片背景 | S:资源只负责界面样式，不承担业务判定
+bg_zz_control_btn.xml[FC5S]: F:定义决定守护控制按钮的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:控制按钮背景 | S:资源只负责界面样式，不承担业务判定
+bg_zz_help_pill.xml[FC5S]: F:定义帮助提示胶囊的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/HelpActivity.kt | A:帮助提示背景 | S:资源只负责界面样式，不承担业务判定
+bg_zz_kpi_card.xml[FC5S]: F:定义指标卡片的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:指标卡背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_zz_option_btn.xml[FC5S]: F:定义题目选项按钮的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ClozeChallengeUi.kt | A:题目选项背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_zz_option_btn_selected.xml[FC5S]: F:定义题目选项选中状态的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ClozeChallengeUi.kt | A:题目选中背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_zz_pill.xml[FC5S]: F:定义通用状态胶囊的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:状态胶囊背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_zz_primary_btn.xml[FC5S]: F:定义主要操作按钮的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:主要按钮背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_zz_rank_fill.xml[FC5S]: F:定义排名进度填充的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:排名填充背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_zz_rank_track.xml[FC5S]: F:定义排名进度轨道的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:排名轨道背景资源 | S:资源只负责界面样式，不承担业务判定
+bg_zz_subtab_bg.xml[FC5S]: F:定义子标签页的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:子标签背景资源 | S:资源只负责界面样式，不承担业务判定
+btn_torch_bg.xml[FC5S]: F:定义手电筒按钮的背景样式 | R:code:app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt | A:手电筒按钮背景 | S:资源只负责界面样式，不承担业务判定
+ic_back_arrow.xml[FC5S]: F:定义页面返回箭头图标资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:返回图标资源 | S:资源只负责界面样式，不承担业务判定
+ic_launcher_foreground.xml[FC5S]: F:定义应用启动图标前景矢量资源 | R:code:app/src/main/AndroidManifest.xml | A:应用图标前景资源 | S:资源只负责界面样式，不承担业务判定
+ic_nav_alarm.xml[FC5S]: F:定义底部导航闹钟图标资源 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt | A:闹钟导航图标 | S:资源只负责界面样式，不承担业务判定
+ic_nav_focus.xml[FC5S]: F:定义底部导航专注图标资源 | R:code:app/src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt | A:专注导航图标 | S:资源只负责界面样式，不承担业务判定
+ic_nav_home.xml[FC5S]: F:定义底部导航首页图标资源 | R:code:app/src/main/java/com/decikeeper/app/ui/HomeFragment.kt | A:首页导航图标 | S:资源只负责界面样式，不承担业务判定
+ic_nav_settings.xml[FC5S]: F:定义底部导航设置图标资源 | R:code:app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt | A:设置导航图标 | S:资源只负责界面样式，不承担业务判定
+ic_nav_stats.xml[FC5S]: F:定义底部导航统计图标资源 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:统计导航图标 | S:资源只负责界面样式，不承担业务判定
+ic_torch.xml[FC5S]: F:定义锁屏手电筒图标资源 | R:code:app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt | A:手电筒图标资源 | S:资源只负责界面样式，不承担业务判定
+selector_bg_toggle_left.xml[FC5S]: F:定义左侧切换控件不同状态的背景选择 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:左切换背景选择器 | S:资源只负责界面样式，不承担业务判定
+selector_bg_toggle_right.xml[FC5S]: F:定义右侧切换控件不同状态的背景选择 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:右切换背景选择器 | S:资源只负责界面样式，不承担业务判定
+selector_focus_rules_tab.xml[FC5S]: F:定义勿扰规则标签不同状态的背景选择 | R:code:app/src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt | A:规则标签背景选择器 | S:资源只负责界面样式，不承担业务判定
+selector_mode_tab.xml[EU7M]: F:定义模式标签不同状态的背景选择 | R:code:app/src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt | A:模式标签选择器 | S:布局只负责展示和输入承载，不承担业务判定
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/layout/===
+activity_about.xml[EU7M]: F:定义关于页面的布局结构 | R:code:app/src/main/java/com/decikeeper/app/ui/AboutActivity.kt | A:关于页面布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_alarm.xml[EU7M]: F:定义闹钟挑战Activity的布局结构 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmActivity.kt | A:闹钟页面布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_alarm_scan.xml[EU7M]: F:定义闹钟扫描或选择页面的布局结构 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt | A:闹钟扫描布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_app_category_detail.xml[EU7M]: F:定义应用分类统计详情页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/AppCategoryDetailActivity.kt | A:应用分类详情布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_app_selection.xml[EU7M]: F:定义黑名单应用选择页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppSelectionActivity.kt | A:应用选择布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_app_window_preview.xml[EU7M]: F:定义应用时间窗预览页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppWindowPreviewActivity.kt | A:时间窗预览布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_bookmark.xml[EU7M]: F:定义收藏页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/BookmarkActivity.kt | A:收藏页面布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_custom_question_bank.xml[EU7M]: F:定义自定义题库页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/questionbank/CustomQuestionBankActivity.kt | A:题库页面布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_custom_question_import.xml[EU7M]: F:定义题库导入页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/questionbank/CustomQuestionBankImportActivity.kt | A:题库导入布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_custom_question_review.xml[EU7M]: F:定义题库复习页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/questionbank/CustomQuestionReviewActivity.kt | A:题库复习布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_global_params_new.xml[EU7M]: F:定义全局参数页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/GlobalParamsActivity.kt | A:全局参数布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_help.xml[EU7M]: F:定义帮助页面及搜索目录布局 | R:code:app/src/main/java/com/decikeeper/app/ui/HelpActivity.kt | A:帮助页面布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_legal_document.xml[EU7M]: F:定义法务文档页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/LegalDocumentActivity.kt | A:法务文档布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_main.xml[EU7M]: F:定义主Activity导航和内容容器布局 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:主页面布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_privacy_consent.xml[EU7M]: F:定义用户协议隐私政策同意页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/PrivacyConsentActivity.kt | A:隐私同意布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_schedule_preview.xml[EU7M]: F:定义计划预览页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/SchedulePreviewActivity.kt | A:计划预览布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_stats_filter.xml[EU7M]: F:定义统计筛选页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/StatsFilterActivity.kt | A:统计筛选布局 | S:布局只负责展示和输入承载，不承担业务判定
+activity_stats_history.xml[EU7M]: F:定义统计历史页面布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/StatsHistoryActivity.kt | A:统计历史布局 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_add_segment.xml[EU7M]: F:定义新增时间段对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/TimeConfigFragment.kt | A:新增时间段对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_alarm_default_settings.xml[EU7M]: F:闹钟默认设置对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt | A:默认闹钟设置对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_alarm_edit.xml[EU7M]: F:闹钟编辑对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:闹钟编辑对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_batch_cycle.xml[EU7M]: F:批量周期配置对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt | A:批量周期对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_edit_app_window.xml[EU7M]: F:应用时间窗编辑对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/AppWindowManager.kt | A:应用时间窗编辑对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_edit_challenge_counts.xml[EU7M]: F:闹钟挑战次数编辑对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:挑战次数对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_edit_segment.xml[EU7M]: F:时间段编辑对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:时间段编辑对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_edit_snooze.xml[EU7M]: F:再响参数编辑对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:再响编辑对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_edit_unlock.xml[EU7M]: F:临时解锁参数编辑对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:解锁编辑对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_edit_vibration.xml[EU7M]: F:振动提醒参数编辑对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt | A:振动编辑对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_effective_days.xml[EU7M]: F:规则生效日期选择对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/EffectiveActivationPolicyManager.kt | A:生效日期对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_gentle_warning.xml[EU7M]: F:温和警告确认对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt | A:温和警告对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_global_params.xml[EU7M]: F:全局参数编辑对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:全局参数对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_global_params_activity.xml[EU7M]: F:全局参数Activity对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/GlobalParamsActivity.kt | A:全局参数Activity对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_lights_out.xml[EU7M]: F:锁定提示对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt | A:锁定提示对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_privilege_time_picker.xml[EU7M]: F:周特权时间选择对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:特权时间对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_quick_import_config.xml[EU7M]: F:快速导入配置对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/SettingsBackupManager.kt | A:快速导入对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_quota_transaction_confirm.xml[EU7M]: F:额度交易确认对话框布局 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:额度交易对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_schedule_preview.xml[EU7M]: F:计划预览对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/SchedulePreviewActivity.kt | A:计划预览对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_select_apps.xml[EU7M]: F:应用选择对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppSelectionActivity.kt | A:应用选择对话框 | S:布局只负责展示和输入承载，不承担业务判定
+dialog_test_alarm.xml[EU7M]: F:测试闹钟确认对话框布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt | A:测试闹钟对话框 | S:布局只负责展示和输入承载，不承担业务判定
+fragment_alarm.xml[EU6S]: F:闹钟配置Fragment布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt | A:闹钟Fragment布局 | S:布局只负责展示和输入承载，不承担业务判定
+fragment_app_window.xml[EU6S]: F:应用时间窗Fragment布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppWindowFragment.kt | A:时间窗Fragment布局 | S:布局只负责展示和输入承载，不承担业务判定
+fragment_focus_rules.xml[EU6S]: F:勿扰规则Fragment布局 | R:code:app/src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt | A:勿扰规则Fragment布局 | S:布局只负责展示和输入承载，不承担业务判定
+fragment_home.xml[EU6S]: F:首页状态Fragment布局 | R:code:app/src/main/java/com/decikeeper/app/ui/HomeFragment.kt | A:首页Fragment布局 | S:布局只负责展示和输入承载，不承担业务判定
+fragment_rules.xml[EU6S]: F:保护规则Fragment布局 | R:code:app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt | A:保护规则Fragment布局 | S:布局只负责展示和输入承载，不承担业务判定
+fragment_statistics.xml[EU6S]: F:统计Fragment布局 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:统计Fragment布局 | S:布局只负责展示和输入承载，不承担业务判定
+fragment_time_config.xml[EU6S]: F:时间配置Fragment布局 | R:code:app/src/main/java/com/decikeeper/app/ui/TimeConfigFragment.kt | A:时间配置Fragment布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_alarm.xml[EU6S]: F:单个闹钟列表项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmListAdapter.kt | A:闹钟列表项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_app_list.xml[EU6S]: F:应用列表项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppListAdapter.kt | A:应用列表项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_app_select.xml[EU6S]: F:应用选择列表项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppSelectionAdapter.kt | A:应用选择项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_app_selection.xml[EU6S]: F:黑名单选择项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppSelectionActivity.kt | A:黑名单选择项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_app_window_preview_rule.xml[EU6S]: F:时间窗预览规则项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppWindowPreviewActivity.kt | A:预览规则项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_app_window_preview_sub_rule.xml[EU6S]: F:时间窗预览子规则项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppWindowPreviewActivity.kt | A:预览子规则项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_app_window_preview_time.xml[EU6S]: F:时间窗预览时间项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppWindowPreviewActivity.kt | A:预览时间项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_app_window_rule.xml[EU6S]: F:应用时间窗规则项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/AppWindowAdapter.kt | A:时间窗规则项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_category_sub_app.xml[EU6S]: F:应用分类子应用项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/AppCategoryDetailActivity.kt | A:分类子应用项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_history_alarm_card.xml[EU6S]: F:起床历史统计卡片布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/StatsHistoryActivity.kt | A:起床历史卡片布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_history_rest_card.xml[EU6S]: F:休息历史统计卡片布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/StatsHistoryActivity.kt | A:休息历史卡片布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_stats_alarm_row.xml[EU6S]: F:起床统计行布局 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:起床统计行布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_stats_app_rank.xml[EU6S]: F:应用统计排名项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/AppCategoryDetailActivity.kt | A:应用排名项布局 | S:布局只负责展示和输入承载，不承担业务判定
+item_stats_app_row.xml[EU6S]: F:应用统计行布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/AppCategoryDetailActivity.kt | A:应用统计行 | S:布局资源只负责展示和输入承载
+item_stats_dual_app.xml[EU6S]: F:双应用统计项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:双应用统计项 | S:布局资源只负责展示和输入承载
+item_stats_rest_row.xml[EU6S]: F:休息统计行布局 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:休息统计行 | S:布局资源只负责展示和输入承载
+item_stats_rule_row.xml[EU6S]: F:规则保护统计行布局 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:规则统计行 | S:布局资源只负责展示和输入承载
+item_time_segment.xml[EU6S]: F:时间段列表项布局 | R:code:app/src/main/java/com/decikeeper/app/ui/TimeSegmentAdapter.kt | A:时间段列表项 | S:布局资源只负责展示和输入承载
+sheet_stats_date_range.xml[EU6S]: F:统计日期范围底部面板布局 | R:code:app/src/main/java/com/decikeeper/app/ui/statistics/StatsFilterActivity.kt | A:日期范围面板 | S:布局资源只负责展示和输入承载
+sheet_stats_filter.xml[EU6S]: F:统计筛选底部面板布局 | R:code:app/src/main/java/com/decikeeper/app/ui/StatisticsFragment.kt | A:统计筛选面板 | S:布局资源只负责展示和输入承载
+window_alarm_overlay.xml[EU7M]: F:闹钟覆盖窗口布局 | R:code:app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt | A:闹钟覆盖窗口 | S:布局资源只负责展示和输入承载
+window_fast_lock.xml[EU7M]: F:快速锁屏窗口布局 | R:code:app/src/main/java/com/decikeeper/app/service/FastLockService.kt | A:快速锁屏窗口 | S:布局资源只负责展示和输入承载
+window_lock_screen.xml[EU7M]: F:锁屏窗口布局 | R:code:app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt | A:锁屏窗口 | S:布局资源只负责展示和输入承载
+window_rest_request.xml[EU7M]: F:休息请求窗口布局 | R:code:app/src/main/java/com/decikeeper/app/ui/HomeFragment.kt | A:休息请求窗口 | S:布局资源只负责展示和输入承载
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/menu/===
+bottom_nav_menu.xml[EU6S]: F:底部导航菜单项定义 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:底部导航菜单 | S:布局资源只负责展示和输入承载
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/raw/===
+account_deletion.txt[SG7L]: F:提供账户删除说明和操作文案资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:账户删除法务资源 | S:法务或帮助文案必须与已审核内容一致
+contact_and_complaint.txt[SG7L]: F:提供联系与投诉方式文案资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:联系投诉法务资源 | S:法务或帮助文案必须与已审核内容一致
+feedback_email.txt[SG7L]: F:提供反馈邮箱和联系说明资源 | R:code:app/src/main/java/com/decikeeper/app/ui/HelpActivity.kt | A:反馈联系资源 | S:法务或帮助文案必须与已审核内容一致
+open_source_licenses.txt[SG7L]: F:提供第三方开源许可说明资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:开源许可资源 | S:法务或帮助文案必须与已审核内容一致
+personal_info_list.txt[SG7L]: F:提供个人信息收集清单文案资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:个人信息清单资源 | S:法务或帮助文案必须与已审核内容一致
+privacy_notice.txt[SG7L]: F:提供隐私保护提示文案资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:隐私提示资源 | S:法务或帮助文案必须与已审核内容一致
+privacy_policy.txt[SG7L]: F:提供隐私政策正文资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:隐私政策资源 | S:法务或帮助文案必须与已审核内容一致
+sharing_list.txt[SG7L]: F:提供信息共享清单文案资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:信息共享清单资源 | S:法务或帮助文案必须与已审核内容一致
+third_party_sdk_list.txt[SG7L]: F:提供第三方SDK及其用途说明资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:第三方SDK清单 | S:翻译内容必须保持资源键兼容
+user_agreement.txt[SG8L]: F:提供用户协议正文资源 | R:code:app/src/main/java/com/decikeeper/app/data/LegalDocumentRepository.kt | A:用户协议资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-ar/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-bn/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-bo/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-de/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-en/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-es/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-fil/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-fr/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-hi/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-id/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-it/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-km/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-ko/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-lo/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-ms/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-my/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-ne/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-night/===
+themes.xml[FC6M]: F:定义夜间主题及其颜色样式资源 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:夜间主题资源 | S:主题资源只负责样式
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-nl/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-pt/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-ru/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-si/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-th/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-ug/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-ur/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-vi/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values-zh-rTW/===
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/values/===
+attrs.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+colors.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+strings.xml[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+themes.xml[FC6M]: F:定义应用主题及其颜色样式资源 | R:code:app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt | A:应用主题资源 | S:主题资源只负责样式
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/main/res/xml/===
+accessibility_service_config.xml[FC7M]: F:定义accessibility_service_config系统配置资源 | R:code:app/src/main/AndroidManifest.xml | A:Android配置资源 | S:系统配置必须与Manifest声明一致
+backup_rules.xml[FC7M]: F:定义backup_rules系统配置资源 | R:code:app/src/main/AndroidManifest.xml | A:Android配置资源 | S:系统配置必须与Manifest声明一致
+data_extraction_rules.xml[FC7M]: F:定义data_extraction_rules系统配置资源 | R:code:app/src/main/AndroidManifest.xml | A:Android配置资源 | S:系统配置必须与Manifest声明一致
+device_admin.xml[FC7M]: F:定义device_admin系统配置资源 | R:code:app/src/main/AndroidManifest.xml | A:Android配置资源 | S:系统配置必须与Manifest声明一致
+file_paths.xml[FC7M]: F:定义file_paths系统配置资源 | R:code:app/src/main/AndroidManifest.xml | A:Android配置资源 | S:系统配置必须与Manifest声明一致
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/test/java/com/decikeeper/app/===
+A01BusinessDayFilterValidationTest.kt[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+A11yProtectionDependencyRulesTest.kt[PE7L]: F:提供对应语言的应用界面字符串资源 | R:code:app/src/main/java/com/decikeeper/app/ui/MainActivity.kt | A:多语言字符串资源 | S:翻译内容必须保持资源键兼容
+AboutActivityLongVersionCodeTest.kt[TQ7M]: F:验证关于页面版本号展示适配长版本码 | R:code:app/src/main/java/com/decikeeper/app/ui/AboutActivity.kt | A:关于页版本测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AboutPrivacySurfaceContractTest.kt[TQ7M]: F:验证关于页隐私与法务入口表面契约 | R:code:app/src/main/java/com/decikeeper/app/ui/AboutActivity.kt | A:关于页隐私契约测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AccessibilityDependencyManagerTest.kt[TQ7M]: F:验证无障碍依赖增强在系统权限关闭后的协调 | R:code:app/src/main/java/com/decikeeper/app/manager/AccessibilityDependencyManager.kt | A:无障碍依赖测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AccessibilityProtectionGateTest.kt[TQ7M]: F:验证无障碍保护门禁的判定与回退 | R:code:app/src/main/java/com/decikeeper/app/protection/AccessibilityProtection.kt | A:无障碍保护门禁测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AdaptationDisableBehaviorTest.kt[TQ7M]: F:验证适应期内关闭保护或规则的行为 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:适应期关闭测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmActivityExternalHostPolicyTest.kt[TQ7M]: F:验证闹钟Activity外部宿主策略 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmActivity.kt | A:外部宿主测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmAlertPolicyTest.kt[TQ7M]: F:验证闹钟阶段提醒等级和强度策略 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt | A:提醒策略测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmAndProtectionEventTest.kt[TQ7M]: F:验证闹钟与保护事件记录契约 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmProtectionEventBridge.kt | A:闹钟保护事件测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmChallengeEmergencyWhitelistPolicyTest.kt[TQ7M]: F:验证挑战期间紧急白名单策略 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeEmergencyWhitelist.kt | A:紧急白名单策略测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmChallengeManagerClozePoolTest.kt[TQ7M]: F:验证闹钟填空题库加载和生成 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:填空题库测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmChallengeReentryContractTest.kt[TQ7M]: F:验证闹钟挑战重入和会话隔离契约 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:挑战重入测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmChallengeTwoStageFlowTest.kt[TQ7M]: F:验证闹钟两阶段挑战流程 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:两阶段挑战测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmDialogAndLockScreenContractTest.kt[TQ7M]: F:验证闹钟对话框和锁屏展示契约 | R:code:app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt | A:对话框锁屏测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmDirectBootRecoveryTest.kt[TQ7M]: F:验证直启阶段闹钟恢复和设备保护存储 | R:code:app/src/main/java/com/decikeeper/app/manager/StartupProtectionManager.kt | A:直启恢复测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmKeepAlivePromptTimingContractTest.kt[TQ7M]: F:验证闹钟保活提示的时间契约 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmHeartbeatScheduler.kt | A:保活提示测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmOverlayPermissionFlowContractTest.kt[TQ7M]: F:验证闹钟覆盖层权限引导流程 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmOverlayRequirement.kt | A:覆盖层权限测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmOverlayRequirementTest.kt[TQ7M]: F:验证闹钟覆盖层权限需求判断 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmOverlayRequirement.kt | A:覆盖层需求测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmOverlayThemeContractTest.kt[TQ7M]: F:验证闹钟覆盖层主题契约 | R:code:app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt | A:覆盖层主题测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmPermissionGuideTest.kt[TQ7M]: F:验证闹钟权限引导状态和跳转 | R:code:app/src/main/java/com/decikeeper/app/manager/PermissionManager.kt | A:闹钟权限引导测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmPowerOffProtectionManagerTest.kt[TQ7M]: F:验证关机防护开关和启用前置条件 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmPowerOffProtectionManager.kt | A:关机防护测试 | S:测试必须覆盖真实生产调用链并在失败时明确暴露契约偏差
+AlarmProductionMigrationTest.kt[TQ7M]: F:验证正式闹钟数据迁移和兼容路径 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AlarmReminderRedesignUiContractTest.kt[TQ7M]: F:验证闹钟提醒重构的UI契约 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmActivity.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AlarmScheduleTokenTest.kt[TQ7M]: F:验证闹钟调度令牌生成和校验 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AlarmSessionIsolationContractTest.kt[TQ7M]: F:验证闹钟会话之间的状态隔离 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AlarmStage2AlertPolicyPersistenceTest.kt[TQ7M]: F:验证第二阶段提醒策略持久化 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmAlertPolicy.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AlarmSystemBackupUseCaseTest.kt[TQ7M]: F:验证系统闹钟备份用例的候选和启动计划 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmSystemBackupUseCase.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AlarmTestSnoozeContractTest.kt[TQ7M]: F:验证测试闹钟再响契约 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmScheduler.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AntiUninstallForceStopDialogTest.kt[TQ7M]: F:验证防卸载强制停止对话处理 | R:code:app/src/main/java/com/decikeeper/app/manager/AntiUninstallManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AntiUninstallInitializationGateTest.kt[TQ7M]: F:验证防卸载初始化门禁 | R:code:app/src/main/java/com/decikeeper/app/manager/AntiUninstallManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AntiUninstallLogicTest.kt[TQ7M]: F:验证防卸载业务状态逻辑 | R:code:app/src/main/java/com/decikeeper/app/manager/AntiUninstallManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AntiUninstallProtectionGateTest.kt[TQ7M]: F:验证防卸载保护门禁 | R:code:app/src/main/java/com/decikeeper/app/protection/AntiUninstallProtection.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AntiUninstallStartupProtectionContractTest.kt[TQ7M]: F:验证防卸载与启动保护契约 | R:code:app/src/main/java/com/decikeeper/app/manager/StartupProtectionManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AppUsageCalculationTest.kt[TQ7M]: F:验证应用使用时长计算 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AppWindowLockReasonDisplayTest.kt[TQ7M]: F:验证应用时间窗锁定原因展示 | R:code:app/src/main/java/com/decikeeper/app/manager/AppWindowManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AutomaticRestrictionReleasePolicyTest.kt[TQ7M]: F:验证自动解除限制策略 | R:code:app/src/main/java/com/decikeeper/app/manager/AutomaticRestrictionReleasePolicy.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+BackupRulesExcludesConsentOnlyTest.kt[TQ7M]: F:验证备份规则排除隐私同意数据 | R:code:app/src/main/res/xml/backup_rules.xml | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+BorrowLimitCalculationTest.kt[TQ7M]: F:验证休息借用上限计算 | R:code:app/src/main/java/com/decikeeper/app/util/BorrowLimitCalculations.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+BusinessDayChangeTest.kt[TQ7M]: F:验证逻辑业务日切换 | R:code:app/src/main/java/com/decikeeper/app/data/TimeSegmentJson.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ClozeManagerTest.kt[TQ7M]: F:验证填空题管理逻辑 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ClozePagerAdapterTest.kt[TQ7M]: F:验证填空题分页适配 | R:code:app/src/main/java/com/decikeeper/app/ui/ClozeChallengeUi.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ClozeUxTest.kt[TQ7M]: F:验证填空题展示空白清理规则 | R:code:app/src/main/java/com/decikeeper/app/ui/ClozeChallengeUi.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ConfigChangeProtectionContractTest.kt[TQ7M]: F:验证配置变更保护和延迟生效契约 | R:code:app/src/main/java/com/decikeeper/app/manager/ConfigPendingManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ConsumePenaltySecondsEpisodeTest.kt[TQ7M]: F:验证惩罚秒数消费事件边界 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ContrastHelperTest.kt[TQ7M]: F:验证界面对比度辅助计算 | R:code:app/src/main/java/com/decikeeper/app/util/ContrastHelper.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DayFormatTest.kt[TQ7M]: F:验证日期格式化规则 | R:code:app/src/main/java/com/decikeeper/app/data/TimeSegmentJson.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DiagnosticLogCompressorTest.kt[TQ7M]: F:验证诊断日志重复压缩和关键状态保留 | R:code:app/src/main/java/com/decikeeper/app/util/DiagnosticLogCompressor.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DndIsolationTimeWindowTest.kt[TQ7M]: F:验证勿扰规则与应用时间窗隔离 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecision.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DndNaturalDayResetTest.kt[TQ7M]: F:验证勿扰自然日重置边界 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DndRefreshBoundaryValidationTest.kt[TQ7M]: F:验证勿扰刷新边界输入校验 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DndRefreshSaveUiPreflightTest.kt[TQ7M]: F:验证勿扰刷新保存前UI预检 | R:code:app/src/main/java/com/decikeeper/app/ui/TimeConfigFragment.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DndRefreshSegmentUiPreflightTest.kt[TQ7M]: F:验证勿扰分段刷新UI预检 | R:code:app/src/main/java/com/decikeeper/app/ui/TimeConfigFragment.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DndRefreshStructuralFixture.kt[TQ7M]: F:提供勿扰刷新结构测试夹具 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+DualLockSystemContractTest.kt[TQ7M]: F:验证双锁系统判定契约 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecision.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+EffectiveActivationPolicyCopyTest.kt[TQ7M]: F:验证生效策略文案 | R:code:app/src/main/java/com/decikeeper/app/manager/EffectiveActivationPolicyManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+EffectiveActivationPolicyUiCopyContractTest.kt[TQ7M]: F:验证生效策略UI文案契约 | R:code:app/src/main/java/com/decikeeper/app/manager/EffectiveActivationPolicyManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+EventLogDecisionFieldsTest.kt[TQ7M]: F:验证事件日志决策字段 | R:code:app/src/main/java/com/decikeeper/app/data/EventLog.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ExampleUnitTest.kt[TQ7M]: F:验证基础单元测试环境 | R:code:app/src/main/java/com/decikeeper/app/MyApplication.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ExcerptCleanTest.kt[TQ7M]: F:验证题目摘录清理 | R:code:app/src/main/java/com/decikeeper/app/manager/AlarmChallengeManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ExpiryResolverTest.kt[TQ7M]: F:验证放行到期决策解析 | R:code:app/src/main/java/com/decikeeper/app/manager/expiry/ExpiryResolver.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ExpiryRetryStormTest.kt[TQ7M]: F:验证到期重试风暴抑制 | R:code:app/src/main/java/com/decikeeper/app/manager/expiry/ExpiryCoordinator.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ExpiryStormController.kt[TQ7M]: F:验证到期风暴控制器的测试状态转换 | R:code:app/src/main/java/com/decikeeper/app/manager/ExpiryStormController.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+FastLockCountdownLogicTest.kt[TQ7M]: F:验证快速锁定倒计时逻辑 | R:code:app/src/main/java/com/decikeeper/app/manager/FastLockManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+FastLockForegroundStartOrderTest.kt[TQ7M]: F:验证快速锁定前台启动顺序 | R:code:app/src/main/java/com/decikeeper/app/manager/FastLockManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+FastLockLogicTest.kt[TQ7M]: F:验证快速锁定业务逻辑 | R:code:app/src/main/java/com/decikeeper/app/manager/FastLockManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+FastLockServiceRuntimeTest.kt[TQ7M]: F:验证快速锁定服务运行时行为 | R:code:app/src/main/java/com/decikeeper/app/service/FastLockService.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+FeedbackContactContractTest.kt[TQ7M]: F:验证反馈联系契约 | R:code:app/src/main/java/com/decikeeper/app/ui/FeedbackActivity.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+FgDecisionCompactGateTest.kt[TQ7M]: F:验证前台决策压缩门禁 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundGuard.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+FloatingWindowProtectionManagerTest.kt[TQ7M]: F:验证悬浮窗保护管理逻辑 | R:code:app/src/main/java/com/decikeeper/app/manager/FloatingWindowProtectionManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ForegroundDetectionLogTest.kt[TQ7M]: F:验证前台检测日志记录 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundDetectionManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ForegroundDiagnosticReportTest.kt[TQ7M]: F:验证前台诊断报告 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundDetectionManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ForegroundEvidencePolicyTest.kt[TQ7M]: F:验证前台证据策略 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundDetectionManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ForegroundGuardFallbackGateTest.kt[TQ7M]: F:验证前台保护回退门禁 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundGuard.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ForegroundLegacyLogRetirementTest.kt[TQ7M]: F:验证前台旧日志退役 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundDetectionManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ForegroundNormalEventTest.kt[TQ7M]: F:验证前台正常事件处理 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundDetectionManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ForegroundSessionTrackerTest.kt[TQ7M]: F:验证前台会话跟踪 | R:code:app/src/main/java/com/decikeeper/app/manager/ForegroundSessionTracker.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+HeartbeatDivergenceTest.kt[TQ7M]: F:验证心跳分歧检测 | R:code:app/src/main/java/com/decikeeper/app/manager/HeartbeatManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+HelpManualSingleSourceContractTest.kt[TQ7M]: F:验证帮助手册单一来源契约 | R:code:docs/README.md | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+HomeStatusPresentationTest.kt[TQ7M]: F:验证首页状态展示 | R:code:app/src/main/java/com/decikeeper/app/ui/HomeFragment.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LegalEntryRegistryTest.kt[TQ7M]: F:验证法律条目注册表 | R:code:app/src/main/java/com/decikeeper/app/legal/LegalEntryRegistry.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LockDecisionPolicyTest.kt[TQ7M]: F:验证锁定决策策略 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecisionPolicy.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LockExitAuthorityContractTest.kt[TQ7M]: F:验证锁定退出授权契约 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecisionPolicy.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LockExitEvidenceDedupTest.kt[TQ7M]: F:验证锁定退出证据去重 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecisionPolicy.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LockGenerationIsolationTest.kt[TQ7M]: F:验证锁定代次隔离 | R:code:app/src/main/java/com/decikeeper/app/manager/LockDecisionPolicy.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LockLifecycleEventTest.kt[TQ7M]: F:验证锁定生命周期事件 | R:code:app/src/main/java/com/decikeeper/app/manager/LockLifecycleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LockScreenPresentationPolicyTest.kt[TQ7M]: F:验证锁屏展示策略 | R:code:app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LogEventMigrationInventoryTest.kt[TQ7M]: F:验证日志事件迁移清单 | R:code:app/src/main/java/com/decikeeper/app/manager/AuditLogManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LogExportReductionTest.kt[TQ7M]: F:验证日志导出精简策略 | R:code:app/src/main/java/com/decikeeper/app/manager/AuditLogManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LogExporterNormalEventTest.kt[TQ7M]: F:验证日志导出正常事件 | R:code:app/src/main/java/com/decikeeper/app/manager/AuditLogManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LogExporterStatusReportDedupTest.kt[TQ7M]: F:验证日志状态报告去重 | R:code:app/src/main/java/com/decikeeper/app/manager/AuditLogManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LogFormatterTest.kt[TQ7M]: F:验证日志格式化 | R:code:app/src/main/java/com/decikeeper/app/manager/AuditLogManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LogSourceDistributionTest.kt[TQ7M]: F:验证日志来源分布 | R:code:app/src/main/java/com/decikeeper/app/manager/AuditLogManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+LogicalDayActivationTest.kt[TQ7M]: F:验证逻辑业务日激活 | R:code:app/src/main/java/com/decikeeper/app/data/TimeSegmentJson.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+MainActivityEntryDecisionTest.kt[TQ7M]: F:验证主Activity入口决策 | R:code:app/src/main/java/com/decikeeper/app/MainActivity.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+MainActivityFallbackPendingExtrasTest.kt[TQ7M]: F:验证主Activity待处理参数回退 | R:code:app/src/main/java/com/decikeeper/app/MainActivity.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+MinuteBoundaryMalformedValidationTest.kt[TQ7M]: F:验证分钟边界格式校验 | R:code:app/src/main/java/com/decikeeper/app/data/TimeSegmentJson.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+MonitorServiceSingleEmissionTest.kt[TQ7M]: F:验证监控服务单次事件发射 | R:code:app/src/main/java/com/decikeeper/app/service/MonitorService.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+NormalEventLogTest.kt[TQ7M]: F:验证正常事件日志 | R:code:app/src/main/java/com/decikeeper/app/manager/AuditLogManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+NormalEventStateTrackerTest.kt[TQ7M]: F:验证正常事件状态跟踪 | R:code:app/src/main/java/com/decikeeper/app/manager/NormalEventStateTracker.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PackageForegroundEventExtractorTest.kt[TQ7M]: F:验证应用前台事件提取 | R:code:app/src/main/java/com/decikeeper/app/service/PackageForegroundEventExtractor.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PenaltyDisplayCommitTest.kt[TQ7M]: F:验证惩罚展示提交 | R:code:app/src/main/java/com/decikeeper/app/manager/PenaltyDisplayManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PenaltyDisplayCommitTestController.kt[TQ7M]: F:验证惩罚展示提交测试控制器 | R:code:app/src/main/java/com/decikeeper/app/manager/PenaltyDisplayManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PenaltyPayloadEquivalenceTest.kt[TQ7M]: F:验证惩罚载荷等价性 | R:code:app/src/main/java/com/decikeeper/app/manager/PenaltyManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PenaltyReclockIntegrationTest.kt[TQ7M]: F:验证惩罚重计时集成 | R:code:app/src/main/java/com/decikeeper/app/manager/PenaltyManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PendingMainActivityExtrasContractTest.kt[TQ7M]: F:验证主Activity待处理参数契约 | R:code:app/src/main/java/com/decikeeper/app/MainActivity.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PrivacyConsentDecisionTest.kt[TQ7M]: F:验证隐私同意决策 | R:code:app/src/main/java/com/decikeeper/app/ui/PrivacyConsentActivity.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PrivacyProtectionRetirementContractTest.kt[TQ7M]: F:验证隐私保护退役契约 | R:code:app/src/main/java/com/decikeeper/app/manager/PrivacyProtectionManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PrivacySpaceGuardEnforcementTest.kt[TQ7M]: F:验证隐私空间保护执行 | R:code:app/src/main/java/com/decikeeper/app/manager/PrivacySpaceGuard.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PrivacySpaceGuardRulesTest.kt[TQ7M]: F:验证隐私空间保护规则 | R:code:app/src/main/java/com/decikeeper/app/manager/PrivacySpaceGuard.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PrivateSpaceImmediateBlockTest.kt[TQ7M]: F:验证私密空间即时阻断 | R:code:app/src/main/java/com/decikeeper/app/manager/PrivacySpaceGuard.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+PrivilegeAutoClampTest.kt[TQ7M]: F:验证权限等级自动钳制 | R:code:app/src/main/java/com/decikeeper/app/manager/PrivilegeManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+QuotaConfigEventTest.kt[TQ7M]: F:验证额度配置事件 | R:code:app/src/main/java/com/decikeeper/app/manager/QuotaManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+QuotaDetailModelTest.kt[TQ7M]: F:验证额度详情模型 | R:code:app/src/main/java/com/decikeeper/app/manager/QuotaManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+QuotaProductionMigrationTest.kt[TQ7M]: F:验证额度生产数据迁移 | R:code:app/src/main/java/com/decikeeper/app/manager/QuotaManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+RecentTasksHideManagerTest.kt[TQ7M]: F:验证最近任务隐藏管理 | R:code:app/src/main/java/com/decikeeper/app/manager/RecentTasksHideManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ReturnHomePenaltySourceContractTest.kt[TQ7M]: F:验证返回首页惩罚来源契约 | R:code:app/src/main/java/com/decikeeper/app/manager/PenaltyManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+ReviewTranslationTest.kt[TQ7M]: F:验证复核翻译文本 | R:code:app/src/main/java/com/decikeeper/app/manager/TranslationManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+RuleDisplayBaselineConsistencyTest.kt[TQ7M]: F:验证规则展示基线一致性 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+RulesSettingsUiContractTest.kt[TQ7M]: F:验证规则设置界面契约 | R:code:app/src/main/java/com/decikeeper/app/ui/RulesSettingsFragment.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+SegmentBillingTest.kt[TQ7M]: F:验证时间段计费 | R:code:app/src/main/java/com/decikeeper/app/manager/SegmentBillingManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+SegmentBlacklistDecisionTest.kt[TQ7M]: F:验证时间段黑名单决策 | R:code:app/src/main/java/com/decikeeper/app/manager/SegmentBlacklistManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+SegmentCarryEligibilityTest.kt[TQ7M]: F:验证时间段携带资格 | R:code:app/src/main/java/com/decikeeper/app/manager/SegmentCarryManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+SegmentListAddOnGlobalReproTest.kt[TQ7M]: F:验证时间段列表附加项全局复现 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+SegmentListAdverseTest.kt[TQ7M]: F:验证时间段列表逆向场景 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+SegmentListJsonCompatTest.kt[TQ7M]: F:验证时间段列表JSON兼容 | R:code:app/src/main/java/com/decikeeper/app/data/TimeSegmentJson.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+SegmentListUiStateTest.kt[TQ7M]: F:验证时间段列表界面状态 | R:code:app/src/main/java/com/decikeeper/app/ui/TimeRuleListFragment.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TemporaryAccessChargeSnapshotTest.kt[TQ7M]: F:验证临时访问计费快照 | R:code:app/src/main/java/com/decikeeper/app/manager/TemporaryAccessManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TemporaryAccessMinuteInputTest.kt[TQ7M]: F:验证临时访问分钟输入 | R:code:app/src/main/java/com/decikeeper/app/manager/TemporaryAccessManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TemporaryAccessQuotaPlanTest.kt[TQ7M]: F:验证临时访问额度计划 | R:code:app/src/main/java/com/decikeeper/app/manager/TemporaryAccessManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TemporaryAccessQuotaPresentationTest.kt[TQ7M]: F:验证临时访问额度展示 | R:code:app/src/main/java/com/decikeeper/app/ui/TemporaryAccessDialog.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TemporaryAccessUserFacingCopyContractTest.kt[TQ7M]: F:验证临时访问用户文案契约 | R:code:app/src/main/java/com/decikeeper/app/ui/TemporaryAccessDialog.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TestScenarioManager.kt[TQ7M]: F:验证测试场景管理 | R:code:app/src/test/java/com/decikeeper/app/TestScenarioManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TestScenarioRunner.kt[TQ7M]: F:验证测试场景运行 | R:code:app/src/test/java/com/decikeeper/app/TestScenarioRunner.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TimeRuleManagerTest.kt[TQ7M]: F:验证时间规则管理 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TimeRulesAccessGateTest.kt[TQ7M]: F:验证时间规则访问门禁 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+TimeRulesInformationArchitectureContractTest.kt[TQ7M]: F:验证时间规则信息架构契约 | R:code:app/src/main/java/com/decikeeper/app/ui/TimeRuleListFragment.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+UiMasterLayoutContractTest.kt[TQ7M]: F:验证界面主布局契约 | R:code:app/src/main/res/layout/activity_main.xml | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+UiVisualMasterContractTest.kt[TQ7M]: F:验证界面视觉主契约 | R:code:app/src/main/res/layout/activity_main.xml | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+UsableCountLedgerMigrationTest.kt[TQ7M]: F:验证可用次数账本迁移 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+UsableCountTest.kt[TQ7M]: F:验证可用次数计算 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+WeightedRestCountTest.kt[TQ7M]: F:验证加权休息次数计算 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+CreditImportQuotaNormalizationTest.kt[TQ7M]: F:验证信用额度导入归一化 | R:code:app/src/main/java/com/decikeeper/app/manager/CreditManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+WordLookupAndBookmarkTest.kt[TQ7M]: F:验证单词查询和书签 | R:code:app/src/main/java/com/decikeeper/app/questionbank/WordLookupManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/test/java/com/decikeeper/app/data/===
+AutoBlacklistConfigTest.kt[TQ7M]: F:验证自动黑名单配置 | R:code:app/src/main/java/com/decikeeper/app/data/AutoBlacklistConfig.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/test/java/com/decikeeper/app/manager/===
+AutoBackupManagerTest.kt[TQ7M]: F:验证自动备份管理 | R:code:app/src/main/java/com/decikeeper/app/manager/AutoBackupManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/test/java/com/decikeeper/app/questionbank/===
+BookmarkTabManagementTest.kt[TQ7M]: F:验证书签标签管理 | R:code:app/src/main/java/com/decikeeper/app/questionbank/BookmarkManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+CustomQuestionBankImportUiContractTest.kt[TQ7M]: F:验证自定义题库导入界面契约 | R:code:app/src/main/java/com/decikeeper/app/questionbank/CustomQuestionBankManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+CustomQuestionBankManagerTest.kt[TQ7M]: F:验证自定义题库管理 | R:code:app/src/main/java/com/decikeeper/app/questionbank/CustomQuestionBankManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+CustomQuestionBankParserRobustnessTest.kt[TQ7M]: F:验证自定义题库解析健壮性 | R:code:app/src/main/java/com/decikeeper/app/questionbank/CustomQuestionBankParser.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+CustomQuestionBankParserTest.kt[TQ7M]: F:验证自定义题库解析 | R:code:app/src/main/java/com/decikeeper/app/questionbank/CustomQuestionBankParser.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+CustomQuestionBankPromptTest.kt[TQ7M]: F:验证自定义题库提示文本 | R:code:app/src/main/java/com/decikeeper/app/questionbank/CustomQuestionBankManager.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/test/java/com/decikeeper/app/service/===
+AccessibilityWindowSnapshotTest.kt[TQ7M]: F:验证无障碍窗口快照 | R:code:app/src/main/java/com/decikeeper/app/service/AccessibilityWindowSnapshot.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+CoreServiceInterruptLifecycleTest.kt[TQ7M]: F:验证核心服务中断生命周期 | R:code:app/src/main/java/com/decikeeper/app/service/CoreService.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+VisibleBlacklistLockPolicyTest.kt[TQ7M]: F:验证可见黑名单锁定策略 | R:code:app/src/main/java/com/decikeeper/app/service/MonitorService.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+VisibleBlacklistPresenceAccessibilityGateTest.kt[TQ7M]: F:验证可见黑名单存在性无障碍门禁 | R:code:app/src/main/java/com/decikeeper/app/service/MonitorService.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+VisibleBlacklistPresenceRevalidationTest.kt[TQ7M]: F:验证可见黑名单存在性复核 | R:code:app/src/main/java/com/decikeeper/app/service/MonitorService.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+VisibleBlacklistPresenceTrackerTest.kt[TQ7M]: F:验证可见黑名单存在性跟踪 | R:code:app/src/main/java/com/decikeeper/app/service/MonitorService.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+VisibleBlacklistStoppedRelockRegressionTest.kt[TQ7M]: F:验证可见黑名单停止后重新锁定回归 | R:code:app/src/main/java/com/decikeeper/app/service/MonitorService.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+
+===G:/IronWIl0329/IronWill-OpenSource/app/src/test/java/com/decikeeper/app/statistics/===
+AlarmWakeMultipleRecordsAndHistoryTest.kt[TQ7M]: F:验证闹钟唤醒多记录与历史 | R:code:app/src/main/java/com/decikeeper/app/statistics/StatisticsRepository.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+AlarmWakeStatisticsIntegrationTest.kt[TQ7M]: F:验证闹钟唤醒统计集成 | R:code:app/src/main/java/com/decikeeper/app/statistics/StatisticsRepository.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+RestStatsRecorderAndHistoryTest.kt[TQ7M]: F:验证休息统计记录与历史 | R:code:app/src/main/java/com/decikeeper/app/statistics/RestStatsRecorder.kt | A:生产契约回归测试 | S:测试应绑定真实生产调用链并在失败时暴露行为偏差
+StatisticsCategoryResolutionTest.kt[TQ7M]: F:验证统计分类解析 | R:code:app/src/main/java/com/decikeeper/app/statistics/StatisticsRepository.kt | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+StatisticsRepositoryTest.kt[TQ7M]: F:验证统计仓储读写和聚合 | R:code:app/src/main/java/com/decikeeper/app/statistics/StatisticsRepository.kt | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+StatsDateRangeResolverTest.kt[TQ7M]: F:验证统计日期范围解析 | R:code:app/src/main/java/com/decikeeper/app/statistics/StatsDateRangeResolver.kt | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/===
+ARCHITECTURE.md[SG8M]: F:说明核心系统架构、依赖流向与重构路线 | R:code:SPEC.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+DATA_SOURCES.md[SG7M]: F:说明学习数据来源、版权清洗与剥离边界 | R:code:SPEC.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+PUBLISHING.md[SG7M]: F:规定构建签名、双推与发版检查清单 | R:code:HISTORY.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+README.md[SG8M]: F:说明docs目录的文档架构、职责与维护门禁 | R:code:SPEC.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+THIRD_PARTY_NOTICES.md[SG7M]: F:记录第三方组件与库的许可证声明 | R:code:DATA_SOURCES.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+decikeeper_ui_showcase.html[SG7M]: F:展示DeciKeeper界面与交互样例 | R:code:SPEC.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+使用手册.md[SG8M]: F:提供面向最终用户的完整操作与使用说明 | R:code:SPEC.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/ai/===
+LOG_EVENT_MIGRATION.md[SG7M]: F:记录日志事件迁移方案与约束 | R:code:docs/specs/data.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/archive/===
+script.js[SG6M]: F:提供文档归档页面的交互脚本 | R:code:docs/archive/index.html | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/history/===
+issue_tracker.md[SG8L]: F:记录历史缺陷、排查与防回归证据 | R:code:HISTORY.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/images/badges/===
+ai-image-20260904-220431-39996-01.svg[SG5T]: F:提供文档徽章图形资源 | R:code:docs/README.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+ai-image-20260904-220431-39996-02.svg[SG5T]: F:提供文档徽章图形资源 | R:code:docs/README.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+ai-image-20260904-220431-39996-03.svg[SG5T]: F:提供文档徽章图形资源 | R:code:docs/README.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/plans/===
+2026-09-05-ui-unification-handover.md[SG7M]: F:记录首页界面统一交接计划 | R:code:PLAN.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+task-feedback-paradigm.md[SG7M]: F:记录反馈范式专项计划 | R:code:PLAN.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/specs/===
+alarm.md[SG9L]: F:定义起床闹钟、挑战、双阶段与恢复规格 | R:code:SPEC.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+data.md[SG9L]: F:定义业务日、Active/Baseline/Pending与持久化规格 | R:code:SPEC.md | A:文档与构建认知 | S:文档和构建配置必须与当前规格、实现和验证证据保持一致
+focus.md[SG9L]: F:定义时间规则、额度、休息、临时解锁和每周特权规格 | R:code:SPEC.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+protection.md[SG9L]: F:定义无障碍、防卸载、防关权限、隐私空间和防关机规格 | R:code:SPEC.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+statistics.md[SG9L]: F:定义统计记录、分类、历史和展示规格 | R:code:SPEC.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/superpowers/handoffs/===
+2026-09-10-alarm-direct-boot-fix-spec.md[SG7M]: F:记录闹钟直启修复的规格与边界 | R:code:docs/specs/alarm.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+2026-09-10-alarm-direct-boot-implementation-handoff.md[SG7M]: F:记录闹钟直启修复的实现交接证据 | R:code:docs/specs/alarm.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/superpowers/plans/===
+2026-09-06-ui-master-alignment.md[SG7M]: F:记录首页与锁屏界面对齐实施计划 | R:code:PLAN.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+2026-09-08-alarm-alert-policy.md[SG7M]: F:记录闹钟提醒策略专项计划 | R:code:docs/specs/alarm.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+2026-09-08-alarm-reminder-redesign.md[SG7M]: F:记录闹钟提醒重构专项计划 | R:code:docs/specs/alarm.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+2026-09-10-protection-settings-enhancement.md[SG7M]: F:记录保护设置增强专项计划 | R:code:docs/specs/protection.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/superpowers/reviews/===
+2026-09-10-alarm-completion-cooldown-final-review.md[SG7T]: F:记录闹钟完成冷却最终复核结论 | R:code:HISTORY.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+2026-09-10-alarm-completion-cooldown-review.md[SG7T]: F:记录闹钟完成冷却复核过程 | R:code:HISTORY.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+2026-09-10-alarm-direct-boot-review.md[SG7T]: F:记录闹钟直启修复复核结论 | R:code:HISTORY.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/verification/===
+2026-09-06-vivo-ui-session-verification.md[SG7T]: F:记录vivo设备界面会话验证证据 | R:code:HISTORY.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/docs/work/===
+task-brand-cleanup-decikeeper.md[SG7M]: F:记录DeciKeeper品牌清理工作 | R:code:PLAN.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+task-feedback-paradigm.md[SG7M]: F:记录反馈范式专项工作 | R:code:PLAN.md | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/gradle/===
+libs.versions.toml[FV7M]: F:集中声明Gradle依赖与插件版本 | R:code:build.gradle.kts | A:文档、规格与构建认知 | S:内容必须与当前规格、实现和验证证据保持一致
+
+===G:/IronWIl0329/IronWill-OpenSource/gradle/wrapper/===
+gradle-wrapper.properties[FV7M]: F:固定Gradle Wrapper发行版与下载校验配置 | R:code:gradle/libs.versions.toml | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+
+===G:/IronWIl0329/IronWill-OpenSource/scripts/===
+README.md[SG7M]: F:说明脚本目录用途、入口与运行约定 | R:code:AGENT_CORE.md | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+_clean_cloze_opensource.py[SG7M]: F:清理填空题库开源数据与非发布内容 | R:code:app/src/main/assets/cloze_pool.json | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+_extract_cloze_translation_items.py[SG7M]: F:提取填空题翻译条目供批处理 | R:code:app/src/main/assets/cloze_pool.json | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+_gen_ai_translation_inventory.py[SG7M]: F:生成AI翻译审查清单 | R:code:scripts/_extract_cloze_translation_items.py | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+_gen_wordlist.py[SG7M]: F:生成学习单词清单数据 | R:code:app/src/main/assets/cloze_pool.json | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+_merge_ai_translations.py[SG7M]: F:合并AI翻译结果并保留审查边界 | R:code:scripts/_gen_ai_translation_inventory.py | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+_merge_cloze_ai_translations.py[SG7M]: F:合并填空题AI翻译结果 | R:code:app/src/main/assets/cloze_pool.json | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+_split_translation_batches.py[SG7M]: F:拆分翻译任务批次 | R:code:scripts/_gen_ai_translation_inventory.py | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+apply_alarm_reminder_redesign.py[SG7M]: F:应用闹钟提醒重构的受控文本与代码变更 | R:code:app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+audit_log_export.py[SG7M]: F:导出审计日志并执行隐私字段裁剪 | R:code:app/src/main/java/com/decikeeper/app/manager/AuditLogManager.kt | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+rename_decikeeper.py[SG7M]: F:执行项目品牌名称的受控批量替换 | R:code:AGENT_CORE.md | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+
+===G:/IronWIl0329/IronWill-OpenSource/scripts/archive/===
+apply-time-window-guard-fix.ps1[SG7M]: F:应用时间窗保护修复并执行受控验证 | R:code:app/src/main/java/com/decikeeper/app/manager/TimeRuleManager.kt | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+wait_unlock_and_install.py[SG7T]: F:等待解锁条件并执行本地安装验证 | R:code:app/build.gradle.kts | A:构建与维护工具认知 | S:脚本和构建入口必须保留可复现执行边界并与当前项目证据一致
+
+===G:/IronWIl0329/IronWill-OpenSource/宣传视频制作/===
+README.md[SG7M]: F:说明首发视频内容资产、稿件真相源与统计维护约定 | R:code:narration_count.py | A:首发内容资产认知 | S:口播、镜头、排期和统计口径必须保持单一来源且可复核
+narration_count.py[SG7M]: F:统计首发视频旁白字数、时长与排期口径 | R:code:宣传视频制作/video1_narration.md | A:首发内容资产认知 | S:口播、镜头、排期和统计口径必须保持单一来源且可复核
+video1_howto_outline.md[SG7M]: F:规划视频一的上手演示节点与部署说明 | R:code:宣传视频制作/video1_narration.md | A:首发内容资产认知 | S:口播、镜头、排期和统计口径必须保持单一来源且可复核
+video1_narration.md[SG7M]: F:提供视频一首发内容的定稿旁白与时间码 | R:code:SPEC.md | A:首发内容资产认知 | S:口播、镜头、排期和统计口径必须保持单一来源且可复核
+video1_outline.md[SG7M]: F:规划视频一的内容结构与镜头节点 | R:code:宣传视频制作/video1_narration.md | A:首发内容资产认知 | S:口播、镜头、排期和统计口径必须保持单一来源且可复核
+video1_shotlist.md[SG7M]: F:列出视频一的镜头、画面与录制要求 | R:code:宣传视频制作/video1_outline.md | A:首发内容资产认知 | S:口播、镜头、排期和统计口径必须保持单一来源且可复核
+video2_narration.md[SG7M]: F:提供视频二使用指南的定稿旁白 | R:code:宣传视频制作/video2_outline.md | A:首发内容资产认知 | S:口播、镜头、排期和统计口径必须保持单一来源且可复核
+video2_outline.md[SG7M]: F:规划视频二的录屏分段、操作演示与时间码 | R:code:宣传视频制作/video2_narration.md | A:首发内容资产认知 | S:口播、镜头、排期和统计口径必须保持单一来源且可复核

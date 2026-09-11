@@ -1,28 +1,40 @@
 package com.decikeeper.app.service
 
+import com.decikeeper.app.manager.FloatingWindowProtectionManager
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class VisibleBlacklistPresenceAccessibilityGateTest {
 
     private val targetPkg = "com.tencent.mm"
     private var originalServiceActive = false
     private var originalVisiblePackages: Set<String> = emptySet()
+    private val context = RuntimeEnvironment.getApplication()
 
     @Before
     fun saveCoreServiceState() {
         originalServiceActive = CoreService.isServiceActive
         originalVisiblePackages = CoreService.lastVisiblePackagesFromWindows
+        context.getSharedPreferences(FloatingWindowProtectionManager.PREFS_NAME, 0)
+            .edit().clear().commit()
     }
 
     @After
     fun restoreCoreServiceState() {
         CoreService.isServiceActive = originalServiceActive
         CoreService.lastVisiblePackagesFromWindows = originalVisiblePackages
+        context.getSharedPreferences(FloatingWindowProtectionManager.PREFS_NAME, 0)
+            .edit().clear().commit()
     }
 
     @Test
@@ -61,6 +73,24 @@ class VisibleBlacklistPresenceAccessibilityGateTest {
         CoreService.lastVisiblePackagesFromWindows = setOf(targetPkg, "com.bbk.launcher2")
         val tracker = VisibleBlacklistPresenceTracker(desktopGraceDurationMs = 3000L)
 
+        assertTrue(tracker.isLastTimeVisibleValid(targetPkg, 10_000L))
+    }
+
+    @Test
+    fun `disabled floating protection rejects accessibility-backed presence`() {
+        CoreService.isServiceActive = true
+        CoreService.lastVisiblePackagesFromWindows = setOf(targetPkg)
+        val tracker = VisibleBlacklistPresenceTracker(
+            desktopGraceDurationMs = 3000L,
+            protectionContext = context
+        )
+
+        assertFalse(tracker.isLastTimeVisibleValid(targetPkg, 10_000L))
+
+        context.getSharedPreferences(FloatingWindowProtectionManager.PREFS_NAME, 0)
+            .edit()
+            .putBoolean(FloatingWindowProtectionManager.KEY_IS_ENABLED, true)
+            .commit()
         assertTrue(tracker.isLastTimeVisibleValid(targetPkg, 10_000L))
     }
 }

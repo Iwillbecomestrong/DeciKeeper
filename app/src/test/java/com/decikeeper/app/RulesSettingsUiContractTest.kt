@@ -12,18 +12,18 @@ class RulesSettingsUiContractTest {
     fun settingsPageUsesApprovedProtectionHierarchy() {
         val xml = source("app/src/main/res/layout/fragment_rules.xml")
 
-        assertTrue(xml.indexOf("android:text=\"无障碍服务\"") < xml.indexOf("android:text=\"加强约束功能\""))
+        assertTrue(xml.indexOf("android:text=\"无障碍服务\"") < xml.indexOf("@string/settings_protection_section_title"))
         assertTrue(
-            xml.indexOf("android:text=\"小窗可见性识别与防关权限保护\"") <
-                xml.indexOf("android:text=\"隐私空间保护\"")
+            xml.indexOf("@string/settings_protection_alarm_title") <
+                xml.indexOf("@string/settings_protection_floating_title")
         )
         assertTrue(
-            xml.indexOf("android:text=\"隐私空间保护\"") <
-                xml.indexOf("android:text=\"防卸载增强\"")
+            xml.indexOf("@string/settings_protection_floating_title") <
+                xml.indexOf("@string/settings_protection_privacy_title")
         )
         assertTrue(
-            xml.indexOf("android:text=\"防卸载增强\"") <
-                xml.indexOf("android:text=\"闹钟防关机保护\"")
+            xml.indexOf("@string/settings_protection_privacy_title") <
+                xml.indexOf("@string/settings_protection_uninstall_perm_title")
         )
         assertFalse(xml.contains("查看日志"))
         assertEquals(1, Regex("android:text=\"导出日志\"").findAll(xml).count())
@@ -34,10 +34,10 @@ class RulesSettingsUiContractTest {
         val xml = source("app/src/main/res/layout/fragment_rules.xml")
         val rows = listOf(
             "switch_accessibility_service",
-            "switch_accessibility",
+            "switch_alarm_power_off_protection",
+            "switch_floating_window_protection",
             "switch_privacy_space_guard",
-            "switch_uninstall_protection",
-            "switch_alarm_power_off_protection"
+            "switch_uninstall_and_perm_protection"
         )
 
         rows.forEach { switchId ->
@@ -47,6 +47,22 @@ class RulesSettingsUiContractTest {
             val helpIndex = xml.lastIndexOf("?", switchIndex)
             assertTrue("$switchId needs a help control before its switch", helpIndex > rowStart)
         }
+    }
+
+    @Test
+    fun protectionRowsUseUnifiedNamesAndStatusContract() {
+        val xml = source("app/src/main/res/layout/fragment_rules.xml")
+        val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
+
+        assertFalse(xml.contains("switch_accessibility\""))
+        assertFalse(xml.contains("switch_uninstall_protection\""))
+        assertTrue(source.contains("showLockScreenMissingWarningDialog"))
+        assertTrue(source.contains("不开锁屏，仍要开启"))
+        assertTrue(source.contains("disableUninstallAndPermProtection(ctx)"))
+        assertFalse(source.contains("showUninstallAndPermDisableDialog"))
+        assertTrue(source.contains("状态: 已开启"))
+        assertTrue(source.contains("状态: 未开启"))
+        assertTrue(source.contains("状态: 待关闭（明日生效）"))
     }
 
     @Test
@@ -95,10 +111,11 @@ class RulesSettingsUiContractTest {
         val settings = source("app/src/main/res/layout/fragment_rules.xml")
 
         assertTrue(source.contains("const val TAB_GLOBAL_PARAMS = 2"))
-        assertTrue(source.contains("setText(\"全局参数\")"))
+        assertTrue(source.contains("setText(\"规则参数\")"))
         assertTrue(source.contains("container_global_params"))
         assertTrue(source.contains("GlobalParamsFragment"))
         assertFalse(settings.contains("全局参数"))
+        assertFalse(settings.contains("规则参数"))
     }
 
     @Test
@@ -111,7 +128,7 @@ class RulesSettingsUiContractTest {
     fun alarmGuideOnlyOffersLockScreenActionAfterAccessibilityGate() {
         val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
         val start = source.indexOf("private fun showAlarmPowerOffProtectionGuideDialog()")
-        val end = source.indexOf("private fun showLockScreenSuggestionDialog()", start)
+        val end = source.indexOf("private fun showLockScreenMissingWarningDialog()", start)
         val guide = source.substring(start, end)
 
         assertTrue(guide.contains("去开启锁屏显示"))
@@ -124,7 +141,7 @@ class RulesSettingsUiContractTest {
     fun alarmGuideUsesHorizontalPermissionMatrixLikeAccessibilityGuide() {
         val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
         val start = source.indexOf("private fun showAlarmPowerOffProtectionGuideDialog()")
-        val end = source.indexOf("private fun showLockScreenSuggestionDialog()", start)
+        val end = source.indexOf("private fun showLockScreenMissingWarningDialog()", start)
         val guide = source.substring(start, end)
 
         assertTrue(guide.contains("orientation = LinearLayout.HORIZONTAL"))
@@ -139,6 +156,26 @@ class RulesSettingsUiContractTest {
         val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
         assertTrue(source.contains("alarmPrerequisiteDialogRefresh?.invoke()"))
         assertTrue(source.contains("alarmPrerequisiteDialogRefresh = { updateDialogUi() }"))
+    }
+
+    @Test
+    fun refreshTimeSyncFollowsEarliestEndingSegmentInAllowedWindow() {
+        val midnight = com.decikeeper.app.data.TimeSegment(23, 0, 7, 30, 10, "深夜")
+        val morning = com.decikeeper.app.data.TimeSegment(8, 15, 12, 0, 30, "上午")
+        val afternoon = com.decikeeper.app.data.TimeSegment(12, 45, 16, 45, 35, "下午")
+        val evening = com.decikeeper.app.data.TimeSegment(17, 30, 22, 0, 35, "晚上")
+
+        val segments = listOf(morning, afternoon, evening, midnight)
+        val syncTime = com.decikeeper.app.manager.TimeRuleManager.findRefreshTimeFromSegments(segments)
+        org.junit.Assert.assertEquals("07:30", syncTime)
+
+        val globalParamsFragmentSource = source("app/src/main/java/com/decikeeper/app/ui/GlobalParamsFragment.kt")
+        assertTrue(globalParamsFragmentSource.contains("findRefreshTimeFromSegments"))
+        assertFalse(globalParamsFragmentSource.contains("firstSeg.startHour, firstSeg.startMinute"))
+
+        val globalParamsActivitySource = source("app/src/main/java/com/decikeeper/app/ui/GlobalParamsActivity.kt")
+        assertTrue(globalParamsActivitySource.contains("findRefreshTimeFromSegments"))
+        assertFalse(globalParamsActivitySource.contains("firstSeg.startHour, firstSeg.startMinute"))
     }
 
     private fun source(path: String): String {

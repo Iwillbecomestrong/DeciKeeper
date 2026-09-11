@@ -58,6 +58,8 @@ import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SegmentBlacklist
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.data.TimeSegment
+import com.decikeeper.app.manager.expiry.ExpiryCoordinator
+import com.decikeeper.app.manager.expiry.ExpiryReason
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import com.decikeeper.app.data.resolveAccessibilityFailureClass
 import com.decikeeper.app.manager.AppWindowManager
@@ -1245,8 +1247,9 @@ class MonitorService : Service() {
         CreditManager.clearRestSession(this)
         
         if (!naturalFreedom) {
-            // 🚀 [Rule] 普通到期仍无条件锁屏；自然进入双自由区时静默结束。
-            LockWindowManager.showLockScreen("Monitor: Free Time End")
+            // 🚀 [Unified Expiry] 普通到期通过 ExpiryCoordinator 评估，不直接硬锁
+            Log.i(TAG, "Free time ended, evaluating via ExpiryCoordinator")
+            ExpiryCoordinator.evaluate(this, ExpiryReason.FREE_TIME_END)
         } else {
             LogExporter.i("Rest", "[NATURAL_FREEDOM] settled silently, cooldown cleared")
         }
@@ -1307,7 +1310,12 @@ class MonitorService : Service() {
     private val STARTUP_PROTECTION_DURATION = 3000L // Reduced to 3s for faster protection
 
     // 🚀 [Presence Tracker] 状态机：负责跟踪已确认黑名单小窗的生命周期直到收到明确关闭证据
-    private val mPresenceTracker = VisibleBlacklistPresenceTracker(desktopGraceDurationMs = 3000L)
+    private val mPresenceTracker by lazy(LazyThreadSafetyMode.NONE) {
+        VisibleBlacklistPresenceTracker(
+            desktopGraceDurationMs = 3000L,
+            protectionContext = applicationContext
+        )
+    }
     // 🛡️ [High-Water Mark] 记录每个包最近处理过的事件时间戳与同毫秒事件签名集合，避免 30s UsageEvents 重复遍历导致旧事件重放
     private val mLastProcessedPresenceEventAtMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val mProcessedSignaturesAtLastTs = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
@@ -1716,10 +1724,10 @@ class MonitorService : Service() {
         wasPrivilegeActiveLastPoll = isPrivilege
         val isDndLocked = isInSegment && !isFreeTime
 
-        // 🚀 [Rule] 特权到期 → 无条件锁屏
+        // 🚀 [Unified Expiry] 特权到期 → 统一通过 ExpiryCoordinator 评估，不直接硬锁
         if (privilegeJustEnded) {
-            Log.i(TAG, "Weekly privilege ended, force locking immediately")
-            LockWindowManager.showLockScreen("Monitor: Weekly Privilege Ended")
+            Log.i(TAG, "Weekly privilege ended, evaluating via ExpiryCoordinator")
+            ExpiryCoordinator.evaluate(this, ExpiryReason.PRIVILEGE_END)
         }
 
         // 🚀 [Logic] Trigger Cooling ONLY on transition to Monitored Segment
@@ -2077,13 +2085,14 @@ class MonitorService : Service() {
         val temporarySnapshot = LockWindowManager.getTemporaryAccessSnapshot(this, now)
 
         LockWindowManager.recordForegroundDetection(effectivePackageName)
+        // 🚀 [Unified Expiry] 通知 ExpiryCoordinator 进行桌面等待状态机监听
+        ExpiryCoordinator.onForegroundDetected(this@MonitorService, effectivePackageName)
+
         // Track last non-launcher app for privilege desktop streak
         if (!CreditManager.isLauncher(effectivePackageName) && effectivePackageName != this@MonitorService.packageName) { LockWindowManager.privilegeLastNonLauncherPkg = effectivePackageName }
 
         // ⏱️ [规则 A] 桌面累计计时器：临时解锁期间连续桌面满 35 秒就锁
         if (LockWindowManager.checkAndHandleDesktopStreakLock(this, effectivePackageName)) {
-        // Privilege just ended on desktop: set target for 35s timer
-        if (privilegeJustEnded && CreditManager.isLauncher(effectivePackageName)) { LockWindowManager.privilegeDesktopStreakTargetPkg = LockWindowManager.privilegeLastNonLauncherPkg }
             return
         }
 
@@ -2622,7 +2631,7 @@ class MonitorService : Service() {
             LockWindowManager.settleTemporaryAccessForNaturalFreedom(this, now)
         }
         if (decision.dismissBlacklistOverlay) {
-            Log.w(TAG, "[AUTO_RELEASE_BLOCKED] visible lock requires explicit exit")
+            Log.d(TAG, "[AUTO_RELEASE_NATURAL] restrictions cleared naturally, lock overlay unblocked by LockWindowManager")
         }
         return true
     }

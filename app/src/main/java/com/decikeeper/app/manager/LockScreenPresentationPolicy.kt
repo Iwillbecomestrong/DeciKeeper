@@ -59,7 +59,8 @@ internal fun shouldRouteEmergencyToTempAccess(
 internal fun shouldShowStandaloneTemporaryAccess(
     mode: LockOverlayRestrictionMode
 ): Boolean {
-    return mode == LockOverlayRestrictionMode.DND
+    // Spec v1.0: 纯勿扰拦截仅提供「申请休息」与「每周特权」，彻底移除独立「临时解锁」入口，消除职责混淆
+    return false
 }
 
 internal fun resolveTemporaryAccessPresentation(

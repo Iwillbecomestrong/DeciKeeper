@@ -41,7 +41,8 @@ object AccessibilityControlManager {
 
     private fun getDesiredEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_DESIRED_ENABLED, true)
+            // 防关权限保护必须由设置页合并开关显式开启；仅开启系统无障碍不能自动恢复。
+            .getBoolean(KEY_DESIRED_ENABLED, false)
     }
 
     private fun setDesiredEnabled(context: Context, enabled: Boolean) {

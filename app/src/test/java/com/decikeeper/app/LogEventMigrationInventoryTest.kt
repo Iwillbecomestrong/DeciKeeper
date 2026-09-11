@@ -324,13 +324,12 @@ class LogEventMigrationInventoryTest {
             Regex("""LogExporter\.logEvent\(\s*"Penalty"\s*,\s*"惩罚:""").containsMatchIn(lockMgr)
         )
 
-        // 2. All `[Penalty] window...` related Log.d calls must be inside the
+        // 2. All return-home `[Penalty]` diagnostics must be inside the
         //    `DefaultLogDebugConfig.quotaCalculation` gate (T4 gating).
         val penaltyWindowTokens = listOf(
-            "Log.d(TAG, \"[Penalty] window reset",
-            "Log.d(TAG, \"[Penalty] increment",
-            "Log.d(TAG, \"[Penalty] screen-on re-detection",
-            "Log.d(TAG, \"[Penalty] DND not active"
+            "Log.d(TAG, \"[Penalty] return-home click not eligible",
+            "Log.d(TAG, \"[Penalty] return-home window reset",
+            "Log.d(TAG, \"[Penalty] return-home increment"
         )
         penaltyWindowTokens.forEach { token ->
             val tokenAt = lockMgr.indexOf(token)

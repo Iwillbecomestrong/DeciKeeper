@@ -27,9 +27,9 @@ class AntiUninstallInitializationGateTest {
         val alarmOverlay = source("app/src/main/java/com/decikeeper/app/ui/LockAlarmOverlay.kt")
         val lockWindow = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
 
-        assertTrue(coreService.contains("AntiUninstallManager.shouldShowInitialization"))
-        assertTrue(alarmOverlay.contains("AntiUninstallManager.shouldShowInitialization"))
-        assertTrue(lockWindow.contains("AntiUninstallManager.shouldShowInitialization"))
+        assertTrue(coreService.contains("StartupProtectionManager.shouldKeepInitialization"))
+        assertTrue(alarmOverlay.contains("StartupProtectionManager.shouldKeepInitialization"))
+        assertTrue(lockWindow.contains("StartupProtectionManager.shouldKeepInitialization"))
     }
 
     private fun source(path: String): String {

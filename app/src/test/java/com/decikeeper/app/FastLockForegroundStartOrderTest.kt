@@ -10,7 +10,7 @@ class FastLockForegroundStartOrderTest {
     fun antiUninstallGateMustRunBeforeForegroundServiceIsRequested() {
         val source = source("app/src/main/java/com/decikeeper/app/manager/StartupProtectionManager.kt")
         val startFunction = source.substringAfter("fun startFastLock(")
-        val gate = startFunction.indexOf("AntiUninstallManager.shouldShowInitialization")
+        val gate = startFunction.indexOf("shouldKeepInitialization")
         val foregroundStart = startFunction.indexOf("context.startForegroundService(intent)")
 
         assertTrue(gate >= 0)
@@ -23,7 +23,7 @@ class FastLockForegroundStartOrderTest {
         val source = source("app/src/main/java/com/decikeeper/app/service/FastLockService.kt")
         val onCreate = source.substringAfter("override fun onCreate()")
         val foreground = onCreate.indexOf("startForegroundCompat()")
-        val gate = onCreate.indexOf("AntiUninstallManager.shouldShowInitialization")
+        val gate = onCreate.indexOf("shouldKeepInitialization")
 
         assertTrue(foreground >= 0)
         assertTrue(gate >= 0)

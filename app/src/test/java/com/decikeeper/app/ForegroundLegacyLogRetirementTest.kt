@@ -118,11 +118,10 @@ class ForegroundLegacyLogRetirementTest {
     fun penaltyWindowDiagnosticsRequireQuotaCalculation() {
         val lockMgr = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
 
-        // 4 行 `[Penalty]` 相关 Log.d 必须受 quotaCalculation 门控
-        assertGuarded(lockMgr, "Log.d(TAG, \"[Penalty] screen-on re-detection", "DefaultLogDebugConfig.quotaCalculation")
-        assertGuarded(lockMgr, "Log.d(TAG, \"[Penalty] DND not active", "DefaultLogDebugConfig.quotaCalculation")
-        assertGuarded(lockMgr, "Log.d(TAG, \"[Penalty] window reset", "DefaultLogDebugConfig.quotaCalculation")
-        assertGuarded(lockMgr, "Log.d(TAG, \"[Penalty] increment", "DefaultLogDebugConfig.quotaCalculation")
+        // Return-home penalty diagnostics must remain gated by quotaCalculation.
+        assertGuarded(lockMgr, "Log.d(TAG, \"[Penalty] return-home click not eligible", "DefaultLogDebugConfig.quotaCalculation")
+        assertGuarded(lockMgr, "Log.d(TAG, \"[Penalty] return-home window reset", "DefaultLogDebugConfig.quotaCalculation")
+        assertGuarded(lockMgr, "Log.d(TAG, \"[Penalty] return-home increment", "DefaultLogDebugConfig.quotaCalculation")
 
         // 默认关闭 — INVAR-7
         assertFalse(DefaultLogDebugConfig.quotaCalculation)

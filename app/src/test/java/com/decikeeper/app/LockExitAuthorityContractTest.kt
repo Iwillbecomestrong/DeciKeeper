@@ -16,14 +16,14 @@ class LockExitAuthorityContractTest {
     private fun source(path: String): String = File(root, path).readText()
 
     @Test
-    fun `visible lock dismiss api requires one of four explicit authorities`() {
+    fun `visible lock dismiss api requires one of explicit authorities`() {
         val authorityFile = File(
             root,
             "app/src/main/java/com/decikeeper/app/ui/LockDismissAuthority.kt"
         )
         assertTrue("LockDismissAuthority.kt must exist", authorityFile.exists())
         val authority = authorityFile.readText()
-        listOf("RETURN_HOME", "REST", "TEMPORARY_ACCESS", "WEEKLY_PRIVILEGE").forEach { value ->
+        listOf("RETURN_HOME", "REST", "TEMPORARY_ACCESS", "WEEKLY_PRIVILEGE", "NATURAL_RULE_RELEASE").forEach { value ->
             assertTrue("missing explicit exit authority $value", authority.contains(value))
         }
         assertFalse("Presence must never become an unlock authority", authority.contains("PRESENCE"))
@@ -42,7 +42,8 @@ class LockExitAuthorityContractTest {
             "LockDismissAuthority.RETURN_HOME",
             "LockDismissAuthority.REST",
             "LockDismissAuthority.TEMPORARY_ACCESS",
-            "LockDismissAuthority.WEEKLY_PRIVILEGE"
+            "LockDismissAuthority.WEEKLY_PRIVILEGE",
+            "LockDismissAuthority.NATURAL_RULE_RELEASE"
         ).forEach { call ->
             assertTrue("missing authorized exit call $call", lockWindow.contains(call))
         }
@@ -66,8 +67,8 @@ class LockExitAuthorityContractTest {
 
         val policy = source("app/src/main/java/com/decikeeper/app/manager/AutomaticRestrictionReleasePolicy.kt")
         assertTrue(
-            "natural rule changes may settle sessions but must preserve an already-visible overlay",
-            policy.contains("dismissBlacklistOverlay = false")
+            "Spec v1.0: natural rule changes truly release visible overlay when naturallyFree",
+            policy.contains("dismissBlacklistOverlay = naturallyFree && hasBlacklistOverlay")
         )
 
         val lockWindow = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")

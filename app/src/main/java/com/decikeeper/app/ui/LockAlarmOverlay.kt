@@ -52,10 +52,10 @@ import com.decikeeper.app.data.DefaultNormalEventRenderer
 import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SystemEventClock
-import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.AlarmChallengeManager
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AlarmScheduler
+import com.decikeeper.app.manager.StartupProtectionManager
 import com.decikeeper.app.manager.statistics.AlarmWakeStatsRecorder
 import com.decikeeper.app.service.AlarmVibrationService
 import com.decikeeper.app.service.CoreService
@@ -3281,12 +3281,14 @@ internal object LockAlarmOverlayController {
             //   2. 有活跃锁屏（isLocked）—— 没有锁屏则没有需要保护的窗口
             //   3. 无障碍服务当前活跃 —— 无障碍已关闭则没有保护可丢失，无需兜底
             val warmupStable = CoreService.antiUninstallWarmupStable
-            val antiUninstallState = AntiUninstallManager.getProtectionState(ctx)
             if (!snooze && LockWindowManager.isLocked && LockWindowManager.isServiceActive() && !warmupStable &&
-                AntiUninstallManager.shouldShowInitialization(antiUninstallState)
+                StartupProtectionManager.shouldKeepInitialization(ctx)
             ) {
                 Log.i(TAG, "dismissAlarmOverlay: showing init overlay to bridge anti-uninstall gap")
-                LockWindowManager.showSystemInitOverlay("alarm_dismissed", durationMs = 30000L)
+                LockWindowManager.showSystemInitOverlay(
+                    "alarm_dismissed",
+                    durationMs = StartupProtectionManager.FAST_LOCK_MAX_VISIBLE_MS
+                )
             }
         }
     }

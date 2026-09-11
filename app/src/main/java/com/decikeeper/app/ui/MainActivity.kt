@@ -113,6 +113,9 @@ class MainActivity : AppCompatActivity() {
         if (activeFragment === targetFragment) return
         supportFragmentManager.beginTransaction().hide(activeFragment).show(targetFragment).commit()
         activeFragment = targetFragment
+        if (targetFragment === alarmFragment) {
+            alarmFragment.onEnteredAlarmTab()
+        }
     }
 
     private fun selectTimeRules(): Boolean {

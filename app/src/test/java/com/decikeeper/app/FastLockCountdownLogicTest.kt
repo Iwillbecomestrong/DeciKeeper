@@ -29,12 +29,12 @@ import org.junit.Test
 
 class FastLockCountdownLogicTest {
 
-    /** 输入辅助：把 maxVisibleMs 标准化为 30s 倒计时 */
+    /** 输入辅助：把 maxVisibleMs 标准化为 10s 倒计时 */
     private val maxVisible = StartupProtectionManager.FAST_LOCK_MAX_VISIBLE_MS
 
     @Test
     fun freshTick_displaysFullCountdown() {
-        // 期望：刚启动时（T=0）应当显示完整的 maxVisible 秒数（默认 30）。
+        // 期望：刚启动时（T=0）应当显示完整的 maxVisible 秒数（默认 10）。
         val seconds = StartupProtectionManager.remainingCountdownSeconds(
             startedAtMs = 0L,
             nowMs = 0L,
@@ -48,7 +48,7 @@ class FastLockCountdownLogicTest {
         // 期望：每秒显示的整数秒稳定递减，不出现"在第 29 秒停留两次"等现象。
         val started = 1_000_000L
         var previous = StartupProtectionManager.remainingCountdownSeconds(started, started)
-        for (tick in 1..29) {
+        for (tick in 1..9) {
             val now = started + tick * 1000L
             val current = StartupProtectionManager.remainingCountdownSeconds(started, now)
             assertTrue(
@@ -63,7 +63,7 @@ class FastLockCountdownLogicTest {
     fun handoffAcrossMinHold_keepsCountdownVisible() {
         // 验收：handoff 在 minHold (10s) 之前到达时，覆盖层应仍可见；
         // countdown 显示基于 maxVisibleMs（maxHold），不是 minHold。
-        // handoff 重置基线 → 重新显示完整 30s 是正确的（minHold 决定实际关闭动作，countdown 仅显示）。
+        // handoff 重置基线 → 重新显示完整 10s 是正确的（minHold 决定实际关闭动作，countdown 仅显示）。
         val startedAtOriginalBoot = 0L
         // 启动后 3 秒：CoreService 收到 handoff 请求，重置基线
         val startedAtAfterHandoff = 3_000L
@@ -74,8 +74,8 @@ class FastLockCountdownLogicTest {
             nowMs = nowMs,
             maxVisibleMs = maxVisible
         )
-        // 期望：handoff 后 5s 仍显示 25 秒（maxHold 30s - 5s）
-        assertTrue("handoff 后仍应保持 countdown 显示", seconds in 20..25)
+        // 期望：handoff 后 5s 仍显示 5 秒（maxHold 10s - 5s）
+        assertEquals("handoff 后仍应保持 countdown 显示", 5, seconds)
     }
 
     @Test
@@ -93,9 +93,9 @@ class FastLockCountdownLogicTest {
             nowMs = now,
             maxVisibleMs = maxVisible
         )
-        // 期望显示约 28 秒 (30 - 2)
-        assertEquals(28, seconds)
-        // 与未刷新前相比，未刷新会显示 18 秒 (30 - 12)，刷新后是正确的 28 秒
+        // 期望显示约 8 秒 (10 - 2)
+        assertEquals(8, seconds)
+        // 与未刷新前相比，未刷新会显示 2 秒 (10 - 12)，刷新后是正确的 8 秒
         val unchangedDisplay = StartupProtectionManager.remainingCountdownSeconds(
             startedAtMs = original,
             nowMs = now,

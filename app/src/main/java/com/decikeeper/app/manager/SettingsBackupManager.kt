@@ -554,7 +554,11 @@ object SettingsBackupManager {
 
         invalidateRuntimeCaches()
         if (isAdaptation) {
-            CreditManager.refreshAfterImport(context, exportedAt)
+            CreditManager.refreshAfterImport(
+                context,
+                exportedAt,
+                normalizeDndUsage = categories.contains(BackupCategory.DND_SEGMENTS)
+            )
         }
         return OperationResult(fileCount, entryCount)
     }

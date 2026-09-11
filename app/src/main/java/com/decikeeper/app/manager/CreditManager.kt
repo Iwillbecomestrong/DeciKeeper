@@ -102,6 +102,13 @@ object CreditManager {
 
     data class LifecycleLogSession(val requestId: String, val sessionId: String)
 
+    enum class ImportedSegmentPhase { COMPLETED, CURRENT, FUTURE }
+
+    data class ImportedSegmentUsage(
+        val timeUsedSeconds: Int,
+        val countUsedHalfUnits: Int
+    )
+
     const val PREFS_NAME = "decikeeper_ledger"
     private const val KEY_FREE_TIME_END = "free_time_end"
     private const val KEY_PRIVILEGE_MODE = "is_privilege_mode"
@@ -548,7 +555,11 @@ object CreditManager {
         lastQuotaCheckResult = false
     }
 
-    fun refreshAfterImport(context: Context, exportedAt: Long) {
+    fun refreshAfterImport(
+        context: Context,
+        exportedAt: Long,
+        normalizeDndUsage: Boolean = true
+    ) {
         TimeRuleManager.applyPendingToActive(context)
         AppWindowManager.applyPendingToActive(context)
         applyPendingAppsToActive(context)
@@ -562,17 +573,16 @@ object CreditManager {
         migrateFutureCrossDayUsageBackToPreviousBusinessDay(context)
 
         if (exportedAt > 0L) {
-            val exportBusinessDate = getBusinessDateStringAt(context, exportedAt)
-            if (exportBusinessDate != todayDate) {
-                normalizeUsageForNewBusinessDay(context, todayDate)
-            }
-
             val now = System.currentTimeMillis()
             val exportWeekStart = getThisWeekStartMillis(context, exportedAt)
             val currentWeekStart = getThisWeekStartMillis(context, now)
             if (exportWeekStart != currentWeekStart) {
                 resetWeeklyPrivilegeForNewWeek(context)
             }
+        }
+
+        if (normalizeDndUsage) {
+            normalizeUsageForCurrentImport(context)
         }
     }
 
@@ -606,7 +616,34 @@ object CreditManager {
         LogExporter.i("CreditManager", "Weekly privilege data reset for new week: $currentWeekStart")
     }
 
-    private fun normalizeUsageForNewBusinessDay(context: Context, dateStr: String) {
+    internal fun normalizeImportedSegmentUsage(
+        segment: TimeSegment,
+        phase: ImportedSegmentPhase,
+        elapsedMillis: Long,
+        importedTimeUsedSeconds: Int,
+        importedCountUsedHalfUnits: Int
+    ): ImportedSegmentUsage {
+        val timeLimitSeconds = (segment.limitMins * 60).coerceAtLeast(0)
+        val countLimitHalfUnits = segment.getEffectiveUsableCountLimitHalfUnits().coerceAtLeast(0)
+        if (phase == ImportedSegmentPhase.COMPLETED) {
+            return ImportedSegmentUsage(timeLimitSeconds, countLimitHalfUnits)
+        }
+        if (phase == ImportedSegmentPhase.FUTURE) {
+            return ImportedSegmentUsage(0, 0)
+        }
+
+        val durationMillis = segment.getDurationMinutes().coerceAtLeast(1) * 60_000L
+        val progress = (elapsedMillis.toDouble() / durationMillis).coerceIn(0.0, 1.0)
+        val progressTimeUsed = Math.round(timeLimitSeconds * progress).toInt()
+        val progressCountUsed = Math.round(countLimitHalfUnits * progress).toInt()
+        return ImportedSegmentUsage(
+            timeUsedSeconds = maxOf(importedTimeUsedSeconds, progressTimeUsed).coerceIn(0, timeLimitSeconds),
+            countUsedHalfUnits = maxOf(importedCountUsedHalfUnits, progressCountUsed).coerceIn(0, countLimitHalfUnits)
+        )
+    }
+
+    private fun normalizeUsageForCurrentImport(context: Context) {
+        val dateStr = getBusinessDateString(context)
         val segments = TimeRuleManager.getTimeSegments(context)
         if (segments.isEmpty()) return
 
@@ -619,7 +656,13 @@ object CreditManager {
         if (nextIndex == -1) return
 
         val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
-        val markAllPast = (currentIndex == -1 && nextIndex == firstLogicalIndex)
+        val now = System.currentTimeMillis()
+        val nowCal = Calendar.getInstance().apply { timeInMillis = now }
+        val nowMinutes = nowCal.get(Calendar.HOUR_OF_DAY) * 60 + nowCal.get(Calendar.MINUTE)
+        val hasFutureSegment = segments.any { seg ->
+            seg.isActiveToday() && seg.startHour * 60 + seg.startMinute > nowMinutes
+        }
+        val markAllPast = currentIndex == -1 && nextIndex == firstLogicalIndex && !hasFutureSegment
 
         val pastIndices = mutableSetOf<Int>()
         if (markAllPast) {
@@ -637,7 +680,6 @@ object CreditManager {
         val editor = prefs.edit()
         val dpPrefs = getDeviceProtectedPrefs(context)
         val dpEditor = dpPrefs?.edit()
-
         segments.forEachIndexed { idx, seg ->
             if (!seg.isActiveToday()) return@forEachIndexed
             val key = generateSegmentKey(seg)
@@ -645,18 +687,63 @@ object CreditManager {
             val borrowKey = "borrow_time_${dateStr}_${key}"
             val privilegeUsageKey = "privilege_usage_${dateStr}_${key}"
             val privilegeSegmentKey = "privilege_${dateStr}_segment_$idx"
-            val usageSeconds = if (pastIndices.contains(idx)) seg.limitMins * 60 else 0
-            editor.putInt(usageKey, usageSeconds)
+            val countSuffix = "${dateStr}_${key}"
+            val countUsageKey = "count_usage_half_units_v2_$countSuffix"
+            val legacyCountUsageKey = "count_usage_$countSuffix"
+            val countBorrowKey = "count_borrow_half_units_v2_$countSuffix"
+            val legacyCountBorrowKey = "count_borrow_$countSuffix"
+            val phase = when {
+                pastIndices.contains(idx) -> ImportedSegmentPhase.COMPLETED
+                currentIndex == idx -> ImportedSegmentPhase.CURRENT
+                else -> ImportedSegmentPhase.FUTURE
+            }
+            val elapsedMillis = if (phase == ImportedSegmentPhase.CURRENT) {
+                elapsedMillisInSegment(seg, now)
+            } else {
+                0L
+            }
+            val normalized = normalizeImportedSegmentUsage(
+                segment = seg,
+                phase = phase,
+                elapsedMillis = elapsedMillis,
+                importedTimeUsedSeconds = prefs.getInt(usageKey, 0),
+                importedCountUsedHalfUnits = prefs.getInt(countUsageKey, prefs.getInt(legacyCountUsageKey, 0) * 2)
+            )
+            editor.putInt(usageKey, normalized.timeUsedSeconds)
             editor.remove(borrowKey)
             editor.remove(privilegeUsageKey)
             editor.remove(privilegeSegmentKey)
-            dpEditor?.putInt(usageKey, usageSeconds)
+            editor.putInt(countUsageKey, normalized.countUsedHalfUnits)
+            editor.remove(legacyCountUsageKey)
+            editor.remove(countBorrowKey)
+            editor.remove(legacyCountBorrowKey)
+            dpEditor?.putInt(usageKey, normalized.timeUsedSeconds)
             dpEditor?.remove(borrowKey)
             dpEditor?.remove(privilegeUsageKey)
             dpEditor?.remove(privilegeSegmentKey)
+            dpEditor?.putInt(countUsageKey, normalized.countUsedHalfUnits)
+            dpEditor?.remove(legacyCountUsageKey)
+            dpEditor?.remove(countBorrowKey)
+            dpEditor?.remove(legacyCountBorrowKey)
         }
         editor.apply()
         dpEditor?.apply()
+    }
+
+    private fun elapsedMillisInSegment(segment: TimeSegment, nowMillis: Long): Long {
+        val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+        val nowMillisOfDay = (
+            cal.get(Calendar.HOUR_OF_DAY) * 60L * 60_000L +
+                cal.get(Calendar.MINUTE) * 60_000L +
+                cal.get(Calendar.SECOND) * 1_000L +
+                cal.get(Calendar.MILLISECOND)
+            )
+        val startMillisOfDay = (
+            segment.startHour * 60L * 60_000L + segment.startMinute * 60_000L
+            )
+        var elapsed = nowMillisOfDay - startMillisOfDay
+        if (elapsed < 0L) elapsed += 24L * 60L * 60_000L
+        return elapsed.coerceIn(0L, segment.getDurationMinutes().coerceAtLeast(1) * 60_000L)
     }
 
     // --- Free Time & Stats ---

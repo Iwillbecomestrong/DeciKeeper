@@ -209,6 +209,67 @@
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
+            android:id="@+id/card_today_alarm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            app:cardBackgroundColor="?attr/zzSurface"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="15dp"
+                android:paddingBottom="12dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="今日闹钟"
+                        android:textColor="?attr/zzText"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tv_home_alarm_status_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_zz_pill"
+                        android:backgroundTint="?attr/zzAccentSoft"
+                        android:paddingHorizontal="9dp"
+                        android:paddingVertical="3dp"
+                        android:text="0 个开启"
+                        android:textColor="?attr/zzAccentStrong"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/tv_home_next_alarm_countdown"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:paddingHorizontal="16dp"
+                    android:text="暂无开启中的闹钟"
+                    android:textColor="?attr/zzMuted"
+                    android:textSize="12sp" />
+                <com.decikeeper.app.ui.TodayAlarmView
+                    android:id="@+id/view_today_alarm_timeline"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="6dp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
             android:id="@+id/card_weekly_privilege_entry"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -241,16 +302,6 @@
                 <Button android:id="@+id/btn_stop_free_time" android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="10dp" android:backgroundTint="?attr/zzDangerSoft" android:text="结束当前休息" android:textAllCaps="false" android:textColor="?attr/zzDanger" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
-
-        <Button
-            android:id="@+id/btn_help"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:backgroundTint="?attr/zzSurface2"
-            android:text="使用说明"
-            android:textAllCaps="false"
-            android:textColor="?attr/zzAccentStrong"
-            android:textStyle="bold" />
 
         <!-- 运行状态精致胶囊条（置于使用说明下方） -->
         <LinearLayout

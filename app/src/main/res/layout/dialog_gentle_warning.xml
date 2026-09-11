@@ -27,7 +27,7 @@
         android:layout_marginBottom="24dp"/>
 
     <!-- Typewriter Text -->
-    <com.decikeeper.app.TypewriterTextView
+    <com.decikeeper.app.ui.TypewriterTextView
         android:id="@+id/tv_gentle_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

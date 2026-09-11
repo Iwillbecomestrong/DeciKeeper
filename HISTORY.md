@@ -15,6 +15,32 @@
   3. 旧文档资源、首屏同意流程和 `LegalDocumentActivity` 路由保留，但旧入口从当前导航隐藏，未来增加账号、云同步或数据服务时再恢复对应入口；
   4. 不改闹钟、权限申请、挑战和保护业务逻辑。
 
+### [DECISION-26] 统一三大临时放行到期决策解析器与桌面等待状态机 (Unified Expiry Decision Resolver)
+- **背景**：此前 Free Time (休息) 与 Weekly Privilege (特权) 到期时直接调用 `LockWindowManager.showLockScreen(...)` 无条件硬锁，跳过已有前台证据链，导致退出到桌面的正常操作与白名单应用被误锁；同时到期遇到 UsageStats 桌面滞后或 unknown 时缺乏统一协调。
+- **决策**：
+  1. **纯策略决策层解耦**：建立 `com.decikeeper.app.manager.expiry` 独立包，抽取纯 Kotlin Seam `ExpiryResolver` 与数据模型 `ExpiryDecision`、`ExpiryContext`，支持 100% 纯 JVM 单元测试守护；
+  2. **三大原则确立**：
+     - 原则 A（重新评估而非立即锁）：禁止 FreeTime / TempAccess / Privilege 直接硬锁，统一进入 Resolver；
+     - 原则 B（黑名单最高否决权）：无论前台还是小窗浮窗，只要可见窗口存在黑名单，立即判定 `LOCK`；
+     - 原则 C（白名单非覆盖黑名单）：仅在无黑名单且前台明确为白名单时判定 `UNLOCK`；
+  3. **Desktop Pending 状态机**：前台为桌面或未知时进入 `DESKTOP_PENDING`，启动 35 秒计时器（`DESKTOP_CONFIRM_MS = 35000L`）；期间监听黑名单出现立即 `LOCK`、白名单出现立即 `UNLOCK`，超时则通过 `resolveHistoryFallback` 结合 `recentForegroundLog` 最近有效历史裁决；
+  4. **全链路统一**：彻底清除 `MonitorService` 中两处硬编码锁屏，重构 desktop streak 为 History fallback 最终裁决，输出标准 `[EXPIRY_RESOLVE]` 日志。
+
+### [DECISION-27] 双锁系统与临时解锁机制 Spec v1.0 架构收敛
+- **背景**：此前临时解锁收费逻辑容易与“解哪把锁”混淆；纯勿扰锁屏上挂有次级临时解锁小按钮，造成休息与临时解锁职责交叉；锁屏展示期间即使时间自然进入放行时段，旧逻辑也要求必须显式退出桌面再进；特权与临时解锁流程未彻底隔离。
+- **决策**：
+  1. **锁屏出口呈现严格正交化**：
+     - 纯勿扰锁屏（DND Lock）：仅提供「申请休息」与「每周特权」，彻底移除「临时解锁」入口（`shouldShowStandaloneTemporaryAccess = false`）；
+     - 应用时间窗锁屏（App Window Lock）与双锁并存锁屏（Dual Lock）：优先展示时间窗限制，仅提供「临时解锁」与「每周特权」，不提供「申请休息」（因休息无法解除时间窗限制，避免用户扣除休息额度后依然被拦截）；
+  2. **自然跨界自动放行（NATURAL_RULE_RELEASE）**：
+     - 时间进入允许区间（空档期或时间窗开启）是真正的规则解除；
+     - 锁屏感知到底层应用已无任何生效锁阻挡后，通过新增合法凭据 `LockDismissAuthority.NATURAL_RULE_RELEASE` 自动关闭锁屏放行底层应用，消除强制按 Home 的割裂感；回到桌面依然是非解除状态；
+  3. **基于 UserState 单一真相源计费**：
+     - 临时解锁计费完全由用户当前状态决定：`FREE_TIME` 与 `REST` 自由状态下完全免费（时长 0、次数 0、不吃冷却翻倍）；
+     - `NORMAL` 状态下消耗当前勿扰时段额度：实际申请时长（上限 3.0 分钟）、基础 0.5 次（1 half-unit）、冷却整单翻倍、借用本金翻倍（借 1 扣 2，借 0.5 次扣 1 次）；特权状态下双锁已解除，不进入临时解锁流程；
+  4. **8 大核心验收测试守护**：落地 `DualLockSystemContractTest`，更新 `LockScreenPresentationPolicyTest`、`LockExitAuthorityContractTest` 与 `AutomaticRestrictionReleasePolicyTest`，建立不可动摇的回归防护网。
+
+
 
 ### [DECISION-01] 闹钟状态与 Direct Boot 设备保护存储双写
 - **背景**：Android 设备强制关机重启后，在首次输入锁屏密码前处于 Direct Boot 模式，凭据加密存储（Credential Protected Storage）不可读，导致闹钟标志位丢失无法恢复震动。

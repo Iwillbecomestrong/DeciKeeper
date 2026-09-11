@@ -160,22 +160,17 @@ class GlobalParamsActivity : AppCompatActivity() {
         val isSynced = TimeRuleManager.isRefreshTimeSynced(this)
         switchSync.isChecked = isSynced
         tvSyncHint.visibility = if (isSynced) android.view.View.VISIBLE else android.view.View.GONE
-        etRefreshTime.visibility = if (isSynced) android.view.View.GONE else android.view.View.VISIBLE
+        etRefreshTime.isEnabled = !isSynced
 
         fun syncWithFirstSegment() {
             val segments = TimeRuleManager.getPendingTimeSegments(this) ?: TimeRuleManager.getTimeSegments(this)
-            val firstSeg = TimeRuleManager.getLogicalFirstSegment(this, segments)
-            if (firstSeg != null) etRefreshTime.setText(String.format("%02d:%02d", firstSeg.startHour, firstSeg.startMinute))
-            else {
-                Toast.makeText(this, "未找到有效时间段，无法同步", Toast.LENGTH_SHORT).show()
-                switchSync.isChecked = false
-                etRefreshTime.isEnabled = true
-                tvSyncHint.visibility = android.view.View.GONE
-            }
+            val formatted = TimeRuleManager.findRefreshTimeFromSegments(segments)
+            etRefreshTime.setText(formatted)
+            tvSyncHint.text = "当前自动同步为：$formatted（跟随 06:00~10:00 内最早结束的勿扰时段）"
         }
         if (isSynced) syncWithFirstSegment()
         switchSync.setOnCheckedChangeListener { _, checked ->
-            etRefreshTime.visibility = if (checked) android.view.View.GONE else android.view.View.VISIBLE
+            etRefreshTime.isEnabled = !checked
             tvSyncHint.visibility = if (checked) android.view.View.VISIBLE else android.view.View.GONE
             if (checked) syncWithFirstSegment()
         }
@@ -205,15 +200,15 @@ class GlobalParamsActivity : AppCompatActivity() {
             val newNotifyNear = etNotifyEntryNear.text.toString().toIntOrNull() ?: currentEntryNear
             var newRefreshTime = etRefreshTime.text.toString().trim()
             if (switchSync.isChecked) {
-                val firstSeg = TimeRuleManager.getLogicalFirstSegment(this, TimeRuleManager.getPendingTimeSegments(this) ?: TimeRuleManager.getTimeSegments(this))
-                if (firstSeg != null && firstSeg.startHour >= 7) newRefreshTime = String.format("%02d:%02d", firstSeg.startHour, firstSeg.startMinute)
+                val segments = TimeRuleManager.getPendingTimeSegments(this) ?: TimeRuleManager.getTimeSegments(this)
+                newRefreshTime = TimeRuleManager.findRefreshTimeFromSegments(segments)
             }
             if (newRefreshTime.contains(":")) {
                 val parts = newRefreshTime.split(":")
                 if (parts.size == 2) newRefreshTime = String.format("%02d:%02d", parts[0].toIntOrNull() ?: 0, parts[1].toIntOrNull() ?: 0)
             }
-            if (newRefreshTime < "07:00" || newRefreshTime > "23:59") {
-                Toast.makeText(this, "生效时间必须在 07:00 - 23:59 之间", Toast.LENGTH_SHORT).show(); return@setOnClickListener
+            if (newRefreshTime < "06:00" || newRefreshTime > "10:00") {
+                Toast.makeText(this, "生效时间必须在 06:00 - 10:00 之间", Toast.LENGTH_SHORT).show(); return@setOnClickListener
             }
             val effectiveSegments = TimeRuleManager.getPendingTimeSegments(this) ?: TimeRuleManager.getTimeSegments(this)
             val candidateMinutes = parseRefreshTimeToMinutes(newRefreshTime)
@@ -255,9 +250,9 @@ class GlobalParamsActivity : AppCompatActivity() {
         }
         val switchSync = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_refresh_sync)
         if (switchSync != null && switchSync.isChecked) {
-            TimeRuleManager.getLogicalFirstSegment(this, TimeRuleManager.getTimeSegments(this))?.let {
-                findViewById<EditText>(R.id.et_refresh_time).setText(String.format("%02d:%02d", it.startHour, it.startMinute))
-            }
+            val segments = TimeRuleManager.getPendingTimeSegments(this) ?: TimeRuleManager.getTimeSegments(this)
+            val derived = TimeRuleManager.findRefreshTimeFromSegments(segments)
+            findViewById<EditText>(R.id.et_refresh_time).setText(derived)
         }
         setupUI(TimeRuleManager.isInSettingsLockoutPeriod(this))
     }

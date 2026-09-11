@@ -7,7 +7,7 @@ import org.junit.Test
 
 class AutomaticRestrictionReleasePolicyTest {
     @Test
-    fun naturalFreedomSettlesSessionsButKeepsAnAlreadyVisibleBlacklistOverlay() {
+    fun naturalFreedomSettlesSessionsAndDismissesVisibleBlacklistOverlay() {
         val result = resolveAutomaticRestrictionRelease(
             isDndBlocked = false,
             isAppWindowBlocked = false,
@@ -18,8 +18,8 @@ class AutomaticRestrictionReleasePolicyTest {
 
         assertTrue(result.settleRest)
         assertTrue(result.settleTemporaryAccess)
-        assertFalse(
-            "Natural rule changes are not an unlock authority once the lock is visible",
+        assertTrue(
+            "Spec v1.0: 时间进入允许区间属于真正解除规则，必须自动解除黑名单锁屏覆盖层放行底层应用",
             result.dismissBlacklistOverlay
         )
     }

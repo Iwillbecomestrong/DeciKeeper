@@ -80,7 +80,7 @@ class FastLockLogicTest {
         )
         assertEquals(0L, readyRemain)
 
-        assertEquals(30_000L, StartupProtectionManager.FAST_LOCK_MAX_VISIBLE_MS)
+        assertEquals(10_000L, StartupProtectionManager.FAST_LOCK_MAX_VISIBLE_MS)
     }
 
     @Test

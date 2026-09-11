@@ -85,44 +85,37 @@ class PrivacySpaceGuardRulesTest {
     }
 
     // =========================================================================
-    // 第二组: UI 显示文案 (PENDING 文案必须包含"次日生效"+"当前仍拦截")
+    // 第二组: UI 显示文案（四项保护统一状态文案）
     // =========================================================================
 
-    /** DISABLED → "已关闭" */
+    /** DISABLED → "未开启" */
     @Test
     fun uiText_disabled() {
         val text = RulesFragment.computePrivacySpaceGuardUiText(
             state = PrivacyProtectionManager.State.DISABLED,
             isEnforcing = false
         )
-        assertEquals("已关闭", text)
+        assertEquals("未开启", text)
     }
 
-    /** ACTIVE → "已生效" */
+    /** ACTIVE → "已开启" */
     @Test
     fun uiText_active() {
         val text = RulesFragment.computePrivacySpaceGuardUiText(
             state = PrivacyProtectionManager.State.ACTIVE,
             isEnforcing = true
         )
-        assertEquals("已生效", text)
+        assertEquals("已开启", text)
     }
 
-    /** PENDING → 必须含"次日生效"+"当前仍拦截" */
+    /** PENDING → "待关闭（明日生效）" */
     @Test
     fun uiText_pendingMustMentionNextDayAndStillEnforcing() {
         val text = RulesFragment.computePrivacySpaceGuardUiText(
             state = PrivacyProtectionManager.State.PENDING,
             isEnforcing = true
         )
-        assertTrue(
-            "PENDING 文案必须包含『次日生效』",
-            text.contains("次日生效")
-        )
-        assertTrue(
-            "PENDING 文案必须包含『当前仍拦截』(由 isEnforcing 推出)",
-            text.contains("当前仍拦截")
-        )
+        assertEquals("待关闭（明日生效）", text)
     }
 
     // =========================================================================

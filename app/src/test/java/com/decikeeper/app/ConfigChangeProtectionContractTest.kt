@@ -9,7 +9,7 @@ class ConfigChangeProtectionContractTest {
     @Test
     fun configurationChangeGatesBeforeStartingProtection() {
         val source = source("app/src/main/java/com/decikeeper/app/service/CoreService.kt")
-        val gate = source.indexOf("AntiUninstallManager.shouldShowInitialization")
+        val gate = source.indexOf("StartupProtectionManager.shouldKeepInitialization")
         val start = source.indexOf("StartupProtectionManager.startFastLock")
 
         assertTrue(gate >= 0)
@@ -23,8 +23,8 @@ class ConfigChangeProtectionContractTest {
         val lockWindow = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
         val startup = source("app/src/main/java/com/decikeeper/app/manager/StartupProtectionManager.kt")
 
-        assertTrue(fastLock.contains("AntiUninstallManager.shouldShowInitialization"))
-        assertTrue(lockWindow.contains("AntiUninstallManager.shouldShowInitialization"))
+        assertTrue(fastLock.contains("StartupProtectionManager.shouldKeepInitialization"))
+        assertTrue(lockWindow.contains("StartupProtectionManager.shouldKeepInitialization"))
         assertTrue(startup.contains("AntiUninstallManager.shouldShowInitialization"))
     }
 

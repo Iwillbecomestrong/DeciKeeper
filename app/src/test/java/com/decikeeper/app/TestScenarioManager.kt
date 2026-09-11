@@ -11818,10 +11818,10 @@ object TestScenarioManager {
         )
 
         // Expected Input: 无任何主程序接管信号。
-        // Expected Output: 最大兜底为 15s，防止黑屏卡死。
+        // Expected Output: 最大兜底为 10s，防止黑屏卡死。
         assertPass(
-            StartupProtectionManager.FAST_LOCK_MAX_VISIBLE_MS == 15_000L,
-            "重启快锁兜底 -> 最长15秒自动释放",
+            StartupProtectionManager.FAST_LOCK_MAX_VISIBLE_MS == 10_000L,
+            "重启快锁兜底 -> 最长10秒自动释放",
             "Actual max=${StartupProtectionManager.FAST_LOCK_MAX_VISIBLE_MS}"
         )
 

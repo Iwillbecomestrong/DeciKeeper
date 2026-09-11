@@ -1,6 +1,8 @@
 package com.decikeeper.app.service
 
+import android.content.Context
 import android.util.Log
+import com.decikeeper.app.manager.FloatingWindowProtectionManager
 
 enum class PresenceTrackerState {
     NONE,
@@ -16,7 +18,8 @@ enum class PresenceTrackerAction {
 
 class VisibleBlacklistPresenceTracker(
     val desktopGraceDurationMs: Long = 3000L,
-    val requiredConsecutiveAbsenceCount: Int = 3
+    val requiredConsecutiveAbsenceCount: Int = 3,
+    private val protectionContext: Context? = null
 ) {
     companion object {
         private const val PRESENCE_DIAG_TAG = "PresenceDiag"
@@ -100,6 +103,7 @@ class VisibleBlacklistPresenceTracker(
      */
     private fun hasAccessibilityBackedPresence(pkg: String): Boolean {
         if (!CoreService.isServiceActive) return false
+        if (protectionContext != null && !FloatingWindowProtectionManager.isEnforcing(protectionContext)) return false
         return CoreService.lastVisiblePackagesFromWindows.contains(pkg)
     }
 

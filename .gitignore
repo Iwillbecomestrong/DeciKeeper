@@ -105,3 +105,4 @@ ironwill_event_log*.txt
 *.apk
 *.bak_*
 .workbuddy-ai/
+*.zip

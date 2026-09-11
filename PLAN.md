@@ -98,6 +98,31 @@
 - [x] 保留旧文档资源与路由兼容，不删除未来可能恢复的页面能力。
 - [x] 通过 About 注册表、隐私文案、主题 UI 和构建契约测试。
 
+### 2.8 统一临时放行到期决策解析器与桌面等待状态机闭环
+
+- [x] **纯策略解析层解耦**：新建 `com.decikeeper.app.manager.expiry` 包，抽取 `ExpiryResolver`、`ExpiryDecision`、`ExpiryReason` 与 `ExpiryContext`。
+- [x] **可见容器采集**：新建 `VisibleContainerResolver`，融合无障碍 Window 树与前台应用，严格划分黑名单与白名单容器。
+- [x] **Desktop Pending 状态机**：新建 `ExpiryCoordinator`，管理 35 秒桌面等待确认计时（`DESKTOP_CONFIRM_MS = 35000L`）与实时前台监听。
+- [x] **三大出口到期统一**：
+  - Free Time 到期移除 `MonitorService` 硬编码锁屏，接入 `ExpiryCoordinator.evaluate`；
+  - Weekly Privilege 到期移除 `MonitorService` 硬编码锁屏，接入 `ExpiryCoordinator.evaluate`；
+  - Temporary Access 到期与桌面累计（desktop streak）统一接入 History fallback 最终裁决。
+- [x] **结构化日志与测试闭环**：输出规范 `[EXPIRY_RESOLVE]` 日志，编写 `ExpiryResolverTest` 覆盖全部 7 项测试矩阵用例及边界情况，通过全量单元测试与 Debug APK 构建。
+
+### 2.9 双锁系统与临时解锁机制 Spec v1.0 对齐
+
+- [x] **Grill-me 规格对齐与澄清记录**：
+  - 确认应用时间窗保持明确的包名/应用列表管控模式，现阶段不引入动态类别绑定；
+  - 确认锁屏出口正交分流契约（纯勿扰拦截彻底移除临时解锁，仅提供休息与特权；时间窗/双锁并存拦截仅提供临时解锁与特权，不提供休息）；
+  - 确认时间进入允许区间为真正解除规则，锁屏感知后应自动关闭放行；回到桌面不是解锁；
+  - 确认临时解锁以 `UserState`（`FREE_TIME` / `REST` 免费，`NORMAL` 扣费）为单一计费判定源，共用勿扰额度池，扣实际申请时长，基础 0.5 次，冷却整单翻倍，借用本金翻倍；特权状态直接放行不进入临时解锁流程。
+- [x] **规格权威单一真相源同步**：已将 Spec v1.0 全量收敛更新至 [`docs/specs/focus.md`](docs/specs/focus.md) 与 [`SPEC.md`](SPEC.md)。
+- [x] **代码实现与策略重构落地**：
+  - [x] 锁屏出口按钮呈现正交化（`LockScreenPresentationPolicy` 纯勿扰彻底移除临时解锁，`LockWindowManager` 严格分流）；
+  - [x] 锁屏自然跨界自动解除放行逻辑（`AutomaticRestrictionReleasePolicy` 允许 `dismissBlacklistOverlay`，`LockDismissAuthority` 引入 `NATURAL_RULE_RELEASE` 凭据）；
+  - [x] 临时解锁计费契约核验与对齐（共用勿扰额度，实际时长，0.5 次，冷却整单翻倍，借用本金翻倍，自由状态免费）；
+  - [x] 8 大核心测试用例落地守护（新建 `DualLockSystemContractTest`，更新 `LockScreenPresentationPolicyTest`、`LockExitAuthorityContractTest`、`AutomaticRestrictionReleasePolicyTest`，全量 1173 测试通过，Debug APK 构建成功）。
+
 ---
 
 ## 3. 并行工作边界

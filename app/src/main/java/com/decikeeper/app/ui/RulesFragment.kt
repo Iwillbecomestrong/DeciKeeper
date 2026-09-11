@@ -46,6 +46,7 @@ import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
 import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.ConfigPendingManager
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.FloatingWindowProtectionManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
 import com.decikeeper.app.manager.PrivacyProtectionManager
 import com.decikeeper.app.manager.RecentTasksHideManager
@@ -155,20 +156,19 @@ class RulesFragment : Fragment() {
 
         /**
          * 文案映射:
-         * - DISABLED → "已关闭"
-         * - ACTIVE → "已生效"
-         * - PENDING → "次日生效,当前仍拦截" (强制从 isEnforcing 推出)
+         * - DISABLED → "未开启"
+         * - ACTIVE → "已开启"
+         * - PENDING → "待关闭（明日生效）"
          */
         internal fun computePrivacySpaceGuardUiText(
             state: PrivacyProtectionManager.State,
             isEnforcing: Boolean
         ): String {
-            // 必须基于 isEnforcing 判断 PENDING 期是否仍拦截, 不得仅用 state 推导
-            return when {
-                state == PrivacyProtectionManager.State.PENDING && isEnforcing ->
-                    "次日生效,当前仍拦截"
-                state == PrivacyProtectionManager.State.ACTIVE -> "已生效"
-                else -> "已关闭"
+            // isEnforcing 保留为保护链路的显式输入；PENDING 仍由 Manager 强制执行。
+            return when (state) {
+                PrivacyProtectionManager.State.PENDING -> "待关闭（明日生效）"
+                PrivacyProtectionManager.State.ACTIVE -> "已开启"
+                PrivacyProtectionManager.State.DISABLED -> "未开启"
             }
         }
 
@@ -206,10 +206,10 @@ class RulesFragment : Fragment() {
             get() = missingLabels.isEmpty()
     }
 
-    private var switchUninstall: Switch? = null
-    private var tvUninstallStatus: TextView? = null
-    private var switchPermProtection: Switch? = null
-    private var tvPermProtectionStatus: TextView? = null
+    private var switchUninstallAndPermProtection: Switch? = null
+    private var tvUninstallAndPermProtectionStatus: TextView? = null
+    private var switchFloatingWindowProtection: Switch? = null
+    private var tvFloatingWindowProtectionStatus: TextView? = null
     private var tvAccessibilityStatus: TextView? = null
     private var switchAccessibilityService: Switch? = null
     private var switchAlarmPowerOffProtection: Switch? = null
@@ -240,13 +240,14 @@ class RulesFragment : Fragment() {
         uri?.let { showImportCategoryDialog(it) }
     }
 
-    // Anti-Uninstall Debounce
+    // Protection Switch Debounces
     private var lastSwitchClickTime = 0L
-    private var lastPermProtectionSwitchClickTime = 0L
+    private var lastFloatingWindowSwitchClickTime = 0L
+    private var lastUninstallAndPermSwitchClickTime = 0L
     private var lastA11yServiceSwitchClickTime = 0L
     private var lastPrivacySpaceGuardSwitchClickTime = 0L
-    private var switchUninstallUiUpdating = false
-    private var switchPermProtectionUiUpdating = false
+    private var switchUninstallAndPermUiUpdating = false
+    private var switchFloatingWindowUiUpdating = false
     private var switchA11yServiceUiUpdating = false
     private var switchAlarmPowerOffUiUpdating = false
     private var switchPrivacySpaceGuardUiUpdating = false
@@ -272,13 +273,13 @@ class RulesFragment : Fragment() {
             context,
             systemAccessibilityEnabled = isAccessibilityServiceEnabled(context)
         )
-        updateAntiUninstallUI()
-        updatePermProtectionUI()
         updateAccessibilityServiceUI()
         updateAlarmPowerOffProtectionUI()
+        updateFloatingWindowProtectionUI()
+        updatePrivacySpaceGuardUI()
+        updateUninstallAndPermProtectionUI()
         alarmPrerequisiteDialogRefresh?.invoke()
         updateHideInRecentTasksUI()
-        updatePrivacySpaceGuardUI()
 
         // Loop check for anti-uninstall status
         view?.let { triggerAntiUninstallStatusLoop(it) }
@@ -290,28 +291,27 @@ class RulesFragment : Fragment() {
     }
 
     private fun initViews(view: View) {
-        switchUninstall = view.findViewById(R.id.switch_uninstall_protection)
-        tvUninstallStatus = view.findViewById(R.id.tv_uninstall_status_main)
-        switchPermProtection = view.findViewById(R.id.switch_accessibility)
-        tvPermProtectionStatus = view.findViewById(R.id.tv_perm_protection_status)
-        tvAccessibilityStatus = view.findViewById(R.id.tv_accessibility_status_main)
         switchAlarmPowerOffProtection = view.findViewById(R.id.switch_alarm_power_off_protection)
         tvAlarmPowerOffProtectionStatus = view.findViewById(R.id.tv_alarm_power_off_status_main)
-        switchHideInRecentTasks = view.findViewById(R.id.switch_hide_in_recent_tasks)
-        switchAccessibilityService = view.findViewById(R.id.switch_accessibility_service)
+        switchFloatingWindowProtection = view.findViewById(R.id.switch_floating_window_protection)
+        tvFloatingWindowProtectionStatus = view.findViewById(R.id.tv_floating_window_protection_status)
         switchPrivacySpaceGuard = view.findViewById(R.id.switch_privacy_space_guard)
         tvPrivacySpaceGuardStatus = view.findViewById(R.id.tv_privacy_space_guard_status)
+        switchUninstallAndPermProtection = view.findViewById(R.id.switch_uninstall_and_perm_protection)
+        tvUninstallAndPermProtectionStatus = view.findViewById(R.id.tv_uninstall_and_perm_protection_status)
+
+        tvAccessibilityStatus = view.findViewById(R.id.tv_accessibility_status_main)
+        switchAccessibilityService = view.findViewById(R.id.switch_accessibility_service)
+        switchHideInRecentTasks = view.findViewById(R.id.switch_hide_in_recent_tasks)
         btnQuickSendLogs = view.findViewById(R.id.btn_quick_send_logs)
         btnExportSettings = view.findViewById(R.id.btn_export_settings)
         btnImportSettings = view.findViewById(R.id.btn_import_settings)
 
-        // Setup Anti-Uninstall Switch
-        switchUninstall?.let { setupAntiUninstallSwitch(it) }
-
-        // Setup Accessibility Switch
-        switchPermProtection?.let { setupPermProtectionSwitch(it) }
-
+        // Setup 4 protection switches
         switchAlarmPowerOffProtection?.let { setupAlarmPowerOffProtectionSwitch(it) }
+        switchFloatingWindowProtection?.let { setupFloatingWindowProtectionSwitch(it) }
+        switchPrivacySpaceGuard?.let { setupPrivacySpaceGuardSwitch(it) }
+        switchUninstallAndPermProtection?.let { setupUninstallAndPermProtectionSwitch(it) }
 
         switchHideInRecentTasks?.let { setupHideInRecentTasksSwitch(it) }
 
@@ -333,9 +333,14 @@ class RulesFragment : Fragment() {
             R.string.settings_help_accessibility_message
         )
         setupHelpButton(
-            view.findViewById(R.id.btn_perm_protection_help),
-            R.string.settings_help_permission_title,
-            R.string.settings_help_permission_message
+            view.findViewById(R.id.btn_alarm_power_off_help),
+            R.string.settings_help_alarm_power_off_title,
+            R.string.settings_help_alarm_power_off_message
+        )
+        setupHelpButton(
+            view.findViewById(R.id.btn_floating_window_protection_help),
+            R.string.settings_help_floating_window_title,
+            R.string.settings_help_floating_window_message
         )
         setupHelpButton(
             view.findViewById(R.id.btn_privacy_space_guard_help),
@@ -343,19 +348,12 @@ class RulesFragment : Fragment() {
             R.string.settings_help_privacy_message
         )
         setupHelpButton(
-            view.findViewById(R.id.btn_uninstall_protection_help),
-            R.string.settings_help_anti_uninstall_title,
-            R.string.settings_help_anti_uninstall_message
-        )
-        setupHelpButton(
-            view.findViewById(R.id.btn_alarm_power_off_help),
-            R.string.settings_help_alarm_power_off_title,
-            R.string.settings_help_alarm_power_off_message
+            view.findViewById(R.id.btn_uninstall_and_perm_protection_help),
+            R.string.settings_help_uninstall_and_perm_title,
+            R.string.settings_help_uninstall_and_perm_message
         )
 
         switchAccessibilityService?.let { setupAccessibilityServiceSwitch(it) }
-
-        switchPrivacySpaceGuard?.let { setupPrivacySpaceGuardSwitch(it) }
 
     }
 
@@ -370,6 +368,9 @@ class RulesFragment : Fragment() {
     }
 
     private fun setupClickEvents(view: View) {
+        view.findViewById<Button>(R.id.btn_open_help)?.setOnClickListener {
+            startActivity(Intent(requireContext(), HelpActivity::class.java))
+        }
         // REQ-5: 设置 → 关于我们
         view.findViewById<Button>(R.id.btn_open_about)?.setOnClickListener {
             startActivity(Intent(requireContext(), AboutActivity::class.java))
@@ -501,8 +502,7 @@ class RulesFragment : Fragment() {
             activity?.runOnUiThread {
                 val ctx = context ?: return@runOnUiThread
                 setBackupButtonsEnabled(true)
-                updateAntiUninstallUI()
-                updatePermProtectionUI()
+                updateUninstallAndPermProtectionUI()
                 updateAlarmPowerOffProtectionUI()
                         Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
             }
@@ -516,125 +516,97 @@ class RulesFragment : Fragment() {
         btnImportSettings?.alpha = if (enabled) 1.0f else 0.55f
     }
 
-    private fun setupAntiUninstallSwitch(switchView: Switch) {
-        val context = requireContext()
-        val state = AntiUninstallManager.getProtectionState(context)
-
-        // Init State
-        switchView.isChecked = (state == AntiUninstallManager.State.ACTIVE || state == AntiUninstallManager.State.PENDING)
-
-        switchView.setOnCheckedChangeListener { _, isChecked ->
-            if (switchUninstallUiUpdating) return@setOnCheckedChangeListener
-
-            // 🚀 [Debounce] Ignore rapid toggles within 1 second
+    private fun setupFloatingWindowProtectionSwitch(switchView: Switch) {
+        val ctx = requireContext()
+        updateFloatingWindowProtectionUI()
+        switchView.setOnCheckedChangeListener { _, checked ->
+            if (switchFloatingWindowUiUpdating) return@setOnCheckedChangeListener
             val now = System.currentTimeMillis()
-            if (now - lastSwitchClickTime < 1000) {
-                switchUninstallUiUpdating = true
-                switchView.isChecked = !isChecked
-                switchUninstallUiUpdating = false
+            if (now - lastFloatingWindowSwitchClickTime < 1000L) {
+                switchFloatingWindowUiUpdating = true
+                switchView.isChecked = !checked
+                switchFloatingWindowUiUpdating = false
                 return@setOnCheckedChangeListener
             }
-            lastSwitchClickTime = now
+            lastFloatingWindowSwitchClickTime = now
 
-            if (isChecked) {
-                if (!isA11yServiceReady(context)) {
-                    switchUninstallUiUpdating = true
+            if (checked) {
+                if (!isA11yServiceReady(ctx)) {
+                    switchFloatingWindowUiUpdating = true
                     switchView.isChecked = false
-                    switchUninstallUiUpdating = false
-                    Toast.makeText(context, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    switchFloatingWindowUiUpdating = false
+                    Toast.makeText(ctx, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
                     return@setOnCheckedChangeListener
                 }
-                AntiUninstallManager.setProtectionEnabled(context, true)
-                Toast.makeText(context, "防卸载保护已开启", Toast.LENGTH_SHORT).show()
-                updateAntiUninstallUI()
-                maybeAskBgBatteryPermissionAfterAntiUninstallEnabled()
+                FloatingWindowProtectionManager.setProtectionEnabled(ctx, true)
+                Toast.makeText(ctx, "小窗可见性增强已开启", Toast.LENGTH_SHORT).show()
             } else {
-                if (TimeRuleManager.isInAdaptationPeriod(context)) {
-                    AntiUninstallManager.setProtectionEnabled(context, false)
-                    Toast.makeText(context, "适应期内，保护已立即关闭", Toast.LENGTH_SHORT).show()
-                    updateAntiUninstallUI()
-                } else if (AccessibilityControlManager.getState(context) != AccessibilityControlManager.State.ACTIVE) {
-                    // 防关权限保护未开启，次日生效无意义 → 立即关闭
-                    AntiUninstallManager.setProtectionEnabled(context, false)
-                    Toast.makeText(context, "防卸载保护已关闭", Toast.LENGTH_SHORT).show()
-                    updateAntiUninstallUI()
+                FloatingWindowProtectionManager.setProtectionEnabled(ctx, false)
+                val message = if (TimeRuleManager.isInAdaptationPeriod(ctx)) {
+                    "适应期内，小窗可见性增强已立即关闭"
                 } else {
-                    switchUninstallUiUpdating = true
-                    switchView.isChecked = true
-                    switchUninstallUiUpdating = false
-
-                    val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_gentle_warning, null)
-                    val tvMessage = dialogView.findViewById<com.decikeeper.app.ui.TypewriterTextView>(R.id.tv_gentle_message)
-                    val btnConfirm = dialogView.findViewById<Button>(R.id.btn_confirm)
-                    val btnCancel = dialogView.findViewById<Button>(R.id.btn_cancel)
-
-                    val dialog = AlertDialog.Builder(context)
-                        .setView(dialogView)
-                        .setCancelable(false)
-                        .create()
-
-                    dialog.show()
-
-                    val message = "哪怕只有一分钟，你因为我而放下了手机、看了一眼身边的世界，我的存在就有了意义。"
-                    tvMessage.animateText(message, 50)
-
-                    btnCancel.setOnClickListener {
-                        dialog.dismiss()
-                    }
-
-                    btnConfirm.setOnClickListener {
-                        AntiUninstallManager.setProtectionEnabled(context, false)
-                        updateAntiUninstallUI()
-                        Toast.makeText(context, "已申请关闭防卸载（明日生效），可立即继续申请关闭无障碍", Toast.LENGTH_LONG).show()
-                        switchUninstallUiUpdating = true
-                        switchView.isChecked = false
-                        switchUninstallUiUpdating = false
-                        dialog.dismiss()
-                    }
+                    "已申请关闭小窗可见性增强（明日生效）"
                 }
+                Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+            }
+            updateFloatingWindowProtectionUI()
+        }
+    }
+
+    private fun setupUninstallAndPermProtectionSwitch(switchView: Switch) {
+        val ctx = requireContext()
+        updateUninstallAndPermProtectionUI()
+        switchView.setOnCheckedChangeListener { _, checked ->
+            if (switchUninstallAndPermUiUpdating) return@setOnCheckedChangeListener
+            val now = System.currentTimeMillis()
+            if (now - lastUninstallAndPermSwitchClickTime < 1000L) {
+                switchUninstallAndPermUiUpdating = true
+                switchView.isChecked = !checked
+                switchUninstallAndPermUiUpdating = false
+                return@setOnCheckedChangeListener
+            }
+            lastUninstallAndPermSwitchClickTime = now
+
+            if (checked) {
+                if (!isA11yServiceReady(ctx)) {
+                    switchUninstallAndPermUiUpdating = true
+                    switchView.isChecked = false
+                    switchUninstallAndPermUiUpdating = false
+                    Toast.makeText(ctx, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    return@setOnCheckedChangeListener
+                }
+                if (!AlarmPowerOffProtectionManager.isLockScreenDisplayReady(ctx)) {
+                    switchUninstallAndPermUiUpdating = true
+                    switchView.isChecked = false
+                    switchUninstallAndPermUiUpdating = false
+                    showLockScreenMissingWarningDialog()
+                    return@setOnCheckedChangeListener
+                }
+                enableUninstallAndPermProtection(ctx)
+            } else {
+                disableUninstallAndPermProtection(ctx)
             }
         }
     }
 
-    private fun setupPermProtectionSwitch(switchView: Switch) {
-        val context = requireContext()
-        val currentState = AccessibilityControlManager.getState(context)
-        val systemEnabled = isAccessibilityServiceEnabled()
-        switchView.isChecked = currentState == AccessibilityControlManager.State.ACTIVE && systemEnabled
+    private fun enableUninstallAndPermProtection(ctx: Context) {
+        AntiUninstallManager.setProtectionEnabled(ctx, true)
+        AccessibilityControlManager.setEnabled(ctx, true)
+        Toast.makeText(ctx, "防卸载与防关权限保护已开启", Toast.LENGTH_SHORT).show()
+        updateUninstallAndPermProtectionUI()
+        maybeAskBgBatteryPermissionAfterAntiUninstallEnabled()
+    }
 
-        switchView.setOnCheckedChangeListener { _, isChecked ->
-            if (switchPermProtectionUiUpdating) return@setOnCheckedChangeListener
-
-            val now = System.currentTimeMillis()
-            if (now - lastPermProtectionSwitchClickTime < 1000) {
-                switchPermProtectionUiUpdating = true
-                switchView.isChecked = !isChecked
-                switchPermProtectionUiUpdating = false
-                return@setOnCheckedChangeListener
-            }
-            lastPermProtectionSwitchClickTime = now
-
-            if (isChecked) {
-                if (!isA11yServiceReady(context)) {
-                    switchPermProtectionUiUpdating = true
-                    switchView.isChecked = false
-                    switchPermProtectionUiUpdating = false
-                    Toast.makeText(context, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
-                    return@setOnCheckedChangeListener
-                }
-                // 防关权限保护：直接开启，不弹引导弹窗（无障碍未开 Toast 提示）
-                AccessibilityControlManager.setEnabled(context, true)
-                Toast.makeText(context, "防关权限保护已开启", Toast.LENGTH_SHORT).show()
-                updatePermProtectionUI()
-            } else {
-                AccessibilityControlManager.setEnabled(context, false)
-                Toast.makeText(context, "已申请关闭防关权限保护（明日生效，可与防卸载同次提交）", Toast.LENGTH_LONG).show()
-                switchPermProtectionUiUpdating = true
-                switchView.isChecked = false
-                switchPermProtectionUiUpdating = false
-                updatePermProtectionUI()
-            }
+    private fun disableUninstallAndPermProtection(ctx: Context) {
+        AntiUninstallManager.setProtectionEnabled(ctx, false)
+        AccessibilityControlManager.setEnabled(ctx, false)
+        updateUninstallAndPermProtectionUI()
+        val message = if (TimeRuleManager.isInAdaptationPeriod(ctx)) {
+            "适应期内，防卸载与防关权限保护已立即关闭"
+        } else {
+            "已申请关闭防卸载与防关权限保护（明日生效）"
         }
+        Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
     }
 
     /**
@@ -691,12 +663,30 @@ class RulesFragment : Fragment() {
                 switchView.isChecked = true
                 switchA11yServiceUiUpdating = false
                 // 检查防关权限保护是否开启
-                if (AccessibilityControlManager.getState(context) == AccessibilityControlManager.State.ACTIVE) {
+                if (getCombinedProtectionState(context) != CombinedProtectionState.DISABLED) {
                     showA11yDisableWithProtectionDialog(switchView)
                 } else {
                     showA11yDisableConfirmDialog(switchView)
                 }
             }
+        }
+    }
+
+    private fun submitProtectionDisablesForAccessibility(ctx: Context) {
+        if (AntiUninstallManager.getProtectionState(ctx) == AntiUninstallManager.State.ACTIVE) {
+            AntiUninstallManager.setProtectionEnabled(ctx, false)
+        }
+        if (AccessibilityControlManager.getState(ctx) == AccessibilityControlManager.State.ACTIVE) {
+            AccessibilityControlManager.setEnabled(ctx, false)
+        }
+        if (FloatingWindowProtectionManager.getProtectionState(ctx) == FloatingWindowProtectionManager.State.ACTIVE) {
+            FloatingWindowProtectionManager.setProtectionEnabled(ctx, false)
+        }
+        if (PrivacyProtectionManager.getProtectionState(ctx) == PrivacyProtectionManager.State.ACTIVE) {
+            PrivacyProtectionManager.setProtectionEnabled(ctx, false)
+        }
+        if (AlarmPowerOffProtectionManager.isEnabled(ctx)) {
+            AlarmPowerOffProtectionManager.setEnabled(ctx, false)
         }
     }
 
@@ -723,13 +713,10 @@ class RulesFragment : Fragment() {
             setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             setLineSpacing(0f, 1.25f)
             text = "关闭无障碍服务后，以下保护功能将一并停用：\n\n" +
-                "  • 防卸载保护 → 提交次日关闭申请\n" +
-                "  • 防关权限保护 → 提交次日关闭申请\n" +
-                "  • 闹钟防关机保护 → 立即关闭\n" +
-                a11yCollaborativeDisableDialogItem(
-                    isEnforcing = PrivacyProtectionManager.isEnforcing(ctx),
-                    isPending = PrivacyProtectionManager.getProtectionState(ctx) == PrivacyProtectionManager.State.PENDING
-                ) + "\n\n" +
+                "  • 防卸载与防关权限保护 → 提交次日关闭申请\n" +
+                "  • 小窗可见性增强 → 提交次日关闭申请\n" +
+                "  • 隐私空间保护 → 提交次日关闭申请\n" +
+                "  • 闹钟防关机保护 → 立即关闭\n\n" +
                 "关闭流程：\n" +
                 "1. 点击「确认关闭」提交以上所有关闭申请\n" +
                 "2. 除闹钟防关机保护立即生效外，其余次日生效\n" +
@@ -777,32 +764,16 @@ class RulesFragment : Fragment() {
         btnCancel.setOnClickListener { dialog.dismiss() }
 
         btnConfirm.setOnClickListener {
-            // 防卸载保护 → 提交次日关闭申请（如果当前开启）
-            if (AntiUninstallManager.getProtectionState(ctx) == AntiUninstallManager.State.ACTIVE) {
-                AntiUninstallManager.setProtectionEnabled(ctx, false)
-            }
-            // 防关权限保护 → 提交次日关闭申请（如果当前开启）
-            if (AccessibilityControlManager.getState(ctx) == AccessibilityControlManager.State.ACTIVE) {
-                AccessibilityControlManager.setEnabled(ctx, false)
-            }
-            // 闹钟防关机保护 → 立即关闭
-            if (AlarmPowerOffProtectionManager.isEnabled(ctx)) {
-                AlarmPowerOffProtectionManager.setEnabled(ctx, false)
-            }
-            // 隐私空间拦截 → 提交次日关闭申请（仅 ACTIVE 时, 对齐防卸载 if ACTIVE 写法）
-            // PENDING 不重复提交（避免重置到期时间）, DISABLED 无操作
-            if (PrivacyProtectionManager.getProtectionState(ctx) == PrivacyProtectionManager.State.ACTIVE) {
-                PrivacyProtectionManager.setProtectionEnabled(ctx, false)
-            }
+            submitProtectionDisablesForAccessibility(ctx)
             // 无障碍服务：适应期内立即解除业务保护，否则提交次日关闭申请
             val a11yImmediate = applyA11yDisableRequest(ctx)
             switchA11yServiceUiUpdating = true
             switchView.isChecked = false
             switchA11yServiceUiUpdating = false
             updateAccessibilityServiceUI()
-            updateAntiUninstallUI()
-            updatePermProtectionUI()
+            updateUninstallAndPermProtectionUI()
             updateAlarmPowerOffProtectionUI()
+            updateFloatingWindowProtectionUI()
             updatePrivacySpaceGuardUI()
             dialog.dismiss()
             if (a11yImmediate) {
@@ -838,15 +809,12 @@ class RulesFragment : Fragment() {
             setPadding(0, (14 * density).toInt(), 0, 0)
             setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             setLineSpacing(0f, 1.25f)
-            text = "「防关权限保护」正在保护中，它会阻止对无障碍服务的关闭操作。\n\n" +
+            text = "「防卸载与防关权限保护」正在保护中，它会阻止对无障碍服务的关闭操作。\n\n" +
                 "将同时提交以下功能的关闭申请：\n" +
-                "  • 防卸载保护 → 次日生效（如果已开启）\n" +
-                "  • 防关权限保护 → 次日生效\n" +
+                "  • 防卸载与防关权限保护 → 次日生效\n" +
+                "  • 小窗可见性增强 → 次日生效\n" +
+                "  • 隐私空间保护 → 次日生效\n" +
                 "  • 闹钟防关机保护 → 立即关闭\n" +
-                a11yCollaborativeDisableDialogItem(
-                    isEnforcing = PrivacyProtectionManager.isEnforcing(ctx),
-                    isPending = PrivacyProtectionManager.getProtectionState(ctx) == PrivacyProtectionManager.State.PENDING
-                ) + "\n" +
                 "  • 无障碍服务 → 次日生效\n\n" +
                 "是否确认同时提交？"
         }
@@ -891,30 +859,16 @@ class RulesFragment : Fragment() {
         btnCancel.setOnClickListener { dialog.dismiss() }
 
         btnConfirm.setOnClickListener {
-            // 防卸载保护 → 提交次日关闭申请（如果当前开启）
-            if (AntiUninstallManager.getProtectionState(ctx) == AntiUninstallManager.State.ACTIVE) {
-                AntiUninstallManager.setProtectionEnabled(ctx, false)
-            }
-            // 防关权限保护 → 提交次日关闭申请
-            AccessibilityControlManager.setEnabled(ctx, false)
-            // 闹钟防关机保护 → 立即关闭
-            if (AlarmPowerOffProtectionManager.isEnabled(ctx)) {
-                AlarmPowerOffProtectionManager.setEnabled(ctx, false)
-            }
-            // 隐私空间拦截 → 提交次日关闭申请（仅 ACTIVE 时, 对齐防卸载 if ACTIVE 写法）
-            // PENDING 不重复提交（避免重置到期时间）, DISABLED 无操作
-            if (PrivacyProtectionManager.getProtectionState(ctx) == PrivacyProtectionManager.State.ACTIVE) {
-                PrivacyProtectionManager.setProtectionEnabled(ctx, false)
-            }
+            submitProtectionDisablesForAccessibility(ctx)
             // 无障碍服务：适应期内立即解除业务保护，否则提交次日关闭申请
             val a11yImmediate = applyA11yDisableRequest(ctx)
             switchA11yServiceUiUpdating = true
             switchView.isChecked = false
             switchA11yServiceUiUpdating = false
             updateAccessibilityServiceUI()
-            updateAntiUninstallUI()
-            updatePermProtectionUI()
+            updateUninstallAndPermProtectionUI()
             updateAlarmPowerOffProtectionUI()
+            updateFloatingWindowProtectionUI()
             updatePrivacySpaceGuardUI()
             dialog.dismiss()
             if (a11yImmediate) {
@@ -1287,18 +1241,22 @@ class RulesFragment : Fragment() {
      * 防关权限保护开启时，若锁屏显示未开启则提醒用户，
      * 因为后续闹钟防关机保护需要此项权限。
      */
-    private fun showLockScreenSuggestionDialog() {
+    private fun showLockScreenMissingWarningDialog() {
         val ctx = requireContext()
         AlertDialog.Builder(ctx)
             .setTitle("锁屏显示未开启")
-            .setMessage("「闹钟防关机保护」需要应用的“锁屏显示”权限，才能在锁屏期间正常工作。\n\n" +
-                "建议现在顺便去开启，避免以后想开闹钟防关机保护时还要先关闭权限保护（需次日生效）。\n\n" +
-                "是否现在去开启锁屏显示？")
-            .setPositiveButton("去开启锁屏显示") { _, _ ->
+            .setMessage("检测到锁屏显示权限未开启，开启防关保护后将拦截系统设置，后续若想开启闹钟防关机需先申请关闭本保护并等待次日生效。建议先开启锁屏显示。")
+            .setPositiveButton("开启锁屏显示") { _, _ ->
                 openAppDetailsSettings()
                 Toast.makeText(ctx, "请在应用权限管理中开启「锁屏显示」", Toast.LENGTH_LONG).show()
             }
-            .setNegativeButton("暂不开启", null)
+            .setNegativeButton("不开锁屏，仍要开启") { _, _ ->
+                if (isA11yServiceReady(ctx)) {
+                    enableUninstallAndPermProtection(ctx)
+                } else {
+                    Toast.makeText(ctx, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                }
+            }
             .show()
     }
 
@@ -1465,7 +1423,7 @@ class RulesFragment : Fragment() {
         btnEnable.setOnClickListener {
             AccessibilityControlManager.setEnabled(ctx, true)
             Toast.makeText(ctx, "✅ 防关权限保护已开启", Toast.LENGTH_SHORT).show()
-            updatePermProtectionUI()
+            updateUninstallAndPermProtectionUI()
             dialog?.dismiss()
         }
 
@@ -1928,97 +1886,73 @@ class RulesFragment : Fragment() {
     private fun triggerAntiUninstallStatusLoop(view: View) {
         view.postDelayed({
             if (isAdded && !isDetached) {
-                updateAntiUninstallUI()
+                updateUninstallAndPermProtectionUI()
                 triggerAntiUninstallStatusLoop(view)
             }
         }, 60000)
     }
 
-    private fun updateAntiUninstallUI() {
-        if (!isAdded) return
-        val context = requireContext()
+    private enum class CombinedProtectionState { DISABLED, ACTIVE, PENDING }
 
-        val isAccessibilityEnabled = isAccessibilityServiceEnabled()
-        val state = AntiUninstallManager.getProtectionState(context)
-
-        if (isAccessibilityEnabled) {
-            // Record that user has enabled it at least once
-            val ledgerPrefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-            if (!ledgerPrefs.getBoolean("has_enabled_anti_uninstall", false)) {
-                ledgerPrefs.edit().putBoolean("has_enabled_anti_uninstall", true).apply()
-            }
-
-            switchUninstallUiUpdating = true
-            when (state) {
-                AntiUninstallManager.State.ACTIVE -> {
-                    tvUninstallStatus?.text = "状态: 防卸载已生效"
-                    tvUninstallStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzSuccess))
-                    switchUninstall?.isChecked = true
-                }
-                AntiUninstallManager.State.PENDING -> {
-                    tvUninstallStatus?.text = "状态: 待关闭 (明日生效)"
-                    tvUninstallStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
-                    switchUninstall?.isChecked = false
-                }
-                AntiUninstallManager.State.DISABLED -> {
-                    tvUninstallStatus?.text = "状态: 已关闭"
-                    tvUninstallStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
-                    switchUninstall?.isChecked = false
-                }
-            }
-            switchUninstallUiUpdating = false
-        } else {
-            switchUninstallUiUpdating = true
-            tvUninstallStatus?.text = "状态: 需开启无障碍服务"
-            tvUninstallStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
-            switchUninstall?.isChecked = false
-            switchUninstallUiUpdating = false
+    private fun getCombinedProtectionState(context: Context): CombinedProtectionState {
+        if (!isAccessibilityServiceEnabled(context)) return CombinedProtectionState.DISABLED
+        val antiState = AntiUninstallManager.getProtectionState(context)
+        val permissionState = AccessibilityControlManager.getState(context)
+        return when {
+            antiState == AntiUninstallManager.State.ACTIVE &&
+                permissionState == AccessibilityControlManager.State.ACTIVE -> CombinedProtectionState.ACTIVE
+            antiState != AntiUninstallManager.State.DISABLED &&
+                permissionState != AccessibilityControlManager.State.DISABLED -> CombinedProtectionState.PENDING
+            else -> CombinedProtectionState.DISABLED
         }
     }
 
-    private fun updatePermProtectionUI() {
+    private fun updateUninstallAndPermProtectionUI() {
         if (!isAdded) return
-        val context = requireContext()
-        val systemEnabled = isAccessibilityServiceEnabled()
-        val state = AccessibilityControlManager.getState(context)
+        val ctx = requireContext()
+        val state = getCombinedProtectionState(ctx)
+        switchUninstallAndPermUiUpdating = true
+        switchUninstallAndPermProtection?.isChecked = state == CombinedProtectionState.ACTIVE
+        switchUninstallAndPermUiUpdating = false
 
-        switchPermProtectionUiUpdating = true
-        when (state) {
-            AccessibilityControlManager.State.ACTIVE -> {
-                switchPermProtection?.isChecked = systemEnabled
+        tvUninstallAndPermProtectionStatus?.let {
+            it.text = when (state) {
+                CombinedProtectionState.ACTIVE -> "状态: 已开启"
+                CombinedProtectionState.PENDING -> "状态: 待关闭（明日生效）"
+                CombinedProtectionState.DISABLED -> "状态: 未开启"
             }
-            AccessibilityControlManager.State.PENDING -> {
-                switchPermProtection?.isChecked = false
-            }
-            AccessibilityControlManager.State.DISABLED -> {
-                switchPermProtection?.isChecked = false
-            }
+            it.setTextColor(
+                ThemeManager.getColorAttr(
+                    ctx,
+                    if (state == CombinedProtectionState.PENDING) R.attr.zzWarning
+                    else if (state == CombinedProtectionState.ACTIVE) R.attr.zzSuccess
+                    else R.attr.zzMuted
+                )
+            )
         }
-        switchPermProtectionUiUpdating = false
+    }
 
-        tvPermProtectionStatus?.let {
-            when (state) {
-                AccessibilityControlManager.State.PENDING -> {
-                    it.text = "状态: 待关闭（明日生效）"
-                    it.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
-                    it.visibility = android.view.View.VISIBLE
-                }
-                AccessibilityControlManager.State.ACTIVE -> {
-                    if (systemEnabled) {
-                        it.text = "状态: 已生效"
-                        it.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzSuccess))
-                    } else {
-                        it.text = "状态: 需开启无障碍服务"
-                        it.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
-                    }
-                    it.visibility = android.view.View.VISIBLE
-                }
-                AccessibilityControlManager.State.DISABLED -> {
-                    it.text = "状态: 已关闭"
-                    it.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
-                    it.visibility = android.view.View.VISIBLE
-                }
+    private fun updateFloatingWindowProtectionUI() {
+        if (!isAdded) return
+        val ctx = requireContext()
+        val state = FloatingWindowProtectionManager.getProtectionState(ctx)
+        switchFloatingWindowUiUpdating = true
+        switchFloatingWindowProtection?.isChecked = state == FloatingWindowProtectionManager.State.ACTIVE
+        switchFloatingWindowUiUpdating = false
+        tvFloatingWindowProtectionStatus?.let {
+            it.text = when (state) {
+                FloatingWindowProtectionManager.State.ACTIVE -> "状态: 已开启"
+                FloatingWindowProtectionManager.State.PENDING -> "状态: 待关闭（明日生效）"
+                FloatingWindowProtectionManager.State.DISABLED -> "状态: 未开启"
             }
+            it.setTextColor(
+                ThemeManager.getColorAttr(
+                    ctx,
+                    if (state == FloatingWindowProtectionManager.State.PENDING) R.attr.zzWarning
+                    else if (state == FloatingWindowProtectionManager.State.ACTIVE) R.attr.zzSuccess
+                    else R.attr.zzMuted
+                )
+            )
         }
     }
 
@@ -2062,19 +1996,10 @@ class RulesFragment : Fragment() {
         switchAlarmPowerOffProtection?.isChecked = enabled
         switchAlarmPowerOffUiUpdating = false
 
-        if (!status.a11yReady) {
-            tvAlarmPowerOffProtectionStatus?.text = "状态: 需开启无障碍服务"
-            tvAlarmPowerOffProtectionStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
-        } else if (configuredEnabled && !status.allReady) {
-            tvAlarmPowerOffProtectionStatus?.text = "状态: 需补齐 ${status.missingLabels.joinToString("、")}"
-            tvAlarmPowerOffProtectionStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzWarning))
-        } else if (enabled) {
-            tvAlarmPowerOffProtectionStatus?.text = "状态: 已开启"
-            tvAlarmPowerOffProtectionStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzSuccess))
-        } else {
-            tvAlarmPowerOffProtectionStatus?.text = "状态: 已关闭"
-            tvAlarmPowerOffProtectionStatus?.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzMuted))
-        }
+        tvAlarmPowerOffProtectionStatus?.text = if (enabled) "状态: 已开启" else "状态: 未开启"
+        tvAlarmPowerOffProtectionStatus?.setTextColor(
+            ThemeManager.getColorAttr(context, if (enabled) R.attr.zzSuccess else R.attr.zzMuted)
+        )
     }
 
     /**

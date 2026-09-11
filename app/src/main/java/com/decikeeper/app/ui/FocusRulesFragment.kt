@@ -41,7 +41,7 @@ class FocusRulesFragment : Fragment() {
         tabLayout.removeAllTabs()
         val timeTab = tabLayout.newTab().setText("勿扰时段")
         val appTab = tabLayout.newTab().setText("应用时间窗")
-        val globalParamsTab = tabLayout.newTab().setText("全局参数")
+        val globalParamsTab = tabLayout.newTab().setText("规则参数")
         tabLayout.addTab(timeTab)
         tabLayout.addTab(appTab)
         tabLayout.addTab(globalParamsTab)

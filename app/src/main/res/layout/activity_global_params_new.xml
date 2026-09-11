@@ -19,7 +19,7 @@
         android:paddingTop="12dp"
         android:paddingBottom="72dp">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:text="全局参数" android:textColor="?attr/zzText" android:textSize="26sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:text="规则参数" android:textColor="?attr/zzText" android:textSize="26sp" android:textStyle="bold" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/card_pending_changes"
@@ -106,6 +106,7 @@
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:layout_marginBottom="14dp" android:text="提醒类参数立即生效，不需要等待次日刷新。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="每日生效时间" android:textColor="?attr/zzText" android:textSize="13sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="范围 06:00 ~ 10:00，且须位于空档期或勿扰时段边界。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                 <EditText android:id="@+id/et_refresh_time" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="7dp" android:background="@drawable/bg_input_field" android:hint="08:00" android:inputType="time" android:textColor="?attr/zzText" android:textColorHint="?attr/zzSubtle" />
                 <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_refresh_sync" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="跟随最早结束时段（自动同步）" android:textColor="?attr/zzText" android:textSize="12sp" />
                 <TextView android:id="@+id/tv_refresh_sync_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:layout_marginBottom="14dp" android:text="开启后自动同步；窗口内无匹配时段时默认 08:00" android:textColor="?attr/zzMuted" android:textSize="10sp" android:visibility="gone" />

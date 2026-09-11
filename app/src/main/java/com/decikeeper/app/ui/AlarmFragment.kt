@@ -126,31 +126,163 @@ class AlarmFragment : Fragment() {
         return mf.contains("vivo") || mf.contains("iqoo")
     }
 
+    private fun isAlarmKeepaliveSatisfied(ctx: Context): Boolean {
+        val isBgBatteryOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+            powerManager?.isIgnoringBatteryOptimizations(ctx.packageName) == true
+        } else true
+
+        val isVivo = isVivoOrIqoo()
+        val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
+        val isSleepConfirmed = prefs.getBoolean("vivo_sleep_standby_confirmed", false)
+
+        return isBgBatteryOk && (!isVivo || isSleepConfirmed)
+    }
+
+    private var hasPromptedKeepaliveInSession = false
+
+    private fun checkAndPromptAlarmKeepalive(ctx: Context) {
+        if (hasPromptedKeepaliveInSession) return
+        val satisfied = isAlarmKeepaliveSatisfied(ctx)
+        if (!satisfied) {
+            hasPromptedKeepaliveInSession = true
+            showAlarmKeepAliveGuideDialog()
+        }
+    }
+
     private fun showAlarmKeepAliveGuideDialog() {
         val ctx = context ?: return
+        val density = ctx.resources.displayMetrics.density
         val isVivo = isVivoOrIqoo()
-        val title = "闹钟保活指引"
-        val message = if (isVivo) {
-            "为防止 Vivo / OriginOS 在夜间锁屏待机时冻结闹钟进程导致漏响或延迟，请务必完成以下两项配置：\n\n" +
-            "1. 关闭「睡眠待机优化」\n" +
-            "   路径：设置 → 电池 → 更多电池设置 → 关闭「睡眠待机优化 / 睡眠模式」\n\n" +
-            "2. 允许「后台高耗电」\n" +
-            "   路径：设置 → 电池 → 后台耗电管理 → 找到 决定守护 → 选择「允许后台耗电」"
-        } else {
-            "为防止系统在夜间锁屏或后台待机时冻结闹钟进程导致漏响，建议完成以下配置：\n\n" +
-            "1. 忽略电池优化（允许后台无限制运行）\n" +
-            "2. 允许应用自启动与常驻后台\n" +
-            "3. 在多任务后台将本应用锁定，防止被系统误清理"
+        val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
         }
 
-        AlertDialog.Builder(ctx)
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton("前往设置") { _, _ ->
-                openKeepAliveSettings(ctx)
+        val tvTitle = TextView(ctx).apply {
+            text = "闹钟防漏响保活配置"
+            textSize = 18f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        container.addView(tvTitle)
+
+        val tvMessage = TextView(ctx).apply {
+            text = "为防止系统在夜间锁屏或后台待机时冻结闹钟导致漏响，请确保以下保活项已就绪："
+            textSize = 13f
+            setPadding(0, (10 * density).toInt(), 0, (14 * density).toInt())
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
+        }
+        container.addView(tvMessage)
+
+        fun buildButton(label: String): com.google.android.material.button.MaterialButton {
+            return com.google.android.material.button.MaterialButton(ctx).apply {
+                text = label
+                setAllCaps(false)
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+                backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+                cornerRadius = (12 * density).toInt()
+                minHeight = (44 * density).toInt()
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
-            .setNegativeButton("我知道了", null)
-            .show()
+        }
+
+        // 行 1：后台高耗电
+        val rowBgBattery = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, (10 * density).toInt())
+        }
+        val btnBgBattery = buildButton("后台高耗电")
+        val cbBgBattery = CheckBox(ctx).apply {
+            text = "已开启"
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        rowBgBattery.addView(btnBgBattery)
+        rowBgBattery.addView(cbBgBattery)
+        container.addView(rowBgBattery)
+
+        // 行 2：睡眠待机优化 (仅 Vivo/OriginOS)
+        var btnSleep: com.google.android.material.button.MaterialButton? = null
+        var cbSleep: CheckBox? = null
+        if (isVivo) {
+            val rowSleep = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 0, 0, (10 * density).toInt())
+            }
+            btnSleep = buildButton("去关闭「睡眠待机优化」")
+            cbSleep = CheckBox(ctx).apply {
+                text = "已关闭"
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            }
+            rowSleep.addView(btnSleep)
+            rowSleep.addView(cbSleep)
+            container.addView(rowSleep)
+
+            val tvTip = TextView(ctx).apply {
+                text = "* 注：系统无法自动读取「睡眠待机优化」开关状态，请在系统设置关闭后勾选“已关闭”。"
+                textSize = 11f
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+                setPadding(0, 0, 0, (10 * density).toInt())
+            }
+            container.addView(tvTip)
+        }
+
+        var dialog: AlertDialog? = null
+        var uiUpdating = false
+
+        fun updateDialogUi() {
+            uiUpdating = true
+            val isBgBatteryOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val powerManager = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                powerManager?.isIgnoringBatteryOptimizations(ctx.packageName) == true
+            } else true
+
+            btnBgBattery.text = if (isBgBatteryOk) "后台高耗电已开启" else "去设置后台高耗电"
+            btnBgBattery.isEnabled = !isBgBatteryOk
+            btnBgBattery.alpha = if (isBgBatteryOk) 0.5f else 1.0f
+            cbBgBattery.isChecked = isBgBatteryOk
+            cbBgBattery.isEnabled = !isBgBatteryOk
+
+            if (isVivo && cbSleep != null && btnSleep != null) {
+                val isSleepConfirmed = prefs.getBoolean("vivo_sleep_standby_confirmed", false)
+                cbSleep.isChecked = isSleepConfirmed
+                btnSleep.text = if (isSleepConfirmed) "睡眠待机优化已关闭" else "去关闭「睡眠待机优化」"
+                btnSleep.alpha = if (isSleepConfirmed) 0.5f else 1.0f
+            }
+            uiUpdating = false
+            refreshSettingsSummaries()
+        }
+
+        btnBgBattery.setOnClickListener {
+            openKeepAliveSettings(ctx)
+        }
+        cbBgBattery.setOnCheckedChangeListener { _, checked ->
+            if (uiUpdating) return@setOnCheckedChangeListener
+            updateDialogUi()
+        }
+
+        btnSleep?.setOnClickListener {
+            openVivoBatterySettings(ctx)
+        }
+        cbSleep?.setOnCheckedChangeListener { _, checked ->
+            if (uiUpdating) return@setOnCheckedChangeListener
+            prefs.edit().putBoolean("vivo_sleep_standby_confirmed", checked).apply()
+            updateDialogUi()
+        }
+
+        updateDialogUi()
+
+        dialog = AlertDialog.Builder(ctx)
+            .setView(container)
+            .setPositiveButton("完成", null)
+            .setNegativeButton("取消", null)
+            .create()
+        dialog.show()
     }
 
     private fun openKeepAliveSettings(ctx: Context) {
@@ -248,6 +380,7 @@ class AlarmFragment : Fragment() {
     }
 
     private fun maybeShowKeepAliveGuideOnFirstActiveAlarm() {
+        if (hasPromptedKeepaliveInSession) return
         val ctx = context ?: return
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
         val shown = prefs.getBoolean("alarm_keepalive_guide_shown", false) ||
@@ -377,6 +510,13 @@ class AlarmFragment : Fragment() {
         activeAlarmRefreshHandler.post(activeAlarmRefreshRunnable)
     }
 
+    /** 仅在用户真正进入闹钟页时检查一次保活配置。 */
+    fun onEnteredAlarmTab() {
+        if (!isAdded) return
+        reloadAlarms()
+        checkAndPromptAlarmKeepalive(requireContext())
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_PICK_RINGTONE && resultCode == android.app.Activity.RESULT_OK) {
@@ -404,13 +544,8 @@ class AlarmFragment : Fragment() {
 
     private fun checkExistingAlarmsPermissionsAndGuide() {
         val ctx = context ?: return
-        if (alarms.isEmpty()) return
 
-        // 1. 如果存在已开启的闹钟，首次自动触发保活引导（无论手动添加还是备份导入）
-        val hasActiveAlarm = alarms.any { it.enabled }
-        if (hasActiveAlarm) {
-            maybeShowKeepAliveGuideOnFirstActiveAlarm()
-        }
+        if (alarms.isEmpty()) return
 
         // 2. 如果存在已开启的闹钟使用了扫码挑战，但未授予相机权限，主动提示授权
         val hasQrChallenge = alarms.any {
@@ -478,7 +613,8 @@ class AlarmFragment : Fragment() {
         val ctx = context ?: return
         // 统一入口不显示单项摘要，避免误解"只能设置再响"
         tvSnoozeSummary?.text = ""
-        tvKeepaliveSummary?.text = "防睡眠冻结/后台保活"
+        val keepaliveOk = isAlarmKeepaliveSatisfied(ctx)
+        tvKeepaliveSummary?.text = if (keepaliveOk) "已就绪 ✓" else "待配置（防睡眠冻结/后台保活）"
 
         val math = AlarmScheduler.getDefaultMathCount(ctx)
         val poem = AlarmScheduler.getDefaultPoemCount(ctx)

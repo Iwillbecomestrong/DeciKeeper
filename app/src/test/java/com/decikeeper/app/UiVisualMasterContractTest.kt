@@ -82,11 +82,22 @@ class UiVisualMasterContractTest {
         val xml = layout("fragment_rules.xml")
         assertTrue(xml.contains("主题")); assertTrue(xml.contains("com.decikeeper.app.ui.ThemeSummaryView"))
         assertFalse(xml.contains("♿")); assertTrue(xml.contains("无障碍服务"))
+        assertTrue(xml.contains("@+id/btn_open_help")); assertTrue(xml.contains("@+id/btn_open_about"))
     }
 
     @Test fun homeKeepsSetupGuideQuotaTodayRulesAndWeeklyPrivilege() {
         val xml = layout("fragment_home.xml")
-        listOf("@+id/card_setup_guide","@+id/layout_quota_bubble","com.decikeeper.app.ui.TodayRulesView","@+id/card_weekly_privilege_entry","@+id/btn_help").forEach { assertTrue(xml.contains(it)) }
+        listOf("@+id/card_setup_guide","@+id/layout_quota_bubble","com.decikeeper.app.ui.TodayRulesView","@+id/card_today_alarm","com.decikeeper.app.ui.TodayAlarmView","@+id/card_weekly_privilege_entry").forEach { assertTrue(xml.contains(it)) }
+        assertFalse(xml.contains("@+id/btn_help"))
+    }
+
+    @Test fun focusRulesAndGlobalParamsUseRuleParamsTerminology() {
+        val focusRules = source("src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt")
+        assertTrue(focusRules.contains("\"规则参数\""))
+        assertFalse(focusRules.contains("\"全局参数\""))
+
+        val globalParamsXml = layout("activity_global_params_new.xml")
+        assertTrue(globalParamsXml.contains("规则参数"))
     }
 
     @Test fun bottomNavigationUsesFiveMatchingCustomIcons() {
