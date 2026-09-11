@@ -3040,11 +3040,8 @@ internal object LockAlarmOverlayController {
             Log.i(TAG, "applyScanCutoutLayers: SCAN_CUTOUT_ENABLED")
             LogExporter.logEvent("AlarmOverlay", "SCAN_CUTOUT_ENABLED")
         } else {
-            if (savedRootBackground != null) {
-                savedRootBackground?.let { root?.background = it }
-            } else if (root != null) {
-                root.setBackgroundColor(ThemeManager.getColorAttr(root.context, R.attr.zzPageBg))
-            }
+            val pageBg = ThemeManager.getColorAttr(root?.context ?: view.context, R.attr.zzPageBg)
+            root?.setBackgroundColor(pageBg)
             if (savedScanBackground != null) {
                 savedScanBackground?.let { scanLayout?.background = it }
             } else if (scanLayout != null) {
