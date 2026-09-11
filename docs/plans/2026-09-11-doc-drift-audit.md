@@ -14,18 +14,22 @@
 | [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) | 33 | **15** | 1 | 1 |
 | [`docs/ai/LOG_EVENT_MIGRATION.md`](../ai/LOG_EVENT_MIGRATION.md) | 21 | **12** | 1 | 2 |
 | [`docs/specs/alarm.md`](../specs/alarm.md) | 52 | 8 | 3 | 0 |
-| [`docs/specs/protection.md`](../specs/protection.md) | 97 | 8 | 4 | 1 |
+| [`docs/specs/protection.md`](../specs/protection.md) ⟳ | 52 | 7 | 3 | 0 |
 | [`docs/specs/statistics.md`](../specs/statistics.md) | 29 | 8 | 1 | 0 |
 | [`docs/PUBLISHING.md`](../PUBLISHING.md) | 15 | 7 | 1 | 0 |
 | [`docs/specs/data.md`](../specs/data.md) | 47 | 5 | 4 | 0 |
 | [`docs/DATA_SOURCES.md`](../DATA_SOURCES.md) | 17 | 4 | 0 | 2 |
 | [`CHANGELOG.md`](../../CHANGELOG.md) | 9 | 4 | 1 | 0 |
 | [`docs/THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) | 12 | 2 | 0 | 0 |
-| [`docs/specs/focus.md`](../specs/focus.md) | 8 核对点 | 2 | 0 | 0 |
+| [`docs/specs/focus.md`](../specs/focus.md) ⟳ | 46 | 5 | 3 | 4 |
 | [`docs/user/getting-started.md`](../user/getting-started.md) | 22 | 3 | 1 | 1 |
 | [`docs/user/guide.md`](../user/guide.md) | 40 | 9 | 1 | 1 |
 
-已确认漂移合计 **87 条**。审计已全部完成。
+已确认漂移合计 **89 条**。
+
+> **⟳ 标记的两行已于 2026-09-11 重审。** 它们原先基于 `f8a1ae0`，而大提交 `fde3c93`
+> 重写了 `focus.md`(+121/−72) 与 `protection.md`(+59)，旧结论作废；重审基线为 `7624b83`。
+> 其余各行不受 `fde3c93` 影响，原清单可直接使用。
 
 ### 三种漂移形态（决定修法不同）
 
@@ -111,18 +115,22 @@
 
 ---
 
-### 1.4 `docs/specs/protection.md` —— 漂移 8 / 97
+### 1.4 `docs/specs/protection.md` —— **重审后**漂移 7 / 52
 
-**先说好消息**：全文**未出现**「前台检测/时间拦截/防卸载单点依赖无障碍」这类被 AGENT_CORE §4.1 禁止的表述；防卸载执行路径确为无障碍事件扫描 + 系统页面识别 + `GLOBAL_ACTION` 退出 + 覆盖层身份，**无 Device Admin 依赖**；无「绝对无法绕过」承诺。守护测试：`RulesSettingsUiContractTest`、`PrivacyProtectionRetirementContractTest`、`LockGenerationIsolationTest`、`AntiUninstallForceStopDialogTest`。
+> **本节已于 2026-09-11 重审替换。** 原审计（漂移 8 / 97）基于 `f8a1ae0`，而 `fde3c93` 重写了本文件（+59），旧结论作废。
+> 重审基线：`7624b83`。新结论：**52 条可验证结论，成立 42 / 已漂移 7 / 无法判定 3 / 已过期引用 0**。
 
-- [高] 「开启：立即；关闭：立即」(:193-194)、「开启和关闭均立即生效」(:340) → **已独立复核**：`AlarmPowerOffProtectionManager.isEnabled()` 在 `app/src/main` 中**只有 UI 在读**（`RulesFragment.kt:789/901/1142/2058` 渲染开关状态）；真正拦截关机菜单的是 `CoreService.kt:880` 的 `if (LockWindowManager.isAlarmOverlayShowing)` —— **只判断覆盖层在不在，完全不看开关值**。关掉开关，拦截行为不变。
-- [高] 「设置页必须保留黑白名单、全局参数等入口」(:293) → **已独立复核**：`fragment_rules.xml` 对「全局黑名单/黑白名单/全局参数」命中 **0**。实际位置：`fragment_time_config.xml:36` `btn_global_blacklist`；全局参数是时间规则页第三 tab（`FocusRulesFragment.TAB_GLOBAL_PARAMS = 2`）。契约测试反向断言：`RulesSettingsUiContractTest.kt:85-90`、`:93-102`。
-- [中] 「关闭：提交严格下一业务日的 pending」(:133) → 适应期内**直接立即 DISABLED**（`AccessibilityControlManager.kt:78-82`），未走 pending。
-- [中] 「系统『锁屏显示』应用权限」(:208) → 实为**本地人工勾选位**（`AlarmPowerOffProtectionManager.kt:113-116`；契约测试命名 `lockScreenDisplayUsesIndependentManualConfirmation`）。
-- [中] 「防关权限保护 = 关键无障碍能力」(:118) → `PermissionProtection.kt:63-79` 实际覆盖悬浮窗 / 使用情况 / 自启动 / 电池优化等多类，不限无障碍；与本文件 §11.3 口径不一致。
-- [中] 「[非目标] 通过设备管理权永久阻止用户卸载」(:288) → **已独立复核**：拦截链确无设备管理权（`isDeviceAdminActive` 定义在 `AntiUninstallManager.kt:135`、**调用点 0**），但 `DeviceAdmin` receiver **仍注册在 Manifest**（`AndroidManifest.xml:285-295`，含 `BIND_DEVICE_ADMIN` 与 `@xml/device_admin`），启用时 Toast 宣称「防卸载保护已激活」。文档未反映该残留组件。
-- [低] 「隐藏**知止**在多任务界面」(:336) → 现文案为「隐藏决定守护在多任务界面」（`fragment_rules.xml:138`）。
-- [低] :35 有乱码残字 `bu'zhi'd`。
+**先说好消息**：全文未出现被 AGENT_CORE §4.1 禁止的「前台检测/时间拦截/防卸载单点依赖无障碍」表述；防卸载执行链仍是无障碍 + 页面识别 + 覆盖层（`AntiUninstallProtection.kt:518-601`、`:1345-1419`），**无 Device Admin 依赖**；`app/src` 全树 `DeviceAdmin|DevicePolicyManager|device_admin` 命中 0、`res/xml/` 已不存在，与本文档 §10「设备管理权为非目标」一致。
+
+- [高] 「合并开关关闭时弹出原有冷静期温情确认，确认后同时调用两个 Manager 的关闭接口」(:363) → **该弹窗不存在**：`fde3c93` 删除了 `showUninstallAndPermDisableDialog`，监听器直接调用关闭接口（`RulesFragment.kt:586-588`），且契约测试**反向锁死其不存在**（`RulesSettingsUiContractTest.kt:62`）。**已修**。
+- [中] 「系统『锁屏显示』应用权限；不把通知权限或全屏意图权限替代这项检查」(:208)、「从系统设置返回后重新检查全部条件」(§11.4 :352) → 实际**不读任何系统权限/AppOp**，只读本地 prefs 布尔 `lock_screen_display_confirmed`，由弹窗内用户手勾 CheckBox 写入（`AlarmPowerOffProtectionManager.kt:113-116`；`RulesFragment.kt:1222-1226`；契约测试 `AlarmPowerOffProtectionManagerTest.kt:52 lockScreenDisplayUsesIndependentManualConfirmation`）。
+- [中] 「当前明确使用 baseline 例外的保护包括：防卸载；隐私空间拦截」(:231-234) → 遗漏**小窗可见性增强**，它同样走 baseline 例外（`FloatingWindowProtectionManager.kt:73,84`；`TimeRuleManager.kt:596 getBaselineFloatingWindowProtectionState`）。
+- [中] 「小窗可见性增强 独立开关」(:298-302)、「小窗可见性增强：说明它增强小窗可见性识别」(:333) → **`fde3c93` 新增的 `FloatingWindowProtectionManager` 全文未被文档覆盖**：三态 + `isEnforcing` + 严格次日关闭的状态机、§7.1 清单、§9 验收契约均无对应条目；真实生效点是小窗/PIP Presence 门禁（`VisibleBlacklistPresenceTracker.kt:106`）。
+- [中] 「每项仍必须在自己的 Manager 中再次检查实际前置条件」(:309) → 实际只有 `AlarmPowerOffProtectionManager` 自查无障碍；`PrivacyProtectionManager`(`:78-97`) 与 `FloatingWindowProtectionManager`(`:72-91`) 内**无任何 a11y 判断**，检查散落在 Fragment（`RulesFragment.kt:534,571,2061`）。
+- [低] 「缺少任一条件时…弹窗明确列出缺失条件…用户点击『去开启』」(:347-353) → 无障碍缺失时只弹 Toast 并 return，弹窗只覆盖非无障碍前置（`RulesFragment.kt:1103-1109` vs `:1110-1117`）。
+- [低] :35 乱码残字 `bu'zhi'd`。**已修**。
+
+> 原审计中关于「闹钟防关机开关无效」「设置页必须保留黑白名单入口」「DeviceAdmin 残留」三条**已处理**：开关无消费点一条仍成立（见 §2），后两条已修（见 §4）。
 
 ---
 
@@ -190,14 +198,26 @@
 
 ---
 
-### 1.11 `docs/specs/focus.md` —— 漂移 2 / 8 核对点（**目前最健康的一份规格**）
+### 1.11 `docs/specs/focus.md` —— **重审后**漂移 5 / 46
 
-审计覆盖 8 个核对点：成立 **6** / 已漂移 **2** / 无法判定 0。
+> **本节已于 2026-09-11 重审替换。** 原审计（2 / 8 核对点、称"最健康的一份"）基于 `f8a1ae0`，而 `fde3c93` 重写了本文件（+121/−72），旧结论作废。
+> 重审基线：`7624b83`。新结论：**46 条可验证结论，成立 34 / 已漂移 5 / 无法判定 3 / 已过期引用 4**。
 
-**已漂移：**
+**契约测试强证据**：`DualLockSystemContractTest`（§11 / §12.2 Case1-8 全覆盖）、`HomeStatusPresentationTest`（§2.7）、`BorrowPenaltyFormulaTest`（§6.2/§7）、`ExpiryResolverTest`（§13）、`TemporaryAccessChargeSnapshotTest`（§4.2）。
 
-- [中高] 「当前产品口径是 **借 1，下一时段扣 2**」「冷却 `×2` 与借用『借 1、后续扣 2』是两个不同概念…UI 和文档不得混为一谈」(:244、:248) → 实际偿还额是**分区加权后再乘惩罚**：`CreditManager.kt:2006-2008` `zoneWeighted = coolingOverlapSec*2 + dndOverlapSec*1 + gapOverlapSec*0` / `return zoneWeighted * 2`。即**冷却重叠部分实际按 ×4 偿还**（×2 惩罚 × ×2 冷却），冷却与借用是**相乘**关系而非文档所述的并列概念。活调用点：`LockWindowManager.kt:6183`（5 参重载，显式传入 cooling/dnd overlap）；只有 2 参默认重载（`CreditManager.kt:2104`，经 `:2025` 全按勿扰段计）才等价于 ×2。
-- [低] 「切换策略时 `EffectiveActivationPolicyManager` 要求 `TimeRuleManager` 与 `AppWindowManager` 重新协调 active / pending 状态」(:304) → 适应期内该协调被**直接跳过**：`TimeRuleManager.kt:1727` `if (isInAdaptationPeriod(context)) return`、`AppWindowManager.kt:601-602`；而 `EffectiveActivationPolicyManager.kt:54-56` 是无条件调用。§8.4 未记录该例外。
+- [中] 「在 30 秒内连续**锁屏**达到当前阈值时，触发一次惩罚扣减」(:220) → 触发源是锁屏页的「**返回桌面**」按钮，30 秒内点满 5 次才扣（`LockWindowManager.kt:1897 recordReturnHomePenaltyHit`；注释 `:1893-1895` "Only the explicit RETURN_HOME button calls this method."；`PENALTY_THRESHOLD = 5` 在 `:643`）。**已修**。
+- [中] 「`WeightedRestCountTest` 中保留的旧比例 helper 测试属于兼容/历史纯函数覆盖」(:152) → **该 helper 已在 `DECISION-29` 一并收敛为平坦倍率**，测试现为**当前主计费路径的口径契约**（`LockWindowManager.kt:6676 if (safeCool > 0) return 2`；`WeightedRestCountTest.kt:114-123`）。**已修**。
+- [中] 「新文案不得再使用『超级临时』『超级临时放行』『**临时放行**』」(:28) → 生产用户可见文案**仍在使用「临时放行」**，且唯一契约测试只拦前两者。证据：`LockWindowManager.kt:4470`（Toast「已临时放行10s…」）、`:4209`（「• 临时放行时长: …」）、`activity_global_params_new.xml:90`；`TemporaryAccessUserFacingCopyContractTest.kt:34-35`。**未修**——需决定改代码还是放宽文档。
+- [低] 「不再因为冷却只剩少量秒数，就只给那几秒做比例加权」(:143)、「不再采用碎片化比例模型」(:291) → 主路径确已整单倍率，但源码仍留**两处按秒分区的死实现且全仓无调用点**：`LockWindowManager.kt:5893 showRestCoolingTempAccessDialog`（内 `:5927 overlapSec * 2 + normalSec`）、`:5996 showCoolingConfirmDialog`（内 `:6011` 同式、`:6028`「冷却重叠(×2)」）。**未修**——建议删除死代码。
+- [低] 「宽严有别…加严立即生效；放宽：下一刷新时刻生效」(:310-313) → 策略文案含**文档未收录的第三条例外**「恢复到当前基准的修改立即生效」（`EffectiveActivationPolicyManager.kt:69`）。**未修**。
+
+**已过期引用（4 条）**：
+
+- `tv_temp_access_status`(:96) —— app/src 全域 0 匹配（其"已废除"的描述与代码一致，符号本身已不存在）
+- `UserState`(:181, :187) —— 0 匹配，无该类型；状态由 `CreditManager.isFreeTime/getFreeTimeEnd`、`LockDecisionPolicy(isPrivilege)` 分散推导
+- `DND Lock`(:41,:82,:88) / `App Window Lock`(:52,:83,:88) —— 0 匹配；代码侧对应 `LockScreenPresentationPolicy.kt:23-27 enum class LockOverlayRestrictionMode { APP_WINDOW, DND, OTHER }`
+
+> 原审计的两条结论**已由本次收敛解决**：借用的 `zoneWeighted` 已删除（改为平坦倍率），"两个不同概念"的文档表述已改为"二者会相乘"。
 
 **成立的 6 点（关键锚点）：**
 
