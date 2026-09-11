@@ -2224,8 +2224,10 @@ object CreditManager {
     }
 
     /**
-     * 借用下段额度（加权扣费）。
-     * 时长 = ×2(惩罚) × [×2(冷却秒) + ×1(勿扰秒) + ×0(空档秒)]
+     * 借用下段额度。
+     *
+     * 惩罚秒数按平坦倍率计算（2026-09-11 口径）：触及冷却期整单 ×4，否则整单 ×2；
+     * 空档秒不计费。详见 [calculateWeightedBorrowSeconds]。
      */
     private fun borrowSecondsFromNextWeighted(
         context: Context,
@@ -2239,7 +2241,7 @@ object CreditManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val edit = prefs.edit()
 
-        // 加权扣费 = ×2(惩罚) × [×2(冷却) + ×1(勿扰) + ×0(空档)]
+        // 惩罚秒数：触及冷却期整单 ×4，否则整单 ×2（空档秒不计费）
         val weightedSec = calculateWeightedBorrowSeconds(coolingOverlapSec, dndOverlapSec, gapOverlapSec)
 
         if (currentIndex == -1) {

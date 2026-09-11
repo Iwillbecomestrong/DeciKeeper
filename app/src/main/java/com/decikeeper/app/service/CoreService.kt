@@ -601,12 +601,10 @@ class CoreService : AccessibilityService() {
                 }
             }, StartupProtectionManager.CORE_HANDOFF_REQUEST_DELAY_MS)
 
-            // Ensure Anti-Uninstall is ENABLED and synced when service starts
-            try {
-                AntiUninstallManager.setProtectionEnabled(this, true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to enable anti-uninstall protection", e)
-            }
+            // [fde3c93] 无障碍服务连接时**不得**无条件打开防卸载保护——
+            // 用户主动关闭过的保护不能被服务重连悄悄恢复。
+            // 契约守护：AntiUninstallStartupProtectionContractTest
+            //   .coreServiceMustNotTurnOnAntiUninstallWhenAccessibilityConnects
 
             // 🚀 [JIT Warmup] Pre-compile critical code paths in background
             // This prevents the "first few times slow" issue by triggering JIT compilation early

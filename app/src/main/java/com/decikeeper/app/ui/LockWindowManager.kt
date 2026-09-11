@@ -4167,8 +4167,8 @@ object LockWindowManager {
         val maxSeconds = getTemporaryAccessMaxSeconds(context)
         val isCooling = CreditManager.isCooling(context)
         val coolMsg = if (isCooling) {
-            "\n\n⚠️ 当前处于休息冷却期，使用临时解锁时，触碰到冷却期的重叠部分会加权扣费，不重叠的部分正常扣费。\n" +
-                "例如：申请 0.5 分钟，冷却期还剩 0.2 分钟 → 重叠部分加权，剩余部分正常。"
+            "\n\n⚠️ 当前处于休息冷却期：本次申请的时间与次数整单翻倍（×2）。\n" +
+                "例如：申请 0.5 分钟 → 计费 1.0 分钟；申请 1.0 分钟 → 计费 2.0 分钟。"
         } else ""
         val dialog = AlertDialog.Builder(dialogContext)
             .setTitle("临时解锁使用说明")
@@ -5945,7 +5945,7 @@ object LockWindowManager {
 
         val dialog = AlertDialog.Builder(dialogContext)
             .setTitle("⚠️ 冷却中临时解锁")
-            .setMessage("当前处于休息冷却期（剩余 ${formatTemporaryAccessSecondsAsMinutes(coolRemainSec.toInt())} 分钟）。触碰冷却期的重叠部分会加权扣费，不重叠部分正常扣费。")
+            .setMessage("当前处于休息冷却期（剩余 ${formatTemporaryAccessSecondsAsMinutes(coolRemainSec.toInt())} 分钟）。本次申请的时间与次数整单翻倍（×2）。")
             .setView(layout)
             .setPositiveButton("确认") { _, _ ->
                 val raw = input.text?.toString()?.trim()
