@@ -190,6 +190,10 @@ object LockWindowManager {
     private var mLockView: View? = null
     private var mLastThemeKey: String? = null
     private var mContext: Context? = null
+    @Volatile
+    private var isLockScreenHiddenForAlarmScan = false
+
+    fun isLockScreenHiddenForAlarmScan(): Boolean = isLockScreenHiddenForAlarmScan
     // MonitorService 每次检测到的前台应用记录（带时间戳环形缓冲区）
     // 用于到期回调路径的交叉验证：getTopPackageName() 返回 null 时取最近一条
     internal data class ForegroundRecord(val pkg: String, val timestamp: Long)
@@ -492,6 +496,7 @@ object LockWindowManager {
     interface AlarmOverlayController {
         fun launchQrScan()
         fun onAlarmOverlayFinished()
+        fun onScanCancel() {}
     }
 
     // ── 会话级复习数据（仅记录用户操作过的题目） ──
@@ -1062,6 +1067,33 @@ object LockWindowManager {
 
     fun setAlarmOverlayPassthrough(enable: Boolean) {
         LockAlarmOverlayController.setAlarmOverlayPassthrough(enable)
+    }
+
+    fun cancelAlarmScan() {
+        LockAlarmOverlayController.cancelAlarmScan()
+    }
+
+    fun setLockScreenVisibleForAlarmScan(visible: Boolean) {
+        mUiHandler.post {
+            isLockScreenHiddenForAlarmScan = !visible
+            val view = mLockView ?: return@post
+            if (view.parent == null) return@post
+            view.visibility = if (visible) View.VISIBLE else View.GONE
+            view.alpha = if (visible) 1.0f else 0.0f
+            try {
+                val wm = mActiveWindowManager ?: return@post
+                val lp = view.layoutParams as? WindowManager.LayoutParams ?: return@post
+                if (!visible) {
+                    lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                } else {
+                    lp.flags = lp.flags and (WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv())
+                }
+                wm.updateViewLayout(view, lp)
+            } catch (e: Exception) {
+                Log.w(TAG, "setLockScreenVisibleForAlarmScan updateViewLayout failed: visible=$visible", e)
+            }
+            Log.i(TAG, "setLockScreenVisibleForAlarmScan: visible=$visible")
+        }
     }
 
     fun onAlarmScanResult(success: Boolean) {
@@ -1828,7 +1860,14 @@ object LockWindowManager {
 
                 updateLockViewUI()
                 clearSystemDialogCompatState()
-                mLockView?.alpha = 1.0f
+                if (isLockScreenHiddenForAlarmScan) {
+                    mLockView?.visibility = View.GONE
+                    mLockView?.alpha = 0.0f
+                    params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                } else {
+                    mLockView?.visibility = View.VISIBLE
+                    mLockView?.alpha = 1.0f
+                }
 
                 targetWM.addView(mLockView, params)
                 mActiveWindowManager = targetWM
@@ -3426,16 +3465,29 @@ object LockWindowManager {
                     val restoreParams = systemDialogNormalParams?.let { cloneLayoutParams(it) }
                         ?: (lockView.layoutParams as? WindowManager.LayoutParams)?.let { cloneLayoutParams(it) }
                         ?: buildNormalLockParams(isServiceActive())
-                    restoreParams.flags = restoreParams.flags and
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv() and
-                            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and
-                            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL.inv()
-                    restoreParams.alpha = 1.0f
+                    if (isLockScreenHiddenForAlarmScan) {
+                        restoreParams.flags = restoreParams.flags or
+                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                        restoreParams.alpha = 0.0f
+                    } else {
+                        restoreParams.flags = restoreParams.flags and
+                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv() and
+                                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and
+                                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL.inv()
+                        restoreParams.alpha = 1.0f
+                    }
                     mActiveWindowManager!!.updateViewLayout(lockView, restoreParams)
                 }
             }
 
-            lockView.alpha = systemDialogNormalViewAlpha
+            if (isLockScreenHiddenForAlarmScan) {
+                lockView.visibility = View.GONE
+                lockView.alpha = 0.0f
+            } else {
+                lockView.visibility = View.VISIBLE
+                lockView.alpha = systemDialogNormalViewAlpha
+            }
             val currentType = (lockView.layoutParams as? WindowManager.LayoutParams)?.type ?: -1
             LogExporter.logEvent(
                 "SystemDialog",

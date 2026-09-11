@@ -41,6 +41,7 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.A11ySelfDisableAuthorization
+import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.AppWindowManager
@@ -390,27 +391,20 @@ class CoreService : AccessibilityService() {
         
         var instance: CoreService? = null // 🚀 Singleton for detached fix
 
-        fun isSystemDialogPackage(pkgName: String?): Boolean {
-            return pkgName == "android" ||
-                pkgName == "com.vivo.systemuiplugin" ||
-                pkgName == "com.android.systemui"
-        }
+        // 识别逻辑已抽到 manager/SystemDialogDetectionPolicy.kt（纯函数，可 JVM 单测），
+        // 此处仅保留同签名转发，避免改动既有调用点。
+        fun isSystemDialogPackage(pkgName: String?): Boolean =
+            com.decikeeper.app.manager.isSystemDialogPackage(pkgName)
 
-        fun isShutdownDialogClass(className: String?): Boolean {
-            val cls = className ?: return false
-            return cls.contains("GlobalActions", ignoreCase = true) ||
-                cls.contains("ShutdownThread", ignoreCase = true) ||
-                cls.contains("PowerOff", ignoreCase = true) ||
-                cls.contains("ShutdownAction", ignoreCase = true) ||
-                cls.contains("ShutdownDialog", ignoreCase = true)
-        }
+        fun isShutdownDialogClass(className: String?): Boolean =
+            com.decikeeper.app.manager.isShutdownDialogClass(className)
 
-        fun shouldHandleShutdownDialogEvent(eventType: Int, pkgName: String?, className: String?): Boolean {
-            val supportedType = eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-                eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
-                eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
-            return supportedType && isSystemDialogPackage(pkgName) && isShutdownDialogClass(className)
-        }
+        fun shouldHandleShutdownDialogEvent(eventType: Int, pkgName: String?, className: String?): Boolean =
+            com.decikeeper.app.manager.shouldHandleShutdownDialogEvent(eventType, pkgName, className)
+
+        /** 系统弹层 BACK 限流：语音助手会连续吐出大量事件，不限流会疯狂按 BACK。 */
+        private const val SYSTEM_DIALOG_BACK_MIN_INTERVAL_MS = 1200L
+        private var mLastSystemDialogBackAt = 0L
 
         fun hasRecentAccessibilitySignal(
             nowMillis: Long = System.currentTimeMillis(),
@@ -882,28 +876,41 @@ class CoreService : AccessibilityService() {
         // 褰撻攣灞忚鐩栨椂锛岀郴缁熷璇濇浼氳鎸′綇瀵艰嚧鏃犳硶鍏虫満銆?
         // 妫€娴嬪埌绯荤粺绾у璇濇绐楀彛鐘舵€佸彉鍖栨椂锛屼复鏃惰鍑虹劍鐐广€?
         // 鍏煎锛欰OSP (android), Vivo (com.vivo.systemuiplugin), Samsung (com.android.systemui) 绛?
-        if (LockWindowManager.isAlarmOverlayShowing) {
+        if (LockWindowManager.isAlarmOverlayShowing && AlarmPowerOffProtectionManager.isEnabled(this)) {
             val className = event.className?.toString()
-            if (shouldHandleShutdownDialogEvent(event.eventType, pkgName, className)) {
+            val shutdownDialog = shouldHandleShutdownDialogEvent(event.eventType, pkgName, className)
+            val voiceAssistant = com.decikeeper.app.manager
+                .shouldDismissVoiceAssistantOverAlarm(event.eventType, pkgName)
+            if (shutdownDialog || voiceAssistant) {
+                val dialogKind = if (shutdownDialog) "shutdown" else "voice_assistant"
                 LogExporter.logEvent(
                     "SystemDialog",
-                    "[ALARM_BLOCK] type=${event.eventType}, pkg=$pkgName, class=$className"
+                    "[ALARM_BLOCK] kind=$dialogKind, type=${event.eventType}, pkg=$pkgName, class=$className"
                 )
                 // 内嵌模式下先切换到窗口模式，确保覆盖层能升至系统对话框之上
                 LockWindowManager.ensureAlarmOverlayInWindowMode()
-                LockWindowManager.reassertAlarmOverlayOverSystemDialog("shutdown_dialog")
+                LockWindowManager.reassertAlarmOverlayOverSystemDialog(
+                    if (shutdownDialog) "shutdown_dialog" else "voice_assistant"
+                )
                 // 锁屏 + 挑战覆盖层同时激活时，一并降级锁屏让系统对话框能被正确处理，
                 // 否则 isLocked 路径因本块提前 return 永远不会执行 onSystemDialogChanged(true)。
                 if (LockWindowManager.isLocked) {
                     LockWindowManager.onSystemDialogChanged(true)
                 }
-                try {
-                    performGlobalAction(GLOBAL_ACTION_BACK)
-                } catch (_: Exception) {
+                // 语音助手会连续吐出大量事件，必须限流，否则 BACK 会被打成连发
+                val nowBlock = System.currentTimeMillis()
+                if (nowBlock - mLastSystemDialogBackAt >= SYSTEM_DIALOG_BACK_MIN_INTERVAL_MS) {
+                    mLastSystemDialogBackAt = nowBlock
+                    try {
+                        performGlobalAction(GLOBAL_ACTION_BACK)
+                    } catch (_: Exception) {
+                    }
+                    mHandler.postDelayed({
+                        LockWindowManager.reassertAlarmOverlayOverSystemDialog(
+                            if (shutdownDialog) "shutdown_dialog_after_back" else "voice_assistant_after_back"
+                        )
+                    }, 120L)
                 }
-                mHandler.postDelayed({
-                    LockWindowManager.reassertAlarmOverlayOverSystemDialog("shutdown_dialog_after_back")
-                }, 120L)
                 return
             }
         }

@@ -1005,16 +1005,68 @@
         android:id="@+id/layout_alarm_scan"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?attr/zzPageBg"
+        android:background="@android:color/transparent"
         android:visibility="gone">
 
+        <!-- [Fix: scan cutout] 覆盖层窗口渲染不了 SurfaceView（DecoratedBarcodeView），
+             保留该视图仅为兼容既有 findViewById 调用，始终不显示。
+             取景画面来自下方 AlarmActivity 的相机预览，透过中间的开孔透出。 -->
         <com.journeyapps.barcodescanner.DecoratedBarcodeView
             android:id="@+id/barcode_alarm_scanner"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:visibility="gone"
             app:zxing_framing_rect_width="260dp"
             app:zxing_framing_rect_height="260dp"
             app:zxing_viewfinder_laser_visibility="false" />
+
+        <!-- 不透明挡板：仅中间留出 260dp 见方的取景开孔。其余区域保持不透明，
+             系统弹层（关机菜单、语音助手）既无法从四周漏出，也无法被触摸操作。 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <View
+                android:id="@+id/scan_letterbox_top"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="?attr/zzPageBg" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="260dp"
+                android:orientation="horizontal">
+
+                <View
+                    android:id="@+id/scan_letterbox_left"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="?attr/zzPageBg" />
+
+                <View
+                    android:id="@+id/scan_viewfinder_hole"
+                    android:layout_width="260dp"
+                    android:layout_height="260dp"
+                    android:background="@android:color/transparent" />
+
+                <View
+                    android:id="@+id/scan_letterbox_right"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="?attr/zzPageBg" />
+            </LinearLayout>
+
+            <View
+                android:id="@+id/scan_letterbox_bottom"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="?attr/zzPageBg" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"

@@ -318,11 +318,11 @@ object AlarmWindowManager {
                 Log.w(TAG, "launchQrScan: no active alarm, aborting")
                 return
             }
-            LockWindowManager.hideAlarmOverlayForPermission()
             val intent = Intent(ctx, AlarmActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra(AlarmScheduler.EXTRA_ALARM_ID, activeAlarmId)
-                putExtra("request_camera_permission", true)
+                putExtra("is_locked_screen", false)
+                putExtra("start_scan", true)
             }
             ctx.startActivity(intent)
         }

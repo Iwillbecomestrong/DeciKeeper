@@ -99,10 +99,11 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
         snoozeMinutes = AlarmScheduler.getSnoozeMinutes(this)
         newAlarmSession = intent.getBooleanExtra("new_alarm_session", false)
+        isLockedScreenMode = intent.getBooleanExtra("is_locked_screen", false)
         setupWindow()
         window.decorView.setBackgroundColor(ThemeManager.getColorAttr(this, R.attr.zzPageBg))
 
-        android.util.Log.i("AlarmActivity", "onCreate: alarmId=$alarmId, is_locked_screen=${intent.getBooleanExtra("is_locked_screen", false)}, start_scan=${intent.getBooleanExtra("start_scan", false)}, request_camera=${intent.getBooleanExtra("request_camera_permission", false)}")
+        android.util.Log.i("AlarmActivity", "onCreate: alarmId=$alarmId, is_locked_screen=$isLockedScreenMode, start_scan=${intent.getBooleanExtra("start_scan", false)}, request_camera=${intent.getBooleanExtra("request_camera_permission", false)}")
         LogExporter.logEvent("AlarmOverlay", "ACTIVITY_ON_CREATE id=$alarmId locked=${intent.getBooleanExtra("is_locked_screen", false)} startScan=${intent.getBooleanExtra("start_scan", false)} requestCamera=${intent.getBooleanExtra("request_camera_permission", false)}")
 
         // AlarmActivity 的所有进入路径都必须经过悬浮窗前置条件；没有权限时直接结束，
@@ -115,29 +116,10 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             return
         }
 
+        LockWindowManager.reattachAlarmController(this)
         if (intent.getBooleanExtra("start_scan", false)) {
-            isScanMode = true
-            setContentView(R.layout.activity_alarm_scan)
-            // [Fix: 扫码界面沉浸模式] setContentView 重置 systemUiVisibility, 重新应用防止上滑退出
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                )
-            barcodeView = findViewById(R.id.barcode_scanner)
-            findViewById<Button>(R.id.btn_scan_cancel).setOnClickListener {
-                barcodeView?.pause()
-                finishScanAndRestoreOverlay()
-            }
-            findViewById<ImageButton>(R.id.btn_torch).setOnClickListener {
-                toggleTorch()
-            }
-            // 请求权限或直接开始扫码
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                startBarcodeScanner()
+                startScanMode()
             } else {
                 launchQrScan()
             }
@@ -200,11 +182,18 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                     LockWindowManager.setAlarmOverlayPassthrough(false)
                     LockWindowManager.showAlarmOverlayIfHidden()
                     LockWindowManager.onScanChallengePassed()
-                    // 两阶段解锁且锁屏显示时：不能 finish，必须把已切换到第二关的 mAlarmView
-                    // 重新内嵌回 Activity，否则用户看到的是空白锁屏，需要手动解锁才能完成第二关。
-                    if (isLockedScreenMode) {
+                    // [Fix: overlay detach / white screen]
+                    // 若覆盖层已在独立窗口模式（!isCurrentOverlayInline()）或挑战已完成，
+                    // 绝不能调用 showAlarmOverlayInlineInActivity 把已在 WindowManager
+                    // 渲染好的独立窗口摘下来塞回 Activity（removeView 的异步 MSG_DIE 会摧毁
+                    // CanvasContext 导致白屏死锁）。直接 finishAndRemoveTask 退出扫码器，
+                    // 露出已渲染好完成态/第二关的独立覆盖层窗口即可。
+                    // 仅当覆盖层依然是 inline 模式、锁屏且挑战未全部完成（需进入第二关）时才内嵌回 Activity。
+                    val isInline = LockWindowManager.isCurrentOverlayInline()
+                    val isCompleted = AlarmScheduler.isChallengeCompleted(this@AlarmActivity)
+                    if (isLockedScreenMode && isInline && !isCompleted) {
                         LockWindowManager.showAlarmOverlayInlineInActivity(this, this)
-                    } else {
+                    } else if (!isLockedScreenMode) {
                         finishAndRemoveTask()
                     }
                 }
@@ -212,12 +201,17 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         }
     }
 
-    private fun finishScanAndRestoreOverlay() {
+    override fun onScanCancel() {
+        android.util.Log.i("AlarmActivity", "onScanCancel: isLockedScreenMode=$isLockedScreenMode")
         barcodeView?.pause()
         isScanMode = false
-        LockWindowManager.setAlarmOverlayPassthrough(false)
-        LockWindowManager.showAlarmOverlayIfHidden()
-        finishAndRemoveTask()
+        if (!isLockedScreenMode) {
+            finishAndRemoveTask()
+        }
+    }
+
+    private fun finishScanAndRestoreOverlay() {
+        LockWindowManager.cancelAlarmScan()
     }
 
     private fun toggleTorch() {
@@ -231,6 +225,11 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     private fun startScanMode() {
         isScanMode = true
+        // [Fix: overlay detach] setContentView() 会替换整个内容视图，把 inline 挂载的
+        // 覆盖层一起带离窗口（它仍保留 parent，但整棵子树已脱窗，此后无法渲染，
+        // 表现为扫码成功后白屏且无法退出）。因此必须在替换之前先把覆盖层提升为
+        // 独立窗口（TYPE_ACCESSIBILITY_OVERLAY），使其不再依赖 Activity 的内容视图。
+        LockWindowManager.ensureAlarmOverlayInWindowMode()
         setContentView(R.layout.activity_alarm_scan)
         // [Fix: 扫码界面沉浸模式] setContentView 重置 systemUiVisibility, 重新应用防止上滑退出
         window.decorView.systemUiVisibility = (
@@ -405,6 +404,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             return
         }
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
+        isLockedScreenMode = intent.getBooleanExtra("is_locked_screen", isLockedScreenMode)
         val requestedNewSession = intent.getBooleanExtra("new_alarm_session", false)
 
         if (requestedNewSession) {
@@ -415,6 +415,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
         if (intent.getBooleanExtra("start_scan", false)) {
             // SINGLE_TOP 下收到扫码请求：直接进入扫码模式
+            LockWindowManager.reattachAlarmController(this)
             startScanMode()
             return
         }
@@ -494,6 +495,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         if (isScanMode) {
             LockWindowManager.setAlarmOverlayPassthrough(false)
         }
+        LockWindowManager.setLockScreenVisibleForAlarmScan(true)
         LockWindowManager.detachAlarmController(this)
     }
 }

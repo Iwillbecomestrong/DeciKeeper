@@ -75,6 +75,15 @@ class AlarmPowerOffProtectionManagerTest {
         assertTrue(canEnableIndex >= 0 && canEnableIndex < setEnabledIndex)
     }
 
+    @Test
+    fun coreServiceGatesShutdownInterceptionByManagerEnabled() {
+        val coreServiceSource = source("app/src/main/java/com/decikeeper/app/service/CoreService.kt")
+        assertTrue(
+            "CoreService 拦截关机菜单/语音助手前必须消费 AlarmPowerOffProtectionManager.isEnabled",
+            coreServiceSource.contains("LockWindowManager.isAlarmOverlayShowing && AlarmPowerOffProtectionManager.isEnabled(this)")
+        )
+    }
+
     private fun source(path: String): String {
         val cwd = File(System.getProperty("user.dir") ?: ".")
         val candidates = listOf(
