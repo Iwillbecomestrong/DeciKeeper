@@ -278,11 +278,46 @@
 
 > **更正**：乱码**并非只影响日志**。`AntiUninstallProtection.kt:1508` 的 `.setTitle("导出日志 (防卸�?")` 是**用户可见弹窗标题**，字符已被损坏。
 
-### 待裁决（需产品决策，未擅自改动）
+### 已裁决并落地（2026-09-11）
 
-1. **借用/冷却口径**：`focus.md:244,248` 与 `guide.md:195,197` 都称"统一按 2 倍 / 两个独立概念"，代码 `CreditManager.kt:2006-2008` 实为**加权后相乘**（冷却重叠部分实际 ×4）。**文档与代码必有一错**，且两棵树都是加权实现。
-2. **第二阶段是否允许为空**：`AGENT_CORE.md` §3.4 称允许为空，代码 `AlarmFragment.kt:1170-1177` 强制每关至少一种。**红线文件与代码冲突。**
-3. **哪棵树是"当前代码"**：见下方 §4.1。
+**① 借用/冷却口径 —— 已裁决：改为平坦倍率，删除按秒加权**
+
+产品决定：
+
+| 场景 | 倍率 |
+| --- | --- |
+| NORMAL 申请（休息 / 临时解锁）触及冷却期 | 时长与次数**整单 ×2** |
+| FREE_TIME / REST | 仍免费，不受冷却影响 |
+| 借用触及冷却期 | **整单 ×4**（借用惩罚 ×2 × 冷却 ×2） |
+| 借用未触及冷却 | 整单 ×2（借一还二） |
+
+已落地：
+
+- `LockWindowManager.calculateWeightedRestCountImpl`：触及冷却 → 2；否则保留 `round(勿扰/总)`
+- `LockWindowManager.calculateWeightedQuotaSeconds`：触及冷却 → 整单 ×2
+- `CreditManager.calculateWeightedBorrowSeconds`：删除 `zoneWeighted`，改为触及冷却 → 整单 ×4、否则 ×2；空档秒不计费（沿用旧 `gap×0`）
+- 弹窗文案：「加权扣费」全部改为「整单翻倍」
+- `WeightedRestCountTest` 更新 7 条期望（混合场景由 1 次变 2 次）
+- **新增 `BorrowPenaltyFormulaTest`（5 例）**——该函数此前**无任何测试覆盖**
+
+> **修正本报告先前表述**：初版称"代码是加权、文档说整单翻倍，两边相反"，**不准确**。
+> 主线路径本来就是整单翻倍（`LockWindowManager.kt:3637` `overlapSec = if (inAnyCooling) requestedSec else 0`，全有或全无）；
+> 真正的按秒加权只在 `calculateWeightedRestCountImpl`（次数）、`calculateWeightedQuotaSeconds`（跨段末时长）与 `calculateWeightedBorrowSeconds`（借用）三处。
+
+**② 第二阶段是否允许为空 —— 已裁决：不允许为空**
+
+代码（`AlarmFragment.kt` 保存与开始测试均拦截，报「两阶段模式下，第二关必须至少选择一种挑战！」）是**对的**；
+`AGENT_CORE.md` §3.4 原文「第二阶段任务允许为空」**已过期，已改为**：
+
+> - 双阶段模式下**每一关都必须至少选择一种挑战**（含扫码），空值在保存与开始测试时被拦截；
+> - 第二阶段**允许与第一阶段重复题型**（包括扫码）。
+
+**③ 哪棵树是"当前代码"**：仍未裁决，见下方 §4.1。
+
+### 仍待处理
+
+`AlarmFragment.kt` 的「保存为默认设置」路径（`:1550-1551`）会**静默把空的第二阶段回填成 4 种题型**，
+与上面「不允许为空」的口径以及 `alarm.md` §265「不得被默认值逻辑偷偷重新填回」相冲突，尚未处理。
 
 ### 4.1 两棵树并存造成的基线问题
 

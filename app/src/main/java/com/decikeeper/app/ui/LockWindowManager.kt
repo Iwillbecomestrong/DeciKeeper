@@ -3648,7 +3648,7 @@ object LockWindowManager {
                              val chargeableMins = if (timeInSegment > 0) timeInSegment else 0
                              
                              // Recalculate Base Cost using ONLY the time remaining in the segment
-                             // 冷却期重叠部分×2加权，其余正常（用秒计算）
+                             // 触及冷却期即整单翻倍（2026-09-11 口径）
                              val chargeableSec = (chargeableMins * 60).toInt()
                              val segCoolOverlapSec = overlapSec.coerceAtMost(chargeableSec)
                              val segNormalSec = chargeableSec - segCoolOverlapSec
@@ -5888,7 +5888,7 @@ object LockWindowManager {
     }
 
     /**
-     * 休息冷却期内临时解锁弹窗：说明触碰冷却期的重叠部分会加权扣费。
+     * 休息冷却期内临时解锁弹窗：说明本次申请整单翻倍。
      */
     private fun showRestCoolingTempAccessDialog(
         dialogContext: Context,
@@ -5991,7 +5991,7 @@ object LockWindowManager {
     }
 
     /**
-     * 冷却期确认弹窗：告知用户冷静期内申请将加权扣费，必须用户确认后才执行。
+     * 冷却期确认弹窗：告知用户冷静期内申请将整单翻倍，必须用户确认后才执行。
      */
     private fun showCoolingConfirmDialog(
         context: Context,
@@ -6654,6 +6654,14 @@ internal fun findWordAtIndex(text: String, offset: Int): String? {
     return word.ifEmpty { null }
 }
 
+/**
+ * 休息 / 临时解锁的计费次数。
+ *
+ * **口径（2026-09-11 产品决定）**：只要本次申请触及冷却期，就**整单翻倍**，
+ * 不再按秒分区加权。原实现是 `round((dndSec + coolOverlapSec) / totalSec)`，
+ * 会把"一半在空档、一半在冷却"这类混合场景算成 1 次而不是 2 次，与用户可见文案
+ * 「时间与次数整单直接翻倍」不符。
+ */
 internal fun calculateWeightedRestCountImpl(
     freeSec: Int,
     dndSec: Int,
@@ -6664,9 +6672,10 @@ internal fun calculateWeightedRestCountImpl(
     // 防御性：冷却重叠不能超过 DND 总秒数；空档 + DND 应等于 total
     val safeCool = coolOverlapSec.coerceIn(0, dndSec.coerceAtLeast(0))
     val safeDnd = dndSec.coerceAtLeast(0)
-    val weightedNumerator = (safeDnd + safeCool).toDouble()
-    // half-up 四舍五入，避免 kotlin.math.round 的 half-to-even 行为
-    val rounded = kotlin.math.floor(weightedNumerator / totalSec.toDouble() + 0.5).toInt()
+    // 触及冷却期 → 整单翻倍（基础 1 次 × 2）
+    if (safeCool > 0) return 2
+    // 未触及冷却：仍按勿扰占比较计（空档 ×0、勿扰 ×1），保持既有行为
+    val rounded = kotlin.math.floor(safeDnd / totalSec.toDouble() + 0.5).toInt()
     return rounded.coerceIn(0, 2)
 }
 
@@ -6675,10 +6684,21 @@ internal fun quantizeQuotaSecondsToTenthMinute(seconds: Int): Int {
     return kotlin.math.floor(seconds / 6.0 + 0.5).toInt() * 6
 }
 
+/**
+ * 休息 / 临时解锁的计费时长（秒）。
+ *
+ * **口径（2026-09-11 产品决定）**：触及冷却期即**整单 ×2**，不再按秒分区加权。
+ * 原实现 `normal + cooling × 2` 会把"一半在冷却"算成 1.5 倍，与用户可见文案
+ * 「时间与次数整单直接翻倍（×2）」不符。
+ *
+ * 注：借用（`CreditManager.calculateWeightedBorrowSeconds`）**不在本次调整范围**，
+ * 借用惩罚 ×2 与冷却 ×2 继续相乘。
+ */
 internal fun calculateWeightedQuotaSeconds(normalDndSec: Int, coolingSec: Int): Int {
     val normal = quantizeQuotaSecondsToTenthMinute(normalDndSec)
+    if (coolingSec <= 0) return normal
     val cooling = quantizeQuotaSecondsToTenthMinute(coolingSec)
-    return normal + cooling * 2
+    return quantizeQuotaSecondsToTenthMinute(normal + cooling) * 2
 }
 
 internal enum class QuotaActionType { UNLOCK, REST }
