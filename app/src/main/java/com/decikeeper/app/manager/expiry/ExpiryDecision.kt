@@ -1,7 +1,7 @@
 package com.decikeeper.app.manager.expiry
 
 /**
- * 临时放行（Free Time / Temporary Access / Privilege）到期后的决策结果。
+ * 三类临时放开出口（Free Time 休息 / Temporary Access 临时解锁 / Privilege 每周特权）到期后的决策结果。
  */
 enum class ExpiryDecision {
     LOCK,
@@ -10,7 +10,7 @@ enum class ExpiryDecision {
 }
 
 /**
- * 临时放行到期原因。
+ * 上述三类出口的到期原因。
  */
 enum class ExpiryReason {
     FREE_TIME_END,

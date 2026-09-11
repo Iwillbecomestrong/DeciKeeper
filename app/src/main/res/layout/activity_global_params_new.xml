@@ -116,7 +116,7 @@
                 <EditText android:id="@+id/et_cool_down_gap" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="7dp" android:layout_marginBottom="14dp" android:background="@drawable/bg_input_field" android:hint="300" android:inputType="number" android:textColor="?attr/zzText" android:textColorHint="?attr/zzSubtle" />
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="统一冷却（秒）" android:textColor="?attr/zzText" android:textSize="13sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="休息结束与临时放行结束后，共用这一冷却时间。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="休息结束与临时解锁结束后，共用这一冷却时间。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                 <EditText android:id="@+id/et_cool_down_rest" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="7dp" android:background="@drawable/bg_input_field" android:hint="60" android:inputType="number" android:textColor="?attr/zzText" android:textColorHint="?attr/zzSubtle" />
 
                 <EditText android:id="@+id/et_cool_down_blacklist" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />

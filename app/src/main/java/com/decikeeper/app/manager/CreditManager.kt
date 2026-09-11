@@ -2074,25 +2074,34 @@ object CreditManager {
 
 
     // ═══════════════════════════════════════════════════════════════
-    // 借用加权计算（从大到小排列，便于 grep "* 2 + * 1 + * 0"）
-    //
-    // 公式：×2(惩罚) × [×2(冷却秒) + ×1(勿扰秒) + ×0(空档秒)]
-    // 次数 = 加权结果 / 申请秒数（四舍五入）
+    // 借用惩罚计算
+    // 口径（2026-09-11 产品决定）：平坦倍率，不再按秒分区加权
+    //   ×4(冷却) / ×2(借一还二)
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * 借用时长加权扣费。
-     * 公式：×2(惩罚) × [×2(冷却秒) + ×1(勿扰秒) + ×0(空档秒)]
-     * 从大到小排列，便于 grep。
+     * 借用时长的惩罚秒数。
+     *
+     * **口径（2026-09-11 产品决定）**：改为平坦倍率——
+     * - 借入区间**触及冷却期** → 整单 ×4（借用惩罚 ×2 × 冷却 ×2）
+     * - 未触及冷却 → 整单 ×2（「借一还二」）
+     *
+     * 旧实现 `(冷却秒×2 + 勿扰秒×1 + 空档秒×0) × 2` 是**按秒分区加权**：同样"碰了冷却"，
+     * 只有落进冷却的那几秒按 ×4，其余按 ×2 或 ×0，导致弹窗预览与实际扣费都难以向用户解释。
+     * 该口径已废弃，zoneWeighted 这条生产调用链不再存在。
+     *
+     * 计费基数只取 `冷却秒 + 勿扰秒`：**空档期借用不收惩罚**（沿用旧公式 gap×0 的既有口径）。
+     * 三处生产调用点（LockWindowManager 的借用预览与确认、CreditManager 的内部转发）
+     * 传入的 `gapOverlapSec` 恒为 0，因此该分支目前不影响真实行为，仅作为语义保底。
      */
     fun calculateWeightedBorrowSeconds(
         coolingOverlapSec: Int,
         dndOverlapSec: Int,
         gapOverlapSec: Int
     ): Int {
-        // 从大到小：cooling×2 + dnd×1 + gap×0
-        val zoneWeighted = coolingOverlapSec * 2 + dndOverlapSec * 1 + gapOverlapSec * 0
-        return zoneWeighted * 2  // 借用惩罚 ×2
+        val chargeableSec = coolingOverlapSec + dndOverlapSec
+        if (chargeableSec <= 0) return 0
+        return if (coolingOverlapSec > 0) chargeableSec * 4 else chargeableSec * 2
     }
 
     /**
@@ -2215,8 +2224,10 @@ object CreditManager {
     }
 
     /**
-     * 借用下段额度（加权扣费）。
-     * 时长 = ×2(惩罚) × [×2(冷却秒) + ×1(勿扰秒) + ×0(空档秒)]
+     * 借用下段额度。
+     *
+     * 惩罚秒数按平坦倍率计算（2026-09-11 口径）：触及冷却期整单 ×4，否则整单 ×2；
+     * 空档秒不计费。详见 [calculateWeightedBorrowSeconds]。
      */
     private fun borrowSecondsFromNextWeighted(
         context: Context,
@@ -2230,7 +2241,7 @@ object CreditManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val edit = prefs.edit()
 
-        // 加权扣费 = ×2(惩罚) × [×2(冷却) + ×1(勿扰) + ×0(空档)]
+        // 惩罚秒数：触及冷却期整单 ×4，否则整单 ×2（空档秒不计费）
         val weightedSec = calculateWeightedBorrowSeconds(coolingOverlapSec, dndOverlapSec, gapOverlapSec)
 
         if (currentIndex == -1) {

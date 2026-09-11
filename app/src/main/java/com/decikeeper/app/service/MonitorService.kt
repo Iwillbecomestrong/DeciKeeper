@@ -2233,7 +2233,7 @@ class MonitorService : Service() {
         val guardResult = shouldEnforceLockForCurrentTop(effectivePackageName, now)
 
         // 🚀 [提前计算最终锁策略业务状态 (Finding 2)]
-        // 解决跨规则边界与时间窗闭合判定：完整评估 DND、应用时间窗（App Window）、特权、白名单与临时放行状态
+        // 解决跨规则边界与时间窗闭合判定：完整评估 DND、应用时间窗（App Window）、特权、白名单与临时解锁状态
         val isSafe = CreditManager.isLauncher(effectivePackageName) || 
                  effectivePackageName == "com.android.settings" ||
                  CreditManager.isInputMethod(this, effectivePackageName) ||

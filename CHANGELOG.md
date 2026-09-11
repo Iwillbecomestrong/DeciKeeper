@@ -11,21 +11,23 @@
   - 中文名正式定名为「决定守护」，英文代号「DeciKeeper」。
   - Android 底层包名与 Application ID 彻底重构为 `com.decikeeper.app`，源码目录全面平移；`iron_will_*` 系列 prefs 键名统一迁移为 `decikeeper_*`。
   - 数据备份三重兼容：`SettingsBackupManager` 原生支持解析并导入 `decikeeper_settings_backup`、旧版 `zhizhi_settings_backup` 与更早 `ironwill_settings_backup` 规则文件，导入时自动将旧键名映射为新键名；`AutoBackupManager` 回退查找旧公共目录 `Documents/ZhiZhi/` 与旧快照，老用户换新包名后一键无损迁移。
-- **全面更名「知止 (ZhiZhi)」**：
-  - 中文名正式定名为「知止」，英文代号「ZhiZhi」，寓意《道德经》*「知足不辱，知止不殆；知止而后有定。知道什么时候停止。不是禁止一切娱乐，而是在适当的时候停下来」*。
-  - Android 底层包名与 Application ID 彻底重构为 `com.zhizhi.app`，源码目录全面平移。
-  - 数据备份向后兼容：`SettingsBackupManager` 原生支持解析并导入旧版 `ironwill_settings_backup` 规则文件，老用户换新包名后一键无损迁移。
-- **开源结构治理**：全面引入 `project-organization` 规范，建立生活文档体系（`SPEC.md`, `PLAN.md`, `HISTORY.md`, `AGENT_CORE.md`）与 Local README 门禁（`app/`, `docs/`, `scripts/`）。
-- **代码集净化**：移除误入 Java 源码目录的非代码文件与截图，规范视觉图档路径。
-- **开源社区模版**：补充 `.github/` 下的 Bug 反馈、功能建议 Issue 模版及 Pull Request 审查模版。
+- **双锁系统收敛与到期决策解析器 (ExpiryResolver)**：
+  - 引入到期决策解析体系（`ExpiryResolver` / `ExpiryCoordinator` / `VisibleContainerResolver`），解决休息与特权到期后无条件硬锁屏、避免误锁正常退桌面与白名单应用。
+  - 纯勿扰锁屏移除临时解锁入口，时间窗/双锁锁屏不提供申请休息，出口正交化。
+- **冷却与借用口径平坦化收敛 (DECISION-29)**：
+  - 彻底废除按秒分区加权模型，收敛为统一整单平坦倍率：触及冷却整单 ×2，借用整单 ×2，借用触及冷却整单 ×4（借 1 扣 4）。
+- **浮窗与小窗防绕过保护 (FloatingWindowProtectionManager)**：
+  - 新增小窗可见性增强守护，严格防御画中画与悬浮小窗绕过黑名单的漏洞。
+- **开源结构治理与单源体系**：
+  - 建立文档体系分层（`docs/product/`、`docs/user/`、`docs/specs/`、`docs/plans/`、`HISTORY.md`、`AGENT_CORE.md`）；
+  - App 内置帮助文档与 `docs/user/` 建立构建期单源同步验证。
 
 ### 缺陷修复 (Fixed)
-- **无障碍服务待关闭刷新与子保护强依赖门禁**：
-  - 修复关闭无障碍服务弹窗确认及取消申请时遗漏自身 UI 刷新的缺陷，状态文字与颜色立即由绿色就绪切换为橙色「`状态: ⏳ 待关闭（明日生效）`」。
-  - 确立无障碍服务的前置基石地位：当无障碍服务未开启或处于待关闭状态时，严格拦截防卸载、防关权限、闹钟防关机及隐私空间保护的单独开启，开关即时回弹并给出轻量友好 Toast 提示。
+- **Direct Boot 恢复与开机静默处理**：
+  - 修复开机直接启动（Direct Boot）时的状态恢复链，明确静默恢复时不主动拉起主界面 UI。
 - **前台小窗与画中画拦截**：实现无障碍事件与窗口快照双流融合，精准拦截抖音等应用的画中画/小窗避锁漏洞。
 - **应用时间窗**：修正时间窗锁机原因的界面展示与状态透传链路。
-- **测试鲁棒性**：修复脚本单元测试在缺失私有真机日志样本时的条件跳过逻辑。
+- **术语规范化**：生产用户可见文案彻底收敛为「临时解锁」，契约测试全面拦截「临时放行」等历史词汇。
 
 ---
 
@@ -35,6 +37,7 @@
 
 ### 新增特性 (Added)
 - **本时段独立黑名单**：每个勿扰时段支持独立脱钩黑名单配置，支持全选、反选与恢复全局继承。
+- **特权时长选择器自动截断与显示上限**：特权申请时长自动适配当日可用额度，超出上限自动截断并显示上限提示。
 - **开源许可证**：以 GNU General Public License v3.0 (GPL-3.0) 许可证正式公开发布。
 - **自动化构建流**：配置 GitHub Actions 工作流实现 Debug APK 自动化编译与单测校验。
 

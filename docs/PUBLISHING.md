@@ -3,7 +3,7 @@
 > **定位**：本文档是 Gitee / GitHub 双仓库初始化、构建产物分发与 Release 发布的
 > **唯一可执行清单**。
 > **不上架任何应用商店**，只走自建发行渠道。
-> 最后核验：2026-09-04
+> 最后核验：2026-09-04（下表状态与远端地址需要重新核对后再依赖；仓库名与产品名目前并不一致）
 
 ---
 
@@ -11,63 +11,49 @@
 
 | 项目 | 状态 | 证据 |
 |:---|:---|:---|
-| GitHub 仓库 | ✅ 已建立并已推送 | `git@github.com:Iwillbecomestrong/IronWill.git`，远端 12 个分支 |
+| GitHub 仓库 | ✅ 已建立并推送 | `git@github.com:Iwillbecomestrong/DeciKeeper.git` |
 | Gitee 账号 | ✅ SSH 已验证可用 | `Hi 陈永争(@my_room_welcome_you)! You've successfully authenticated` |
-| Gitee 仓库 | ❌ **尚未创建** | `git ls-remote` 返回 `404 not found` |
-| 本地 `main` | ✅ 已与远端同步 | 原落后 9 个提交，已快进至 `79ee151` |
-| debug APK | ✅ 构建成功且校验通过 | `app/build/outputs/apk/debug/app-debug.apk`，9.3 MB，997 条目 |
-| 单元测试 | ✅ 全通过 | `38 tests OK (skipped=6)`，6 个跳过为无真机日志样本的预期跳过 |
-| GitHub Actions | ✅ 已配置 | `.github/workflows/android-build.yml`（自建 Windows runner） |
+| Gitee 仓库 | ✅ 已建立并推送 | `git@gitee.com:my_room_welcome_you/zhizhi.git`（包含 `main` / `dev` 分支） |
+| 本地分支 | ✅ 与远端连通 | `github` 与 `gitee` 双远端分别跟踪管理 |
+| debug APK | ✅ 构建成功且校验通过 | `app/build/outputs/apk/debug/app-debug.apk` |
+| 单元测试 | ✅ 全量通过 | 1200+ 例单元测试全绿基线 |
+| GitHub Actions | ✅ 已配置 | `.github/workflows/` 包含构建与 CI 自动化流水线 |
 
 ---
 
-## 2. 双推配置：分步执行
+## 2. 双推配置：操作指南
 
-### 第 0 步 · 在 Gitee 网页创建**空**仓库
+### 第 1 步 · 检查 remote 配置
 
-访问 <https://gitee.com/projects/new>，按以下填写：
-
-- 仓库名称：`DeciKeeper`（或 `IronWill`）
-- 归属：`my_room_welcome_you`
-- 是否开源：**公开**
-- 开发语言：`Kotlin`
-- 开源许可证：`GPL-3.0`
-- ⚠️ **不要**勾选「初始化 README」「添加 .gitignore」「选择许可证模板」
-  —— 空仓库才能直接 push，否则会触发非快进冲突，需要额外 rebase。
-
-创建后**先不要**急着 push，等开源审核通过（见第 5 节风险）。
-
-### 第 1 步 · 添加 Gitee remote
+当前仓库采用独立的两个远端配置（无冗余 `origin`）：
 
 ```bash
-cd /g/IronWIl0329/IronWill-OpenSource
-
-# 用独立 remote，不要合并进 origin（原因见下方说明）
-git remote add gitee git@gitee.com:my_room_welcome_you/DeciKeeper.git
+git remote -v
+# 应看到：
+# gitee   git@gitee.com:my_room_welcome_you/zhizhi.git (fetch/push)
+# github  git@github.com:Iwillbecomestrong/DeciKeeper.git (fetch/push)
 ```
 
-**为什么不用 `git remote set-url --add origin <gitee>`？**
-合并后每一次 `git push origin` 都会同时推两边。Gitee 需要实名 + 开源审核，
-审核期间推送会一直失败，导致**连 GitHub 那一次推送也被感知为失败**。
-拆成两个 remote，可以精确控制：GitHub 随时可推，Gitee 就绪后再推。
+**为什么拆成独立 remote？**
+拆成两个 remote 可以精确控制：GitHub 随时可推，Gitee 在国内网络环境或审核窗口期可按需推送，互不阻塞。
 
-### 第 2 步 · 首次推送
+### 第 2 步 · 双端推送
 
 ```bash
-# 先推 GitHub（随时可做）
-git push github main
+# 推送至 GitHub 主力仓
 git push github dev
+git push github main
 
-# Gitee 仓库创建并审核通过后再推
-git push gitee main
+# 推送至 Gitee 国内镜像仓
 git push gitee dev
+git push gitee main
 ```
 
 ### 第 3 步 · 验证
 
 ```bash
-git ls-remote gitee          # 应列出 main / dev 等分支
-git remote -v                # 应看到 origin=github, github, gitee 三组
+git ls-remote github
+git ls-remote gitee          # 均应能列出 main / dev 等分支
 ```
 
 ### 第 4 步 · 上传 APK 到 Releases（两端各传一份）

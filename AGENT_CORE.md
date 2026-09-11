@@ -22,9 +22,10 @@
 
 | 层 | 主要载体 | 负责回答 |
 | --- | --- | --- |
+| **产品总览** | `README.md` + `docs/product/system-overview.md` | 这是什么、为什么这样设计 |
 | **产品意图** | `SPEC.md` + `docs/specs/*.md` | 产品现在应该怎么工作 |
 | **实现事实** | 当前代码 + 测试 | 当前版本实际上怎么工作 |
-| **执行路线** | `PLAN.md` + `docs/plans/` | 接下来准备做什么 |
+| **执行路线** | `docs/plans/`（分任务计划） | 接下来准备做什么 |
 | **历史决策** | `HISTORY.md` + `docs/history/` + Git | 为什么会变成这样 |
 | **操作协议** | `AGENT_CORE.md` | AI / 贡献者如何安全工作 |
 
@@ -34,6 +35,7 @@
 
 当前详细规格入口：
 
+- `docs/product/system-overview.md`（产品总览层：定位、模块关系、设计理由）
 - `docs/specs/focus.md`
 - `docs/specs/alarm.md`
 - `docs/specs/protection.md`
@@ -76,7 +78,8 @@
 
 - 扫码挑战当前为：**扫描任意二维码即可通过**；
 - 双阶段间隔是可配置值，不得硬编码成 3/5 分钟的产品规则；
-- 第二阶段任务允许为空，也允许与第一阶段重复题型（包括扫码）。
+- 双阶段模式下**每一关都必须至少选择一种挑战**（含扫码），空值在保存与开始测试时被拦截；
+- 第二阶段**允许与第一阶段重复题型**（包括扫码）。
 
 ### 3.5 防御性代码与真实 OEM 证据
 
@@ -226,13 +229,15 @@ type(scope): 简述
 ## 8. 文档放置规则
 
 - 当前产品总原则 → `SPEC.md`
+- 产品定位 / 模块关系 / 设计理由 → `docs/product/system-overview.md`
 - 时间规则 / 额度 / 出口 → `docs/specs/focus.md`
 - 起床系统 → `docs/specs/alarm.md`
 - 加强约束 → `docs/specs/protection.md`
 - 业务日 / 备份 / 持久化 → `docs/specs/data.md`
 - 真实统计与应用分类 → `docs/specs/statistics.md`
-- 未确认或待实施 → `PLAN.md` / `docs/plans/`
+- 未确认或待实施 → `docs/plans/`（**分任务计划；不再建立根总计划**）
 - 历史根因与防回归 → `HISTORY.md` / `docs/history/`
-- 面向用户的完整说明 → `docs/使用手册.md`
+- 面向用户的完整说明 → `docs/user/`
+- 已退役方案 / 旧命名 / 废弃设计 → `docs/archive/`（**只归档，不再维护**）
 
 不要创建 `SPEC_v2.md`、`PLAN_final.md` 等平行真相文件；版本历史交给 Git。

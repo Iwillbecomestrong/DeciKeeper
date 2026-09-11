@@ -20,7 +20,6 @@ package com.decikeeper.app.manager
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.decikeeper.app.receiver.DeviceAdmin
 
 
 /**
@@ -127,14 +126,5 @@ object AntiUninstallManager {
     
     fun getExpirationTime(context: Context): Long {
             return 0L
-    }
-    
-    /**
-     * Checks if the app is currently an active Device Admin.
-     */
-    fun isDeviceAdminActive(context: Context): Boolean {
-        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? android.app.admin.DevicePolicyManager
-        val component = android.content.ComponentName(context, DeviceAdmin::class.java)
-        return dpm?.isAdminActive(component) == true
     }
 }

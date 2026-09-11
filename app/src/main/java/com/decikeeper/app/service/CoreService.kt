@@ -84,11 +84,11 @@ import com.decikeeper.app.ui.MainActivityEntry
 class CoreService : AccessibilityService() {
 
     var mLastWindowScanTime: Long = 0
-    var mLastContentEventTime: Long = 0 // 馃殌 [Fix] Separate timer for content event throttling
+    var mLastContentEventTime: Long = 0 // 🚀 [Fix] Separate timer for content event throttling
     var mLastScanDuration: Long = 0
     var mLastScanPkg: String? = null
 
-    // 馃殌 [Entry Cooldown State]
+    // 🚀 [Entry Cooldown State]
     var mLastWasGap = false
     var mLastWasRest = false
     var stateInitialized = false
@@ -152,7 +152,7 @@ class CoreService : AccessibilityService() {
         // 保证 countdown 显示窗口(10s)与真实持有窗口一致,不再 hardcode 10000L 多处散落。
         private const val CONFIG_CHANGE_FAST_LOCK_VISIBLE_MS = 10_000L
         
-        // 馃殌 [NEW] 闈欐€佽繍琛屾爣蹇楋紝鐢ㄤ簬绮惧噯鐘舵€佸悓姝?
+        // 🚀 [NEW] 静态运行标志，用于精准状态同步
         @Volatile var isServiceActive = false
         @Volatile var lastAccessibilitySignalTime = 0L
         @Volatile var lastVisiblePackagesFromWindows: Set<String> = emptySet()
@@ -446,13 +446,13 @@ class CoreService : AccessibilityService() {
         }
     }
 
-    // 馃殌 [NEW] Reminder Ticker
+    // 🚀 [NEW] Reminder Ticker
     private val mHandler = Handler(Looper.getMainLooper())
     private val mReminderRunnable = object : Runnable {
         override fun run() {
             if (isServiceActive) {
                 try {
-                    // 馃殌 [Heartbeat Log] - Essential for diagnosing system kills
+                    // 🚀 [Heartbeat Log] - Essential for diagnosing system kills
                     Log.d("DeciKeeper", "CoreService Heartbeat: ALIVE. Time=${System.currentTimeMillis()}")
 
                     ReminderManager.checkReminders(this@CoreService)
@@ -463,7 +463,7 @@ class CoreService : AccessibilityService() {
                         Log.i("CoreService", "Auto-Promoted Baselines: $promoted")
                     }
                     
-                    // 馃殌 [NEW] Check for Natural End of Adaptation Period
+                    // 🚀 [NEW] Check for Natural End of Adaptation Period
                     // If period expired temporally but wasn't finalized, do it now.
                     if (!CreditManager.isInAdaptationPeriod(this@CoreService) && 
                          !this@CoreService.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
@@ -493,7 +493,7 @@ class CoreService : AccessibilityService() {
         Log.i("DeciKeeper", "[Lifecycle] onServiceConnected generation=$newGen")
         isServiceActive = true
         lastAccessibilitySignalTime = System.currentTimeMillis()
-        instance = this // 馃殌 Capture instance
+        instance = this // 🚀 Capture instance
 
         emitServiceStateIfChanged("OK", "ON_SERVICE_CONNECTED")
         emitProtectionStateChangeIfChanged("accessibility", "INITIALIZING", "OK", "ON_SERVICE_CONNECTED")
@@ -555,7 +555,7 @@ class CoreService : AccessibilityService() {
                 )
             }
 
-            // 馃殌 [Fix] Explicitly start MonitorService to ensure background logic runs
+            // 🚀 [Fix] Explicitly start MonitorService to ensure background logic runs
             // This is critical if BootReceiver failed to launch MainActivity
             try {
                 val monitorIntent = Intent(this, MonitorService::class.java)
@@ -595,7 +595,12 @@ class CoreService : AccessibilityService() {
                 }
             }, StartupProtectionManager.CORE_HANDOFF_REQUEST_DELAY_MS)
 
-            // 馃殌 [JIT Warmup] Pre-compile critical code paths in background
+            // [fde3c93] 无障碍服务连接时**不得**无条件打开防卸载保护——
+            // 用户主动关闭过的保护不能被服务重连悄悄恢复。
+            // 契约守护：AntiUninstallStartupProtectionContractTest
+            //   .coreServiceMustNotTurnOnAntiUninstallWhenAccessibilityConnects
+
+            // 🚀 [JIT Warmup] Pre-compile critical code paths in background
             // This prevents the "first few times slow" issue by triggering JIT compilation early
             mHandler.postDelayed({
                 warmupCriticalPaths()
@@ -609,30 +614,30 @@ class CoreService : AccessibilityService() {
     }
     
     /**
-     * 棰勭儹鍏抽敭浠ｇ爜璺緞锛岃Е鍙?JIT 缂栬瘧
-     * 鍦ㄥ悗鍙扮嚎绋嬫墽琛屽亣鏁版嵁锛岀‘淇濋娆＄湡姝ｆ娴嬫椂宸茬紪璇?
+     * 预热关键代码路径，触发 JIT 编译
+     * 在后台线程执行假数据，确保首次真正检测时已编译
      */
     private fun warmupCriticalPaths() {
-        // 馃殌 [Phase 1] 涓荤嚎绋嬮鐑紙UI缁勪欢銆佸瓧绗︿覆璧勬簮锛?
+        // 🚀 [Phase 1] 主线程预热（UI组件、字符串资源）
         mHandler.post {
             try {
-                Log.d(TAG, "馃殌 [Warmup] Phase 1: UI components...")
+                Log.d(TAG, "🚀 [Warmup] Phase 1: UI components...")
                 
                 getString(R.string.app_name)
                 
-                Log.d(TAG, "馃殌 [Warmup] Phase 1 completed!")
+                Log.d(TAG, "🚀 [Warmup] Phase 1 completed!")
             } catch (e: Exception) {
                 Log.e(TAG, "UI Warmup error (non-fatal)", e)
             }
         }
         
-        // 馃殌 [Phase 2] 鍚庡彴绾跨▼棰勭儹锛堝瓧绗︿覆鍖归厤銆丼P璇诲彇锛?
-        // 馃敟 [CRITICAL] JIT 闇€瑕?500+ 娆℃墽琛屾墠鑳借Е鍙戠湡姝ｇ殑鐑偣缂栬瘧浼樺寲锛?
+        // 🚀 [Phase 2] 后台线程预热（字符串匹配、SP读取）
+        // 🔥 [CRITICAL] JIT 需要 500+ 次执行才能触发真正的热点编译优化
         Thread {
             try {
-                Log.d(TAG, "馃殌 [Warmup] Phase 2: Background paths (500+ iterations)...")
+                Log.d(TAG, "🚀 [Warmup] Phase 2: Background paths (500+ iterations)...")
                 
-                // 棰勭儹娴嬭瘯鏂囨湰瑕嗙洊澶氱璇█
+                // 预热测试文本覆盖多种语言
                 val testTexts = listOf(
                     "决定守护 DeciKeeper 卸载 Uninstall 确定 删除",
                     "IronWill 意引 卸载 Uninstall 确定 删除",
@@ -642,10 +647,10 @@ class CoreService : AccessibilityService() {
                     "Désinstaller Supprimer IronWill"
                 )
                 
-                // 馃敟 [JIT Warmup] 1500 娆″惊鐜Е鍙戠儹鐐圭紪璇?(Increased from 100 -> 1500 for better optimization)
+                // 🔥 [JIT Warmup] 1500 次循环触发热点编译 (Increased from 100 -> 1500 for better optimization)
                 for (round in 0 until 1500) {
                     for (testText in testTexts) {
-                        // 妯℃嫙瀹屾暣妫€娴嬭矾寰?
+                        // 模拟完整检测路径
                         AntiUninstallProtection.UNINSTALL_KEYWORDS.any { testText.contains(it) }
                         AntiUninstallProtection.PROTECTED_APP_NAMES.any { testText.contains(it, ignoreCase = true) }
                         AntiUninstallProtection.MONITORED_PACKAGES.any { "com.test.fake".contains(it) }
@@ -659,11 +664,11 @@ class CoreService : AccessibilityService() {
                     }
                 }
                 
-                // 棰勭儹 SharedPreferences 璇诲彇
+                // 预热 SharedPreferences 读取
                 AntiUninstallManager.getProtectionState(this)
                 CreditManager.shouldBlockApp(this, "com.test.fake", "")
                 
-                Log.d(TAG, "馃殌 [Warmup] Phase 2 completed! (500 iterations done)")
+                Log.d(TAG, "🚀 [Warmup] Phase 2 completed! (500 iterations done)")
                 markAntiUninstallWarmupComplete()
                 // 预热完成即请求接管；若快锁仍在显示，可提前结束，不必等满 10 秒。
                 mHandler.post {
@@ -676,8 +681,8 @@ class CoreService : AccessibilityService() {
             }
         }.start()
         
-        // 馃殌 [Phase 3] 寤惰繜棰勭儹鍏ㄥ眬鍔ㄤ綔锛堥渶瑕佹湇鍔″畬鍏ㄥ氨缁級
-        // 鈿狅笍 涓洪伩鍏嶆巿鏉冨悗璇Е鎷変笅閫氱煡鏍忥紝姝ら樁娈典笉鍐嶈Е鍙戜换浣曞叏灞€鍔ㄤ綔
+        // 🚀 [Phase 3] 延迟预热全局动作（需要服务完全就绪）
+        // ⚠️ 为避免授权后误触拉下通知栏，此阶段不再触发任何全局动作
         mHandler.postDelayed({
             try {
                 Log.d(TAG, "[Warmup] Phase 3: Accessibility node tree traversal...")
@@ -782,7 +787,7 @@ class CoreService : AccessibilityService() {
             return
         }
 
-        // 馃殌 [Config Change] 鐩戝惉鍒扮郴缁熼厤缃彉鍖栵紙濡傝瑷€鍒囨崲锛夛紝浣跨敤鈥滅郴缁熷垵濮嬪寲閿佲€?
+        // 🚀 [Config Change] 监听到系统配置变化（如语言切换），使用“系统初始化锁”
         // 1. Start FastLockService (System Initialization Style Lock)
         val canDrawOverlays = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Settings.canDrawOverlays(this)
@@ -847,7 +852,7 @@ class CoreService : AccessibilityService() {
         if (event == null) return
         lastAccessibilitySignalTime = System.currentTimeMillis()
         
-        // 馃殌 [DIAGNOSTIC] Sampling Accessibility Events to prove service is receiving data
+        // 🚀 [DIAGNOSTIC] Sampling Accessibility Events to prove service is receiving data
         // Log explicitly with IronWill_Debug tag
         // Filter common "spammy" events to keep log cleaner, but enough to show activity.
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || 
@@ -856,11 +861,11 @@ class CoreService : AccessibilityService() {
              Log.v("DeciKeeper", "A11y Event: Type=${event.eventType}, Pkg=${event.packageName}, Class=${event.className}")
         }
         
-        // 馃殌 [Self-Exclusion] Prevent recursive monitoring/lag
+        // 🚀 [Self-Exclusion] Prevent recursive monitoring/lag
         // If we monitor our own UI events (especially EditText), it causes severe keyboard lag.
         if (event.packageName == CoreService.instance?.packageName) return
 
-        // 馃殌 [IME Exclusion] Ignore events from Keyboard/Input Method
+        // 🚀 [IME Exclusion] Ignore events from Keyboard/Input Method
         // Monitoring IME events (key presses/candidates) causes extreme lag during typing.
         val pkgName = event.packageName?.toString()
         val srv = CoreService.instance
@@ -876,6 +881,10 @@ class CoreService : AccessibilityService() {
         // 褰撻攣灞忚鐩栨椂锛岀郴缁熷璇濇浼氳鎸′綇瀵艰嚧鏃犳硶鍏虫満銆?
         // 妫€娴嬪埌绯荤粺绾у璇濇绐楀彛鐘舵€佸彉鍖栨椂锛屼复鏃惰鍑虹劍鐐广€?
         // 鍏煎锛欰OSP (android), Vivo (com.vivo.systemuiplugin), Samsung (com.android.systemui) 绛?
+        // 🚀 [System Dialog Compat] 检测系统对话框（关机菜单、音量面板等）
+        // 当锁屏覆盖时，系统对话框会被挡住导致无法关机。
+        // 检测到系统级对话框窗口状态变化时，临时让出焦点。
+        // 兼容：AOSP (android), Vivo (com.vivo.systemuiplugin), Samsung (com.android.systemui) 等
         if (LockWindowManager.isAlarmOverlayShowing && AlarmPowerOffProtectionManager.isEnabled(this)) {
             val className = event.className?.toString()
             val shutdownDialog = shouldHandleShutdownDialogEvent(event.eventType, pkgName, className)
@@ -938,7 +947,7 @@ class CoreService : AccessibilityService() {
             }
         }
         
-        // 馃殌 [Strict Mode] Periodic Check for Pending Rules (Throttled 30s)
+        // 🚀 [Strict Mode] Periodic Check for Pending Rules (Throttled 30s)
         val now = System.currentTimeMillis()
         if (now - CoreService.mLastPendingCheck > 30000) {
             if (srv != null) checkPendingUpdates(srv)
@@ -948,7 +957,7 @@ class CoreService : AccessibilityService() {
         // 1. App Blocking (Millisecond detection - Priority #1)
         if (srv != null) checkAppBlocking(event, srv)
         // 2. Window Content/State Monitoring (Requires root node)
-        // 馃殌 [Optimization] Exclude TYPE_WINDOWS_CHANGED (4194304) as it rarely contains text and causes overhead.
+        // 🚀 [Optimization] Exclude TYPE_WINDOWS_CHANGED (4194304) as it rarely contains text and causes overhead.
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED || 
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
 
@@ -974,7 +983,7 @@ class CoreService : AccessibilityService() {
                 return
             }
             
-            // 馃殌 [Stability Optimization] Throttle Heavy Node Scanning
+            // 🚀 [Stability Optimization] Throttle Heavy Node Scanning
             // Only throttle content changes (scrolling/video).
             // State changes (dialogs/new windows) must be scanned IMMEDIATELY to catch uninstall prompts.
             if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
@@ -984,13 +993,13 @@ class CoreService : AccessibilityService() {
             }
             // For STATE_CHANGED or WINDOWS_CHANGED, we proceed immediately.
             
-            // 馃殌 [Fix] Use event source traversal to get root, bypassing implicit 'this' scope issues
+            // 🚀 [Fix] Use event source traversal to get root, bypassing implicit 'this' scope issues
             val source = event.source
             var root = source?.window?.root
             if (root == null) root = source 
             
             if (root == null) {
-                // 馃殌 [Fix] Fallback to active window root if event source is null
+                // 🚀 [Fix] Fallback to active window root if event source is null
                 // This is critical during window transitions where event.source might be stale.
                 root = rootInActiveWindow
             }
@@ -1000,7 +1009,7 @@ class CoreService : AccessibilityService() {
 
 
             if (root == null) {
-                // 馃殌 [Log Optimization] Downgrade to VERBOSE.
+                // 🚀 [Log Optimization] Downgrade to VERBOSE.
                 // Null root is expected during window transitions (e.g. WINDOWS_CHANGED_REMOVED)
                 // or rapid locale switching. Avoiding Log.w prevents logcat spam.
                 if (ProtectionManager.DEBUG) {
@@ -1038,15 +1047,15 @@ class CoreService : AccessibilityService() {
         if (LockWindowManager.shouldPauseForegroundBlockingChecks()) {
             return
         }
-        // 馃殌 [Rule] Cycle Pausing
+        // 🚀 [Rule] Cycle Pausing
         // If we are in the "Strict Penalty + Grace" cycle, do absolutely NOTHING.
         // This prevents the "refresh loop" where the underlying blacklisted app keeps triggering hits.
-        // 馃殌 [Rule] Cycle Pausing - REMOVED
+        // 🚀 [Rule] Cycle Pausing - REMOVED
         // We must NOT return early here. If the lock screen was dismissed (e.g. independently),
         // we need to re-detect the blacklist app and re-trigger the lock.
         // LockWindowManager.onBlacklistHit will handle the logic of "Already Locked" or "Grace Period".
 
-        // 馃殌 [Enhanced] Allow Content Changes to trigger scan (for Static Mini-Windows)
+        // 🚀 [Enhanced] Allow Content Changes to trigger scan (for Static Mini-Windows)
         // Throttle: For content changes, only scan every 1.5 seconds to save battery
         // For Window State/List changes, scan immediately
         val isImmediate = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || 
@@ -1056,7 +1065,7 @@ class CoreService : AccessibilityService() {
         if (!isImmediate) {
             // If it's just a content change (scrolling etc.), we throttle the heavy window scan
             val now = System.currentTimeMillis()
-            // 馃殌 [Fix] Use separate timer for basic event throttling vs heavy window scan
+            // 🚀 [Fix] Use separate timer for basic event throttling vs heavy window scan
             if (now - service.mLastContentEventTime < 500) return
             service.mLastContentEventTime = now
         }
@@ -1092,10 +1101,10 @@ class CoreService : AccessibilityService() {
         val isPrivilege = CreditManager.isWeeklyPrivilegeSessionActive(context)
         val isDndLocked = isInSegment && !isFreeTime
         
-        // 馃殌 [Fix] Only block blacklist during monitored segments AND not in free time
+        // 🚀 [Fix] Only block blacklist during monitored segments AND not in free time
         val shouldEnforceBlacklist = isDndLocked
 
-        // 馃殌 [Entry Cooldown Logic] Ported from MonitorService
+        // 🚀 [Entry Cooldown Logic] Ported from MonitorService
         // Trigger cooldown when transitioning FROM Gap/Rest TO Work segment
         
         // Initialize Startup Protection on first run
@@ -1136,7 +1145,7 @@ class CoreService : AccessibilityService() {
         service.mLastWasRest = isFreeTime
         
         // 2. [Priority] Check Blacklist (Single App + Mini Windows)
-        // 馃殌 We check the event package AND all visible windows to catch floating apps
+        // 🚀 We check the event package AND all visible windows to catch floating apps
         // We do this BEFORE filtering "Safe Apps" (Launcher/Settings) because a blocked mini-window
         // might exist on top of a safe app.
         
@@ -1145,7 +1154,7 @@ class CoreService : AccessibilityService() {
         var blockedFromUsageFallback = false
         
         // 2.1 Check Event Package (Direct)
-        // 馃殌 [Fix] BACKGROUND NOISE FILTER & ACTIVE BLOCKING
+        // 🚀 [Fix] BACKGROUND NOISE FILTER & ACTIVE BLOCKING
         // Music apps (e.g. Resso) emit TYPE_WINDOW_CONTENT_CHANGED constantly.
         // We typically block only on STATE/WINDOWS_CHANGED (isImmediate).
         // HOWEVER, if the app is explicitly BLACKLISTED, we must capture it even if it's just "Active Content" (Video).
@@ -1168,7 +1177,7 @@ class CoreService : AccessibilityService() {
                  
                  // If not a window state change (e.g. just video playing/scrolling), verify visibility
                  if (!isConfirmedForeground) {
-                     // 馃殌 [Verify] Check if this package effectively owns the screen
+                     // 🚀 [Verify] Check if this package effectively owns the screen
                      // activeRoot might be null during transitions, but if we have content events, we usually have a root.
                      val activeRoot = service.rootInActiveWindow
                      if (activeRoot != null && activeRoot.packageName == packageName) {
@@ -1188,12 +1197,12 @@ class CoreService : AccessibilityService() {
         }
 
         // 2.2 Check Other Windows (Mini-Window Mode)
-        // 馃殌 [Fix] Only scan if enforcement is active (in segment AND not free time)
+        // 🚀 [Fix] Only scan if enforcement is active (in segment AND not free time)
         // AND Throttle to avoid ANR (checking windows is heavy IPC)
         val nowWin = System.currentTimeMillis()
         if (blockedPackage == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             
-            // 馃殌 [Performance] Throttle Window Scan (Max once per 1000ms)
+            // 🚀 [Performance] Throttle Window Scan (Max once per 1000ms)
             // Excessive scanning causes "Skipped frames" and ANR.
             if (nowWin - service.mLastWindowScanTime > 1000) {
                 service.mLastWindowScanTime = nowWin
@@ -1201,7 +1210,7 @@ class CoreService : AccessibilityService() {
                 val startTime = System.currentTimeMillis()
                 val windowList = (context as? AccessibilityService)?.windows
                 if (windowList != null && windowList.isNotEmpty()) {
-                    // 馃洃 Debug Logging for Mini-Window Detection
+                    // 🛑 Debug Logging for Mini-Window Detection
                     // Log.d(TAG, "Scanning ${windowList.size} windows for blacklist...")
                     val currentVisiblePkgs = mutableSetOf<String>()
                     
@@ -1278,7 +1287,7 @@ class CoreService : AccessibilityService() {
             packageName == "com.android.settings" ||
             CreditManager.isInputMethod(context, packageName)) {
             
-            // 馃殌 [Rule: Grace Period Cancel] 
+            // 🚀 [Rule: Grace Period Cancel] 
             // If user exited to launcher/settings/self, cancel any pending grace buffer
             LockWindowManager.cancelGraceBuffer()
             return
@@ -1299,7 +1308,7 @@ class CoreService : AccessibilityService() {
 
         // 5. Check Current Business Segment for NON-blacklisted apps
         // (Only reaches here if not blacklisted and not safe app)
-        // 鎸夆€滀粎鎸夐挳瑙ｉ攣鈥濊鍒欙紝涓嶅啀鍦ㄦ璺緞鍋氳嚜鍔?dismiss
+        // 按“仅按钮解锁”规则，不再在此路径做自动 dismiss
         return
     }
 
@@ -1375,7 +1384,7 @@ class CoreService : AccessibilityService() {
         return false
     }
     
-    // 馃洝锔?Security: Kill Settings app to prevent accidental accessibility disabling
+    // 🛡️ Security: Kill Settings app to prevent accidental accessibility disabling
     private fun killSettingsApp() {
         try {
             val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -1414,15 +1423,15 @@ class CoreService : AccessibilityService() {
         diagnosticsServiceConnected = false
         mHandler.removeCallbacks(mReminderRunnable)
         mHandler.removeCallbacksAndMessages(null)
-        // 馃殌 [Fix] Clear LockWindowManager's stale CoreService reference
+        // 🚀 [Fix] Clear LockWindowManager's stale CoreService reference
         // This prevents the new instance from failing due to a dead reference
         try { LockWindowManager.setCoreService(null) } catch (e: Exception) { Log.w(TAG, "Failed to clear CoreService ref", e) }
-        // 馃殌 Return true to receive onRebind() when user re-enables accessibility
+        // 🚀 Return true to receive onRebind() when user re-enables accessibility
         return true
     }
 
     /**
-     * 馃殌 [Fix] Called when accessibility service is re-enabled after onUnbind returned true.
+     * 🚀 [Fix] Called when accessibility service is re-enabled after onUnbind returned true.
      * This allows CoreService to fully re-initialize without needing a device reboot.
      */
     override fun onRebind(intent: Intent?) {

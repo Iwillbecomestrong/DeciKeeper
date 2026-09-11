@@ -205,15 +205,15 @@ class LogEventMigrationInventoryTest {
             revision2.isNotBlank()
         )
 
-        // T1-T4 引入或改动的 Log 调用点（行号锚来自任务 handoff）。
-        val deltaCallSites = listOf(
-            "LockWindowManager.kt:3417",   // Bug 2 [Penalty] gated Log.d block start
-            "LockWindowManager.kt:3421",   // Bug 2 [Penalty] gated Log.d block end
-            "CreditManager.kt:3700",       // emitPenaltyReceipt call point #1
-            "CreditManager.kt:3750",       // emitPenaltyReceipt call point #2
-            "CreditManager.kt:3804",       // emitPenaltyReceipt call point #3
-            "MonitorService.kt:2248",      // fgDecision gated by foregroundRaw #1
-            "MonitorService.kt:2335"       // fgDecision gated by foregroundRaw #2
+        // T1-T4 引入或改动的 Log 调用点（面向稳定的语义符号锚点，避免物理行号漂移）。
+        val deltaCallSymbols = listOf(
+            "LockWindowManager.penaltyDiagBlock.head",
+            "LockWindowManager.penaltyDiagBlock.tail",
+            "CreditManager.emitPenaltyReceipt.callsite1",
+            "CreditManager.emitPenaltyReceipt.callsite2",
+            "CreditManager.emitPenaltyReceipt.callsite3",
+            "MonitorService.fgDecision.gated1",
+            "MonitorService.fgDecision.gated2"
         )
 
         val dispositions = setOf("NORMAL_EVENT", "DEBUG_ONLY", "REMOVE")
@@ -221,16 +221,16 @@ class LogEventMigrationInventoryTest {
             .filter { it.startsWith("|") && it.contains("`") }
             .toList()
 
-        deltaCallSites.forEach { site ->
-            val matching = rows.filter { it.contains(site) }
+        deltaCallSymbols.forEach { symbol ->
+            val matching = rows.filter { it.contains(symbol) }
             assertTrue(
-                "$site 必须在 Revision 2 段中被至少一行覆盖",
+                "$symbol 必须在 Revision 2 段中被至少一行覆盖",
                 matching.isNotEmpty()
             )
             matching.forEach { row ->
                 val declared = dispositions.filter { d -> "`$d`" in row }
                 assertEquals(
-                    "$site 所在行必须恰有一个处置 (NORMAL_EVENT/DEBUG_ONLY/REMOVE)，行=$row",
+                    "$symbol 所在行必须恰有一个处置 (NORMAL_EVENT/DEBUG_ONLY/REMOVE)，行=$row",
                     1,
                     declared.size
                 )
