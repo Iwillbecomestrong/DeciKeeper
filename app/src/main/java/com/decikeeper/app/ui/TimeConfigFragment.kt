@@ -662,7 +662,7 @@ class TimeConfigFragment : Fragment() {
                                 .setMessage(
                                     "时段端点不能跨 refresh time。" +
                                         "请调整勿扰时段的范围,使其完全位于 refresh time 之前或之后," +
-                                        "或在规则参数中调整生效时间(06:00 - 10:00)。"
+                                        "或在规则参数中调整生效时间(04:00 - 12:00)。"
                                 )
                                 .setPositiveButton("我知道了", null)
                                 .show()

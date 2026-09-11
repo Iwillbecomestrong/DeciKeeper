@@ -188,4 +188,31 @@ class TimeRuleEditWindowPolicyTest {
         assertNull(TimeRuleEditWindowPolicyManager.getPendingPolicy(context))
         assertTrue(result is AnalysisResult.AllImmediate)
     }
+
+    @Test
+    fun findRefreshTimeFromSegmentsSupportsFourToTwelveRange() {
+        // Segments ending at:
+        // 1) 03:30 (outside 04:00-12:00)
+        // 2) 04:30 (inside 04:00-12:00)
+        // 3) 11:45 (inside 04:00-12:00)
+        // 4) 12:15 (outside 04:00-12:00)
+        val seg1 = com.decikeeper.app.data.TimeSegment(1, 0, 3, 30, 10, "早晨前")
+        val seg2 = com.decikeeper.app.data.TimeSegment(2, 0, 4, 30, 10, "清晨")
+        val seg3 = com.decikeeper.app.data.TimeSegment(9, 0, 11, 45, 10, "上午")
+        val seg4 = com.decikeeper.app.data.TimeSegment(10, 0, 12, 15, 10, "中午")
+
+        // Earliest in 04:00-12:00 should be seg2 (04:30)
+        val result1 = TimeRuleManager.findRefreshTimeFromSegments(listOf(seg1, seg2, seg3, seg4))
+        assertEquals("04:30", result1)
+
+        // If seg2 is disabled, earliest should be seg3 (11:45)
+        val seg2Disabled = seg2.copy(isEnabled = false)
+        val result2 = TimeRuleManager.findRefreshTimeFromSegments(listOf(seg1, seg2Disabled, seg3, seg4))
+        assertEquals("11:45", result2)
+
+        // If all in-range segments are disabled, fallback to 08:00
+        val seg3Disabled = seg3.copy(isEnabled = false)
+        val result3 = TimeRuleManager.findRefreshTimeFromSegments(listOf(seg1, seg2Disabled, seg3Disabled, seg4))
+        assertEquals("08:00", result3)
+    }
 }

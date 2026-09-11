@@ -470,12 +470,12 @@ object TimeRuleManager {
 
     /**
      * 从 DND 时段中自动推导每日生效时间。
-     * 规则：扫描所有启用时段，找结束时间落在 06:00-10:00 窗口内的时段，
+     * 规则：扫描所有启用时段，找结束时间落在 04:00-12:00 窗口内的时段，
      * 取最早结束时间；若无匹配时段则默认 08:00。
      */
     fun findRefreshTimeFromSegments(segments: List<TimeSegment>): String {
-        val windowStart = 6 * 60  // 06:00
-        val windowEnd = 10 * 60   // 10:00
+        val windowStart = 4 * 60  // 04:00
+        val windowEnd = 12 * 60   // 12:00
 
         val candidates = segments
             .filter { it.isEnabled }
@@ -2901,7 +2901,7 @@ object TimeRuleManager {
         val basSegments = getBaselineSegments(context)
         
         // 🚀 [Auto Sync] Refresh Time Logic
-        // 规则：扫描启用时段，取结束时间在 06:00-10:00 的最早者；无匹配则默认 08:00
+        // 规则：扫描启用时段，取结束时间在 04:00-12:00 的最早者；无匹配则默认 08:00
         val curRefresh = getRefreshTime(context)
         val basPrefs = context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
         val basRefresh = basPrefs.getString("config_refresh_time", "08:00") ?: "08:00"

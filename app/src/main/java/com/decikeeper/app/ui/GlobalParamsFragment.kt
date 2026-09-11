@@ -180,7 +180,7 @@ class GlobalParamsFragment : Fragment() {
             val segments = TimeRuleManager.getPendingTimeSegments(context) ?: TimeRuleManager.getTimeSegments(context)
             val formatted = TimeRuleManager.findRefreshTimeFromSegments(segments)
             etRefreshTime.setText(formatted)
-            tvSyncHint.text = "当前自动同步为：$formatted（跟随 06:00~10:00 内最早结束的勿扰时段）"
+            tvSyncHint.text = "当前自动同步为：$formatted（跟随 04:00~12:00 内最早结束的勿扰时段）"
         }
         if (isSynced) syncWithFirstSegment()
         switchSync.setOnCheckedChangeListener { _, checked ->
@@ -226,8 +226,8 @@ class GlobalParamsFragment : Fragment() {
                 val parts = newRefreshTime.split(":")
                 if (parts.size == 2) newRefreshTime = String.format("%02d:%02d", parts[0].toIntOrNull() ?: 0, parts[1].toIntOrNull() ?: 0)
             }
-            if (newRefreshTime < "06:00" || newRefreshTime > "10:00") {
-                Toast.makeText(context, "生效时间必须在 06:00 - 10:00 之间", Toast.LENGTH_SHORT).show(); return@setOnClickListener
+            if (newRefreshTime < "04:00" || newRefreshTime > "12:00") {
+                Toast.makeText(context, "生效时间必须在 04:00 - 12:00 之间", Toast.LENGTH_SHORT).show(); return@setOnClickListener
             }
             val effectiveSegments = TimeRuleManager.getPendingTimeSegments(context) ?: TimeRuleManager.getTimeSegments(context)
             val candidateMinutes = GlobalParamsActivity.parseRefreshTimeToMinutes(newRefreshTime)
