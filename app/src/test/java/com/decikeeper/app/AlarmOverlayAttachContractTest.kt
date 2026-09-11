@@ -186,4 +186,79 @@ class AlarmOverlayAttachContractTest {
             coreServiceSource.contains("LockWindowManager.reassertAlarmOverlayOverSystemDialog(")
         )
     }
+
+    @Test
+    fun scanSuccessDoesNotDowngradeWindowModeToInline() {
+        val activity = source("src/main/java/com/decikeeper/app/ui/AlarmActivity.kt")
+        val callback = activity.substring(activity.indexOf("view.decodeContinuous {"))
+        assertTrue(
+            "扫码成功后必须先检查 isCurrentOverlayInline",
+            callback.contains("LockWindowManager.isCurrentOverlayInline()")
+        )
+        assertTrue(
+            "扫码成功后必须检查 isChallengeCompleted",
+            callback.contains("AlarmScheduler.isChallengeCompleted(")
+        )
+        assertTrue(
+            "只有在锁屏、仍为 inline 且挑战未完成时才调用 showAlarmOverlayInlineInActivity",
+            callback.contains("if (isLockedScreenMode && isInline && !isCompleted)")
+        )
+        assertTrue(
+            "非 inline 或挑战已完成时必须直接退出扫码 activity",
+            callback.contains("finishAndRemoveTask()")
+        )
+    }
+
+    @Test
+    fun inlineDowngradeRefusedWhenAttachedInWindowMode() {
+        val body = functionBody(
+            overlaySource,
+            "fun showAlarmOverlayInlineInActivity(activity: android.app.Activity, controller: LockWindowManager.AlarmOverlayController): Boolean"
+        )
+        assertTrue(
+            "若已在窗口模式且已附着，必须拒绝降级为 inline 避免 CanvasContext 被异步销毁",
+            body.contains("!LockWindowManager.isCurrentOverlayInline() && view.isAttachedToWindow")
+        )
+        assertTrue(
+            "拒绝降级时必须记录警告",
+            body.contains("refusing inline downgrade")
+        )
+    }
+
+    @Test
+    fun passthroughRestoreRunnableIsProperlyGuardedAndCleanedUp() {
+        val reassertBody = functionBody(overlaySource, "fun reassertAlarmOverlayOverSystemDialog(reason: String)")
+        assertTrue(
+            "reassert 的延时恢复 Runnable 必须检查 isAlarmScanInProgress 和 isChallengeCompleted",
+            reassertBody.contains("!isAlarmScanInProgress || (ctx != null && AlarmScheduler.isChallengeCompleted(ctx))")
+        )
+
+        val onPassedBody = functionBody(overlaySource, "fun onScanChallengePassed()")
+        assertTrue(
+            "onScanChallengePassed 必须清理 alarmPassthroughRestoreRunnable",
+            onPassedBody.contains("alarmPassthroughRestoreRunnable = null")
+        )
+
+        val passthroughBody = overlaySource.substring(
+            overlaySource.indexOf("fun setAlarmOverlayPassthrough(enable: Boolean)"),
+            overlaySource.indexOf("private fun applyScanCutoutLayers")
+        )
+        assertTrue(
+            "setAlarmOverlayPassthrough(false) 必须清理 alarmPassthroughRestoreRunnable",
+            passthroughBody.contains("alarmPassthroughRestoreRunnable = null")
+        )
+
+        val forceResetBody = functionBody(overlaySource, "private fun forceResetAlarmOverlay()")
+        assertTrue(
+            "forceResetAlarmOverlay 必须清理 alarmPassthroughRestoreRunnable",
+            forceResetBody.contains("alarmPassthroughRestoreRunnable = null")
+        )
+
+        val dismissBody = functionBody(overlaySource, "private fun dismissAlarmOverlay(reason: String, snooze: Boolean)")
+        assertTrue(
+            "dismissAlarmOverlay 必须清理 alarmPassthroughRestoreRunnable",
+            dismissBody.contains("alarmPassthroughRestoreRunnable = null")
+        )
+    }
 }
+

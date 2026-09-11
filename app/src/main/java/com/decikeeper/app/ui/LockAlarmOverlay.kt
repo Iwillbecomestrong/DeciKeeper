@@ -424,6 +424,8 @@ internal object LockAlarmOverlayController {
         stageCooldownHandler = null
         stageCooldownRemainingSeconds = 0
         singleStageCooldownUntilMs = 0L
+        alarmPassthroughRestoreRunnable?.let { LockWindowManager.getAlarmUiHandler().removeCallbacks(it) }
+        alarmPassthroughRestoreRunnable = null
         Log.i(TAG, "forceResetAlarmOverlay: stale overlay state cleared")
         LogExporter.logEvent("AlarmOverlay", "FORCE_RESET_DONE")
     }
@@ -1642,6 +1644,10 @@ internal object LockAlarmOverlayController {
      * 覆盖层重建时不能再次调用 onAnyChallengePassed()，否则会重新写入完成后延迟。
      */
     private fun showCompletedChallengeState(view: View) {
+        // [Fix: scan cutout leak] 确保内容容器可见且扫码开孔已关闭，防止从扫码进入完成态时残留 GONE
+        view.findViewById<View>(R.id.root_content_layout)?.visibility = View.VISIBLE
+        view.findViewById<View>(R.id.layout_alarm_scan)?.visibility = View.GONE
+
         hideAlarmChallengeCards(view)
         view.findViewById<View>(R.id.sv_alarm_challenges)?.visibility = View.GONE
         restoreSessionReviewData(view.context)
@@ -1689,6 +1695,10 @@ internal object LockAlarmOverlayController {
      */
     private fun resolveRenderableAlarmView(): View? {
         val current = LockWindowManager.getAlarmView()
+        Log.i(
+            TAG,
+            "resolveRenderableAlarmView: view=${current != null}, attached=${current?.isAttachedToWindow}, parent=${current?.parent?.javaClass?.simpleName}, inline=${LockWindowManager.isCurrentOverlayInline()}, vis=${current?.visibility}, lp=${current?.layoutParams?.javaClass?.simpleName}"
+        )
         // 判据必须是 isAttachedToWindow：inline 覆盖层在 Activity setContentView() 替换内容视图后
         // 仍保留 parent，但整棵子树已脱窗，用 parent 判定会漏检（2026-09-11 真机复现）。
         val state = classifyOverlayAttachState(current != null, current?.isAttachedToWindow == true)
@@ -2767,6 +2777,13 @@ internal object LockAlarmOverlayController {
         if (!isAlarmOverlayActive.get()) return
         val ctx = LockWindowManager.getAlarmContext() ?: return
 
+        // [Fix: scan cutout leak] 扫码通过时，务必取消穿透/开孔的延时恢复任务，彻底退出穿透模式
+        alarmPassthroughRestoreRunnable?.let {
+            LockWindowManager.getAlarmUiHandler().removeCallbacks(it)
+        }
+        alarmPassthroughRestoreRunnable = null
+        setAlarmOverlayPassthrough(false)
+
         if (isTwoStageUnlock && !isAlarmFirstStagePassed) {
             isAlarmFirstStagePassed = true
             AlarmScheduler.markFirstStagePassed(ctx, true)
@@ -2867,6 +2884,12 @@ internal object LockAlarmOverlayController {
     fun showAlarmOverlayInlineInActivity(activity: android.app.Activity, controller: LockWindowManager.AlarmOverlayController): Boolean {
         if (!isAlarmOverlayActive.get()) return false
         val view = LockWindowManager.getAlarmView() ?: return false
+        // [Fix: CanvasContext destruction] 若视图已作为独立窗口附着在 WindowManager 上，
+        // 绝对不能调用 removeView 强行塞进 Activity，否则异步的 MSG_DIE 会摧毁 CanvasContext 导致白屏。
+        if (!LockWindowManager.isCurrentOverlayInline() && view.isAttachedToWindow) {
+            Log.w(TAG, "showAlarmOverlayInlineInActivity: view is already attached in window mode, refusing inline downgrade")
+            return false
+        }
         return try {
             // [Fix: REHOST_INLINE_AFTER_SCAN_FAILED] 窗口模式下 view.parent 是 ViewGroup 而非 ViewManager，
             // 因此 (parent as? ViewManager) 会返回 null 导致 removeView 被跳过，进而 setContentView 崩溃。
@@ -2957,6 +2980,18 @@ internal object LockAlarmOverlayController {
      * 因此开孔里显示的是下方 Activity 的预览，覆盖层自带的扫码视图始终不可用。
      */
     fun setAlarmOverlayPassthrough(enable: Boolean) {
+        if (enable) {
+            val ctx = LockWindowManager.getAlarmContext()
+            // 挑战已完成时，禁止开启扫码开孔模式，防止完成态按钮被置为 GONE 导致白屏
+            if (ctx != null && AlarmScheduler.isChallengeCompleted(ctx)) {
+                Log.w(TAG, "setAlarmOverlayPassthrough: ignored enable=true because challenge is already completed")
+                return
+            }
+        } else {
+            // [Fix: scan cutout leak] 取消任何延时恢复 Runnable，防止迟到的恢复任务在退出扫码后误开孔
+            alarmPassthroughRestoreRunnable?.let { LockWindowManager.getAlarmUiHandler().removeCallbacks(it) }
+            alarmPassthroughRestoreRunnable = null
+        }
         isAlarmScanInProgress = enable
         if (!isAlarmOverlayActive.get()) return
         val view = LockWindowManager.getAlarmView() ?: return
@@ -3004,8 +3039,16 @@ internal object LockAlarmOverlayController {
             Log.i(TAG, "applyScanCutoutLayers: SCAN_CUTOUT_ENABLED")
             LogExporter.logEvent("AlarmOverlay", "SCAN_CUTOUT_ENABLED")
         } else {
-            savedRootBackground?.let { root?.background = it }
-            savedScanBackground?.let { scanLayout?.background = it }
+            if (savedRootBackground != null) {
+                savedRootBackground?.let { root?.background = it }
+            } else if (root != null) {
+                root.setBackgroundColor(ThemeManager.getColorAttr(root.context, R.attr.zzPageBg))
+            }
+            if (savedScanBackground != null) {
+                savedScanBackground?.let { scanLayout?.background = it }
+            } else if (scanLayout != null) {
+                scanLayout.setBackgroundColor(Color.TRANSPARENT)
+            }
             savedRootBackground = null
             savedScanBackground = null
             content?.visibility = View.VISIBLE
@@ -3387,6 +3430,11 @@ internal object LockAlarmOverlayController {
                     alarmPassthroughRestoreRunnable?.let { LockWindowManager.getAlarmUiHandler().removeCallbacks(it) }
                     alarmPassthroughRestoreRunnable = Runnable {
                         alarmPassthroughRestoreRunnable = null
+                        val ctx = LockWindowManager.getAlarmContext()
+                        if (!isAlarmScanInProgress || (ctx != null && AlarmScheduler.isChallengeCompleted(ctx))) {
+                            Log.d(TAG, "reassertAlarmOverlayOverSystemDialog: skipping passthrough restore (scanInProgress=$isAlarmScanInProgress, completed=${ctx?.let { AlarmScheduler.isChallengeCompleted(it) }})")
+                            return@Runnable
+                        }
                         setAlarmOverlayPassthrough(true)
                     }
                     LockWindowManager.getAlarmUiHandler().postDelayed(alarmPassthroughRestoreRunnable!!, 2000L)
@@ -3405,7 +3453,10 @@ internal object LockAlarmOverlayController {
      * 在检测到系统对话框（关机菜单等）时调用此方法，使覆盖层能升至系统对话框之上。
      */
     fun ensureAlarmOverlayInWindowMode(): Boolean {
-        if (!LockWindowManager.isCurrentOverlayInline()) return true
+        if (!LockWindowManager.isCurrentOverlayInline()) {
+            Log.d(TAG, "ensureAlarmOverlayInWindowMode: already in window mode (not inline)")
+            return true
+        }
         if (!isAlarmOverlayActive.get()) return false
         val view = LockWindowManager.getAlarmView() ?: return false
         val service = LockWindowManager.getAlarmCoreService() ?: CoreService.instance ?: return false
@@ -3508,6 +3559,8 @@ internal object LockAlarmOverlayController {
             stageCooldownHandler = null
             stageCooldownRemainingSeconds = 0
             singleStageCooldownUntilMs = 0L
+            alarmPassthroughRestoreRunnable?.let { LockWindowManager.getAlarmUiHandler().removeCallbacks(it) }
+            alarmPassthroughRestoreRunnable = null
 
             // [Fix: anti-uninstall gap] 闹钟关闭后，若存在活跃锁屏且无障碍仍开启，
             // 显示初始化覆盖层桥接重连空窗期（防止用户在此期间卸载）。

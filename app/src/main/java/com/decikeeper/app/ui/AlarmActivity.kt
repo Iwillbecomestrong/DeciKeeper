@@ -200,9 +200,16 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                     LockWindowManager.setAlarmOverlayPassthrough(false)
                     LockWindowManager.showAlarmOverlayIfHidden()
                     LockWindowManager.onScanChallengePassed()
-                    // 两阶段解锁且锁屏显示时：不能 finish，必须把已切换到第二关的 mAlarmView
-                    // 重新内嵌回 Activity，否则用户看到的是空白锁屏，需要手动解锁才能完成第二关。
-                    if (isLockedScreenMode) {
+                    // [Fix: overlay detach / white screen]
+                    // 若覆盖层已在独立窗口模式（!isCurrentOverlayInline()）或挑战已完成，
+                    // 绝不能调用 showAlarmOverlayInlineInActivity 把已在 WindowManager
+                    // 渲染好的独立窗口摘下来塞回 Activity（removeView 的异步 MSG_DIE 会摧毁
+                    // CanvasContext 导致白屏死锁）。直接 finishAndRemoveTask 退出扫码器，
+                    // 露出已渲染好完成态/第二关的独立覆盖层窗口即可。
+                    // 仅当覆盖层依然是 inline 模式、锁屏且挑战未全部完成（需进入第二关）时才内嵌回 Activity。
+                    val isInline = LockWindowManager.isCurrentOverlayInline()
+                    val isCompleted = AlarmScheduler.isChallengeCompleted(this@AlarmActivity)
+                    if (isLockedScreenMode && isInline && !isCompleted) {
                         LockWindowManager.showAlarmOverlayInlineInActivity(this, this)
                     } else {
                         finishAndRemoveTask()
