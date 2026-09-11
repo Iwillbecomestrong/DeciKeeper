@@ -127,6 +127,9 @@ internal object LockAlarmOverlayController {
     private var alarmSnoozeMinutes: Int = 10
     private var alarmRemainingSnoozeCount = 0
     private var isAlarmOverlayAttached = false
+    /** 扫码取景开孔模式下临时替换的图层背景，用于退出扫码后原样还原。 */
+    private var savedRootBackground: android.graphics.drawable.Drawable? = null
+    private var savedScanBackground: android.graphics.drawable.Drawable? = null
     private var lastReassertReason: String? = null
     private var lastReassertAtMs = 0L
     private var reassertStreak = 0
@@ -2931,32 +2934,76 @@ internal object LockAlarmOverlayController {
      * 扫码期间将覆盖层设为穿透模式：保持窗口在 z-order 中阻挡系统对话框（关机菜单等），
      * 但触摸事件穿透到下方的扫码 Activity。扫码结束后调用 showAlarmOverlayIfHidden() 恢复。
      */
+    /**
+     * 扫码取景模式：覆盖层保持**不透明且可触摸**，只在中间留出取景开孔。
+     *
+     * 旧行为是把整层设为 alpha=0 + FLAG_NOT_TOUCHABLE（"穿透"）。它虽然让覆盖层留在
+     * 窗口栈里，却既盖不住也拦不住系统弹层——真机上表现为扫码期间长按电源键会露出
+     * vivo 语音助手，且关机菜单可被直接点击（Issue_Tracker 05-27 记录的取舍）。
+     *
+     * 新行为改为「不透明挡板 + 中间开孔」：取景画面由下方 AlarmActivity 的相机预览
+     * 透过开孔透出，其余区域保持不透明并吃掉触摸，系统弹层无法漏出也无法被操作。
+     *
+     * 注意：覆盖层窗口渲染不了 SurfaceView（DecoratedBarcodeView 基于 SurfaceView），
+     * 因此开孔里显示的是下方 Activity 的预览，覆盖层自带的扫码视图始终不可用。
+     */
     fun setAlarmOverlayPassthrough(enable: Boolean) {
         isAlarmScanInProgress = enable
         if (!isAlarmOverlayActive.get()) return
         val view = LockWindowManager.getAlarmView() ?: return
         val wm = mAlarmActiveWindowManager ?: return
         try {
+            applyScanCutoutLayers(view, enable)
             if (view.parent != null && view.layoutParams is WindowManager.LayoutParams) {
                 val params = view.layoutParams as WindowManager.LayoutParams
-                if (enable) {
-                    params.flags = params.flags or
-                        (WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
-                    params.alpha = 0.0f
-                    isAlarmOverlayPassthrough = true
-                } else {
-                    params.flags = params.flags and
-                        (WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and
-                         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv())
-                    params.alpha = 1.0f
-                    isAlarmOverlayPassthrough = false
-                }
+                // 两种状态都必须可触摸：这是"拦住系统弹层"的关键，
+                // 旧实现在扫码期间设 FLAG_NOT_TOUCHABLE，等于把操作权交还给关机菜单。
+                params.flags = params.flags and
+                    (WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and
+                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv())
+                params.alpha = 1.0f
+                isAlarmOverlayPassthrough = enable
                 wm.updateViewLayout(view, params)
-                Log.d(TAG, "setAlarmOverlayPassthrough: enable=$enable")
+                Log.d(TAG, "setAlarmOverlayPassthrough: enable=$enable (cutout mode)")
             }
         } catch (e: Exception) {
             Log.e(TAG, "setAlarmOverlayPassthrough failed", e)
+        }
+    }
+
+    /**
+     * 切换扫码取景图层。
+     *
+     * 开启：把覆盖层根容器与扫码容器置为透明（否则会挡住取景开孔）、隐藏挑战内容
+     * （否则会从开孔里透出来）、隐藏覆盖层自带的不可渲染扫码器、显示扫码布局。
+     * 关闭：原样还原上述背景与可见性。
+     */
+    private fun applyScanCutoutLayers(view: View, enable: Boolean) {
+        val root = view.findViewById<View>(R.id.root_container)
+        val content = view.findViewById<View>(R.id.root_content_layout)
+        val scanLayout = view.findViewById<View>(R.id.layout_alarm_scan)
+        val overlayScanner = view.findViewById<View>(R.id.barcode_alarm_scanner)
+
+        if (enable) {
+            if (savedRootBackground == null) savedRootBackground = root?.background
+            if (savedScanBackground == null) savedScanBackground = scanLayout?.background
+            root?.setBackgroundColor(Color.TRANSPARENT)
+            scanLayout?.setBackgroundColor(Color.TRANSPARENT)
+            content?.visibility = View.GONE
+            overlayScanner?.visibility = View.GONE
+            scanLayout?.visibility = View.VISIBLE
+            Log.i(TAG, "applyScanCutoutLayers: SCAN_CUTOUT_ENABLED")
+            LogExporter.logEvent("AlarmOverlay", "SCAN_CUTOUT_ENABLED")
+        } else {
+            savedRootBackground?.let { root?.background = it }
+            savedScanBackground?.let { scanLayout?.background = it }
+            savedRootBackground = null
+            savedScanBackground = null
+            content?.visibility = View.VISIBLE
+            overlayScanner?.visibility = View.GONE
+            scanLayout?.visibility = View.GONE
+            Log.i(TAG, "applyScanCutoutLayers: SCAN_CUTOUT_DISABLED")
+            LogExporter.logEvent("AlarmOverlay", "SCAN_CUTOUT_DISABLED")
         }
     }
 
