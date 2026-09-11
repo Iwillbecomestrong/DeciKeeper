@@ -249,6 +249,7 @@
 - **`AlarmPowerOffProtectionManager` 的开关没有消费点。** 见 §1.4 第一条。这既是文档漂移，也意味着该功能**实际不可关闭**（拦截只随闹钟覆盖层状态走）。
 - **`DeviceAdmin` receiver 残留。** Manifest 仍注册设备管理组件（`AndroidManifest.xml:285-295`），但 `isDeviceAdminActive` 调用点为 0。声明了不用的高敏权限组件。
 - **两处源码中文乱码，共 105 行。** `service/CoreService.kt` 56 行、`protection/AntiUninstallProtection.kt` 49 行（GBK 被当 UTF-8 读的典型症状）。11 处落在非注释行，**全部是 `Log.*` 诊断日志**，未污染用户可见文案。但 `AntiUninstallProtection.kt` 在 AGENT_CORE 划定的防卸载高风险区，日志不可读会拖慢 `docs/history/issue_tracker.md` 那套真机排查；这些日志里还残留 `IronWill` 旧名。
+- **覆盖层 inline→window 切换后窗口丢失，导致扫码成功后白屏且无法退出。** 见 §5.1。触发条件明确：锁屏 + 长按电源键调出关机菜单。`mAlarmView` 成为无父容器的游离视图后，`showCompletedChallengeState` 无渲染目标。
 - **`AlarmFragment.kt:1550-1551` 静默回填默认挑战集合。** 用户显式保存「第二阶段无任务」会被替换为 `setOf("math","poem","word","cloze")` 并落盘，与 alarm.md 的空关门禁契约相反。
 
 ---
@@ -301,27 +302,44 @@
 
 ## 5. 真机复现记录（2026-09-11 · vivo V2425A / PD2425）
 
-### 5.1 闹钟会话状态位自相矛盾 → 挑战页白屏且无法退出
+### 5.1 覆盖层 inline→window 切换后丢失窗口 → 扫码成功后白屏且无法退出【真机复现】
 
-**现象**：锁屏后在扫码挑战页长按电源键 → 出现锁屏语言助手界面 → 关机按钮 → 回到挑战页 → 扫码后**白屏**；熄屏再点亮后闹钟响并震动，但**不显示「关闭闹钟」与延迟倒计时**；用户无法退出。
+> **本节已于 2026-09-11 第二次复现后重写。**初版把根因写成"状态位竞态矛盾"，**该判断是错的**——`active_first_stage_passed=false` 在单次模式下是正常值（`markFirstStagePassed` 仅在 `isTwoStageUnlock` 时调用，见 `LockAlarmOverlay.kt:2700`）。保留此说明以免后续排查被误导。
 
-**证据**（`adb shell run-as com.decikeeper.app cat shared_prefs/alarm_prefs.xml`）：
+**现象**：锁屏下进入扫码挑战页 → **长按电源键**调出关机菜单 → 回到挑战页 → 扫码（可成功）→ **白屏**，不显示「关闭闹钟」与延迟倒计时；闹钟震动持续，用户无法退出。**开启无障碍后必现**。
+
+**关键：必须包含"长按电源键"这一步。** 不按电源键的对照运行（20:43）全程 `useInline=true`，扫码成功 → 正常衰减 → 正常完成，**不复现**；该次运行中 `ALARM_BLOCK`/`ensureAlarmOverlayInWindowMode`/`reassertAlarmOverlay` 命中均为 **0**。
+
+**复现运行时间线**（logcat 全程落盘，未清缓冲）：
 
 ```text
-alarm_active               = true
-active_challenge_completed = true     ← 与下一条互斥
-active_first_stage_passed  = false
-active_alarm_attenuated    = true
-active_alarm_id            = 1
-active_schedule_token      = 90b261ca-0a4f-4168-9beb-41604a864894
-alarm_recovery_count_1     = 1
+20:46:12.403  ensureAlarmOverlayInWindowMode: switched from inline to window mode
+              (TYPE_ACCESSIBILITY_OVERLAY)              ← 覆盖层被切成独立窗口
+20:46:12.403  reassertAlarmOverlayOverSystemDialog: reason=shutdown_dialog
+20:46:14~33   btn_alarm_scan clicked ×6
+              每次 → setAlarmOverlayPassthrough: enable=true
+              随后 → shutdown_dialog 再次出现 / shutdown_dialog_after_back
+20:46:39.217  AlarmActivity: Scan success
+20:46:39.223  [ALARM_CHALLENGE_RESULT] challengeId=QR-1 step=1
+              result=FINAL_CORRECT progress=1 totalSteps=1     ← 挑战确实完成
+20:46:39.233  AlarmVibrationService: Sent ACTION_ATTENUATE
+20:46:39.291  Alarm attenuated: volume=0.02f, vibration=mild 20/255 pulse
+20:46:39.3+   ★ 再无任何 UI 相关日志
+20:47:36      AlarmVibrationService: Vibration keep-alive: re-triggering   ← 持续到排查时
 ```
 
-**推断**：`active_challenge_completed=true` 让 UI 走「已完成 → 显示完成后延迟倒计时与关闭按钮」分支，而 `active_first_stage_passed=false` 又要求继续挑战；两个渲染分支互相排斥，结果两边都不渲染 → 白屏。`active_alarm_attenuated=true` 解释了"铃声已经降下去"。
+**根因**：`ensureAlarmOverlayInWindowMode()` 把覆盖层从 inline 切为独立窗口后，**该窗口在关机菜单交互过程中丢失**，而 `mAlarmView` 引用仍被持有，成为无父容器的游离视图。代码自身反复检测到该坏状态（全会话 **4 次**）：
 
-**根因判断**：这四个标志位之间**没有原子写入，也没有进程启动时的一致性对账**；锁屏助手插入导致的中途退出把 `challenge_completed` 置位而 `first_stage_passed` 未同步更新。
+```text
+forceResetAlarmOverlay: mAlarmView=true, parent=false, layoutParamsType=LayoutParams, isCurrentOverlayInline=true
+showAlarmOverlay: stale overlay detected (active=true, attached=true, view=true), force-resetting
+```
 
-**窗口状态**：`mCurrentFocus = com.decikeeper.app/.ui.AlarmActivity`，且**不存在 `TYPE_APPLICATION_OVERLAY` 覆盖层**——本次挑战由 Activity 承载，悬浮窗路径未生效。
+扫码成功后 `onAnyChallengePassed()` **执行完整**（`challenge_completed` 写入、`attenuate()` 已调用，对应 `LockAlarmOverlay.kt:1708-1723`），但紧随其后的 `showCompletedChallengeState(view)`（`:1723`）作用在**已脱离窗口的视图**上，屏幕上不产生任何渲染；同时 AlarmActivity 的挑战内容因"已完成"而不再绘制 → **白屏**。`alarm_active` 保持 true，震动 keep-alive 持续续期 → **无法退出**。
+
+**窗口状态**：排查时 `TYPE_ACCESSIBILITY_OVERLAY` 与 `TYPE_APPLICATION_OVERLAY` **均不存在**，仅剩 `AlarmActivity` 与 `MainActivity`——覆盖层窗口确已丢失。
+
+**与 5.3 的关系**：`reassertAlarmOverlayOverSystemDialog` 在本次运行触发 **12 次**，即应用持续与系统抢占窗口层级；"不牢固的防关机"正是这一抢占过程的表现，而抢占过程本身会破坏自己的窗口。
 
 ### 5.2 无障碍枚举期间的框架级异常反复抛出
 
@@ -345,7 +363,9 @@ java.lang.IllegalArgumentException: parameter must be a descendant of this view
 
 ### 5.4 处置
 
-按用户授权执行 `adb shell am force-stop com.decikeeper.app`（只杀进程，未改数据）：进程退出、前台通知清除、20 秒内未自行拉起。**但 `alarm_prefs.xml` 中的矛盾状态位仍然存在**，下次启动时存在再次恢复该坏会话的风险。
+首次卡死时按用户授权执行 `adb shell am force-stop com.decikeeper.app`（只杀进程，未改数据）：进程退出、前台通知清除、20 秒内未自行拉起。
+
+**更正**：初版称"矛盾状态位仍存在、下次启动会再次恢复坏会话"——**该警告不成立**。重启后实测 `alarm_active=false`，状态位被正常清理（`challenge_completed=true` + `first_stage_passed=false` 本就是单次模式完成后的正常组合）。
 
 ---
 
