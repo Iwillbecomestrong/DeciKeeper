@@ -138,8 +138,8 @@ class AlarmScanCutoutContractTest {
     @Test
     fun cancelScanInLockScreenModeDoesNotKillActivity() {
         val cancelMethod = activitySource.substring(
-            activitySource.indexOf("private fun finishScanAndRestoreOverlay()"),
-            activitySource.indexOf("private fun toggleTorch()")
+            activitySource.indexOf("override fun onScanCancel()"),
+            activitySource.indexOf("private fun finishScanAndRestoreOverlay()")
         )
         assertTrue(
             "取消扫码时必须仅在非锁屏模式下才 finishAndRemoveTask，锁屏下需保持 Activity 存活展示挑战",
@@ -149,6 +149,40 @@ class AlarmScanCutoutContractTest {
         assertFalse(
             "不得在取消扫码时无条件杀死 Activity",
             cancelMethod.replace("if (!isLockedScreenMode)", "").trim().startsWith("finishAndRemoveTask()")
+        )
+    }
+
+    @Test
+    fun cancelButtonCallsCancelAlarmScanAndRestoresChallenge() {
+        assertTrue(
+            "覆盖层返回挑战按钮必须调用 cancelAlarmScan()",
+            overlaySource.contains("cancelAlarmScan()")
+        )
+        val cancelMethod = overlaySource.substring(
+            overlaySource.indexOf("fun cancelAlarmScan()"),
+            overlaySource.indexOf("fun detachAlarmController(")
+        )
+        assertTrue(
+            "cancelAlarmScan 必须退出开孔模式并恢复覆盖层与题目",
+            cancelMethod.contains("setAlarmOverlayPassthrough(false)") &&
+                cancelMethod.contains("showAlarmOverlayIfHidden()") &&
+                cancelMethod.contains("mAlarmController?.onScanCancel()")
+        )
+    }
+
+    @Test
+    fun unlockedModeScanKeepsOverlayAttached() {
+        val alarmManagerSource = source("src/main/java/com/decikeeper/app/manager/AlarmWindowManager.kt")
+        val noActivityIdx = alarmManagerSource.indexOf("private object NoActivityAlarmController")
+        assertTrue("NoActivityAlarmController 必须存在", noActivityIdx >= 0)
+        val noActivityBlock = alarmManagerSource.substring(noActivityIdx)
+        assertFalse(
+            "非锁屏扫码不得移除覆盖层，必须保持覆盖层在窗口栈中以统一开孔视觉",
+            noActivityBlock.contains("hideAlarmOverlayForPermission")
+        )
+        assertTrue(
+            "非锁屏扫码必须传 start_scan=true",
+            noActivityBlock.contains("putExtra(\"start_scan\", true)")
         )
     }
 }

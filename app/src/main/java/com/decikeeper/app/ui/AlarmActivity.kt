@@ -116,29 +116,10 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             return
         }
 
+        LockWindowManager.reattachAlarmController(this)
         if (intent.getBooleanExtra("start_scan", false)) {
-            isScanMode = true
-            setContentView(R.layout.activity_alarm_scan)
-            // [Fix: 扫码界面沉浸模式] setContentView 重置 systemUiVisibility, 重新应用防止上滑退出
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                )
-            barcodeView = findViewById(R.id.barcode_scanner)
-            findViewById<Button>(R.id.btn_scan_cancel).setOnClickListener {
-                barcodeView?.pause()
-                finishScanAndRestoreOverlay()
-            }
-            findViewById<ImageButton>(R.id.btn_torch).setOnClickListener {
-                toggleTorch()
-            }
-            // 请求权限或直接开始扫码
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                startBarcodeScanner()
+                startScanMode()
             } else {
                 launchQrScan()
             }
@@ -220,14 +201,17 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         }
     }
 
-    private fun finishScanAndRestoreOverlay() {
+    override fun onScanCancel() {
+        android.util.Log.i("AlarmActivity", "onScanCancel: isLockedScreenMode=$isLockedScreenMode")
         barcodeView?.pause()
         isScanMode = false
-        LockWindowManager.setAlarmOverlayPassthrough(false)
-        LockWindowManager.showAlarmOverlayIfHidden()
         if (!isLockedScreenMode) {
             finishAndRemoveTask()
         }
+    }
+
+    private fun finishScanAndRestoreOverlay() {
+        LockWindowManager.cancelAlarmScan()
     }
 
     private fun toggleTorch() {
@@ -431,6 +415,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
         if (intent.getBooleanExtra("start_scan", false)) {
             // SINGLE_TOP 下收到扫码请求：直接进入扫码模式
+            LockWindowManager.reattachAlarmController(this)
             startScanMode()
             return
         }

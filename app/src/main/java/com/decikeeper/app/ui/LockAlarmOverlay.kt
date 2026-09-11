@@ -56,6 +56,7 @@ import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.AlarmChallengeManager
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AlarmScheduler
+import com.decikeeper.app.manager.AlarmWindowManager
 import com.decikeeper.app.manager.AttachAttemptOutcome
 import com.decikeeper.app.manager.DetachedRecovery
 import com.decikeeper.app.manager.OverlayAttachState
@@ -964,7 +965,7 @@ internal object LockAlarmOverlayController {
             handleAlarmScanClick()
         }
         view.findViewById<Button>(R.id.btn_alarm_scan_cancel).setOnClickListener {
-            view.findViewById<View>(R.id.layout_alarm_scan).visibility = View.GONE
+            cancelAlarmScan()
         }
 
         view.findViewById<Button>(R.id.btn_alarm_close).setOnClickListener {
@@ -3070,6 +3071,19 @@ internal object LockAlarmOverlayController {
         }
     }
 
+    fun cancelAlarmScan() {
+        Log.i(TAG, "cancelAlarmScan: exiting cutout mode and restoring challenge")
+        LogExporter.logEvent("AlarmOverlay", "SCAN_CANCEL")
+        setAlarmOverlayPassthrough(false)
+        showAlarmOverlayIfHidden()
+        LockWindowManager.getAlarmView()?.let { v ->
+            v.isFocusable = true
+            v.isFocusableInTouchMode = true
+            v.requestFocus()
+        }
+        mAlarmController?.onScanCancel()
+    }
+
     fun detachAlarmController(controller: LockWindowManager.AlarmOverlayController) {
         if (mAlarmController === controller) {
             mAlarmController = null
@@ -3196,23 +3210,11 @@ internal object LockAlarmOverlayController {
             return
         }
         if (hasPermission) {
-            // [Fix: password-less lock screen] 完全移除覆盖层而非仅穿透，让用户能操作锁屏界面上滑使用相机。
-            // 扫码结束后 showAlarmOverlayIfHidden() 会重新附加覆盖层。
             isAlarmScanInProgress = true
-            try {
-                if (LockWindowManager.getAlarmView() != null && mAlarmActiveWindowManager != null && LockWindowManager.getAlarmView()?.parent != null) {
-                    // [Fix: a11y overlay crash] removeView 前清空焦点
-                    LockWindowManager.getAlarmView()?.clearFocus()
-                    mAlarmActiveWindowManager?.removeView(LockWindowManager.getAlarmView())
-                    isAlarmOverlayAttached = false
-                    Log.d(TAG, "handleAlarmScanClick: overlay removed for scan, unlocking lock screen")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "handleAlarmScanClick: Failed to remove alarm overlay", e)
-            }
             val intent = Intent(ctx, AlarmActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
+                putExtra("is_locked_screen", false)
                 putExtra("start_scan", true)
             }
             ctx.startActivity(intent)
@@ -3551,7 +3553,9 @@ internal object LockAlarmOverlayController {
             LogExporter.logEvent("AlarmRecovery", "clearAlarmActive (reason=$reason)")
             AlarmVibrationService.stop(ctx)
             Toast.makeText(ctx, reason, Toast.LENGTH_SHORT).show()
-            mAlarmController?.onAlarmOverlayFinished()
+            mAlarmController?.onAlarmOverlayFinished() ?: run {
+                AlarmWindowManager.dismiss()
+            }
 
             stageCooldownHandler?.removeCallbacksAndMessages(null)
             stageCooldownHandler = null

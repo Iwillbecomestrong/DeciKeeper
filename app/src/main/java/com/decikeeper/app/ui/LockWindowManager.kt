@@ -472,6 +472,7 @@ object LockWindowManager {
     interface AlarmOverlayController {
         fun launchQrScan()
         fun onAlarmOverlayFinished()
+        fun onScanCancel() {}
     }
 
     // ── 会话级复习数据（仅记录用户操作过的题目） ──
@@ -1042,6 +1043,10 @@ object LockWindowManager {
 
     fun setAlarmOverlayPassthrough(enable: Boolean) {
         LockAlarmOverlayController.setAlarmOverlayPassthrough(enable)
+    }
+
+    fun cancelAlarmScan() {
+        LockAlarmOverlayController.cancelAlarmScan()
     }
 
     fun setLockScreenVisibleForAlarmScan(visible: Boolean) {
