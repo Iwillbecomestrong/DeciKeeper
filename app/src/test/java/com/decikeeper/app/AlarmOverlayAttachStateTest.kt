@@ -18,18 +18,18 @@ import org.junit.Test
 class AlarmOverlayAttachStateTest {
 
     @Test
-    fun viewWithoutParentIsDetached() {
+    fun viewNotAttachedToWindowIsDetached() {
         assertEquals(
             OverlayAttachState.DETACHED,
-            classifyOverlayAttachState(viewExists = true, viewHasParent = false)
+            classifyOverlayAttachState(viewExists = true, viewAttachedToWindow = false)
         )
     }
 
     @Test
-    fun viewWithParentIsAttached() {
+    fun viewAttachedToWindowIsAttached() {
         assertEquals(
             OverlayAttachState.ATTACHED,
-            classifyOverlayAttachState(viewExists = true, viewHasParent = true)
+            classifyOverlayAttachState(viewExists = true, viewAttachedToWindow = true)
         )
     }
 
@@ -37,7 +37,7 @@ class AlarmOverlayAttachStateTest {
     fun missingViewIsNoView() {
         assertEquals(
             OverlayAttachState.NO_VIEW,
-            classifyOverlayAttachState(viewExists = false, viewHasParent = false)
+            classifyOverlayAttachState(viewExists = false, viewAttachedToWindow = false)
         )
     }
 

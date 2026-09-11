@@ -141,6 +141,40 @@ class AlarmOverlayAttachContractTest {
     }
 
     @Test
+    fun detachedDetectionUsesWindowAttachmentNotParent() {
+        // [2026-09-11 真机] inline 覆盖层挂在 Activity 内容视图下，setContentView() 替换内容视图后
+        // 整棵子树脱窗，但 view.parent 仍非 null —— 用 parent 判定会完全漏检，导致白屏无人收殓。
+        val resolver = functionBody(overlaySource, "private fun resolveRenderableAlarmView(): View?")
+        assertTrue("必须用 isAttachedToWindow 判定脱窗", resolver.contains("isAttachedToWindow"))
+        assertFalse("不得再用 parent != null 判定脱窗", resolver.contains("parent != null"))
+
+        val reassert = functionBody(overlaySource, "fun reassertAlarmOverlayOverSystemDialog(reason: String)")
+        assertTrue(reassert.contains("!view.isAttachedToWindow"))
+        assertFalse(reassert.contains("view.parent == null"))
+
+        val hidden = functionBody(overlaySource, "fun showAlarmOverlayIfHidden()")
+        assertTrue(
+            "inline 短路必须同时要求仍附着在窗口上，否则 inline 覆盖层脱窗后永远无法恢复",
+            hidden.contains("isAttachedToWindow")
+        )
+    }
+
+    @Test
+    fun scanEntryPromotesOverlayBeforeReplacingContentView() {
+        val activity = source("src/main/java/com/decikeeper/app/ui/AlarmActivity.kt")
+        val body = functionBody(activity, "private fun startScanMode()")
+        val promoteIdx = body.indexOf("ensureAlarmOverlayInWindowMode()")
+        // 必须匹配真实调用（带布局参数），否则会命中注释里出现的 "setContentView" 字样
+        val contentIdx = body.indexOf("setContentView(R.layout.activity_alarm_scan)")
+        assertTrue("startScanMode 必须先提升覆盖层为独立窗口", promoteIdx >= 0)
+        assertTrue("startScanMode 必须调用 setContentView(R.layout.activity_alarm_scan)", contentIdx >= 0)
+        assertTrue(
+            "提升必须发生在 setContentView 之前，否则 inline 覆盖层会被替换内容视图带离窗口",
+            promoteIdx < contentIdx
+        )
+    }
+
+    @Test
     fun shutdownDialogInterceptionStillUpgradesWindowMode() {
         // 防止为图省事直接删掉升级路径——那会让关机菜单重新盖住挑战界面
         assertTrue(

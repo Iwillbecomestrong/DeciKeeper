@@ -1689,7 +1689,9 @@ internal object LockAlarmOverlayController {
      */
     private fun resolveRenderableAlarmView(): View? {
         val current = LockWindowManager.getAlarmView()
-        val state = classifyOverlayAttachState(current != null, current?.parent != null)
+        // 判据必须是 isAttachedToWindow：inline 覆盖层在 Activity setContentView() 替换内容视图后
+        // 仍保留 parent，但整棵子树已脱窗，用 parent 判定会漏检（2026-09-11 真机复现）。
+        val state = classifyOverlayAttachState(current != null, current?.isAttachedToWindow == true)
         if (resolveDetachedRecovery(state, isAlarmOverlayActive.get()) != DetachedRecovery.REBUILD) {
             return current
         }
@@ -1718,7 +1720,7 @@ internal object LockAlarmOverlayController {
         }
 
         val rebuilt = LockWindowManager.getAlarmView()
-        if (classifyOverlayAttachState(rebuilt != null, rebuilt?.parent != null) == OverlayAttachState.DETACHED) {
+        if (classifyOverlayAttachState(rebuilt != null, rebuilt?.isAttachedToWindow == true) == OverlayAttachState.DETACHED) {
             Log.e(TAG, "resolveRenderableAlarmView: COMPLETED_STATE_ATTACH_FAILED")
             LogExporter.logEvent("AlarmOverlay", "COMPLETED_STATE_ATTACH_FAILED")
         }
@@ -2809,7 +2811,14 @@ internal object LockAlarmOverlayController {
 
         // [内嵌模式] 覆盖层在 Activity 内（锁屏上显示时），不需要添加到 WindowManager。
         // 通过运行时 layoutParams 类型判断是否为内嵌模式。
-        val isInline = LockWindowManager.getAlarmView() != null && LockWindowManager.getAlarmView()?.layoutParams !is WindowManager.LayoutParams
+        // [Fix: overlay detach] inline 判定必须同时要求"仍附着在窗口上"。
+        // Activity 调用 setContentView() 替换内容视图后，inline 覆盖层仍保留 parent 与原
+        // layoutParams，但整棵子树已脱窗。若照旧短路返回，覆盖层将永远无法恢复
+        // （2026-09-11 真机复现：扫码后白屏且无法退出）。
+        val currentAlarmView = LockWindowManager.getAlarmView()
+        val isInline = currentAlarmView != null &&
+            currentAlarmView.layoutParams !is WindowManager.LayoutParams &&
+            currentAlarmView.isAttachedToWindow
         if (isInline) {
             Log.d(TAG, "showAlarmOverlayIfHidden: inline mode, skipping WindowManager")
             return
@@ -3333,7 +3342,7 @@ internal object LockAlarmOverlayController {
 
         // [Fix: overlay detach] 视图已脱窗时不再假装能重排——明确标记待重建，
         // 由完成态渲染守卫 / showAlarmOverlayIfHidden 收殓。
-        if (view.parent == null) {
+        if (!view.isAttachedToWindow) {
             Log.w(TAG, "reassertAlarmOverlayOverSystemDialog: REASSERT_VIEW_DETACHED reason=$reason")
             LogExporter.logEvent("AlarmOverlay", "REASSERT_VIEW_DETACHED reason=$reason")
             isAlarmOverlayAttached = false

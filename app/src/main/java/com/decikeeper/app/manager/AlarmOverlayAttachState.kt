@@ -19,7 +19,14 @@ internal enum class OverlayAttachState {
     /** view 已挂在某个窗口上，可正常渲染。 */
     ATTACHED,
 
-    /** view 对象存在但没有父容器——必须收殓的非法态。 */
+    /**
+     * view 对象存在但**没有附着在任何窗口上**——必须收殓的非法态。
+     *
+     * 注意判据必须是 `View.isAttachedToWindow`，不能用 `view.parent != null`：
+     * inline 覆盖层挂在 Activity 的内容视图下，一旦 Activity 调用 setContentView()
+     * 替换内容视图，整棵子树就与窗口脱离，但 `view.parent` 仍然非 null。
+     * 真机缺陷正是这样漏检的（21:36 复现：扫码后白屏，而所有基于 parent 的检测全部未触发）。
+     */
     DETACHED
 }
 
@@ -27,14 +34,15 @@ internal enum class OverlayAttachState {
  * 由调用方探测到的事实推导挂载状态。
  *
  * @param viewExists `LockWindowManager.getAlarmView() != null`
- * @param viewHasParent `view.parent != null`
+ * @param viewAttachedToWindow `view.isAttachedToWindow`（**不是** `view.parent != null`，
+ *   父链整段脱窗时 parent 依然非 null，见 [OverlayAttachState.DETACHED] 的说明）
  */
 internal fun classifyOverlayAttachState(
     viewExists: Boolean,
-    viewHasParent: Boolean
+    viewAttachedToWindow: Boolean
 ): OverlayAttachState {
     if (!viewExists) return OverlayAttachState.NO_VIEW
-    return if (viewHasParent) OverlayAttachState.ATTACHED else OverlayAttachState.DETACHED
+    return if (viewAttachedToWindow) OverlayAttachState.ATTACHED else OverlayAttachState.DETACHED
 }
 
 /** 一次「挂到目标窗口」尝试的结果。 */

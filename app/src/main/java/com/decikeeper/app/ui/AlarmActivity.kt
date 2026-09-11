@@ -231,6 +231,11 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     private fun startScanMode() {
         isScanMode = true
+        // [Fix: overlay detach] setContentView() 会替换整个内容视图，把 inline 挂载的
+        // 覆盖层一起带离窗口（它仍保留 parent，但整棵子树已脱窗，此后无法渲染，
+        // 表现为扫码成功后白屏且无法退出）。因此必须在替换之前先把覆盖层提升为
+        // 独立窗口（TYPE_ACCESSIBILITY_OVERLAY），使其不再依赖 Activity 的内容视图。
+        LockWindowManager.ensureAlarmOverlayInWindowMode()
         setContentView(R.layout.activity_alarm_scan)
         // [Fix: 扫码界面沉浸模式] setContentView 重置 systemUiVisibility, 重新应用防止上滑退出
         window.decorView.systemUiVisibility = (
