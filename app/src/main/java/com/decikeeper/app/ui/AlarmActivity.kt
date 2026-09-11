@@ -193,7 +193,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                     val isCompleted = AlarmScheduler.isChallengeCompleted(this@AlarmActivity)
                     if (isLockedScreenMode && isInline && !isCompleted) {
                         LockWindowManager.showAlarmOverlayInlineInActivity(this, this)
-                    } else if (!isLockedScreenMode || isCompleted) {
+                    } else if (!isLockedScreenMode) {
                         finishAndRemoveTask()
                     }
                 }
