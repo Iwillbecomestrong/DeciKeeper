@@ -155,7 +155,7 @@
 
 ## 下载
 
-- [GitHub Releases](https://github.com/Iwillbecomestrong/ZhiZhi/releases)
+- [GitHub Releases](https://github.com/Iwillbecomestrong/DeciKeeper/releases)
 - [Gitee Releases](https://gitee.com/my_room_welcome_you/zhizhi/releases)
 
 ---

@@ -11,7 +11,7 @@
 
 | 项目 | 状态 | 证据 |
 |:---|:---|:---|
-| GitHub 仓库 | ✅ 已建立并已推送 | `git@github.com:Iwillbecomestrong/ZhiZhi.git`（仓库名尚未随产品更名调整） |
+| GitHub 仓库 | ✅ 已建立并已推送 | `git@github.com:Iwillbecomestrong/DeciKeeper.git` |
 | Gitee 账号 | ✅ SSH 已验证可用 | `Hi 陈永争(@my_room_welcome_you)! You've successfully authenticated` |
 | Gitee 仓库 | ❌ **尚未创建** | `git ls-remote` 返回 `404 not found` |
 | 本地 `main` | ✅ 已与远端同步 | 原落后 9 个提交，已快进至 `79ee151` |
@@ -27,7 +27,7 @@
 
 访问 <https://gitee.com/projects/new>，按以下填写：
 
-- 仓库名称：`DeciKeeper`（GitHub 侧当前仍为 `ZhiZhi`，改名需要同步更新远端地址与 README 徽章）
+- 仓库名称：GitHub 侧为 `DeciKeeper`（已更名）；Gitee 侧仍为 `zhizhi`，两边仓库名目前不一致
 - 归属：`my_room_welcome_you`
 - 是否开源：**公开**
 - 开发语言：`Kotlin`
