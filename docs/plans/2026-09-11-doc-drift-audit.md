@@ -308,7 +308,19 @@
 
 **现象**：锁屏下进入扫码挑战页 → **长按电源键**调出关机菜单 → 回到挑战页 → 扫码（可成功）→ **白屏**，不显示「关闭闹钟」与延迟倒计时；闹钟震动持续，用户无法退出。**开启无障碍后必现**。
 
-**关键：必须包含"长按电源键"这一步。** 不按电源键的对照运行（20:43）全程 `useInline=true`，扫码成功 → 正常衰减 → 正常完成，**不复现**；该次运行中 `ALARM_BLOCK`/`ensureAlarmOverlayInWindowMode`/`reassertAlarmOverlay` 命中均为 **0**。
+**前置条件：无障碍必须开启。** 这不是"操作步骤漏了"，而是**功能依赖**——关机菜单拦截逻辑位于 `CoreService.onAccessibilityEventInternal`，无障碍关闭时该服务收不到事件，拦截路径根本不会执行。
+
+对照运行（20:42–20:44，无障碍处于关闭态）的日志证据：
+
+```text
+20:42:31.484  A11yGuardService: [NOTIFY-DIAG] Transition detected (healthy→inactive), wasEnabled=true, wasActive=true → isEnabled=false, isActive=false
+20:43:07.064  PermissionManager: [Diag] a11y enabled=false active=false recentSignal=false
+20:43:07.065  PermissionManager: [NOTIFY-DIAG][MISSING] noLost branch. allMissing=[无障碍服务]
+```
+
+`A11y Event` 首次出现于 **20:44 分**（20:44: 13 条 / 20:45: 26 条 / 20:46: 102 条）；20:40–20:44 区间内 `ensureAlarmOverlayInWindowMode`、`ALARM_BLOCK`、`shutdown_dialog`、`reassertAlarmOverlay` **命中全部为 0**。
+
+**无障碍关闭时的实际表现**（用户观察）：长按电源键 → 挑战界面直接消失，需解锁进入 App 重新点开挑战才能继续。**无障碍开启时**拦截路径才生效，才会发生下述窗口丢失。
 
 **复现运行时间线**（logcat 全程落盘，未清缓冲）：
 
@@ -338,6 +350,8 @@ showAlarmOverlay: stale overlay detected (active=true, attached=true, view=true)
 扫码成功后 `onAnyChallengePassed()` **执行完整**（`challenge_completed` 写入、`attenuate()` 已调用，对应 `LockAlarmOverlay.kt:1708-1723`），但紧随其后的 `showCompletedChallengeState(view)`（`:1723`）作用在**已脱离窗口的视图**上，屏幕上不产生任何渲染；同时 AlarmActivity 的挑战内容因"已完成"而不再绘制 → **白屏**。`alarm_active` 保持 true，震动 keep-alive 持续续期 → **无法退出**。
 
 **窗口状态**：排查时 `TYPE_ACCESSIBILITY_OVERLAY` 与 `TYPE_APPLICATION_OVERLAY` **均不存在**，仅剩 `AlarmActivity` 与 `MainActivity`——覆盖层窗口确已丢失。
+
+**因果链定位**：`无障碍开启`（前置）→ 关机菜单被拦截（`CoreService.kt:880`）→ `ensureAlarmOverlayInWindowMode()` 切换窗口模式 → 抢层级过程中窗口丢失 → 游离视图 → 扫码成功后白屏。**根因是第 3–4 步的窗口生命周期管理，无障碍只是让这条路径可达。**
 
 **与 5.3 的关系**：`reassertAlarmOverlayOverSystemDialog` 在本次运行触发 **12 次**，即应用持续与系统抢占窗口层级；"不牢固的防关机"正是这一抢占过程的表现，而抢占过程本身会破坏自己的窗口。
 
