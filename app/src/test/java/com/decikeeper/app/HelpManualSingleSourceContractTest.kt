@@ -23,10 +23,13 @@ class HelpManualSingleSourceContractTest {
         val help = source("src/main/java/com/decikeeper/app/ui/HelpActivity.kt")
         val gradle = source("build.gradle.kts")
 
-        assertTrue(help.contains("assets.open(\"使用手册.md\")"))
+        assertTrue(help.contains("assets.open(name)"))
+        assertTrue(help.contains("\"getting-started.md\""))
+        assertTrue(help.contains("\"guide.md\""))
+        assertTrue(help.contains("\"permissions.md\""))
         assertFalse(help.contains("fun buildHelpText(): String"))
         assertTrue(gradle.contains("generated/userGuideAssets"))
-        assertTrue(gradle.contains("docs/使用手册.md"))
+        assertTrue(gradle.contains("docs/user"))
     }
 
     @Test
@@ -51,14 +54,17 @@ class HelpManualSingleSourceContractTest {
 
     @Test
     fun canonicalManualKeepsFirstRunPermissionsAndCoolingCopyAligned() {
-        val manual = source("../docs/使用手册.md")
+        // docs/user/ 取代了旧的单文件 docs/使用手册.md，契约改读拆分后的源文档。
+        val gettingStarted = source("../docs/user/getting-started.md")
+        val guide = source("../docs/user/guide.md")
+        val manual = gettingStarted + "\n" + guide
 
         assertFalse(manual.contains("无障碍、悬浮窗、使用情况访问等必要权限稳定"))
-        assertTrue(manual.contains("首页的 5 项基础权限"))
-        assertTrue(manual.contains("不需要先开启无障碍"))
-        assertTrue(manual.contains("无障碍是决定守护权限等级最高、能力最强的一项权限"))
+        assertTrue(gettingStarted.contains("首页的 5 项基础权限"))
+        assertTrue(gettingStarted.contains("不需要先开启无障碍"))
+        assertTrue(gettingStarted.contains("无障碍是决定守护权限等级最高、能力最强的一项权限"))
 
         assertFalse(manual.contains("可能整体按双倍成本处理"))
-        assertTrue(manual.contains("冷却期间再次申请，会按 2 倍扣除应计费额度和次数"))
+        assertTrue(guide.contains("冷却期间再次申请，会按 2 倍扣除应计费额度和次数"))
     }
 }

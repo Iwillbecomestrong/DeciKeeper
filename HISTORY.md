@@ -7,6 +7,17 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-28] 文档分层重构：增设产品总览层，退役根 PLAN.md
+- **背景**：README 同时承担产品介绍、使用手册与规格摘要三种职责；根 SPEC 偏工程契约，缺少「为什么这样设计」的解释层；`docs/使用手册.md` 内容陈旧；根 `PLAN.md` 同时与「当前任务」和 `HISTORY.md` 竞争。结果是新贡献者和 AI 容易把决定守护误解成单纯的防沉迷工具或闹钟工具，也说不清规则保护与挑战闹钟为什么属于同一个产品。
+- **决策**：
+  1. 确立四层文档：`README.md`（是什么 / 有什么）→ `docs/product/system-overview.md`（为什么这样设计）→ `SPEC.md` + `docs/specs/`（规则怎么实现）→ `docs/user/`（怎么用）；
+  2. 新增 `docs/product/system-overview.md` 作为产品总览层的唯一归属，承载产品定位、两个核心模块、统一设计原则、自由出口体系、产品边界与术语规范；
+  3. **退役根 `PLAN.md` 与 `task_plan.md`**：本项目不维护总计划，执行路线按任务拆分到 `docs/plans/`，已经发生的决策交给 `HISTORY.md` / `docs/history/`；
+  4. `docs/使用手册.md` 拆分为 `docs/user/getting-started.md`、`guide.md`、`permissions.md`，原文件移入 `docs/archive/`；
+  5. 旧计划与散落工作稿（`docs/work/`、`docs/superpowers/`、根目录 `.history_full.md`、`notes.md`、`penalty-charge-implementation.md`）统一移入 `docs/archive/`，只归档不再维护。
+- **术语统一**：产品正式名「决定守护 / DeciKeeper」，系统名「决定保护系统」，模块名「规则保护」「挑战闹钟」，规则配置入口「时间规则」；用户入口名与系统模块名（挑战闹钟 / 起床系统）并存但不互相替换。历史名称（IronWill / ZhiZhi / 知止 / 承诺保护系统）只允许留在 `HISTORY.md`、`docs/history/`、`docs/archive/` 与 Git 提交历史。
+- **防坑警告**：`docs/plans/` 是**分任务计划**目录，不是第二份总计划；不要把全局路线重新塞回一份文件，也不要用 `SPEC_v2.md`、`PLAN_final.md` 之类的平行真相文件规避收敛。
+
 ### [DECISION-25] v0.2.0 单机内测版 About / Privacy 信息页收敛
 - **背景**：当前 About 页沿用了面向正式运营场景的 7 个法务入口，向没有账号、服务器和商业化的单机内测用户展示了不必要的 SDK、个人信息、共享、注销和投诉页面，增加理解成本并造成产品状态误解。
 - **决策**：

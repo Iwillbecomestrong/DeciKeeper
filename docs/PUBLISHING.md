@@ -3,7 +3,7 @@
 > **定位**：本文档是 Gitee / GitHub 双仓库初始化、构建产物分发与 Release 发布的
 > **唯一可执行清单**。
 > **不上架任何应用商店**，只走自建发行渠道。
-> 最后核验：2026-09-04
+> 最后核验：2026-09-04（下表状态与远端地址需要重新核对后再依赖；仓库名与产品名目前并不一致）
 
 ---
 
@@ -11,7 +11,7 @@
 
 | 项目 | 状态 | 证据 |
 |:---|:---|:---|
-| GitHub 仓库 | ✅ 已建立并已推送 | `git@github.com:Iwillbecomestrong/IronWill.git`，远端 12 个分支 |
+| GitHub 仓库 | ✅ 已建立并已推送 | `git@github.com:Iwillbecomestrong/ZhiZhi.git`（仓库名尚未随产品更名调整） |
 | Gitee 账号 | ✅ SSH 已验证可用 | `Hi 陈永争(@my_room_welcome_you)! You've successfully authenticated` |
 | Gitee 仓库 | ❌ **尚未创建** | `git ls-remote` 返回 `404 not found` |
 | 本地 `main` | ✅ 已与远端同步 | 原落后 9 个提交，已快进至 `79ee151` |
@@ -27,7 +27,7 @@
 
 访问 <https://gitee.com/projects/new>，按以下填写：
 
-- 仓库名称：`DeciKeeper`（或 `IronWill`）
+- 仓库名称：`DeciKeeper`（GitHub 侧当前仍为 `ZhiZhi`，改名需要同步更新远端地址与 README 徽章）
 - 归属：`my_room_welcome_you`
 - 是否开源：**公开**
 - 开发语言：`Kotlin`
@@ -43,7 +43,7 @@
 cd /g/IronWIl0329/IronWill-OpenSource
 
 # 用独立 remote，不要合并进 origin（原因见下方说明）
-git remote add gitee git@gitee.com:my_room_welcome_you/DeciKeeper.git
+git remote add gitee git@gitee.com:my_room_welcome_you/zhizhi.git
 ```
 
 **为什么不用 `git remote set-url --add origin <gitee>`？**

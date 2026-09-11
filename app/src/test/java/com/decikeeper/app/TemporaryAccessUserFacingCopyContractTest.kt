@@ -25,7 +25,9 @@ class TemporaryAccessUserFacingCopyContractTest {
             source("src/main/java/com/decikeeper/app/ui/LockWindowManager.kt"),
             source("src/main/res/layout/window_lock_screen.xml"),
             source("src/main/res/layout/activity_global_params_new.xml"),
-            source("../docs/使用手册.md")
+            source("../docs/user/getting-started.md"),
+            source("../docs/user/guide.md"),
+            source("../docs/user/permissions.md")
         )
         val joined = files.joinToString("\n")
 

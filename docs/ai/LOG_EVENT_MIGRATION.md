@@ -24,7 +24,7 @@
   - **禁止** `ADD_EXPORT_DROP_PATTERN` — Plan Challenger v3 B7 exportDropPatterns 36 条禁动，新增 pattern 视为越界。
 - `retainedEvidence` — 描述删除后用户/导出器仍可读到的等价信息（来自 `PENALTY` payload / 字段规范 / `LOCK_REQUEST_RESULT` 5 身份等）。
 - `approval` — 字段格式 `<gate-name>:<sha-or-tag>`，作为 T06 复核时每行的最小审批凭证。
-  本表初版用 `T05-A:DA-07-R3+DA-08` 作为统一审批（Round 3 audit 闭幕后的集中批准），后续 T1-T4 实施后再为受影响行单独打 `user:<hash>`（参考 `docs/superpowers/specs/...` 中的 R3 handoff 文件）。
+  本表初版用 `T05-A:DA-07-R3+DA-08` 作为统一审批（Round 3 audit 闭幕后的集中批准），后续 T1-T4 实施后再为受影响行单独打 `user:<hash>`（参考 `docs/archive/superpowers/...` 中的 R3 handoff 文件）。
 
 ### 0.5.2 Debug-Value 表
 

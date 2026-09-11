@@ -4,8 +4,13 @@ plugins {
 }
 
 val generatedUserGuideAssetsDir = layout.buildDirectory.dir("generated/userGuideAssets").get().asFile
-val syncUserGuideAsset by tasks.registering(Copy::class) {
-    from(rootProject.file("docs/使用手册.md"))
+
+// docs/user/ 是用户文档的单一来源；构建时按展示顺序同步到 App assets，App 内不得维护第二份正文。
+val userGuideAssetNames = listOf("getting-started.md", "guide.md", "permissions.md")
+val syncUserGuideAsset by tasks.registering(Sync::class) {
+    from(rootProject.layout.projectDirectory.dir("docs/user")) {
+        include(userGuideAssetNames)
+    }
     into(generatedUserGuideAssetsDir)
 }
 
@@ -134,7 +139,7 @@ dependencies {
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
-    // 用户手册继续使用 docs/使用手册.md 单一来源；App 内通过 Markwon 真正渲染 Markdown。
+    // 用户手册继续使用 docs/user/ 单一来源；App 内通过 Markwon 真正渲染 Markdown。
     implementation("io.noties.markwon:core:4.6.2")
     implementation("io.noties.markwon:ext-tables:4.6.2")
     // v3.1 C5: 复习回顾选词填空分页 (ViewPager2)

@@ -5,7 +5,7 @@
  * * @role: UI
  * * @description: 用户手册页面，支持 Markdown 渲染、搜索和目录跳转。
  * * @responsibilities:
- * 1. 读取并渲染构建生成的使用手册资源。
+ * 1. 读取并渲染构建生成的 docs/user/ 用户文档资源。
  * 2. 提供目录导航（可点击跳转）。
  * 3. 提供实时搜索过滤。
  * * @context:
@@ -14,7 +14,7 @@
  * * @constraints (必读):
  * 1. 文案必须与实际功能保持一致。
  * 2. 目录标题从文案中自动解析。
- * 3. `docs/使用手册.md` 是唯一完整用户手册来源；App 内不得维护第二份正文。
+ * 3. `docs/user/` 是唯一完整用户文档来源；App 内不得维护第二份正文。
  * =================================================================================
  */
 package com.decikeeper.app.ui
@@ -79,7 +79,17 @@ class HelpActivity : AppCompatActivity() {
     // ========== 章节解析 ==========
 
     private fun loadHelpText(): String =
-        assets.open("使用手册.md").bufferedReader(Charsets.UTF_8).use { it.readText() }
+        USER_GUIDE_ASSETS.joinToString("\n\n") { name ->
+            assets.open(name).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        }
+
+    private companion object {
+        /**
+         * docs/user/ 下由构建同步进 assets 的用户文档，按展示顺序排列。
+         * 与 `app/build.gradle.kts` 的 `userGuideAssetNames` 保持一致。
+         */
+        val USER_GUIDE_ASSETS = listOf("getting-started.md", "guide.md", "permissions.md")
+    }
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
 
