@@ -99,10 +99,11 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1)
         snoozeMinutes = AlarmScheduler.getSnoozeMinutes(this)
         newAlarmSession = intent.getBooleanExtra("new_alarm_session", false)
+        isLockedScreenMode = intent.getBooleanExtra("is_locked_screen", false)
         setupWindow()
         window.decorView.setBackgroundColor(ThemeManager.getColorAttr(this, R.attr.zzPageBg))
 
-        android.util.Log.i("AlarmActivity", "onCreate: alarmId=$alarmId, is_locked_screen=${intent.getBooleanExtra("is_locked_screen", false)}, start_scan=${intent.getBooleanExtra("start_scan", false)}, request_camera=${intent.getBooleanExtra("request_camera_permission", false)}")
+        android.util.Log.i("AlarmActivity", "onCreate: alarmId=$alarmId, is_locked_screen=$isLockedScreenMode, start_scan=${intent.getBooleanExtra("start_scan", false)}, request_camera=${intent.getBooleanExtra("request_camera_permission", false)}")
         LogExporter.logEvent("AlarmOverlay", "ACTIVITY_ON_CREATE id=$alarmId locked=${intent.getBooleanExtra("is_locked_screen", false)} startScan=${intent.getBooleanExtra("start_scan", false)} requestCamera=${intent.getBooleanExtra("request_camera_permission", false)}")
 
         // AlarmActivity 的所有进入路径都必须经过悬浮窗前置条件；没有权限时直接结束，
@@ -211,7 +212,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                     val isCompleted = AlarmScheduler.isChallengeCompleted(this@AlarmActivity)
                     if (isLockedScreenMode && isInline && !isCompleted) {
                         LockWindowManager.showAlarmOverlayInlineInActivity(this, this)
-                    } else {
+                    } else if (!isLockedScreenMode || isCompleted) {
                         finishAndRemoveTask()
                     }
                 }
@@ -224,7 +225,9 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         isScanMode = false
         LockWindowManager.setAlarmOverlayPassthrough(false)
         LockWindowManager.showAlarmOverlayIfHidden()
-        finishAndRemoveTask()
+        if (!isLockedScreenMode) {
+            finishAndRemoveTask()
+        }
     }
 
     private fun toggleTorch() {
@@ -417,6 +420,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             return
         }
         alarmId = intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
+        isLockedScreenMode = intent.getBooleanExtra("is_locked_screen", isLockedScreenMode)
         val requestedNewSession = intent.getBooleanExtra("new_alarm_session", false)
 
         if (requestedNewSession) {
@@ -506,6 +510,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         if (isScanMode) {
             LockWindowManager.setAlarmOverlayPassthrough(false)
         }
+        LockWindowManager.setLockScreenVisibleForAlarmScan(true)
         LockWindowManager.detachAlarmController(this)
     }
 }

@@ -35,6 +35,12 @@ class AlarmScanCutoutContractTest {
     private val layout by lazy {
         source("src/main/res/layout/window_alarm_overlay.xml")
     }
+    private val activitySource by lazy {
+        source("src/main/java/com/decikeeper/app/ui/AlarmActivity.kt")
+    }
+    private val lockManagerSource by lazy {
+        source("src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
+    }
 
     @Test
     fun scanModeNeverMakesOverlayTransparent() {
@@ -98,6 +104,51 @@ class AlarmScanCutoutContractTest {
         assertTrue(
             "覆盖层自带的 DecoratedBarcodeView 必须保持 gone——覆盖层窗口渲染不了 SurfaceView",
             block.contains("android:visibility=\"gone\"")
+        )
+    }
+
+    @Test
+    fun scanCutoutHidesLockScreenToPreventOccludingCamera() {
+        assertTrue(
+            "开启开孔必须隐藏普通锁机界面，退出开孔必须恢复普通锁机界面",
+            overlaySource.contains("LockWindowManager.setLockScreenVisibleForAlarmScan(!enable)")
+        )
+        assertTrue(
+            "关闭闹钟时必须确保普通锁机界面恢复",
+            overlaySource.contains("LockWindowManager.setLockScreenVisibleForAlarmScan(true)")
+        )
+        assertTrue(
+            "LockWindowManager 必须提供 setLockScreenVisibleForAlarmScan",
+            lockManagerSource.contains("fun setLockScreenVisibleForAlarmScan(visible: Boolean)")
+        )
+        val lockManagerMethod = lockManagerSource.substring(
+            lockManagerSource.indexOf("fun setLockScreenVisibleForAlarmScan(visible: Boolean)"),
+            lockManagerSource.indexOf("fun onAlarmScanResult(success: Boolean)")
+        )
+        assertTrue(
+            "隐藏时必须设为 GONE，恢复时设为 VISIBLE",
+            lockManagerMethod.contains("view.visibility = if (visible) View.VISIBLE else View.GONE")
+        )
+        assertTrue(
+            "隐藏时必须设为 alpha=0.0，恢复时设为 1.0",
+            lockManagerMethod.contains("view.alpha = if (visible) 1.0f else 0.0f")
+        )
+    }
+
+    @Test
+    fun cancelScanInLockScreenModeDoesNotKillActivity() {
+        val cancelMethod = activitySource.substring(
+            activitySource.indexOf("private fun finishScanAndRestoreOverlay()"),
+            activitySource.indexOf("private fun toggleTorch()")
+        )
+        assertTrue(
+            "取消扫码时必须仅在非锁屏模式下才 finishAndRemoveTask，锁屏下需保持 Activity 存活展示挑战",
+            cancelMethod.contains("if (!isLockedScreenMode)") &&
+                cancelMethod.contains("finishAndRemoveTask()")
+        )
+        assertFalse(
+            "不得在取消扫码时无条件杀死 Activity",
+            cancelMethod.replace("if (!isLockedScreenMode)", "").trim().startsWith("finishAndRemoveTask()")
         )
     }
 }

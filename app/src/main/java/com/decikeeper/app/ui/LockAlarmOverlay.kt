@@ -2993,6 +2993,7 @@ internal object LockAlarmOverlayController {
             alarmPassthroughRestoreRunnable = null
         }
         isAlarmScanInProgress = enable
+        LockWindowManager.setLockScreenVisibleForAlarmScan(!enable)
         if (!isAlarmOverlayActive.get()) return
         val view = LockWindowManager.getAlarmView() ?: return
         val wm = mAlarmActiveWindowManager ?: return
@@ -3561,6 +3562,7 @@ internal object LockAlarmOverlayController {
             singleStageCooldownUntilMs = 0L
             alarmPassthroughRestoreRunnable?.let { LockWindowManager.getAlarmUiHandler().removeCallbacks(it) }
             alarmPassthroughRestoreRunnable = null
+            LockWindowManager.setLockScreenVisibleForAlarmScan(true)
 
             // [Fix: anti-uninstall gap] 闹钟关闭后，若存在活跃锁屏且无障碍仍开启，
             // 显示初始化覆盖层桥接重连空窗期（防止用户在此期间卸载）。
