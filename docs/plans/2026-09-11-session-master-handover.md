@@ -116,8 +116,18 @@
    **却被打进 APK（65,853 字节坏数据）**。合法的那份是 `duilian_single.json`——当年清洗过一份，坏的没删
 2. **`AlarmFragment.kt` 的「保存为默认设置」路径会静默回填**：用户显式保存"第二阶段无任务"会被替换成 4 种题型，
    与"不允许为空"的口径及 `alarm.md` §265「不得被默认值逻辑偷偷重新填回」冲突
-3. **`AlarmPowerOffProtectionManager.isEnabled()` 无运行时消费点**：拦截只由 `LockWindowManager.isAlarmOverlayShowing` 触发，
-   开关值只被设置页读取用于渲染。**关掉开关也不改变拦截行为**
+3. **「闹钟防关机」开关是假按钮**（2026-09-11 二次验证，当前代码仍成立）
+
+   `AlarmPowerOffProtectionManager.isEnabled()` 在**强制路径上零消费点**：全部 11 处引用都在 `RulesFragment.kt`
+   （渲染开关 / 开启关闭流程 / 前置条件检查），另加 `AccessibilityDependencyManager.kt:18` 的写入侧清理。
+
+   真正拦截关机菜单的是 `CoreService.kt:890` 的 `if (LockWindowManager.isAlarmOverlayShowing)` ——
+   **只判断覆盖层在不在，完全不读开关值**。因此：开关开着，挑战期间关机菜单被 BACK 掉；
+   **开关关掉，拦截行为完全不变**。
+
+   **修法需产品决策**：(a) 让 `isEnabled()` 参与门禁，开关真正生效；或 (b) 去掉这个开关（它本就不可配置）。
+
+   > 历史：用户曾在真机上验证过，当时观察到"关机菜单不再出现"——那是覆盖层置顶的效果，与开关无关。
 
 ### 3.3 假契约测试（会让"有测试守护"变成假信号）
 
