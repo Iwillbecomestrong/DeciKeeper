@@ -11,7 +11,7 @@
 | worktree | 分支 | HEAD | 状态 | 能不能动 |
 | --- | --- | --- | --- | --- |
 | `G:/IronWIl0329/IronWill-OpenSource` | `dev` | `fde3c93` | 干净 | **不要动**（主仓库） |
-| `G:/IronWIl0329/IronWill-docs` | `docs/product-refactor` | `f483766` | 干净 | ✅ **本会话主战场** |
+| `G:/IronWIl0329/IronWill-docs` | `docs/product-refactor` | `e247731` | 干净 | ✅ **本会话主战场** |
 | `G:/IronWIl0329/IronWill-alarm-overlay` | `fix/alarm-overlay-detach` | `eefa178` | **有未提交改动** | ❌ **另一个 AI 正在做，不要碰** |
 | `G:/IronWIl0329/IronWill-time-rule-edit-window` | `feat/time-rule-edit-window` | `23c821a` | — | ❓ 本会话不了解 |
 | `C:/Users/23248/.codex/worktrees/*` | `codex/*` 等 | — | — | 历史分支 |
@@ -22,7 +22,7 @@
 
 ---
 
-## 2. 本会话完成的工作（分支 `docs/product-refactor`，14 个提交）
+## 2. 本会话完成的工作（分支 `docs/product-refactor`，17 个提交）
 
 ### 2.1 文档结构重构
 
@@ -84,39 +84,53 @@
 - `protection.md` 的 7 处漂移**已全部修完**（含新增 §7「小窗可见性增强」整节），原 §7–§11 顺延为 §8–§12
 - `focus.md` 的 5 处中 2 处已修，3 处待决策（见 §3.1）
 
+### 2.7 架构真实性与去行号化收敛（已完成，提交 `7c4b49b`）
+
+- **`docs/ARCHITECTURE.md` 15 处漂移清零**：
+  - 建立「目标架构规范」vs「当前代码现状（演进过渡态）」明确对照表，承认 `ui/` 直读 Prefs 与 `manager/` 引用 UI 的历史过渡态；
+  - 彻底清理虚构的 `diag/` 包，明确诊断与事件日志分布在 `data/` 与 `util/`；
+  - 纠正 `ui/LockWindowManager.kt` 属于 `ui/` 包巨型业务状态机、判定流水线已抽为 `manager/LockDecision.kt`、补充 `manager/expiry/` 到期决策解析器。
+- **`docs/ai/LOG_EVENT_MIGRATION.md` 12 处行号漂移清零**：
+  - 彻底去除脆弱的物理绝对行号，全面升级为「文件 + 符号锚点」映射；
+  - 校准 `LogExporter.kt` 40 条 Regex 覆盖 36 条审计基准与 49 行数据行；
+  - **`LogEventMigrationInventoryTest.kt` 契约升级**：剔除已失效硬编码行号字符串断言，升级为断言稳定符号锚点与生产源码门控存在性。
+
+### 2.8 业务规格与外围文档事实校准（已完成，提交 `868c59d`）
+
+- **`docs/specs/statistics.md` 8 处清零**：标记「应用」与「规则变动」Tab 及筛选入口当前在 UI 处于隐藏状态（`gone`），说明底层计算就绪；纠正单日桶截断口径与高对比度文字规则。
+- **`docs/specs/alarm.md` 8 处清零**：纠正 `LockAlarmOverlay` 实体不透明背景（`?attr/zzPageBg`，严禁透明）、内边距安全留白（`24dp`）；限定自定义题库提示规范；纠正内置三类 AI 提示词。
+- **`docs/specs/data.md` 5 处清零**：确立业务日以用户配置时点（`config_refresh_time`）为首要真理源（v3 反转）；补全 `decikeeper`/`zhizhi`/`ironwill` 三重备份格式兼容；补充 `AutoBackupManager` 自动双写通道；锁定隐私授权不参与备份。
+- **外围文档统一**：`PUBLISHING.md`（更新 Gitee/GitHub 远端连通性与 1200+ 测试基线）、`DATA_SOURCES.md`（修复表格与文件大小矛盾）、`THIRD_PARTY_NOTICES.md`（注明模块脚本硬编码依赖与完整测试依赖）、`CHANGELOG.md`（补齐 0.2.0 特权截断条目、移除互斥的知止更名草稿、收录到期决策与平坦倍率等关键变更）。
+
+### 2.9 冗余坏资产清理（已完成，提交 `e247731`）
+
+- **彻底删除 `app/src/main/assets/duilian.json`**：该文件第 201 行缺逗号非法且全仓零引用，移除非法数据使每个构建出的 APK 减少 65,853 字节坏数据，合法数据保留 `duilian_single.json`。
+
 ---
 
 ## 3. 未完成的工作
 
-### 3.1 文档漂移的剩余部分（主体）
+### 3.1 文档漂移的剩余部分（主体已收敛）
 
-完整清单见 `docs/plans/2026-09-11-doc-drift-audit.md`。**不受 `fde3c93` 影响、清单可直接用**的：
+| 文档 | 状态 | 说明 |
+| --- | :---: | --- |
+| `docs/ARCHITECTURE.md` | ✅ **已全部修完** | 15 处漂移已清空，建立原则 vs 现状对比表，去除虚构 diag/ |
+| `docs/ai/LOG_EVENT_MIGRATION.md` | ✅ **已全部修完** | 12 处行号漂移已清空，符号锚点绑定，契约测试同步升级 |
+| `docs/specs/protection.md` | ✅ **已全部修完** | 7 处漂移已清空，补全小窗可见性增强章节 |
+| `docs/specs/statistics.md` | ✅ **已全部修完** | 8 处漂移已清空，标记隐藏分区与入口，纠正单桶时长与对比度 |
+| `docs/specs/alarm.md` | ✅ **已全部修完** | 8 处漂移已清空，纠正悬浮窗安全内边距、实体背景与 AI 提示词 |
+| `docs/specs/data.md` | ✅ **已全部修完** | 5 处漂移已清空，业务日优先级、三重备份与 AutoBackup 通道已记录 |
+| `docs/PUBLISHING.md` | ✅ **已全部修完** | 7 处漂移已清空，更新 Gitee/GitHub 远端与 1200+ 单元测试基线 |
+| `docs/DATA_SOURCES.md` | ✅ **已全部修完** | 4 处漂移已清空，修复表格排版与体积矛盾 |
+| `docs/THIRD_PARTY_NOTICES.md` | ✅ **已全部修完** | 2 处漂移已清空，注明脚本依赖与测试依赖 |
+| `CHANGELOG.md` | ✅ **已全部修完** | 4 处漂移已清空，补齐特权截断、移除互斥草稿、收录最新成果 |
+| `docs/user/` | 基础一致 | getting-started（4项权限已纠正）、guide（第二关必填/平坦倍率已纠正） |
 
-| 文档 | 漂移数 | 说明 |
-| --- | ---: | --- |
-| `docs/ARCHITECTURE.md` | **15 / 33** | 最严重。三条"硬性规则"当前代码全部不成立（`manager/` 有 8 处真实 UI 依赖、`ui/` 有 20 处直接读写业务 prefs、`diag/` 包**不存在**） |
-| `docs/ai/LOG_EVENT_MIGRATION.md` | **12 / 21** | 行号锚点大面积失效，多处已超出文件总行数（CreditManager 总行 3744，文档写 3804） |
-| `docs/specs/statistics.md` | 8 / 29 | 多为"功能已实现但入口被隐藏"（两个 tab 永久 `gone`、`ContrastHelper.getOptimalTextColor` 生产零调用） |
-| `docs/specs/alarm.md` | 8 / 52 | 含 [高]：称"顶底适配 WindowInsets"，实际 `LockAlarmOverlay` 对 `WindowInsets` 命中为 0 |
-| `docs/PUBLISHING.md` | 7 / 15 | 称"Gitee 尚未创建"，实际 remote 早有 gitee 且可推送 |
-| `docs/specs/data.md` | 5 / 47 | 业务日锚点、备份协议缺 AutoBackupManager 通道 |
-| `CHANGELOG.md` | 4 / 9 | **代码反向引用了一条不存在的条目**；329 个提交未收录 |
-| `docs/DATA_SOURCES.md` | 4 / 17 | 考研词汇.txt 标 48KB 实为 43,006B，同文档内自相矛盾 |
-| `docs/THIRD_PARTY_NOTICES.md` | 2 / 12 | 三个库版本硬编码在模块脚本；漏记 androidTest 依赖 |
-| `docs/user/` | 部分 | getting-started 3、guide 9 条中已修与口径相关者，其余未逐条核 |
+### 3.2 剩余代码实体缺陷（需产品决策）
 
-**建议顺序**（成本最低、收益最大）：
-1. **先删行号、改引用符号名**——文档不写行号，那 12 处错误就根本不会存在；
-2. 再写"引用存在性"测试（从文档抽符号名/路径，断言在源码中真实存在）；
-3. 行号校验测试只当一次性体检工具，清完就把行号删掉。
-
-### 3.2 未处理的代码实体缺陷
-
-1. **`app/src/main/assets/duilian.json` 是非法 JSON**（第 201 行缺逗号），无任何代码引用，
-   **却被打进 APK（65,853 字节坏数据）**。合法的那份是 `duilian_single.json`——当年清洗过一份，坏的没删
-2. **`AlarmFragment.kt` 的「保存为默认设置」路径会静默回填**：用户显式保存"第二阶段无任务"会被替换成 4 种题型，
+1. **`AlarmFragment.kt` 的「保存为默认设置」路径会静默回填**：用户显式保存"第二阶段无任务"会被替换成 4 种题型，
    与"不允许为空"的口径及 `alarm.md` §265「不得被默认值逻辑偷偷重新填回」冲突
-3. **「闹钟防关机」开关是假按钮**（2026-09-11 二次验证，当前代码仍成立）
+2. **「闹钟防关机」开关是假按钮**（2026-09-11 二次验证，当前代码仍成立）
 
    `AlarmPowerOffProtectionManager.isEnabled()` 在**强制路径上零消费点**：全部 11 处引用都在 `RulesFragment.kt`
    （渲染开关 / 开启关闭流程 / 前置条件检查），另加 `AccessibilityDependencyManager.kt:18` 的写入侧清理。
@@ -129,17 +143,18 @@
 
    > 历史：用户曾在真机上验证过，当时观察到"关机菜单不再出现"——那是覆盖层置顶的效果，与开关无关。
 
-### 3.3 假契约测试（会让"有测试守护"变成假信号）
+### 3.3 假契约测试（后续治理建议）
 
-- `LogEventMigrationInventoryTest`：只断言文档**含有**某些字符串，**从不与源码行号比对**（见其 `:209-216`）
-- `AppUsageCalculationTest.kt:44-50`：24 小时截断断言**自行 coerce 本地字面量**，未调用生产代码
-- `BusinessDayChangeTest.kt:200-239`：是测试内自写的**镜像函数**
-- `ARCHITECTURE.md` 的三条硬性规则：**全测试树 0 条契约测试**
+- `LogEventMigrationInventoryTest`：✅ **已在本次会话彻底重构**，从硬编码行号字符串断言升级为符号存在性断言
+- `AppUsageCalculationTest.kt:44-50`：24 小时截断断言自行 coerce 本地字面量，未调用生产代码
+- `BusinessDayChangeTest.kt:200-239`：是测试内自写的镜像函数
+- `ARCHITECTURE.md` 的分层规则：目前尚未编写 ArchUnit 或静态反射契约测试
 
 ### 3.4 未做的核对
 
-About 页实际展示的入口与 `SPEC.md` §8.1 是否完全一致——本会话只确认了 `about_section_title` 已是
-「关于决定守护」，**没有逐条核对**实际入口清单。
+About 页实际展示的入口与 `SPEC.md` §8.1 是否完全一致——只确认了 `about_section_title` 已是
+「关于决定守护」，后续可逐条核对实际入口清单。
+
 
 ---
 
