@@ -458,7 +458,9 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         }
         if (finishExternalOverlayHostIfNeeded()) return
         LockWindowManager.reattachAlarmController(this)
-        if (!isScanMode) {
+        if (isScanMode) {
+            barcodeView?.resume()
+        } else {
             LockWindowManager.showAlarmOverlayIfHidden()
         }
         // [Fix: scan-vibration-guard] 扫码模式下也需要确保振动服务运行。
@@ -482,8 +484,8 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     override fun onPause() {
         super.onPause()
-        if (!isScanMode) {
-            // 非扫码模式下 pause 时暂停条码扫描器
+        if (isScanMode) {
+            barcodeView?.pause()
         }
     }
 

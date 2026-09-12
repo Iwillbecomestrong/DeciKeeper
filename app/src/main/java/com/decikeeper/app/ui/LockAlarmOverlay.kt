@@ -139,6 +139,7 @@ internal object LockAlarmOverlayController {
     private var isAlarmOverlayPassthrough = false
     @Volatile
     private var isAlarmScanInProgress = false
+    val isScanInProgress: Boolean get() = isAlarmScanInProgress
 
     private fun isAlarmViewHostedBy(activity: android.app.Activity): Boolean {
         val view = LockWindowManager.getAlarmView() ?: return false
@@ -167,6 +168,7 @@ internal object LockAlarmOverlayController {
     ) {
         LockWindowManager.init(context)
         AlarmChallengeManager.init(context)
+        LockWindowManager.suppressLockScreenForAlarm()
 
         if (newSession && isAlarmOverlayActive.get()) {
             Log.i(TAG, "showAlarmOverlay: starting new scheduled session, resetting existing overlay")
@@ -3392,6 +3394,7 @@ internal object LockAlarmOverlayController {
             return
         }
 
+        LockWindowManager.suppressLockScreenForAlarm()
         try {
             if (view.layoutParams is WindowManager.LayoutParams) {
                 val params = view.layoutParams as WindowManager.LayoutParams
@@ -3564,6 +3567,7 @@ internal object LockAlarmOverlayController {
             alarmPassthroughRestoreRunnable?.let { LockWindowManager.getAlarmUiHandler().removeCallbacks(it) }
             alarmPassthroughRestoreRunnable = null
             LockWindowManager.setLockScreenVisibleForAlarmScan(true)
+            LockWindowManager.resumeLockScreenAfterAlarmDismiss()
 
             // [Fix: anti-uninstall gap] 闹钟关闭后，若存在活跃锁屏且无障碍仍开启，
             // 显示初始化覆盖层桥接重连空窗期（防止用户在此期间卸载）。

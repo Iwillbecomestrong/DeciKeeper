@@ -192,8 +192,20 @@ object LockWindowManager {
     private var mContext: Context? = null
     @Volatile
     private var isLockScreenHiddenForAlarmScan = false
+    @Volatile
+    private var isLockScreenSuppressedByAlarm = false
 
     fun isLockScreenHiddenForAlarmScan(): Boolean = isLockScreenHiddenForAlarmScan
+    fun isLockScreenSuppressedByAlarm(): Boolean = isLockScreenSuppressedByAlarm
+
+    fun isAlarmActiveForLockSuppression(): Boolean {
+        val ctx = mContext ?: getAlarmContext()
+        return isAlarmOverlayShowing ||
+            LockAlarmOverlayController.isScanInProgress ||
+            isLockScreenHiddenForAlarmScan ||
+            isLockScreenSuppressedByAlarm ||
+            (ctx != null && AlarmScheduler.isAlarmActive(ctx))
+    }
     // MonitorService 每次检测到的前台应用记录（带时间戳环形缓冲区）
     // 用于到期回调路径的交叉验证：getTopPackageName() 返回 null 时取最近一条
     internal data class ForegroundRecord(val pkg: String, val timestamp: Long)
@@ -1080,10 +1092,15 @@ object LockWindowManager {
             if (view.parent == null) return@post
             view.visibility = if (visible) View.VISIBLE else View.GONE
             view.alpha = if (visible) 1.0f else 0.0f
+            if (visible && isAlarmActiveForLockSuppression()) {
+                view.visibility = View.GONE
+                view.alpha = 0.0f
+            }
+            val effectiveVisible = view.visibility == View.VISIBLE
             try {
                 val wm = mActiveWindowManager ?: return@post
                 val lp = view.layoutParams as? WindowManager.LayoutParams ?: return@post
-                if (!visible) {
+                if (!effectiveVisible) {
                     lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                 } else {
                     lp.flags = lp.flags and (WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv())
@@ -1092,12 +1109,54 @@ object LockWindowManager {
             } catch (e: Exception) {
                 Log.w(TAG, "setLockScreenVisibleForAlarmScan updateViewLayout failed: visible=$visible", e)
             }
-            Log.i(TAG, "setLockScreenVisibleForAlarmScan: visible=$visible")
+            Log.i(TAG, "setLockScreenVisibleForAlarmScan: visible=$visible, effectiveVisible=$effectiveVisible")
         }
     }
 
     fun onAlarmScanResult(success: Boolean) {
         LockAlarmOverlayController.onAlarmScanResult(success)
+    }
+
+    fun suppressLockScreenForAlarm() {
+        mUiHandler.post {
+            isLockScreenSuppressedByAlarm = true
+            val view = mLockView ?: return@post
+            if (view.parent == null) return@post
+            view.visibility = View.GONE
+            view.alpha = 0.0f
+            try {
+                val wm = mActiveWindowManager ?: return@post
+                val lp = view.layoutParams as? WindowManager.LayoutParams ?: return@post
+                lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                wm.updateViewLayout(view, lp)
+            } catch (e: Exception) {
+                Log.w(TAG, "suppressLockScreenForAlarm updateViewLayout failed", e)
+            }
+            Log.i(TAG, "suppressLockScreenForAlarm: lock view suppressed for alarm")
+        }
+    }
+
+    fun resumeLockScreenAfterAlarmDismiss() {
+        mUiHandler.post {
+            isLockScreenSuppressedByAlarm = false
+            isLockScreenHiddenForAlarmScan = false
+            val view = mLockView ?: return@post
+            if (view.parent == null || !isLocked) return@post
+            view.visibility = View.VISIBLE
+            view.alpha = 1.0f
+            try {
+                val wm = mActiveWindowManager ?: return@post
+                val lp = view.layoutParams as? WindowManager.LayoutParams ?: return@post
+                lp.flags = lp.flags and (WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv())
+                wm.updateViewLayout(view, lp)
+                view.isFocusable = true
+                view.isFocusableInTouchMode = true
+                view.requestFocus()
+            } catch (e: Exception) {
+                Log.w(TAG, "resumeLockScreenAfterAlarmDismiss updateViewLayout failed", e)
+            }
+            Log.i(TAG, "resumeLockScreenAfterAlarmDismiss: lock view resumed after alarm dismiss")
+        }
     }
 
     fun detachAlarmController(controller: AlarmOverlayController) {
@@ -1642,6 +1701,17 @@ object LockWindowManager {
                     LogExporter.logEvent("LockScreen", "[GENERATION_REBUILD] attached=$mAttachedLockGeneration current=$requestGeneration reason=$reason")
                     resetLockState("StaleGeneration")
                     // Fall through below the isLocked block to create a fresh overlay.
+                } else if (isAlarmActiveForLockSuppression()) {
+                    Log.i(TAG, "showLockScreen: lockView already attached but alarm active, keeping suppressed")
+                    isLockScreenSuppressedByAlarm = true
+                    suppressLockScreenForAlarm()
+                    logFgLockResult("显示成功", foregroundReportId, foregroundRequestId, blockedPackageName, reused = true, failureClass = null)
+                    if (blockedPackageName != null) {
+                        try {
+                            onLockScreenAttachedListener?.invoke(blockedPackageName)
+                        } catch (_: Throwable) {}
+                    }
+                    return
                 } else if (shouldReassertVisibleLock(
                         isLocked = true,
                         isAttached = true,
@@ -1860,11 +1930,15 @@ object LockWindowManager {
 
                 updateLockViewUI()
                 clearSystemDialogCompatState()
-                if (isLockScreenHiddenForAlarmScan) {
+                val shouldSuppressForAlarm = isAlarmActiveForLockSuppression()
+                if (shouldSuppressForAlarm) {
+                    isLockScreenSuppressedByAlarm = true
                     mLockView?.visibility = View.GONE
                     mLockView?.alpha = 0.0f
                     params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    Log.i(TAG, "showLockScreen: suppressed for active alarm challenge/scan")
                 } else {
+                    isLockScreenSuppressedByAlarm = false
                     mLockView?.visibility = View.VISIBLE
                     mLockView?.alpha = 1.0f
                 }
@@ -5826,7 +5900,7 @@ object LockWindowManager {
             val context = mContext ?: return@post
             val lockView = mLockView ?: return@post
             val activeWm = mActiveWindowManager ?: return@post
-            if (lockView.parent == null || !isLocked || isSystemDialogVisible) return@post
+            if (lockView.parent == null || !isLocked || isSystemDialogVisible || isAlarmActiveForLockSuppression()) return@post
 
             try {
                 val useA11y = mCoreService != null && isServiceActive()
