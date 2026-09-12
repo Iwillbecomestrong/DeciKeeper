@@ -31,6 +31,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
@@ -52,6 +54,7 @@ import com.decikeeper.app.manager.PrivacyProtectionManager
 import com.decikeeper.app.manager.RecentTasksHideManager
 import com.decikeeper.app.manager.RomPermissionDetector
 import com.decikeeper.app.manager.SettingsBackupManager
+import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.service.MonitorService
 
@@ -218,6 +221,12 @@ class RulesFragment : Fragment() {
     private var switchHideInRecentTasksUiUpdating = false
     private var switchPrivacySpaceGuard: Switch? = null
     private var tvPrivacySpaceGuardStatus: TextView? = null
+    private var rgSettingsEditWindowPolicy: RadioGroup? = null
+    private var rbSettingsEditWindowAllDay: RadioButton? = null
+    private var rbSettingsEditWindowEffectiveToMidnight: RadioButton? = null
+    private var tvSettingsLockoutHint: TextView? = null
+    private var tvSettingsEditWindowPending: TextView? = null
+    private var isEditWindowPolicyUiUpdating = false
     private var btnQuickSendLogs: Button? = null
     private var btnExportSettings: Button? = null
     private var btnImportSettings: Button? = null
@@ -274,6 +283,7 @@ class RulesFragment : Fragment() {
             systemAccessibilityEnabled = isAccessibilityServiceEnabled(context)
         )
         updateAccessibilityServiceUI()
+        updateEditWindowPolicyUI()
         updateAlarmPowerOffProtectionUI()
         updateFloatingWindowProtectionUI()
         updatePrivacySpaceGuardUI()
@@ -291,6 +301,12 @@ class RulesFragment : Fragment() {
     }
 
     private fun initViews(view: View) {
+        rgSettingsEditWindowPolicy = view.findViewById(R.id.rg_settings_edit_window_policy)
+        rbSettingsEditWindowAllDay = view.findViewById(R.id.rb_settings_edit_window_all_day)
+        rbSettingsEditWindowEffectiveToMidnight = view.findViewById(R.id.rb_settings_edit_window_effective_to_midnight)
+        tvSettingsLockoutHint = view.findViewById(R.id.tv_settings_lockout_hint)
+        tvSettingsEditWindowPending = view.findViewById(R.id.tv_settings_edit_window_pending)
+
         switchAlarmPowerOffProtection = view.findViewById(R.id.switch_alarm_power_off_protection)
         tvAlarmPowerOffProtectionStatus = view.findViewById(R.id.tv_alarm_power_off_status_main)
         switchFloatingWindowProtection = view.findViewById(R.id.switch_floating_window_protection)
@@ -306,6 +322,9 @@ class RulesFragment : Fragment() {
         btnQuickSendLogs = view.findViewById(R.id.btn_quick_send_logs)
         btnExportSettings = view.findViewById(R.id.btn_export_settings)
         btnImportSettings = view.findViewById(R.id.btn_import_settings)
+
+        // Setup Edit Window Policy
+        setupEditWindowPolicySection(view)
 
         // Setup 4 protection switches
         switchAlarmPowerOffProtection?.let { setupAlarmPowerOffProtectionSwitch(it) }
@@ -364,6 +383,123 @@ class RulesFragment : Fragment() {
                 .setMessage(messageRes)
                 .setPositiveButton(R.string.btn_got_it, null)
                 .show()
+        }
+    }
+
+    private fun setupEditWindowPolicySection(view: View) {
+        view.findViewById<View>(R.id.btn_edit_window_policy_help)?.setOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("可修改时段（除闹钟）说明")
+                .setMessage(
+                    "【全天可修改】（默认）\n全天任意时刻均可新增、编辑与调整规则及系统保护功能。\n\n" +
+                    "【仅生效时间至 24:00 可修改】\n每天 00:00 至设定的生效时间期间，除闹钟外各项规则与系统保护功能锁定为只读，避免夜间或清晨冲动关闭保护。\n\n" +
+                    "注：主 Tab 闹钟界面与闹钟防关机保护随时可改，不受此时段限制；新安装「适应期」内可自由切换且立即生效。"
+                )
+                .setPositiveButton(R.string.btn_got_it, null)
+                .show()
+        }
+
+        view.findViewById<View>(R.id.card_edit_window_policy)?.setOnClickListener {
+            val currentContext = context ?: return@setOnClickListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(currentContext)) {
+                Toast.makeText(currentContext, TimeRuleEditWindowPolicyManager.getLockoutHintText(currentContext), Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        tvSettingsEditWindowPending?.setOnClickListener {
+            val currentContext = context ?: return@setOnClickListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(currentContext)) {
+                Toast.makeText(currentContext, TimeRuleEditWindowPolicyManager.getLockoutHintText(currentContext), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (TimeRuleEditWindowPolicyManager.getPendingPolicy(currentContext) != null) {
+                AlertDialog.Builder(currentContext)
+                    .setTitle("撤销待生效修改")
+                    .setMessage("确定要撤销可修改时段的待生效修改，维持当前设置吗？")
+                    .setPositiveButton("撤销") { _, _ ->
+                        TimeRuleEditWindowPolicyManager.clearPendingPolicy(currentContext)
+                        Toast.makeText(currentContext, "已撤销待生效修改", Toast.LENGTH_SHORT).show()
+                        updateEditWindowPolicyUI()
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+            }
+        }
+
+        rgSettingsEditWindowPolicy?.setOnCheckedChangeListener { _, checkedId ->
+            if (isEditWindowPolicyUiUpdating) return@setOnCheckedChangeListener
+            val currentContext = context ?: return@setOnCheckedChangeListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(currentContext)) {
+                updateEditWindowPolicyUI()
+                Toast.makeText(currentContext, TimeRuleEditWindowPolicyManager.getLockoutHintText(currentContext), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+
+            val target = if (checkedId == R.id.rb_settings_edit_window_effective_to_midnight) {
+                TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT
+            } else {
+                TimeRuleEditWindowPolicyManager.Policy.ALL_DAY
+            }
+
+            when (val result = TimeRuleEditWindowPolicyManager.applyPolicyChange(currentContext, target)) {
+                is TimeRuleEditWindowPolicyManager.PolicyChangeResult.Immediate -> {
+                    Toast.makeText(currentContext, result.message, Toast.LENGTH_SHORT).show()
+                }
+                is TimeRuleEditWindowPolicyManager.PolicyChangeResult.Pending -> {
+                    Toast.makeText(currentContext, result.message, Toast.LENGTH_LONG).show()
+                }
+                TimeRuleEditWindowPolicyManager.PolicyChangeResult.NoChange -> {}
+            }
+
+            updateEditWindowPolicyUI()
+            updateFloatingWindowProtectionUI()
+            updatePrivacySpaceGuardUI()
+            updateUninstallAndPermProtectionUI()
+        }
+
+        updateEditWindowPolicyUI()
+    }
+
+    private fun updateEditWindowPolicyUI() {
+        if (!isAdded) return
+        val ctx = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
+        val activePolicy = TimeRuleEditWindowPolicyManager.getPolicy(ctx)
+        val pendingPolicy = TimeRuleEditWindowPolicyManager.getPendingPolicy(ctx)
+
+        val displayPolicy = pendingPolicy ?: activePolicy
+        isEditWindowPolicyUiUpdating = true
+        try {
+            if (displayPolicy == TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT) {
+                rbSettingsEditWindowEffectiveToMidnight?.isChecked = true
+            } else {
+                rbSettingsEditWindowAllDay?.isChecked = true
+            }
+
+            rbSettingsEditWindowAllDay?.isEnabled = !locked
+            rbSettingsEditWindowAllDay?.isClickable = !locked
+            rbSettingsEditWindowEffectiveToMidnight?.isEnabled = !locked
+            rbSettingsEditWindowEffectiveToMidnight?.isClickable = !locked
+            rgSettingsEditWindowPolicy?.isEnabled = !locked
+            rgSettingsEditWindowPolicy?.alpha = if (locked) 0.5f else 1.0f
+
+            if (locked) {
+                tvSettingsLockoutHint?.visibility = View.VISIBLE
+                tvSettingsLockoutHint?.text = TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx)
+            } else {
+                tvSettingsLockoutHint?.visibility = View.GONE
+            }
+
+            if (pendingPolicy != null) {
+                val refreshTime = TimeRuleManager.getRefreshTime(ctx)
+                val pendingTitle = TimeRuleEditWindowPolicyManager.getPolicyTitle(pendingPolicy)
+                tvSettingsEditWindowPending?.visibility = View.VISIBLE
+                tvSettingsEditWindowPending?.text = "待生效：将在明日 $refreshTime 切换为「$pendingTitle」（点击撤销）"
+            } else {
+                tvSettingsEditWindowPending?.visibility = View.GONE
+            }
+        } finally {
+            isEditWindowPolicyUiUpdating = false
         }
     }
 
@@ -519,8 +655,20 @@ class RulesFragment : Fragment() {
     private fun setupFloatingWindowProtectionSwitch(switchView: Switch) {
         val ctx = requireContext()
         updateFloatingWindowProtectionUI()
+        (switchView.parent as? View)?.setOnClickListener {
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+            }
+        }
         switchView.setOnCheckedChangeListener { _, checked ->
             if (switchFloatingWindowUiUpdating) return@setOnCheckedChangeListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                switchFloatingWindowUiUpdating = true
+                switchView.isChecked = !checked
+                switchFloatingWindowUiUpdating = false
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
             val now = System.currentTimeMillis()
             if (now - lastFloatingWindowSwitchClickTime < 1000L) {
                 switchFloatingWindowUiUpdating = true
@@ -556,8 +704,20 @@ class RulesFragment : Fragment() {
     private fun setupUninstallAndPermProtectionSwitch(switchView: Switch) {
         val ctx = requireContext()
         updateUninstallAndPermProtectionUI()
+        (switchView.parent as? View)?.setOnClickListener {
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+            }
+        }
         switchView.setOnCheckedChangeListener { _, checked ->
             if (switchUninstallAndPermUiUpdating) return@setOnCheckedChangeListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                switchUninstallAndPermUiUpdating = true
+                switchView.isChecked = !checked
+                switchUninstallAndPermUiUpdating = false
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
             val now = System.currentTimeMillis()
             if (now - lastUninstallAndPermSwitchClickTime < 1000L) {
                 switchUninstallAndPermUiUpdating = true
@@ -1910,9 +2070,13 @@ class RulesFragment : Fragment() {
     private fun updateUninstallAndPermProtectionUI() {
         if (!isAdded) return
         val ctx = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
         val state = getCombinedProtectionState(ctx)
         switchUninstallAndPermUiUpdating = true
         switchUninstallAndPermProtection?.isChecked = state == CombinedProtectionState.ACTIVE
+        switchUninstallAndPermProtection?.isEnabled = !locked
+        switchUninstallAndPermProtection?.isClickable = !locked
+        switchUninstallAndPermProtection?.alpha = if (locked) 0.5f else 1.0f
         switchUninstallAndPermUiUpdating = false
 
         tvUninstallAndPermProtectionStatus?.let {
@@ -1935,9 +2099,13 @@ class RulesFragment : Fragment() {
     private fun updateFloatingWindowProtectionUI() {
         if (!isAdded) return
         val ctx = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
         val state = FloatingWindowProtectionManager.getProtectionState(ctx)
         switchFloatingWindowUiUpdating = true
         switchFloatingWindowProtection?.isChecked = state == FloatingWindowProtectionManager.State.ACTIVE
+        switchFloatingWindowProtection?.isEnabled = !locked
+        switchFloatingWindowProtection?.isClickable = !locked
+        switchFloatingWindowProtection?.alpha = if (locked) 0.5f else 1.0f
         switchFloatingWindowUiUpdating = false
         tvFloatingWindowProtectionStatus?.let {
             it.text = when (state) {
@@ -2037,15 +2205,32 @@ class RulesFragment : Fragment() {
      */
     private fun setupPrivacySpaceGuardSwitch(switchView: Switch) {
         val context = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(context)
         // 初始化状态 (经 Manager, 严禁直读 prefs)
         val initialState = PrivacyProtectionManager.getProtectionState(context)
         val initialEnforcing = PrivacyProtectionManager.isEnforcing(context)
         switchPrivacySpaceGuardUiUpdating = true
         switchView.isChecked = computePrivacySpaceGuardSwitchChecked(initialState, initialEnforcing)
+        switchView.isEnabled = !locked
+        switchView.isClickable = !locked
+        switchView.alpha = if (locked) 0.5f else 1.0f
         switchPrivacySpaceGuardUiUpdating = false
+
+        (switchView.parent as? View)?.setOnClickListener {
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(context)) {
+                Toast.makeText(context, TimeRuleEditWindowPolicyManager.getLockoutHintText(context), Toast.LENGTH_SHORT).show()
+            }
+        }
 
         switchView.setOnCheckedChangeListener { _, isChecked ->
             if (switchPrivacySpaceGuardUiUpdating) return@setOnCheckedChangeListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(context)) {
+                switchPrivacySpaceGuardUiUpdating = true
+                switchView.isChecked = !isChecked
+                switchPrivacySpaceGuardUiUpdating = false
+                Toast.makeText(context, TimeRuleEditWindowPolicyManager.getLockoutHintText(context), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
 
             val now = System.currentTimeMillis()
             if (now - lastPrivacySpaceGuardSwitchClickTime < 1000) {
@@ -2091,12 +2276,16 @@ class RulesFragment : Fragment() {
     private fun updatePrivacySpaceGuardUI() {
         if (!isAdded) return
         val context = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(context)
         // 全程经 Manager
         val state = PrivacyProtectionManager.getProtectionState(context)
         val enforcing = PrivacyProtectionManager.isEnforcing(context)
 
         switchPrivacySpaceGuardUiUpdating = true
         switchPrivacySpaceGuard?.isChecked = computePrivacySpaceGuardSwitchChecked(state, enforcing)
+        switchPrivacySpaceGuard?.isEnabled = !locked
+        switchPrivacySpaceGuard?.isClickable = !locked
+        switchPrivacySpaceGuard?.alpha = if (locked) 0.5f else 1.0f
         switchPrivacySpaceGuardUiUpdating = false
 
         tvPrivacySpaceGuardStatus?.let {

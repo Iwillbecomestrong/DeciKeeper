@@ -1081,6 +1081,9 @@ object TimeRuleManager {
         
         // ...
 
+        val isAdaptation = isInAdaptationPeriod(context)
+        val forceAllNextDay = !isAdaptation && (EffectiveActivationPolicyManager.getPolicy(context) == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
+
         // Helper for Number comparison
         fun checkParam(name: String, current: Int, baseline: Int, new: Int, diffBase: Int, isHigherStricter: Boolean, tag: String, pendingVal: Int, isWeek: Boolean = false) {
             val isRestored = (new == baseline)
@@ -1091,8 +1094,24 @@ object TimeRuleManager {
                  // Ensure we trigger Adverse retention if needed
                  if (!isRestored && !isBenign) {
                      anyAdverseRemaining = true
+                 } else if (forceAllNextDay && new != current) {
+                     anyAdverseRemaining = true
                  }
                  return
+            }
+
+            if (forceAllNextDay && !isWeek) {
+                if (new != current) {
+                    anyAdverseRemaining = true
+                    hasNewAdverse = true
+                    if (diffBase != new) {
+                        delList.add("$name: $diffBase -> $new (次日生效)")
+                    }
+                } else if (pendingVal != current) {
+                    resList.add("$name: $diffBase -> $new [恢复]")
+                    ChangeLogManager.removePendingEntriesByTag(context, "global_params", tag)
+                }
+                return
             }
 
             if (isRestored) {
@@ -1134,6 +1153,18 @@ object TimeRuleManager {
         
         if (newLockDuration == pendLock) {
              if (!isLockRestored && !isLockBenign) anyAdverseRemaining = true
+             else if (forceAllNextDay && newLockDuration != curLock) anyAdverseRemaining = true
+        } else if (forceAllNextDay) {
+            if (newLockDuration != curLock) {
+                anyAdverseRemaining = true
+                hasNewAdverse = true
+                if (diffBaseLock != newLockDuration) {
+                    delList.add("黑名单惩罚时长: ${diffBaseLock}s -> ${newLockDuration}s (次日生效)")
+                }
+            } else if (pendLock != curLock) {
+                resList.add("黑名单惩罚时长: ${diffBaseLock}s -> ${newLockDuration}s [恢复]")
+                ChangeLogManager.removePendingEntriesByTag(context, "global_params", "strict_penalty")
+            }
         } else {
             if (isLockRestored) {
                 if (diffBaseLock != newLockDuration) resList.add("黑名单惩罚时长: ${diffBaseLock}s -> ${newLockDuration}s [恢复]")
@@ -1274,9 +1305,7 @@ object TimeRuleManager {
         val dpEdit = getDeviceProtectedPrefs(context)?.edit()
         
         fun resolveActive(cur: Int, bas: Int, new: Int, isHigherStricter: Boolean): Int {
-            // 🚀 [Fix] Benign Logic: 
-            // 1. Stricter than Current (Optimization) -> Immediate
-            // 2. Stricter than Baseline (Restoration) -> Immediate
+            if (forceAllNextDay) return cur
             val isStricterThanCur = if (isHigherStricter) new >= cur else new <= cur
             val isStricterThanBas = if (isHigherStricter) new >= bas else new <= bas
             
@@ -1339,7 +1368,7 @@ object TimeRuleManager {
         }
         
         // Lock Duration
-        val activeLock = if (newLockDuration >= basLock) newLockDuration else curLock
+        val activeLock = if (!forceAllNextDay && newLockDuration >= basLock) newLockDuration else curLock
         creditEdit.putLong("strict_penalty_duration", activeLock * 1000)
         
         // 🚀 [Fix] Sync Strict Penalty to Device Protected
@@ -2158,6 +2187,8 @@ object TimeRuleManager {
 
         var hasPending = false
 
+        val forceAllNextDay = !isAdaptation && (EffectiveActivationPolicyManager.getPolicy(context) == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
+
         // Logic Helper:
         // isBenign(New, Ref) -> TRUE if New is Stricter/Equal to Ref.
         // If New is Benign vs Baseline OR New is Benign vs Current -> Immediate.
@@ -2166,7 +2197,7 @@ object TimeRuleManager {
         // --- 1. Rest CoolDown ---
         // Stricter: Higher val
         fun isRestCdBenign(newVal: Int, refVal: Int): Boolean = newVal >= refVal
-        val benignRest = (basRestCd != null && isRestCdBenign(restCd, basRestCd)) || isRestCdBenign(restCd, curRestCd)
+        val benignRest = !forceAllNextDay && ((basRestCd != null && isRestCdBenign(restCd, basRestCd)) || isRestCdBenign(restCd, curRestCd))
         
         if (benignRest) {
             immediateEditor.putInt("cool_down_rest_seconds", restCd)
@@ -2182,7 +2213,7 @@ object TimeRuleManager {
         // --- 2. Gap CoolDown ---
         // Stricter: Higher val
         fun isGapCdBenign(newVal: Int, refVal: Int): Boolean = newVal >= refVal
-        val benignGap = (basGapCd != null && isGapCdBenign(gapCd, basGapCd)) || isGapCdBenign(gapCd, curGapCd)
+        val benignGap = !forceAllNextDay && ((basGapCd != null && isGapCdBenign(gapCd, basGapCd)) || isGapCdBenign(gapCd, curGapCd))
         
         if (benignGap) {
             immediateEditor.putInt("cool_down_gap_seconds", gapCd)
@@ -2195,7 +2226,7 @@ object TimeRuleManager {
         // --- 3. Borrow Percent ---
         // Stricter: Lower val
         fun isBorrowBenign(newVal: Int, refVal: Int): Boolean = newVal <= refVal
-        val benignBorrow = (basBorrow != null && isBorrowBenign(borrowPercent, basBorrow)) || isBorrowBenign(borrowPercent, curBorrow)
+        val benignBorrow = !forceAllNextDay && ((basBorrow != null && isBorrowBenign(borrowPercent, basBorrow)) || isBorrowBenign(borrowPercent, curBorrow))
 
         if (benignBorrow) {
             immediateEditor.putInt("borrow_percentage", borrowPercent)
@@ -2208,7 +2239,7 @@ object TimeRuleManager {
         // --- 5. Strict Penalty ---
         // Stricter: Higher val
         fun isStrictBenign(newVal: Long, refVal: Long): Boolean = newVal >= refVal
-        val benignStrict = (basStrict != null && isStrictBenign(strictPenaltySecs, basStrict)) || isStrictBenign(strictPenaltySecs, curStrict)
+        val benignStrict = !forceAllNextDay && ((basStrict != null && isStrictBenign(strictPenaltySecs, basStrict)) || isStrictBenign(strictPenaltySecs, curStrict))
         
         if (benignStrict) {
             immediateCreditEditor.putLong("strict_penalty_duration", strictPenaltySecs * 1000)

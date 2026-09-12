@@ -66,35 +66,6 @@
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="次日生效 · 核心规则" android:textColor="?attr/zzText" android:textSize="16sp" android:textStyle="bold" />
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:layout_marginBottom="14dp" android:text="利好立即生效；放宽约束的不利修改在次日生效。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
 
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="时间规则可修改时段" android:textColor="?attr/zzText" android:textSize="13sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="控制时间规则与参数在一天内的可编辑时间范围。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
-                <RadioGroup
-                    android:id="@+id/rg_edit_window_policy"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:layout_marginBottom="14dp"
-                    android:orientation="vertical">
-                    <RadioButton
-                        android:id="@+id/rb_edit_window_all_day"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:buttonTint="?attr/zzAccent"
-                        android:paddingVertical="4dp"
-                        android:text="「全天可修改」（默认）\n全天任意时刻均可修改时间规则与参数"
-                        android:textColor="?attr/zzText"
-                        android:textSize="13sp" />
-                    <RadioButton
-                        android:id="@+id/rb_edit_window_effective_to_midnight"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:buttonTint="?attr/zzAccent"
-                        android:paddingVertical="4dp"
-                        android:text="「仅生效时间至 24:00 可修改」\n00:00 至每日生效时间期间锁定为只读"
-                        android:textColor="?attr/zzText"
-                        android:textSize="13sp" />
-                </RadioGroup>
-
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="特权可用时间范围" android:textColor="?attr/zzText" android:textSize="13sp" android:textStyle="bold" />
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="限制每周特权只能在指定时段内使用。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                 <LinearLayout android:id="@+id/layout_privilege_window_inputs" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:layout_marginBottom="14dp" android:gravity="center_vertical" android:orientation="horizontal">
@@ -131,8 +102,37 @@
             app:cardCornerRadius="20dp"
             app:cardElevation="0dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="立即生效 · 预警设置" android:textColor="?attr/zzText" android:textSize="16sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:layout_marginBottom="14dp" android:text="提醒类参数立即生效，不需要等待次日刷新。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="立即生效" android:textColor="?attr/zzText" android:textSize="16sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:layout_marginBottom="14dp" android:text="提醒类参数与生效策略设置，不需要等待次日刷新。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="规则生效策略" android:textColor="?attr/zzText" android:textSize="13sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="控制勿扰时段、应用时间窗、规则参数与全局黑名单的生效方式。" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                <RadioGroup
+                    android:id="@+id/rg_effective_policy"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:layout_marginBottom="14dp"
+                    android:orientation="vertical">
+                    <RadioButton
+                        android:id="@+id/rb_policy_favorable"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="?attr/zzAccent"
+                        android:paddingVertical="4dp"
+                        android:text="「宽严有别」（推荐）\n加严立即生效；放宽在下一刷新时刻生效"
+                        android:textColor="?attr/zzText"
+                        android:textSize="13sp" />
+                    <RadioButton
+                        android:id="@+id/rb_policy_all_next_day"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="?attr/zzAccent"
+                        android:paddingVertical="4dp"
+                        android:text="「统一延后」\n勿扰时段、应用时间窗、规则参数与全局黑名单的所有修改，都在下一刷新时刻生效"
+                        android:textColor="?attr/zzText"
+                        android:textSize="13sp" />
+                </RadioGroup>
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="每日生效时间" android:textColor="?attr/zzText" android:textSize="13sp" android:textStyle="bold" />
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="范围 04:00 ~ 12:00，且须位于空档期或勿扰时段边界。" android:textColor="?attr/zzMuted" android:textSize="11sp" />

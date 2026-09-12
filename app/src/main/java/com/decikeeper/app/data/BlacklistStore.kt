@@ -4,6 +4,7 @@ import android.content.Context
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.ConfigPendingManager
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.EffectiveActivationPolicyManager
 import com.decikeeper.app.service.MonitorService
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -340,6 +341,56 @@ object BlacklistStore {
 
         val currentApps = getBlacklistApps(context)
         val baselineApps = getBaselineBlacklistApps(context)
+
+        val forceAllNextDay =
+            EffectiveActivationPolicyManager.getPolicy(context) == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+
+        if (forceAllNextDay) {
+            val pendingPrefs = context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE)
+            val pendingSetString = pendingPrefs.getStringSet(KEY_PENDING_BLACKLIST_APPS, null)
+            val baseApps = pendingSetString ?: currentApps
+
+            if (currentApps == newApps) {
+                if (hasPendingApps(context)) {
+                    context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
+                    ChangeLogManager.clearPendingLogsForCategory(context, "blacklist")
+                }
+                return AnalysisResult.NoChange
+            }
+
+            val effectiveTime = ConfigPendingManager.calculateNextEffectiveTime(context, System.currentTimeMillis())
+            stagePendingBlacklistApps(context, newApps, effectiveTime)
+
+            val incrementalAdded = newApps.minus(baseApps)
+            val incrementalRemoved = baseApps.minus(newApps)
+
+            val pm = context.packageManager
+            val delMsgs = mutableListOf<String>()
+            val logItems = mutableListOf<Triple<String, Boolean, String?>>()
+            fun getLabel(pkg: String) = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch (e: Exception) { pkg }
+
+            incrementalAdded.forEach { pkg ->
+                val label = getLabel(pkg)
+                val msg = "新增屏蔽: $label (次日生效)"
+                delMsgs.add(msg)
+                logItems.add(Triple(msg, true, "blacklist_status_$pkg"))
+            }
+            incrementalRemoved.forEach { pkg ->
+                val label = getLabel(pkg)
+                val msg = "解除屏蔽: $label (次日生效)"
+                delMsgs.add(msg)
+                logItems.add(Triple(msg, true, "blacklist_status_$pkg"))
+            }
+            if (logItems.isNotEmpty()) {
+                ChangeLogManager.addEntries(context, "blacklist", logItems)
+            }
+            if (delMsgs.isEmpty()) {
+                return AnalysisResult.NoChange
+            }
+            val effectiveTimeStr = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(effectiveTime))
+            logBlacklistChanges(context, currentApps, newApps, "延迟生效($effectiveTimeStr)")
+            return AnalysisResult.Mixed(emptyList(), delMsgs, emptyList(), emptyList(), effectiveTime, 0L)
+        }
         
         // 🚀 Additions vs CURRENT active: What we need to add to the system now.
         val activeAdditions = newApps.minus(currentApps)
