@@ -1,17 +1,5 @@
 # 决定守护 DeciKeeper 功能指南
 
-> **定位**：本文件是决定守护的**完整功能指南**，回答“每一项功能具体是怎么工作的、规则的准确口径是什么”。第一次使用请先看 [getting-started.md](getting-started.md)。
->
-> 本文件属于 docs/user/ 用户文档系列，由原单文件《使用手册》拆分而来：
->
-> | 文档 | 回答的问题 |
-> | --- | --- |
-> | [getting-started.md](getting-started.md) | 第一次使用怎么开始？ |
-> | **本文件（功能指南）** | 每个功能具体怎么工作？ |
-> | [permissions.md](permissions.md) | 每项权限是做什么的？数据存在哪里？ |
->
-> 更底层的规则口径可查阅仓库开发规范 `docs/specs/`（时间规则 / 额度 / 出口 / 起床系统 / 加强约束）；设计背景见 `docs/product/system-overview.md`。
-
 > **可以休息，也可以反悔，但别让一时冲动立刻推翻昨天的决定。**
 
 ---
