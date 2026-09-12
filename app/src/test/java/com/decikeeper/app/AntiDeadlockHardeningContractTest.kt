@@ -94,4 +94,14 @@ class AntiDeadlockHardeningContractTest {
         assertTrue(body.contains("REASSERT_ROLLED_BACK"))
         assertTrue(body.contains("if (lockView.parent == null)"))
     }
+
+    @Test
+    fun packageInstallerFlowExemptsInstallationAndDistinguishesUninstall() {
+        // 验证安装器更新流程必须放行，且不能把安装当成卸载
+        assertTrue(AntiUninstallProtection.isInstallationFlow("com.android.packageinstaller", "要安装此应用的更新吗？决定守护 取消 安装"))
+        assertTrue(AntiUninstallProtection.isInstallationFlow("com.google.android.packageinstaller", "Do you want to update this app? DeciKeeper Cancel Install"))
+        // 如果包含卸载关键词，则绝不能放行为安装流程
+        assertFalse(AntiUninstallProtection.isInstallationFlow("com.android.packageinstaller", "要卸载此应用吗？决定守护 取消 确定"))
+        assertFalse(AntiUninstallProtection.isInstallationFlow("com.android.settings", "安装"))
+    }
 }

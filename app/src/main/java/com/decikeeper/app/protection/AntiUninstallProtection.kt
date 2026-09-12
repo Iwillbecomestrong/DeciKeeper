@@ -144,8 +144,25 @@ class AntiUninstallProtection(private val context: Context) {
             // 6. West Asia / Central Asia
             "إلغاء التثبيت", // Arabic
             "ئۆچۈرۈش", // Uyghur
-            "ཕྱིར་འདོན་" // Tibetan
         )
+
+        // Multi-Language Installation & Update Keywords (to exempt installer flows)
+        val INSTALL_KEYWORDS = setOf(
+            "安装", "更新", "Install", "Update", "インストール", "설치", "업데이트",
+            "是否安装", "安装此应用", "更新此应用", "继续安装", "允许安装",
+            "Instalar", "Installer", "Installieren", "Installa", "Установить", "Обновить"
+        )
+
+        internal fun isInstallationFlow(currentPackage: String, content: String): Boolean {
+            val isInstallerPkg = currentPackage.contains("packageinstaller", ignoreCase = true) ||
+                currentPackage.contains("installer", ignoreCase = true)
+            if (!isInstallerPkg) return false
+
+            val hasInstallKeyword = INSTALL_KEYWORDS.any { content.contains(it, ignoreCase = true) }
+            val hasUninstallKeyword = UNINSTALL_KEYWORDS.any { content.contains(it, ignoreCase = true) }
+
+            return hasInstallKeyword && !hasUninstallKeyword
+        }
 
 
         // Safe Context Keywords (History, etc.)
@@ -1317,22 +1334,15 @@ class AntiUninstallProtection(private val context: Context) {
         if (shouldSkipAccessibilitySettings(content)) {
             return null
         }
-        if (budget.exhausted) {
-            // 该函数只在受监控的设置/安装器/商店包中调用。扫描无法在预算内
-            // 完成时必须 fail-closed，不能把“树太大”变成防卸载绕过窗口。
-            Log.w(TAG, "[Global Scan] node traversal budget exhausted for $currentPackage; blocking conservatively")
-            return "[TRAVERSAL_LIMIT_EXCEEDED]"
-        }
 
-        // 🚫 [A11y List Skip] If the page is an accessibility service list page,
-        // never treat it as an uninstall attempt — even if "卸载" appears in nearby UI
-        // elements. The list page is where users grant/revoke accessibility permissions
-        // to ALL apps, and blocking it prevents other apps from requesting a11y access.
-        if (shouldSkipAccessibilitySettings(content)) {
+        // 📦 [安装/更新流程豁免] 安装器在执行安装/更新操作时，绝非卸载流程。
+        // 即使节点众多导致预算耗尽，也不得阻断合法的安装/更新升级。
+        if (isInstallationFlow(currentPackage, content)) {
+            Log.d(TAG, "[Global Scan] Installation/Update flow detected in $currentPackage, allowing.")
             return null
         }
 
-        // 1. App Name Check - Also match package name pattern for App Info pages
+        // 1. App Name Check - 只有页面明确包含受保护应用标识，才可能是对本应用的威胁
         val hasAppName = PROTECTED_APP_NAMES.any { name -> content.contains(name, ignoreCase = true) }
                          || content.contains(context.packageName, ignoreCase = true)
                          || content.contains("com.decikeeper.app", ignoreCase = true)
@@ -1341,7 +1351,14 @@ class AntiUninstallProtection(private val context: Context) {
                          || content.contains("ironwill", ignoreCase = true)
         if (!hasAppName) return null
 
-        // 2. Uninstall Keyword Check
+        // 2. 超限 fail-closed：在已确认涉及本应用、且非安装/无障碍页面的前提下，
+        // 扫描无法在预算内完成时 fail-closed，不能把“树太大”变成防卸载绕过窗口。
+        if (budget.exhausted) {
+            Log.w(TAG, "[Global Scan] node traversal budget exhausted for $currentPackage with app present; blocking conservatively")
+            return "[TRAVERSAL_LIMIT_EXCEEDED]"
+        }
+
+        // 3. Uninstall Keyword Check
         val hasUninstallKeyword = UNINSTALL_KEYWORDS.any { content.contains(it, ignoreCase = true) }
         if (hasUninstallKeyword) {
             Log.w(TAG, "Found Dangerous Context: $content")
