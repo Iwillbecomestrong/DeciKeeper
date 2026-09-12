@@ -5842,9 +5842,30 @@ object LockWindowManager {
                         currentParams?.type != normalParams.type
 
                 if (shouldMoveWindowManager) {
-                    activeWm.removeView(lockView)
-                    targetWm.addView(lockView, normalParams)
-                    mActiveWindowManager = targetWm
+                    // WindowManager 切换必须保留可见性：目标 addView 失败时立即回滚到
+                    // 原窗口，避免“先摘下、后失败”造成保护层短暂游离。
+                    val previousParams = currentParams ?: normalParams
+                    try {
+                        lockView.clearFocus()
+                        activeWm.removeView(lockView)
+                        targetWm.addView(lockView, normalParams)
+                        mActiveWindowManager = targetWm
+                    } catch (moveError: Exception) {
+                        val rollbackSucceeded = try {
+                            if (lockView.parent == null) {
+                                activeWm.addView(lockView, previousParams)
+                            }
+                            mActiveWindowManager = activeWm
+                            lockView.parent != null
+                        } catch (rollbackError: Exception) {
+                            Log.e(TAG, "[Reassert] lock view rollback failed", rollbackError)
+                            false
+                        }
+                        if (!rollbackSucceeded) throw moveError
+                        Log.w(TAG, "[Reassert] target WindowManager attach failed; rolled back", moveError)
+                        LogExporter.logEvent("LockScreen", "[REASSERT_ROLLED_BACK] reason=$reason")
+                        return@post
+                    }
                 } else {
                     // updateViewLayout 轻量刷新窗口参数，不会导致闪烁。
                     // 如果系统静默隐藏了悬浮窗，onBlacklistHit 中的 stale 检测

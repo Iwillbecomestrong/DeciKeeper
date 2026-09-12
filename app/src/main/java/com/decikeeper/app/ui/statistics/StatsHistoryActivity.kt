@@ -14,11 +14,18 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.decikeeper.app.R
 import com.decikeeper.app.data.statistics.AlarmWakeRecord
 import com.decikeeper.app.data.statistics.RestUsageRecord
+import com.decikeeper.app.manager.statistics.HistoryDisplayRange
+import com.decikeeper.app.manager.statistics.HistoryRecordFilter
+import com.decikeeper.app.manager.statistics.HistoryRecordKind
+import com.decikeeper.app.manager.statistics.HistoryRetention
+import com.decikeeper.app.manager.statistics.HistoryRetentionPolicy
 import com.decikeeper.app.ui.ThemeManager
 import com.decikeeper.app.manager.statistics.StatisticsRepository
 
@@ -36,6 +43,7 @@ class StatsHistoryActivity : AppCompatActivity() {
     }
 
     private lateinit var btnBack: ImageView
+    private lateinit var btnRetention: TextView
     private lateinit var tabAlarm: Button
     private lateinit var tabRest: Button
 
@@ -46,15 +54,28 @@ class StatsHistoryActivity : AppCompatActivity() {
 
     private lateinit var containerRest: View
     private lateinit var tvRestEmpty: TextView
+    private lateinit var btnRestRange: Button
     private lateinit var rvRest: RecyclerView
     private lateinit var restAdapter: RestHistoryAdapter
 
     private var currentTab: String = TAB_ALARM
+    private var restDisplayRange: HistoryDisplayRange = HistoryDisplayRange.TODAY
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(ThemeManager.themeRes(this))
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_stats_history)
+
+        val root = findViewById<View>(R.id.root_stats_history)
+        val initialPaddingTop = root.paddingTop
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val topInset = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
+            ).top
+            view.setPadding(view.paddingLeft, initialPaddingTop + topInset, view.paddingRight, view.paddingBottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
 
         initViews()
         setupListeners()
@@ -65,6 +86,7 @@ class StatsHistoryActivity : AppCompatActivity() {
 
     private fun initViews() {
         btnBack = findViewById(R.id.btn_history_back)
+        btnRetention = findViewById(R.id.btn_history_retention)
         tabAlarm = findViewById(R.id.tab_history_alarm)
         tabRest = findViewById(R.id.tab_history_rest)
 
@@ -74,6 +96,7 @@ class StatsHistoryActivity : AppCompatActivity() {
 
         containerRest = findViewById(R.id.container_rest_history)
         tvRestEmpty = findViewById(R.id.tv_rest_empty)
+        btnRestRange = findViewById(R.id.btn_history_rest_range)
         rvRest = findViewById(R.id.rv_rest_history)
 
         rvAlarm.layoutManager = LinearLayoutManager(this)
@@ -91,9 +114,11 @@ class StatsHistoryActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         btnBack.setOnClickListener { finish() }
+        btnRetention.setOnClickListener { showRetentionSettingsDialog() }
 
         tabAlarm.setOnClickListener { switchTab(TAB_ALARM) }
         tabRest.setOnClickListener { switchTab(TAB_REST) }
+        btnRestRange.setOnClickListener { showRestRangePicker() }
     }
 
     private fun switchTab(target: String) {
@@ -127,10 +152,83 @@ class StatsHistoryActivity : AppCompatActivity() {
     }
 
     private fun loadRestData() {
-        val records = StatisticsRepository.getAllRestRecords(this)
+        val records = HistoryRecordFilter.filterQuota(
+            StatisticsRepository.getAllRestRecords(this),
+            restDisplayRange
+        )
+        btnRestRange.text = "显示范围：${restDisplayRange.displayName}"
         restAdapter.submitList(records)
         tvRestEmpty.isVisible = records.isEmpty()
         rvRest.isVisible = records.isNotEmpty()
+    }
+
+    private fun showRestRangePicker() {
+        val options = HistoryDisplayRange.entries.toTypedArray()
+        val selected = options.indexOf(restDisplayRange).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("额度流水显示范围")
+            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
+                restDisplayRange = options[which]
+                dialog.dismiss()
+                loadRestData()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showRetentionSettingsDialog() {
+        val wake = HistoryRetentionPolicy.get(this, HistoryRecordKind.WAKE)
+        val quota = HistoryRetentionPolicy.get(this, HistoryRecordKind.QUOTA)
+        AlertDialog.Builder(this)
+            .setTitle("历史记录保留")
+            .setItems(arrayOf("起床记录（当前：${wake.displayName}）", "额度流水（当前：${quota.displayName}）")) { _, which ->
+                showRetentionPicker(if (which == 0) HistoryRecordKind.WAKE else HistoryRecordKind.QUOTA)
+            }
+            .setMessage("起床记录默认保留 3 年；额度流水默认保留 3 个月。")
+            .setNegativeButton("关闭", null)
+            .show()
+    }
+
+    private fun showRetentionPicker(kind: HistoryRecordKind) {
+        val current = HistoryRetentionPolicy.get(this, kind)
+        val options = HistoryRetentionPolicy.options(kind)
+        val labels = options.map { it.displayName }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(if (kind == HistoryRecordKind.WAKE) "起床记录保留多久" else "额度流水保留多久")
+            .setSingleChoiceItems(labels, options.indexOf(current)) { dialog, which ->
+                val selected = options[which]
+                dialog.dismiss()
+                val apply = {
+                    HistoryRetentionPolicy.set(this, kind, selected)
+                    if (kind == HistoryRecordKind.WAKE) {
+                        com.decikeeper.app.manager.statistics.AlarmWakeStatsRecorder.purgeExpired(this)
+                    } else {
+                        com.decikeeper.app.manager.statistics.RestStatsRecorder.purgeExpired(this)
+                    }
+                    if (currentTab == TAB_ALARM) loadAlarmData() else loadRestData()
+                    Toast.makeText(this, "已设置保留 ${selected.displayName}", Toast.LENGTH_SHORT).show()
+                }
+                if (retentionRank(selected) < retentionRank(current)) {
+                    AlertDialog.Builder(this)
+                        .setTitle("确认清理旧记录")
+                        .setMessage("缩短保留期会删除更早的${if (kind == HistoryRecordKind.WAKE) "起床记录" else "额度流水"}，此操作不可恢复。")
+                        .setPositiveButton("确认清理") { _, _ -> apply() }
+                        .setNegativeButton("取消", null)
+                        .show()
+                } else {
+                    apply()
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun retentionRank(retention: HistoryRetention): Int = when (retention) {
+        HistoryRetention.THIRTY_DAYS -> 1
+        HistoryRetention.THREE_MONTHS -> 2
+        HistoryRetention.ONE_YEAR -> 3
+        HistoryRetention.THREE_YEARS -> 4
+        HistoryRetention.FOREVER -> 5
     }
 
     private fun showAlarmActionDialog(record: AlarmWakeRecord) {
@@ -193,11 +291,11 @@ class StatsHistoryActivity : AppCompatActivity() {
     private fun confirmDeleteRestRecord(record: RestUsageRecord) {
         AlertDialog.Builder(this)
             .setTitle("确认删除")
-            .setMessage("确定要删除此条休息流水记录（${record.typeName}，${record.dateLabel}）吗？")
+            .setMessage("确定要删除此条额度流水记录（${record.typeName}，${record.dateLabel}）吗？")
             .setPositiveButton("删除") { _, _ ->
                 StatisticsRepository.deleteRestRecord(this, record.id)
                 loadRestData()
-                Toast.makeText(this, "已删除该条休息流水", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "已删除该条额度流水", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("取消", null)
             .show()
@@ -245,7 +343,7 @@ class StatsHistoryActivity : AppCompatActivity() {
     }
 
     // ==========================================
-    // 休息流水适配器
+    // 额度流水适配器
     // ==========================================
     private class RestHistoryAdapter(
         private val onDeleteClicked: (RestUsageRecord) -> Unit
@@ -302,11 +400,9 @@ class StatsHistoryActivity : AppCompatActivity() {
                 badge.text = item.typeName
                 tvDate.text = item.dateLabel
 
-                val costSign = if (item.costMinutes > 0) "-${item.costMinutes}m" else if (item.costMinutes < 0) "+${-item.costMinutes}m" else "0m"
-                val countAbs = kotlin.math.abs(item.costCount)
-                val countText = if (countAbs % 1.0 == 0.0) countAbs.toInt().toString() else "%.1f".format(countAbs)
-                val countSign = if (item.costCount > 0) " / -${countText}次" else if (item.costCount < 0) " / +${countText}次" else ""
-                tvCost.text = "$costSign$countSign"
+                val quotaDelta = -item.costMinutes
+                val countDelta = -item.costCount
+                tvCost.text = "额度 ${formatDelta(quotaDelta, "m")} / 次数 ${formatDelta(countDelta, "次")}"
                 tvBalance.text = "变动后结余: ${item.balanceMinutes.toInt()}m / ${item.balanceCount}次"
 
                 tvArrow.text = if (isExpanded) "▲" else "▼"
@@ -315,12 +411,21 @@ class StatsHistoryActivity : AppCompatActivity() {
                 if (isExpanded) {
                     tvDetailReason.text = if (item.reason.isNotBlank()) "原因说明: ${item.reason}" else "原因说明: 无"
                     tvDetailDuration.text = "申请时长: ${item.requestedMinutes}m  |  实际使用: ${item.actualMinutes}m"
-                    tvDetailCost.text = "扣除时长: ${item.costMinutes}m  |  扣除次数: ${countText}次"
+                    tvDetailCost.text = "额度变化: ${formatDelta(quotaDelta, "m")}  |  次数变化: ${formatDelta(countDelta, "次")}"
                     tvDetailBalance.text = "当前结余: ${item.balanceMinutes.toInt()} 分钟 / ${item.balanceCount} 次"
                     btnDelete.setOnClickListener { onDelete(item) }
                 }
 
                 itemView.setOnClickListener { onToggle() }
+            }
+
+            private fun formatDelta(value: Double, unit: String): String {
+                val amount = if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+                return when {
+                    value > 0 -> "+${amount}${unit}"
+                    value < 0 -> "${amount}${unit}"
+                    else -> "0${unit}"
+                }
             }
         }
     }

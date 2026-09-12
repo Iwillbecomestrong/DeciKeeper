@@ -262,7 +262,9 @@ data class AppUsageSummary(
     val buckets: List<AppUsageBucketData>,
     val selectedAppTrendBuckets: List<AppUsageBucketData>? = null,
     val hasUsageAccessPermission: Boolean = true,
-    val categorySummaries: List<CategoryUsageSummary> = emptyList()
+    val categorySummaries: List<CategoryUsageSummary> = emptyList(),
+    /** Per-package trend used by category drill-down; keeps detail data exact. */
+    val perAppBuckets: Map<String, List<AppUsageBucketData>> = emptyMap()
 )
 
 /**
@@ -292,6 +294,7 @@ data class AlarmStatsSummary(
     val medianFirstStageDurationMinutes: Int?,
     val medianTotalFlowDurationMinutes: Int?,
     val recordedDaysCount: Int,
+    val recordedRecordsCount: Int = 0,
     val buckets: List<AlarmBucketData>,
     val recentRecords: List<AlarmWakeRecord>
 )

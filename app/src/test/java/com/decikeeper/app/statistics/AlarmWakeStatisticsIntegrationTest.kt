@@ -4,6 +4,7 @@ import android.content.Context
 import com.decikeeper.app.data.statistics.StatsDateRange
 import com.decikeeper.app.data.statistics.WeekdayFilter
 import com.decikeeper.app.manager.statistics.AlarmWakeStatsRecorder
+import com.decikeeper.app.manager.statistics.AlarmWakeStatsDatabase
 import com.decikeeper.app.manager.statistics.StatisticsRepository
 import com.decikeeper.app.manager.statistics.StatsDateRangeResolver
 import org.junit.After
@@ -32,12 +33,14 @@ class AlarmWakeStatisticsIntegrationTest {
     @Before
     fun setUp() {
         context = RuntimeEnvironment.getApplication()
+        context.deleteDatabase(AlarmWakeStatsDatabase.DATABASE_NAME)
         context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("alarm_stats_session", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @After
     fun tearDown() {
+        context.deleteDatabase(AlarmWakeStatsDatabase.DATABASE_NAME)
         context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("alarm_stats_session", Context.MODE_PRIVATE).edit().clear().commit()
     }

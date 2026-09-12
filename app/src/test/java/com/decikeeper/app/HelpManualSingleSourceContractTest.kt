@@ -53,11 +53,21 @@ class HelpManualSingleSourceContractTest {
     }
 
     @Test
+    fun appHelpSupportsInteractiveHyperlinksAndInternalJumps() {
+        val help = source("src/main/java/com/decikeeper/app/ui/HelpActivity.kt")
+        assertTrue(help.contains("LinkMovementMethod.getInstance()"))
+        assertTrue(help.contains("builder.linkResolver"))
+        assertTrue(help.contains("scrollToSectionOrKeyword"))
+    }
+
+    @Test
     fun canonicalManualKeepsFirstRunPermissionsAndCoolingCopyAligned() {
         // docs/user/ 取代了旧的单文件 docs/使用手册.md，契约改读拆分后的源文档。
         val gettingStarted = source("../docs/user/getting-started.md")
         val guide = source("../docs/user/guide.md")
+        val permissions = source("../docs/user/permissions.md")
         val manual = gettingStarted + "\n" + guide
+        val allUserDocs = manual + "\n" + permissions
 
         assertFalse(manual.contains("无障碍、悬浮窗、使用情况访问等必要权限稳定"))
         // 首页「权限设置」引导的实际条目由 HomeFragment 的 addItem() 决定
@@ -66,6 +76,7 @@ class HelpManualSingleSourceContractTest {
         assertTrue(gettingStarted.contains("悬浮窗权限"))
         assertTrue(gettingStarted.contains("自启动权限"))
         assertFalse(gettingStarted.contains("5 项基础权限"))
+        assertFalse("permissions.md 中亦不得出现 5 项基础权限错数字", permissions.contains("5 项基础权限"))
         assertTrue(gettingStarted.contains("不需要先开启无障碍"))
         assertTrue(gettingStarted.contains("无障碍是决定守护权限等级最高、能力最强的一项权限"))
 

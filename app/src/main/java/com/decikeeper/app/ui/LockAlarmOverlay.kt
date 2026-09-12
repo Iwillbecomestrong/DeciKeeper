@@ -346,9 +346,15 @@ internal object LockAlarmOverlayController {
                 LogExporter.logEvent("AlarmOverlay", "SHOW_INLINE id=$alarmId ctx=${context.javaClass.simpleName}")
             } else {
                 val params = getAlarmLayoutParams()
-                mAlarmActiveWindowManager?.addView(LockWindowManager.getAlarmView(), params)
+                val alarmView = LockWindowManager.getAlarmView()
+                    ?: error("Alarm overlay view was cleared before window attach")
+                val targetWindowManager = mAlarmActiveWindowManager
+                    ?: error("Alarm overlay WindowManager is unavailable")
+                val attachOutcome = attachAlarmViewAtomically(alarmView, targetWindowManager, params)
+                check(attachOutcome == AttachAttemptOutcome.SWITCHED) {
+                    "Alarm overlay attach did not complete: $attachOutcome"
+                }
                 isAlarmOverlayActive.set(true)
-                isAlarmOverlayAttached = true
                 Log.i(TAG, "showAlarmOverlay: addView mode, layoutParamsType=${LockWindowManager.getAlarmView()?.layoutParams?.javaClass?.simpleName}")
                 LogExporter.logEvent("AlarmOverlay", "SHOW_WINDOW id=$alarmId lp=${LockWindowManager.getAlarmView()?.layoutParams?.javaClass?.simpleName}")
             }
@@ -2856,23 +2862,16 @@ internal object LockAlarmOverlayController {
         }
         val params = buildAlarmOverlayParams(isA11y)
         try {
-            // 如果 view 已有 parent，先移除再添加（防重复添加异常）
-            if (LockWindowManager.getAlarmView()?.parent != null) {
-                try {
-                    // [Fix: a11y overlay crash] removeView 前清空焦点
-                    LockWindowManager.getAlarmView()?.clearFocus()
-                    (LockWindowManager.getAlarmView()?.parent as? android.view.ViewManager)?.removeView(LockWindowManager.getAlarmView())
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to remove alarm view", e)
-                }
+            val view = LockWindowManager.getAlarmView() ?: return
+            val attachOutcome = attachAlarmViewAtomically(view, targetWM, params)
+            if (attachOutcome == AttachAttemptOutcome.DETACHED) {
+                Log.w(TAG, "showAlarmOverlayIfHidden: attach detached; waiting for next recovery signal")
+                return
             }
-            targetWM.addView(LockWindowManager.getAlarmView(), params)
-            mAlarmActiveWindowManager = targetWM
-            isAlarmOverlayAttached = true
             try {
-                LockWindowManager.getAlarmView()?.isFocusable = true
-                LockWindowManager.getAlarmView()?.isFocusableInTouchMode = true
-                LockWindowManager.getAlarmView()?.requestFocus()
+                view.isFocusable = true
+                view.isFocusableInTouchMode = true
+                view.requestFocus()
             } catch (e: Exception) {
                 Log.w(TAG, "showAlarmOverlayIfHidden: requestFocus failed", e)
             }

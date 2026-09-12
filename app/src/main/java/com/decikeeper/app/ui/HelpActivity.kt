@@ -19,12 +19,16 @@
  */
 package com.decikeeper.app.ui
 
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
+import android.text.method.LinkMovementMethod
 import android.text.style.BackgroundColorSpan
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -33,7 +37,10 @@ import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
+import io.noties.markwon.AbstractMarkwonPlugin
+import io.noties.markwon.LinkResolver
 import io.noties.markwon.Markwon
+import io.noties.markwon.MarkwonConfiguration
 import io.noties.markwon.ext.tables.TablePlugin
 
 class HelpActivity : AppCompatActivity() {
@@ -48,6 +55,8 @@ class HelpActivity : AppCompatActivity() {
     private lateinit var tocContainer: LinearLayout
     private lateinit var tocToggle: TextView
     private lateinit var markwon: Markwon
+    private var drawerLayout: DrawerLayout? = null
+    private var scrollView: ScrollView? = null
     private var allSections: List<HelpSection> = emptyList()
     private var searchQuery: String = ""
 
@@ -67,6 +76,15 @@ class HelpActivity : AppCompatActivity() {
 
         markwon = Markwon.builder(this)
             .usePlugin(TablePlugin.create(this))
+            .usePlugin(object : AbstractMarkwonPlugin() {
+                override fun configureConfiguration(builder: MarkwonConfiguration.Builder) {
+                    builder.linkResolver(object : LinkResolver {
+                        override fun resolve(view: View, link: String) {
+                            handleLinkClick(link)
+                        }
+                    })
+                }
+            })
             .build()
 
         // 解析帮助内容为结构化章节；正文保留 Markdown 交给 Markwon 渲染。
@@ -168,12 +186,13 @@ class HelpActivity : AppCompatActivity() {
         val sbh = statusBarHeight()
 
         // === DrawerLayout（侧边栏容器） ===
-        val drawerLayout = DrawerLayout(this).apply {
+        val dl = DrawerLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
+        drawerLayout = dl
 
         // ===================== 主内容 =====================
         val mainContent = LinearLayout(this).apply {
@@ -202,7 +221,7 @@ class HelpActivity : AppCompatActivity() {
             textSize = 24f
             setTextColor(Color.parseColor("#00838F"))
             setPadding(dp(12), dp(8), dp(12), dp(8))
-            setOnClickListener { drawerLayout.openDrawer(Gravity.START) }
+            setOnClickListener { dl.openDrawer(Gravity.START) }
         }
         topBar.addView(btnToc)
 
@@ -255,13 +274,14 @@ class HelpActivity : AppCompatActivity() {
         mainContent.addView(searchFrame)
 
         // ---- 可滚动内容区域 ----
-        val scrollView = ScrollView(this).apply {
+        val sv = ScrollView(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
             isFillViewport = true
         }
+        scrollView = sv
 
         contentContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -271,10 +291,10 @@ class HelpActivity : AppCompatActivity() {
             )
             setPadding(dp(32), dp(8), dp(32), dp(48))
         }
-        scrollView.addView(contentContainer)
-        mainContent.addView(scrollView)
+        sv.addView(contentContainer)
+        mainContent.addView(sv)
 
-        drawerLayout.addView(mainContent)
+        dl.addView(mainContent)
 
         // ===================== 侧边栏（目录） =====================
         val drawerContent = LinearLayout(this).apply {
@@ -325,11 +345,11 @@ class HelpActivity : AppCompatActivity() {
                 setTextColor(Color.parseColor(if (isMajor) "#006064" else "#00838F"))
                 setPadding(dp(indent), dp(10), dp(16), dp(10))
                 setOnClickListener {
-                    drawerLayout.closeDrawer(Gravity.START)
+                    dl.closeDrawer(Gravity.START)
                     searchQuery = ""
                     filterAndRender()
                     // 滚动到该章节（延迟等渲染完成）
-                    scrollView.post {
+                    sv.post {
                         scrollToSectionInContainer(sec.title)
                     }
                 }
@@ -349,10 +369,10 @@ class HelpActivity : AppCompatActivity() {
         }
         drawerContent.addView(tvFooter)
 
-        drawerLayout.addView(drawerContent)
+        dl.addView(drawerContent)
 
         // 设置根视图
-        setContentView(drawerLayout)
+        setContentView(dl)
 
         // 初始渲染
         filterAndRender()
@@ -493,6 +513,7 @@ class HelpActivity : AppCompatActivity() {
             setTextColor(Color.parseColor("#424242"))
             setLineSpacing(8f, 1f)
             setPadding(0, dp(4), 0, dp(4))
+            movementMethod = LinkMovementMethod.getInstance()
         }
 
         // 真正渲染 Markdown（加粗、列表、引用、代码块、表格等），不再显示 ** / |---| 原始符号。
@@ -520,5 +541,102 @@ class HelpActivity : AppCompatActivity() {
         }
 
         return tv
+    }
+
+    // ========== 超链接与内部跳转处理 ==========
+
+    private fun handleLinkClick(link: String) {
+        val trimmed = link.trim()
+        when {
+            trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true) -> {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(trimmed)).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.w("HelpActivity", "无法打开外部链接: $trimmed", e)
+                    Toast.makeText(this, "无法打开浏览器，请手动访问", Toast.LENGTH_SHORT).show()
+                }
+            }
+            trimmed.startsWith("../specs/") || trimmed.startsWith("specs/") || trimmed.startsWith("../product/") -> {
+                Toast.makeText(this, "该内容为开发者技术规范，可在电脑端仓库查看", Toast.LENGTH_SHORT).show()
+            }
+            trimmed.startsWith("#") -> {
+                val anchor = trimmed.removePrefix("#").trim()
+                scrollToSectionOrKeyword(anchor)
+            }
+            trimmed.endsWith(".md", ignoreCase = true) || trimmed.contains(".md#", ignoreCase = true) -> {
+                val target = if (trimmed.contains("#")) {
+                    trimmed.substringAfter("#").trim()
+                } else {
+                    trimmed.substringBeforeLast(".md").substringAfterLast("/")
+                }
+                scrollToSectionOrKeyword(target)
+            }
+            else -> {
+                scrollToSectionOrKeyword(trimmed)
+            }
+        }
+    }
+
+    private fun scrollToSectionOrKeyword(keyword: String) {
+        if (keyword.isEmpty()) return
+        val cleanKeyword = keyword.lowercase()
+            .replace("-", "")
+            .replace("_", "")
+            .replace(" ", "")
+
+        var targetSec = allSections.firstOrNull { sec ->
+            val cleanTitle = sec.title.lowercase()
+                .replace("-", "")
+                .replace("_", "")
+                .replace(" ", "")
+            cleanTitle.contains(cleanKeyword) || cleanKeyword.contains(cleanTitle)
+        }
+
+        if (targetSec == null) {
+            when {
+                cleanKeyword.contains("gettingstarted") || cleanKeyword.contains("快速上手") || cleanKeyword.contains("新手指引") -> {
+                    targetSec = allSections.firstOrNull { it.title.contains("新手指引") || it.title.contains("快速上手") }
+                        ?: allSections.firstOrNull()
+                }
+                cleanKeyword.contains("guide") || cleanKeyword.contains("功能指南") || cleanKeyword.contains("使用手册") -> {
+                    targetSec = allSections.firstOrNull { it.title.contains("功能指南") }
+                        ?: allSections.firstOrNull { it.title.contains("规则保护") }
+                }
+                cleanKeyword.contains("permission") || cleanKeyword.contains("权限") || cleanKeyword.contains("隐私") -> {
+                    targetSec = allSections.firstOrNull { it.title.contains("权限与隐私") }
+                        ?: allSections.firstOrNull { it.title.contains("权限") }
+                }
+                cleanKeyword.contains("两把锁") -> {
+                    targetSec = allSections.firstOrNull { it.title.contains("两把锁") }
+                }
+                cleanKeyword.contains("三个出口") || cleanKeyword.contains("出口") -> {
+                    targetSec = allSections.firstOrNull { it.title.contains("三个出口") || it.title.contains("出口") }
+                }
+                cleanKeyword.contains("闹钟") || cleanKeyword.contains("挑战闹钟") -> {
+                    targetSec = allSections.firstOrNull { it.title.contains("挑战闹钟") || it.title.contains("闹钟") }
+                }
+                cleanKeyword.contains("防卸载") -> {
+                    targetSec = allSections.firstOrNull { it.title.contains("防卸载") || it.title.contains("保护") }
+                }
+            }
+        }
+
+        if (targetSec != null) {
+            drawerLayout?.closeDrawers()
+            searchQuery = ""
+            filterAndRender()
+            val targetTitle = targetSec.title
+            val sv = scrollView
+            if (sv != null) {
+                sv.post {
+                    scrollToSectionInContainer(targetTitle)
+                }
+            }
+        } else {
+            Toast.makeText(this, "未找到目标章节: $keyword", Toast.LENGTH_SHORT).show()
+        }
     }
 }

@@ -43,6 +43,10 @@
 
 晚上认真做出的「今天早点睡」，常常败给下一刻的「再刷一个视频」。决定守护关注的，就是这种**已经做出决定、但执行时容易被当前状态改变的时刻**。
 
+决定守护不做包罗万象的泛自律，它的守护范围**严格局限在两处最容易被冲动和生理状态击穿的现实边界**：
+1. **受手机影响的使用边界**（该停的时候停下来）：防范短视频、游戏、聊天和信息流对学习、工作与睡眠的无节制侵占；
+2. **早晨起床的行动边界**（该起的时候起来）：击破清晨半梦半醒时的赖床惯性，推动真正离开床铺并完成清醒过渡。
+
 ---
 
 ## 两个核心模块
@@ -146,10 +150,23 @@
 ## 第一次使用
 
 1. 安装最新 APK；
-2. **不要一上来就开启防卸载。** 先按应用内指引开启首页的基础权限，配置一两个简单的勿扰时段和应用时间窗，确认锁屏、前台检测和后台存活都正常；
+2. **不要一上来就开启防卸载。** 先按应用内指引开启首页的 4 项基础权限（悬浮窗、通知、后台耗电管理、自启动），配置一两个简单的勿扰时段和应用时间窗，确认锁屏、前台检测和后台存活都正常；
 3. 确认基础功能稳定后，再考虑开启无障碍以及依托无障碍的加强约束。
 
 完整上手流程见 [快速上手](docs/user/getting-started.md)。
+
+---
+
+## 软件界面与文档源码对应表（在哪里看 / 在哪里改）
+
+为了避免“看到 App 里的文案，但不知道在仓库哪里维护”的困惑，以下是软件界面与源码的精准映射：
+
+| 软件界面入口 | 驱动组件 | 对应文档 / 资源源码 | 打包与生效机制 |
+| :--- | :--- | :--- | :--- |
+| **设置 → 使用说明** | `HelpActivity.kt` | 1. [快速上手](docs/user/getting-started.md)<br/>2. [功能指南](docs/user/guide.md)<br/>3. [权限与隐私说明](docs/user/permissions.md) | 构建时 Gradle 任务 `syncUserGuideAsset` 将这 3 份 Markdown 自动同步进 APK assets，App 内通过 Markwon 原生渲染（支持内部平滑定位）。修改需重新构建 APK。 |
+| **设置 → 关于我们** | `AboutActivity.kt`<br/>`LegalDocumentRepository.kt` | 1. 隐私及权限：`app/src/main/res/raw/privacy_notice.txt`<br/>2. 开源许可：`app/src/main/res/raw/open_source_licenses.txt`<br/>3. 反馈邮箱：`app/src/main/res/raw/feedback_email.txt`<br/>4. 题库来源：硬编码在 `AboutActivity.kt` | 编译期打包至 `res/raw`，点击列表项进入 `LegalDocumentActivity` 显示。 |
+| **首屏隐私协议弹窗** | `PrivacyConsentActivity.kt` | 1. 用户协议：`app/src/main/res/raw/user_agreement.txt`<br/>2. 隐私政策：`app/src/main/res/raw/privacy_policy.txt` | 仅首屏/重置同意时弹出，不作为内测 About 页直接入口。 |
+| **系统规则与技术契约** | 系统底层引擎 | 1. 总契约：[SPEC.md](SPEC.md)<br/>2. 详细模块规格：[docs/specs/](docs/specs/) | 面向开发者的架构、契约与红线规范。 |
 
 ---
 
@@ -197,7 +214,7 @@ adb install -r -d app/build/outputs/apk/debug/app-debug.apk
 | [产品总览](docs/product/system-overview.md) | 这是什么、为什么这样设计、模块之间什么关系 | 贡献者 / AI |
 | [SPEC.md](SPEC.md) | 当前产品总规格与跨模块契约 | 开发 |
 | [docs/specs/](docs/specs/) | 各模块的具体规则怎么实现 | 实现者 |
-| [docs/user/](docs/user/) | 快速上手、完整功能、权限与隐私 | 最终用户 |
+| [docs/user/](docs/user/) | 快速上手、完整功能、权限与隐私（驱动 App 使用说明） | 最终用户 |
 | [docs/plans/](docs/plans/) | 当前分任务计划 | 当前开发者 |
 | [HISTORY.md](HISTORY.md) | 关键历史决策与防回归经验 | 排查问题的人 |
 | [docs/archive/](docs/archive/) | 已退役方案、旧命名与历史工作稿 | 溯源 |

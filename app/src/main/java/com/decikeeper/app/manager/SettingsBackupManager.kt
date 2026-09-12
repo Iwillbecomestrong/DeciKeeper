@@ -25,7 +25,11 @@ import android.net.Uri
 import android.os.Build
 import com.decikeeper.app.data.BlacklistStore
 import com.decikeeper.app.data.LogExporter
+import com.decikeeper.app.data.statistics.AlarmWakeRecord
+import com.decikeeper.app.data.statistics.RestUsageRecord
 import com.decikeeper.app.manager.questionbank.CustomQuestionBankManager
+import com.decikeeper.app.manager.statistics.AlarmWakeStatsRecorder
+import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -40,6 +44,10 @@ object SettingsBackupManager {
     private const val LEGACY_BACKUP_TYPE = "ironwill_settings_backup"
     private const val LEGACY_ZHIZHI_BACKUP_TYPE = "zhizhi_settings_backup"
     private const val SCHEMA_VERSION = 2
+    private const val ALARM_WAKE_RECORDS_KEY = "alarmWakeRecords"
+    private const val ALARM_WAKE_RECORDS_VERSION = 1
+    private const val REST_RECORDS_KEY = "restUsageRecords"
+    private const val REST_RECORDS_VERSION = 1
 
     // ── 分类定义 ──────────────────────────────────────────────
     enum class BackupCategory(val id: String, val displayName: String) {
@@ -76,7 +84,8 @@ object SettingsBackupManager {
         BackupCategory.LEDGER to listOf(
             "rule_protection_ledger",
             "alarm_stats_ledger",
-            "statistics_prefs"
+            "statistics_prefs",
+            "statistics_retention_prefs"
         )
     )
 
@@ -175,7 +184,8 @@ object SettingsBackupManager {
         "alarm_bookmarks",
         "rule_protection_ledger",
         "alarm_stats_ledger",
-        "statistics_prefs"
+        "statistics_prefs",
+        "statistics_retention_prefs"
     )
 
     private val deviceProtectedMirrorNames = setOf(
@@ -278,6 +288,25 @@ object SettingsBackupManager {
             })
         }
 
+        val alarmWakeRecords = if (categories.contains(BackupCategory.LEDGER)) {
+            JSONArray().also { array ->
+                AlarmWakeStatsRecorder.exportRecords(context).forEach { record ->
+                    array.put(record.toBackupJson())
+                }
+            }
+        } else {
+            null
+        }
+        val restRecords = if (categories.contains(BackupCategory.LEDGER)) {
+            JSONArray().also { array ->
+                RestStatsRecorder.getAllRecords(context).forEach { record ->
+                    array.put(record.toBackupJson())
+                }
+            }
+        } else {
+            null
+        }
+
         return JSONObject().apply {
             put("type", BACKUP_TYPE)
             put("schemaVersion", SCHEMA_VERSION)
@@ -288,6 +317,16 @@ object SettingsBackupManager {
             put("preferenceFiles", files)
             // 记录导出了哪些分类（用于导入时默认选中）
             put("exportCategories", JSONArray(categories.map { it.id }))
+            if (alarmWakeRecords != null) {
+                put("alarmWakeRecordsVersion", ALARM_WAKE_RECORDS_VERSION)
+                put(ALARM_WAKE_RECORDS_KEY, alarmWakeRecords)
+                put("alarmWakeRecordCount", alarmWakeRecords.length())
+            }
+            if (restRecords != null) {
+                put("restUsageRecordsVersion", REST_RECORDS_VERSION)
+                put(REST_RECORDS_KEY, restRecords)
+                put("restUsageRecordCount", restRecords.length())
+            }
             if (categories.contains(BackupCategory.ALARM)) {
                 val banksJson = CustomQuestionBankManager.exportToJson(context)
                 if (!banksJson.isNullOrBlank()) {
@@ -552,6 +591,20 @@ object SettingsBackupManager {
             }
         }
 
+        if (categories.contains(BackupCategory.LEDGER)) {
+            if (root.has(ALARM_WAKE_RECORDS_KEY)) {
+                // 新版备份显式携带 SQLite 明细；空数组也代表用户明确备份了空历史。
+                val records = decodeAlarmWakeRecords(root.getJSONArray(ALARM_WAKE_RECORDS_KEY))
+                AlarmWakeStatsRecorder.replaceAllRecords(context, records)
+            } else {
+                // 旧备份只有 SharedPreferences：prefs 写入完成后补做一次兼容迁移。
+                AlarmWakeStatsRecorder.importLegacyBackupRecords(context)
+            }
+            if (root.has(REST_RECORDS_KEY)) {
+                RestStatsRecorder.replaceAllRecords(context, decodeRestRecords(root.getJSONArray(REST_RECORDS_KEY)))
+            }
+        }
+
         invalidateRuntimeCaches()
         if (isAdaptation) {
             CreditManager.refreshAfterImport(
@@ -561,6 +614,82 @@ object SettingsBackupManager {
             )
         }
         return OperationResult(fileCount, entryCount)
+    }
+
+    private fun AlarmWakeRecord.toBackupJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("dateLabel", dateLabel)
+        put("alarmMinuteOfDay", alarmMinuteOfDay)
+        put("firstStageCompletedMinute", firstStageCompletedMinute)
+        put("firstStageDurationMinutes", firstStageDurationMinutes)
+        put("totalFlowDurationMinutes", totalFlowDurationMinutes)
+        put("completedAt", completedAt)
+        put("alarmId", alarmId)
+    }
+
+    private fun RestUsageRecord.toBackupJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("timestamp", timestamp)
+        put("dateLabel", dateLabel)
+        put("type", type)
+        put("typeName", typeName)
+        put("reason", reason)
+        put("requestedMinutes", requestedMinutes)
+        put("actualMinutes", actualMinutes)
+        put("costMinutes", costMinutes)
+        put("costCount", costCount)
+        put("balanceMinutes", balanceMinutes)
+        put("balanceCount", balanceCount)
+    }
+
+    private fun decodeAlarmWakeRecords(array: JSONArray): List<AlarmWakeRecord> {
+        val records = ArrayList<AlarmWakeRecord>(array.length())
+        for (i in 0 until array.length()) {
+            val obj = array.optJSONObject(i)
+                ?: throw IllegalArgumentException("起床历史备份第 ${i + 1} 条不是对象")
+            val id = obj.optString("id", "").trim()
+            if (id.isEmpty()) {
+                throw IllegalArgumentException("起床历史备份第 ${i + 1} 条缺少 id")
+            }
+            records += AlarmWakeRecord(
+                id = id,
+                dateLabel = obj.optString("dateLabel", ""),
+                alarmMinuteOfDay = obj.optInt("alarmMinuteOfDay", 0),
+                firstStageCompletedMinute = obj.optInt("firstStageCompletedMinute", 0),
+                firstStageDurationMinutes = obj.optInt("firstStageDurationMinutes", 0),
+                totalFlowDurationMinutes = obj.optInt("totalFlowDurationMinutes", 0),
+                completedAt = obj.optLong("completedAt", 0L),
+                alarmId = obj.optInt("alarmId", 0)
+            )
+        }
+        return records
+    }
+
+    private fun decodeRestRecords(array: JSONArray): List<RestUsageRecord> {
+        val records = ArrayList<RestUsageRecord>(array.length())
+        for (i in 0 until array.length()) {
+            val obj = array.optJSONObject(i)
+                ?: throw IllegalArgumentException("休息流水备份第 ${i + 1} 条不是对象")
+            val id = obj.optString("id", "").trim()
+            if (id.isEmpty()) {
+                throw IllegalArgumentException("休息流水备份第 ${i + 1} 条缺少 id")
+            }
+            records += RestUsageRecord(
+                id = id,
+                timestamp = obj.optLong("timestamp", 0L),
+                dateLabel = obj.optString("dateLabel", ""),
+                type = obj.optString("type", "NORMAL"),
+                typeName = obj.optString("typeName", "休息"),
+                reason = obj.optString("reason", ""),
+                requestedMinutes = obj.optDouble("requestedMinutes", 0.0),
+                actualMinutes = obj.optDouble("actualMinutes", 0.0),
+                costMinutes = obj.optDouble("costMinutes", 0.0),
+                costCount = obj.optDouble("costCount", 0.0),
+                balanceMinutes = obj.optDouble("balanceMinutes", 0.0),
+                balanceCount = obj.optInt("balanceCount", 0)
+            )
+        }
+        return records
     }
 
     fun inspectBackupJson(json: String): OperationResult {
