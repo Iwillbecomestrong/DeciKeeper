@@ -26,8 +26,12 @@ class AlarmChallengeReentryContractTest {
         assertTrue(window.contains("CHALLENGE_REENTER_REQUEST"))
         assertTrue(window.contains("SCREEN_KEEP_ALIVE_REFRESH"))
         assertTrue(
-            "while an alarm remains active, an unexpected screen-off must trigger a wake refresh",
-            window.contains("Intent.ACTION_SCREEN_OFF") && window.contains("SCREEN_OFF_RECOVERY")
+            "screen receiver must handle screen state changes",
+            window.contains("Intent.ACTION_SCREEN_OFF") && window.contains("Intent.ACTION_SCREEN_ON")
+        )
+        assertFalse(
+            "screen-off must respect user sleep intent and not schedule wake loop",
+            window.contains("SCREEN_OFF_RECOVERY scheduled")
         )
     }
 

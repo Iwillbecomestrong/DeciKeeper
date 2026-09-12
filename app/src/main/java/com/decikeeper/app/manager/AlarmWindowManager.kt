@@ -48,7 +48,6 @@ object AlarmWindowManager {
     private const val TAG = "AlarmWindowManager"
     private const val WAKE_LOCK_TAG = "DeciKeeper:AlarmWakeLock"
     private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L // 10 分钟
-    private const val SCREEN_OFF_RECOVERY_DELAY_MS = 350L
 
     private var wakeLock: PowerManager.WakeLock? = null
     private var screenReceiverRegistered = false
@@ -71,25 +70,27 @@ object AlarmWindowManager {
     private var activeOverlayAlarmId: Int = -1
 
     /**
-     * 某些 OEM 即使闹钟仍在运行，也可能在挑战过程中发出 SCREEN_OFF。
-     * 闹钟 active 时把它视为异常熄屏：短延迟后重新获取亮屏 WakeLock，
-     * 并让现有挑战覆盖层重新检查挂载状态。用户完成挑战后立即注销监听。
+     * 屏幕状态监听器：
+     * - 息屏 (ACTION_SCREEN_OFF)：尊重用户按电源键的息屏意图，严禁调度 WakeLock 强行点亮屏幕，
+     *   彻底消除「4秒休眠 -> 350ms唤醒」的死循环；后台响铃与震动保持 active。
+     * - 点亮/解锁 (ACTION_SCREEN_ON / ACTION_USER_PRESENT)：用户手动点亮屏幕时，确保挑战覆盖层稳定处于最前台。
      */
-    private val screenOffReceiver = object : BroadcastReceiver() {
+    private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action != Intent.ACTION_SCREEN_OFF) return
             val alarmId = AlarmScheduler.getActiveAlarmId(context)
             if (alarmId < 0 || !AlarmScheduler.isAlarmActive(context)) return
 
-            Log.w(TAG, "SCREEN_OFF_RECOVERY scheduled: alarmId=$alarmId")
-            LogExporter.logEvent("AlarmOverlay", "SCREEN_OFF_RECOVERY scheduled id=$alarmId")
-            mainHandler.postDelayed({
-                if (!AlarmScheduler.isAlarmActive(context) || AlarmScheduler.getActiveAlarmId(context) != alarmId) {
-                    return@postDelayed
+            when (intent.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    Log.d(TAG, "SCREEN_OFF: respecting user screen-off, keeping alarm active without forced wake")
+                    LogExporter.logEvent("AlarmOverlay", "SCREEN_OFF_KEEP_SILENT id=$alarmId")
                 }
-                refreshScreenWake(context, "SCREEN_OFF_RECOVERY")
-                LockWindowManager.showAlarmOverlayIfHidden()
-            }, SCREEN_OFF_RECOVERY_DELAY_MS)
+                Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
+                    Log.i(TAG, "SCREEN_ON/USER_PRESENT: restoring alarm overlay visibility id=$alarmId")
+                    LogExporter.logEvent("AlarmOverlay", "SCREEN_ON_RESTORE id=$alarmId")
+                    LockWindowManager.showAlarmOverlayIfHidden()
+                }
+            }
         }
     }
 
@@ -248,19 +249,24 @@ object AlarmWindowManager {
         if (screenReceiverRegistered) return
         val appCtx = context.applicationContext
         try {
-            appCtx.registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            appCtx.registerReceiver(screenStateReceiver, filter)
             receiverContext = appCtx
             screenReceiverRegistered = true
-            Log.d(TAG, "screen-off recovery receiver registered")
+            Log.d(TAG, "screen state receiver registered")
         } catch (e: Exception) {
-            Log.w(TAG, "failed to register screen-off recovery receiver", e)
+            Log.w(TAG, "failed to register screen state receiver", e)
         }
     }
 
     private fun unregisterScreenOffRecovery() {
         if (!screenReceiverRegistered) return
         try {
-            receiverContext?.unregisterReceiver(screenOffReceiver)
+            receiverContext?.unregisterReceiver(screenStateReceiver)
         } catch (_: Exception) {
         } finally {
             screenReceiverRegistered = false
