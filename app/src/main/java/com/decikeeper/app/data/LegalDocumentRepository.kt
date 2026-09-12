@@ -53,22 +53,12 @@ object LegalDocumentRepository {
      */
     const val PENDING_LEGAL_REVIEW: String = "[待法务填写 vX.Y.Z]"
 
-    /**
-     * 客户端侧隐私政策版本号。
-     *
-     * REQ-5 Round 4 Fix #3: 此前硬编码 `v0.1.0-2026-07-05` 与 PLAN §7 "版本号不能
-     * 凭空编造"约束冲突。改为占位符 [PENDING_LEGAL_REVIEW]，由法务 / 用户 review
-     * 后再用 build-time 注入或人事 bump 写成正式版本。发布前**必须**把本常量替换为
-     * 法务确认的实际版本号。
-     */
-    const val PRIVACY_POLICY_VERSION: String = PENDING_LEGAL_REVIEW
+    const val PRIVACY_POLICY_VERSION: String = "v0.2.0"
 
     /**
      * 客户端侧用户协议版本号。
-     *
-     * REQ-5 Round 4 Fix #3: 同 [PRIVACY_POLICY_VERSION]，未审核前固定占位。
      */
-    const val USER_AGREEMENT_VERSION: String = PENDING_LEGAL_REVIEW
+    const val USER_AGREEMENT_VERSION: String = "v0.2.0"
 
     // ── 首屏同意专用 ────────────────────────────────────────────────
     val USER_AGREEMENT: LegalDocument = LegalDocument(

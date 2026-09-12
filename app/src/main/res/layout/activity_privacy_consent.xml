@@ -11,8 +11,8 @@
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="欢迎使用决定守护" android:textColor="?attr/zzText" android:textSize="22sp" android:textStyle="bold" />
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:background="@drawable/bg_zz_card" android:backgroundTint="?attr/zzSurface" android:orientation="vertical" android:padding="18dp">
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="在继续之前，请了解决定守护为什么需要无障碍、使用情况访问等系统能力。" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:lineSpacingExtra="5dp" android:text="我们重视你的数据边界。决定守护会使用必要系统权限完成应用限制、规则执行、闹钟挑战和状态核验。具体范围以隐私政策与用户协议为准。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="决定守护是一款纯单机自律软件，不收集任何个人数据。" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:lineSpacingExtra="5dp" android:text="应用不申请联网权限，所有规则与配置均保存在你的设备本地。基础使用仅需悬浮窗、通知等基础权限，无障碍等高级保护可按需开启。具体范围请参阅下方用户协议与隐私政策。" android:textColor="?attr/zzMuted" android:textSize="13sp" />
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">

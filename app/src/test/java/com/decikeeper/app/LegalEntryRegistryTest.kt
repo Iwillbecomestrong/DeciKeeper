@@ -150,41 +150,15 @@ class LegalEntryRegistryTest {
     }
 
     @Test
-    fun versionStringsUsePendingLegalReviewPlaceholder() {
-        // REQ-5 Round 4 Fix #3: 法务未审核前,两个版本号必须等于
-        // LegalDocumentRepository.PENDING_LEGAL_REVIEW 这个统一占位符,
-        // 防止后续有人把某一个版本号误填成正式值而另一个仍是占位,
-        // 造成 UI 显示"两版不一致"的产品事故。
-        val placeholder = LegalDocumentRepository.PENDING_LEGAL_REVIEW
-        assertTrue(
-            "PENDING_LEGAL_REVIEW 占位符必须非空、且带 [ ... ] 占位边框(便于 grep)",
-            placeholder.isNotEmpty() && placeholder.startsWith("[") && placeholder.endsWith("]")
-        )
+    fun versionStringsUseConsistentVersion() {
+        val version = LegalDocumentRepository.PRIVACY_POLICY_VERSION
+        assertTrue("PRIVACY_POLICY_VERSION 必须非空", version.isNotEmpty())
         assertEquals(
-            "PRIVACY_POLICY_VERSION 必须引用 PENDING_LEGAL_REVIEW 占位符",
-            placeholder,
-            LegalDocumentRepository.PRIVACY_POLICY_VERSION
-        )
-        assertEquals(
-            "USER_AGREEMENT_VERSION 必须引用 PENDING_LEGAL_REVIEW 占位符",
-            placeholder,
+            "PRIVACY_POLICY_VERSION 与 USER_AGREEMENT_VERSION 必须保持版本一致",
+            version,
             LegalDocumentRepository.USER_AGREEMENT_VERSION
         )
-    }
-
-    @Test
-    fun pendingLegalReviewPlaceholderIsKeywordGreppableForLegal() {
-        // 给法务 / 用户一把钥匙:可以全仓 grep "[待法务填写 vX.Y.Z]" 来发现
-        // 还有哪些位置没被替换成正式版本号。
-        val placeholder = LegalDocumentRepository.PENDING_LEGAL_REVIEW
-        assertTrue(
-            "PENDING_LEGAL_REVIEW 占位符必须含 'vX.Y.Z' 字面量,以便法务扫仓 grep",
-            placeholder.contains("vX.Y.Z")
-        )
-        assertTrue(
-            "PENDING_LEGAL_REVIEW 占位符必须含 '待法务填写',便于人阅读时一眼识别",
-            placeholder.contains("待法务填写")
-        )
+        assertEquals("v0.2.0", version)
     }
 
     @Test

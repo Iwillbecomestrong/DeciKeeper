@@ -33,7 +33,7 @@ class LegalDocumentActivity : AppCompatActivity() {
             LegalDocumentRepository.USER_AGREEMENT.id, "about_user_agreement" -> "用户协议 ${LegalDocumentRepository.USER_AGREEMENT_VERSION}"
             "about_privacy_notice", "about_open_source_licenses", "about_feedback_email" ->
                 "决定守护 v0.2.0 单机内测版"
-            else -> "占位合规文本，待法务 review"
+            else -> "决定守护 v0.2.0"
         }
         val body = try {
             resources.openRawResource(doc.rawRes).bufferedReader(Charsets.UTF_8).use { it.readText() }
