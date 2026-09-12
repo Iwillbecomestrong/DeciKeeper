@@ -81,10 +81,14 @@ class AppWindowPendingImportAndGhostHealingTest {
     }
 
     @Test
-    fun testSettingsBackupManager_importAppWindowRulesInNonAdaptation_writesCorrectKeyAndChangeLog() {
-        // 保证当前处于非适应期
+    fun testSettingsBackupManager_importAppWindowRulesInNonAdaptation_allNextDay_writesPendingAndChangeLog() {
+        // 保证当前处于非适应期，且策略为统一延后
         CreditManager.markAdaptationEnded(context)
         assertFalse("必须处于非适应期", TimeRuleManager.isInAdaptationPeriod(context))
+        com.decikeeper.app.manager.EffectiveActivationPolicyManager.setPolicy(
+            context,
+            com.decikeeper.app.manager.EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+        )
 
         val ruleArray = JSONArray().apply {
             put(JSONObject().apply {
@@ -124,10 +128,10 @@ class AppWindowPendingImportAndGhostHealingTest {
         )
         assertTrue(result.fileCount > 0)
 
-        // 验证写入了 app_window_pending，且 key 是 pending_rules_json
+        // 统一延后策略下：验证写入了 app_window_pending，且 key 是 pending_rules_json
         val pendingPrefs = context.getSharedPreferences("app_window_pending", Context.MODE_PRIVATE)
         val pendingJson = pendingPrefs.getString("pending_rules_json", null)
-        assertNotNull("非适应期导入应用时间窗必须存入 pending_rules_json 键", pendingJson)
+        assertNotNull("统一延后下导入应用时间窗必须存入 pending_rules_json 键", pendingJson)
         assertTrue(pendingJson!!.contains("学习时间窗"))
 
         // 验证 AppWindowManager 可以正常读取待生效规则
@@ -139,6 +143,156 @@ class AppWindowPendingImportAndGhostHealingTest {
         // 验证 ChangeLog 记录存在
         val log = ChangeLogManager.getFormattedLogForCategory(context, "app_window_rules")
         assertTrue("导入后应生成待生效变更日志", log.contains("导入应用时间窗规则"))
+    }
+
+    @Test
+    fun testSettingsBackupManager_importAppWindowRulesInFavorableImmediate_emptyBaseline_appliesImmediately() {
+        // 非适应期 + 宽严有别策略
+        CreditManager.markAdaptationEnded(context)
+        com.decikeeper.app.manager.EffectiveActivationPolicyManager.setPolicy(
+            context,
+            com.decikeeper.app.manager.EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
+        )
+
+        val ruleArray = JSONArray().apply {
+            put(JSONObject().apply {
+                put("id", "rule-first")
+                put("name", "首个管控时间窗")
+                put("startTime", 480)
+                put("endTime", 600)
+                put("packageNames", JSONArray(listOf("com.example.app")))
+                put("isEnabled", true)
+                put("daysOfWeek", JSONArray(listOf(1, 2, 3, 4, 5, 6, 7)))
+            })
+        }
+
+        val backupJson = JSONObject().apply {
+            put("type", "decikeeper_settings_backup")
+            put("schemaVersion", 2)
+            put("appPackage", "com.decikeeper.app")
+            put("exportedAt", System.currentTimeMillis())
+            put("preferenceFiles", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("name", "app_window_rules")
+                    put("entries", JSONObject().apply {
+                        put("rules_json", JSONObject().apply {
+                            put("type", "String")
+                            put("value", ruleArray.toString())
+                        })
+                    })
+                })
+            })
+        }.toString()
+
+        val result = SettingsBackupManager.applyBackupJson(
+            context,
+            backupJson,
+            listOf(SettingsBackupManager.BackupCategory.APP_WINDOWS)
+        )
+        assertTrue(result.fileCount > 0)
+
+        // 基准为空时首批导入属于纯加严，应当场立即生效写入 active
+        val activeRules = AppWindowManager.getRules(context)
+        assertEquals(1, activeRules.size)
+        assertEquals("首个管控时间窗", activeRules[0].name)
+
+        // pending 应当为空，且无待生效标记
+        assertFalse(AppWindowManager.hasPendingChanges(context))
+        val pendingPrefs = context.getSharedPreferences("app_window_pending", Context.MODE_PRIVATE)
+        assertFalse(pendingPrefs.getBoolean("has_pending_changes", false))
+
+        // 基准应当已被同步建立
+        val baselineRules = AppWindowManager.getBaselineRules(context)
+        assertEquals(1, baselineRules.size)
+        assertEquals("首个管控时间窗", baselineRules[0].name)
+
+        // ChangeLog 记录立即生效日志（有利改动不进待生效列表，需在全量日志中查验）
+        val allLogs = ChangeLogManager.getAllEntries(context).filter { it.category == "app_window_rules" }
+        assertTrue("应记录加严规则立即生效日志", allLogs.any { it.description.contains("加严规则已立即生效") })
+    }
+
+    @Test
+    fun testSettingsBackupManager_importAppWindowRulesInFavorableImmediate_adverseChange_routesToPending() {
+        CreditManager.markAdaptationEnded(context)
+        com.decikeeper.app.manager.EffectiveActivationPolicyManager.setPolicy(
+            context,
+            com.decikeeper.app.manager.EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
+        )
+
+        // 预设本地已有时间窗与基准：08:00 - 10:00 (480 - 600)
+        val initialRule = AppWindowManager.AppWindowRule(
+            id = "rule-1",
+            name = "早间管控",
+            startTime = 480,
+            endTime = 600,
+            packageNames = mutableSetOf("com.example.app"),
+            isEnabled = true,
+            daysOfWeek = (1..7).toSet()
+        )
+        val activePrefs = context.getSharedPreferences("app_window_rules", Context.MODE_PRIVATE)
+        activePrefs.edit().putString("rules_json", JSONArray().put(JSONObject().apply {
+            put("id", "rule-1")
+            put("name", "早间管控")
+            put("startTime", 480)
+            put("endTime", 600)
+            put("packageNames", JSONArray(listOf("com.example.app")))
+            put("isEnabled", true)
+            put("daysOfWeek", JSONArray(listOf(1, 2, 3, 4, 5, 6, 7)))
+        }).toString()).commit()
+        AppWindowManager.saveBaseline(context)
+        AppWindowManager.invalidateCache()
+
+        // 模拟导入一个延长时间窗（放宽：480 - 720，即 08:00 - 12:00）的备份
+        val relaxedRuleArray = JSONArray().apply {
+            put(JSONObject().apply {
+                put("id", "rule-1")
+                put("name", "早间管控")
+                put("startTime", 480)
+                put("endTime", 720) // 放宽了 2 小时
+                put("packageNames", JSONArray(listOf("com.example.app")))
+                put("isEnabled", true)
+                put("daysOfWeek", JSONArray(listOf(1, 2, 3, 4, 5, 6, 7)))
+            })
+        }
+
+        val backupJson = JSONObject().apply {
+            put("type", "decikeeper_settings_backup")
+            put("schemaVersion", 2)
+            put("appPackage", "com.decikeeper.app")
+            put("exportedAt", System.currentTimeMillis())
+            put("preferenceFiles", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("name", "app_window_rules")
+                    put("entries", JSONObject().apply {
+                        put("rules_json", JSONObject().apply {
+                            put("type", "String")
+                            put("value", relaxedRuleArray.toString())
+                        })
+                    })
+                })
+            })
+        }.toString()
+
+        val result = SettingsBackupManager.applyBackupJson(
+            context,
+            backupJson,
+            listOf(SettingsBackupManager.BackupCategory.APP_WINDOWS)
+        )
+        assertTrue(result.fileCount > 0)
+
+        // 放宽变动必须被拦截并转入 pending 延迟生效
+        val pendingRules = AppWindowManager.getPendingRules(context)
+        assertNotNull("放宽项必须存入 pending", pendingRules)
+        assertEquals(1, pendingRules!!.size)
+        assertEquals(720, pendingRules[0].endTime)
+
+        // active 规则应保持原有严格基准未被放宽
+        val activeRules = AppWindowManager.getRules(context)
+        assertEquals(1, activeRules.size)
+        assertEquals(600, activeRules[0].endTime)
+
+        // pending 标志必须置为 true
+        assertTrue(AppWindowManager.hasPendingChanges(context))
     }
 
     @Test

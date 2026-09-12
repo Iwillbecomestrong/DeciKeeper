@@ -411,7 +411,7 @@ object ChangeLogManager {
     // Internal Helpers
     // ==========================================
     
-    private fun getAllEntries(context: Context): List<ChangeLogEntry> {
+    internal fun getAllEntries(context: Context): List<ChangeLogEntry> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val json = prefs.getString(KEY_ENTRIES, null) ?: return emptyList()
 

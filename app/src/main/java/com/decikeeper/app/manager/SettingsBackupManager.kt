@@ -25,6 +25,7 @@ import android.net.Uri
 import android.os.Build
 import com.decikeeper.app.data.BlacklistStore
 import com.decikeeper.app.data.LogExporter
+import com.decikeeper.app.data.SegmentAdverseAnalysis
 import com.decikeeper.app.data.statistics.AlarmWakeRecord
 import com.decikeeper.app.data.statistics.RestUsageRecord
 import com.decikeeper.app.manager.questionbank.CustomQuestionBankManager
@@ -506,30 +507,16 @@ object SettingsBackupManager {
                     }
                     LogExporter.logEvent("Import", "[PAIR] $activeName: pending preserved (effectiveTs=$effectiveTs > now=$importTime)")
                 } else {
-                    // 无明显 pending → 按普通文件处理
-                    if (writtenTargets.add(activeName)) {
-                        val targetName = resolveDelayedTargetName(activeName) ?: continue
-                        val normalizedValues = normalizeEntryKeysForTarget(targetName, activeValues)
-                        writePrefs(context.getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
-                        if (deviceProtectedMirrorNames.contains(targetName)) {
-                            writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
-                        }
-                        fileCount++; entryCount += normalizedValues.size
-                        setPendingActivationFlags(context, targetName)
-                    }
+                    // 无明显 pending → 根据生效策略区分宽严有别
+                    val res = importPairActive(context, activeName, pendingName, activeValues, writtenTargets)
+                    fileCount += res.fileCount
+                    entryCount += res.entryCount
                 }
             } else {
-                // 备份中只有 active，没有 pending → 旧行为
-                if (writtenTargets.add(activeName)) {
-                    val targetName = resolveDelayedTargetName(activeName) ?: continue
-                    val normalizedValues = normalizeEntryKeysForTarget(targetName, activeValues)
-                    writePrefs(context.getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
-                    if (deviceProtectedMirrorNames.contains(targetName)) {
-                        writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
-                    }
-                    fileCount++; entryCount += normalizedValues.size
-                    setPendingActivationFlags(context, targetName)
-                }
+                // 备份中只有 active，没有 pending → 根据生效策略区分宽严有别
+                val res = importPairActive(context, activeName, pendingName, activeValues, writtenTargets)
+                fileCount += res.fileCount
+                entryCount += res.entryCount
             }
         }
 
@@ -771,6 +758,143 @@ object SettingsBackupManager {
         return values
     }
 
+    private fun importPairActive(
+        context: Context,
+        activeName: String,
+        pendingName: String,
+        activeValues: Map<String, Any?>,
+        writtenTargets: MutableSet<String>
+    ): OperationResult {
+        if (!writtenTargets.add(activeName)) return OperationResult(0, 0)
+
+        val policy = EffectiveActivationPolicyManager.getPolicy(context)
+        val isFavorable = if (policy == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY) {
+            false
+        } else {
+            when (activeName) {
+                "app_window_rules" -> isAppWindowImportPurelyFavorable(context, activeValues)
+                "decikeeper_rules" -> isDecikeeperRulesImportPurelyFavorable(context, activeValues)
+                else -> false
+            }
+        }
+
+        if (isFavorable) {
+            val cleanValues = activeValues.filterKeys {
+                it !in setOf("has_pending_changes", "effective_timestamp", "has_pending_apps", "has_pending_segments", "effective_time")
+            }
+            val normalizedValues = normalizeEntryKeysForTarget(activeName, cleanValues)
+            writePrefs(context.getSharedPreferences(activeName, Context.MODE_PRIVATE), normalizedValues)
+            if (deviceProtectedMirrorNames.contains(activeName)) {
+                writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(activeName, Context.MODE_PRIVATE), normalizedValues)
+            }
+
+            // 清理并标记 pendingName，防止幽灵 pending
+            if (writtenTargets.add(pendingName)) {
+                context.getSharedPreferences(pendingName, Context.MODE_PRIVATE).edit().clear().apply()
+                if (deviceProtectedMirrorNames.contains(pendingName)) {
+                    context.createDeviceProtectedStorageContext().getSharedPreferences(pendingName, Context.MODE_PRIVATE).edit().clear().apply()
+                }
+            }
+
+            when (activeName) {
+                "app_window_rules" -> {
+                    AppWindowManager.invalidateCache()
+                    if (AppWindowManager.getBaselineRules(context).isEmpty()) {
+                        AppWindowManager.saveBaseline(context)
+                    }
+                    ChangeLogManager.addEntry(context, "app_window_rules", "导入应用时间窗规则（加严规则已立即生效）", isAdverse = false)
+                }
+                "decikeeper_rules" -> {
+                    TimeRuleManager.invalidateSegmentsCache()
+                    if (TimeRuleManager.getBaselineSegments(context).isNullOrEmpty()) {
+                        TimeRuleManager.saveBaselineSnapshot(context)
+                    }
+                    ChangeLogManager.addEntry(context, "decikeeper_rules", "导入时段与规则参数（加严规则已立即生效）", isAdverse = false)
+                }
+            }
+            LogExporter.logEvent("Import", "[PAIR] $activeName: purely favorable import applied immediately as active")
+            return OperationResult(1, normalizedValues.size)
+        } else {
+            val targetName = resolveDelayedTargetName(activeName) ?: return OperationResult(0, 0)
+            if (!writtenTargets.add(targetName)) return OperationResult(0, 0)
+
+            val normalizedValues = normalizeEntryKeysForTarget(targetName, activeValues)
+            writePrefs(context.getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
+            if (deviceProtectedMirrorNames.contains(targetName)) {
+                writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
+            }
+            setPendingActivationFlags(context, targetName)
+            LogExporter.logEvent("Import", "[PAIR] $activeName: imported to $targetName (delayed)")
+            return OperationResult(1, normalizedValues.size)
+        }
+    }
+
+    internal fun isAppWindowImportPurelyFavorable(context: Context, activeValues: Map<String, Any?>): Boolean {
+        val json = (activeValues["rules_json"] as? String)
+            ?: (activeValues["pending_rules_json"] as? String)
+            ?: return true
+        val candidateRules = AppWindowManager.parseRulesFromJsonForPublic(json)
+        return !AppWindowManager.isCandidateRulesAdverseAgainstBaseline(context, candidateRules)
+    }
+
+    internal fun isDecikeeperRulesImportPurelyFavorable(context: Context, activeValues: Map<String, Any?>): Boolean {
+        // 1. 检查时段 segments_json
+        val segmentsJson = activeValues["segments_json"] as? String
+        if (!segmentsJson.isNullOrBlank()) {
+            val candidateSegments = TimeRuleManager.parseSegmentsFromJson(segmentsJson)
+            if (SegmentAdverseAnalysis.isAdverseRelativeToBaseline(context, candidateSegments)) {
+                return false
+            }
+        }
+
+        // 2. 检查全局参数
+        val baselinePrefs = context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE)
+
+        (activeValues["cool_down_rest_seconds"] as? Number)?.toInt()?.let { newRest ->
+            val baseRest = if (baselinePrefs.contains("cool_down_rest_seconds")) {
+                baselinePrefs.getInt("cool_down_rest_seconds", 120)
+            } else {
+                TimeRuleManager.getCoolDownRestSeconds(context)
+            }
+            if (newRest > baseRest) return false
+        }
+
+        (activeValues["cool_down_gap_seconds"] as? Number)?.toInt()?.let { newGap ->
+            val baseGap = if (baselinePrefs.contains("cool_down_gap_seconds")) {
+                baselinePrefs.getInt("cool_down_gap_seconds", 120)
+            } else {
+                TimeRuleManager.getCoolDownGapSeconds(context)
+            }
+            if (newGap < baseGap) return false
+        }
+
+        (activeValues["borrow_percentage"] as? Number)?.toInt()?.let { newBorrow ->
+            val baseBorrow = if (baselinePrefs.contains("borrow_percentage")) {
+                baselinePrefs.getInt("borrow_percentage", 50)
+            } else {
+                TimeRuleManager.getBorrowPercentage(context)
+            }
+            if (newBorrow > baseBorrow) return false
+        }
+
+        (activeValues[TimeRuleManager.KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS] as? Number)?.toInt()?.let { newTemp ->
+            val baseTemp = if (baselinePrefs.contains(TimeRuleManager.KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS)) {
+                baselinePrefs.getInt(TimeRuleManager.KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS, 60)
+            } else {
+                TimeRuleManager.getTemporaryRestrictedAccessMaxSeconds(context)
+            }
+            if (newTemp > baseTemp) return false
+        }
+
+        val newRefresh = (activeValues["config_refresh_time"] ?: activeValues["refresh_time"]) as? String
+        if (newRefresh != null) {
+            val curRefresh = TimeRuleManager.getRefreshTime(context)
+            if (newRefresh != curRefresh) return false
+        }
+
+        return true
+    }
+
     private fun setPendingActivationFlags(context: Context, targetName: String) {
         val effectiveTime = ConfigPendingManager.calculateNextEffectiveTime(
             context, System.currentTimeMillis()
@@ -782,6 +906,12 @@ object SettingsBackupManager {
                     .putBoolean("has_pending_changes", true)
                     .putLong("effective_timestamp", effectiveTime)
                     .apply()
+                ChangeLogManager.addEntry(
+                    context,
+                    "decikeeper_rules",
+                    "导入时段与规则参数（将在刷新时刻生效）",
+                    isAdverse = true
+                )
             }
             "app_window_pending" -> {
                 val prefs = context.getSharedPreferences(targetName, Context.MODE_PRIVATE)

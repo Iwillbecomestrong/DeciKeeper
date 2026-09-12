@@ -250,9 +250,9 @@ object TimeRuleManager {
     // 这里不再独立维护标记，完全代理给 CreditManager
     private const val KEY_SEGMENTS_JSON = "segments_json"
     private const val KEY_CHANGE_LOG = "change_log_json"
-    private const val KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = "temp_restricted_access_max_seconds"
-    private const val DEFAULT_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 30
-    private const val MAX_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 180
+    const val KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = "temp_restricted_access_max_seconds"
+    const val DEFAULT_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 30
+    const val MAX_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 180
 
     // 🚀 [Logic] Adaptation Period Check
     // 统一委托给 CreditManager，避免 install_time 和 first_setup_timestamp_v2 双源不一致。

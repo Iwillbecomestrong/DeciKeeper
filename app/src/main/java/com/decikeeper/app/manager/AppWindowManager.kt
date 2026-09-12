@@ -1596,10 +1596,16 @@ object AppWindowManager {
         }
     }
     
-    private fun getBaselineRules(context: Context): List<AppWindowRule> {
+    fun getBaselineRules(context: Context): List<AppWindowRule> {
         val prefs = context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
         val json = prefs.getString(KEY_BASELINE_RULES_JSON, null) ?: return emptyList()
         return parseRulesFromJson(json)
+    }
+
+    fun isCandidateRulesAdverseAgainstBaseline(context: Context, candidateRules: List<AppWindowRule>): Boolean {
+        ensureFreshBaseline(context)
+        val baselineRules = getBaselineRules(context)
+        return isRuleSetAdverseAgainstBaseline(context, baselineRules, candidateRules)
     }
     
     fun getBaselineRule(context: Context, ruleId: String): AppWindowRule? {

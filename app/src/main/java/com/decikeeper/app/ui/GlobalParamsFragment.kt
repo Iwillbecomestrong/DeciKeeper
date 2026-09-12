@@ -250,18 +250,28 @@ class GlobalParamsFragment : Fragment() {
             newPrivWindowEnd = formatTime(newPrivWindowEnd)
             TimeRuleManager.setRefreshTimeSynced(context, switchSync.isChecked)
             TimeRuleManager.setPrivilegeWindowSynced(context, false)
+            val oldPolicy = EffectiveActivationPolicyManager.getPolicy(context)
             val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
                 EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
             } else {
                 EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
             }
-            EffectiveActivationPolicyManager.setPolicy(context, selectedPolicy)
+            val policyChanged = oldPolicy != selectedPolicy
+            if (policyChanged) {
+                EffectiveActivationPolicyManager.setPolicy(context, selectedPolicy)
+            }
             val result = TimeRuleManager.analyzeAndSaveGlobalParams(
                 context, newRest, newGap, newLockDuration, newBorrow, newNotifyFar, newNotifyNear,
                 newWeeklyCount, newWeeklyDuration, newRefreshTime, newTempRestrictedAccessMax,
                 newPrivWindowStart, newPrivWindowEnd
             )
-            AdverseAnalysis.showAnalysisDialog(context, result) { reloadData() }
+            if (policyChanged && result is com.decikeeper.app.data.AnalysisResult.NoChange) {
+                val policyTitle = EffectiveActivationPolicyManager.getPolicyTitle(selectedPolicy)
+                Toast.makeText(context, "设置已保存：生效策略已更新为【$policyTitle】", Toast.LENGTH_SHORT).show()
+                reloadData()
+            } else {
+                AdverseAnalysis.showAnalysisDialog(context, result) { reloadData() }
+            }
         }
     }
 
