@@ -789,11 +789,10 @@ class AlarmFragment : Fragment() {
                 val bank = chunk[0]
                 val tvTitle = TextView(context).apply {
                     layoutParams = LinearLayout.LayoutParams(
-                        0,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
-                        1f
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply { marginEnd = dp(8) }
-                    text = "${bank.title} "
+                    text = bank.title
                     textSize = 13f
                     maxLines = 2
                     setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
@@ -840,11 +839,10 @@ class AlarmFragment : Fragment() {
 
                     val tvTitle = TextView(context).apply {
                         layoutParams = LinearLayout.LayoutParams(
-                            0,
                             LinearLayout.LayoutParams.WRAP_CONTENT,
-                            1f
-                        ).apply { marginEnd = dp(4) }
-                        text = "${bank.title} "
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { marginEnd = dp(6) }
+                        text = bank.title
                         textSize = 13f
                         maxLines = 1
                         ellipsize = android.text.TextUtils.TruncateAt.END

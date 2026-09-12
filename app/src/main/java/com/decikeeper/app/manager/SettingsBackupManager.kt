@@ -209,6 +209,25 @@ object SettingsBackupManager {
         return "DeciKeeper_Settings_$stamp.json"
     }
 
+    /** 判断是否属于当前业务日/运行时的瞬态使用量键，禁止导出和覆盖今日实时消耗 */
+    internal fun isTransientTodayLedgerKey(key: String, todayDateStr: String): Boolean {
+        if (key in setOf(
+                "free_time_end",
+                "cool_down_end_timestamp",
+                "is_privilege_mode",
+                "record_date_str"
+            ) || key.startsWith("privilege_session_")
+        ) {
+            return true
+        }
+        if (todayDateStr.isNotEmpty()) {
+            if (key.contains("_${todayDateStr}_") || key.endsWith("_${todayDateStr}")) {
+                return true
+            }
+        }
+        return false
+    }
+
     // ── 导出 ─────────────────────────────────────────────────
 
     /** 导出全部类别（向后兼容） */
@@ -269,13 +288,15 @@ object SettingsBackupManager {
                     val effectiveTime = (map["weekly_privilege_limit_effective_time"] as? Long) ?: 0L
                     val isAdaptation = TimeRuleManager.isInAdaptationPeriod(context)
                     val isExpired = effectiveTime in 1..System.currentTimeMillis()
-                    if (isAdaptation || isExpired) {
+                    val filteredWeekly = if (isAdaptation || isExpired) {
                         map.filterKeys { it !in setOf(
                             "weekly_privilege_count_limit_pending",
                             "weekly_privilege_duration_limit_pending",
                             "weekly_privilege_limit_effective_time"
                         ) }
                     } else map
+                    val todayStr = CreditManager.getBusinessDateString(context)
+                    filteredWeekly.filterKeys { !isTransientTodayLedgerKey(it, todayStr) }
                 } else map
             }
             if (values.isEmpty()) return@forEach
@@ -543,9 +564,13 @@ object SettingsBackupManager {
                     ) }
                 } else rawValues
 
+                // 排除今日瞬态账本，保留本地今天实际使用的物理事实，严禁覆盖刷新额度
+                val currentTodayStr = CreditManager.getBusinessDateString(context)
+                val sanitizedLedger = filtered.filterKeys { !isTransientTodayLedgerKey(it, currentTodayStr) }
+
                 // 确保用户在备份中没有包含的分类App（如用户从黑名单移除了Google/Chrome），同步到 user_removed_apps，
                 // 防止导入后被 MonitorService 的 periodicAutoBlacklistScan 重新自动扫入黑名单！
-                val importedBlacklist = (filtered["blacklist_apps_list"] as? Set<*>)?.filterIsInstance<String>()?.toSet()
+                val importedBlacklist = (sanitizedLedger["blacklist_apps_list"] as? Set<*>)?.filterIsInstance<String>()?.toSet()
                 if (importedBlacklist != null) {
                     val categoryPkgs = mutableSetOf<String>()
                     for (cat in listOf("comm", "video", "game", "browser")) {
@@ -556,7 +581,7 @@ object SettingsBackupManager {
                         BlacklistStore.addUserRemovedApps(context, removedFromCategory)
                     }
                 }
-                filtered
+                sanitizedLedger
             } else rawValues
 
             fileCount++
