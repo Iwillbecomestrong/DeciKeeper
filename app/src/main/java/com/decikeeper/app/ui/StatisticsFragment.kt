@@ -450,7 +450,7 @@ class StatisticsFragment : Fragment() {
         layoutRestRecentList.removeAllViews()
         if (summary.recentRecords.isEmpty()) {
             val tv = TextView(ctx)
-            tv.text = "暂无休息流水记录"
+            tv.text = "暂无额度流水记录"
             tv.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             tv.textSize = 12f
             layoutRestRecentList.addView(tv)
@@ -467,12 +467,10 @@ class StatisticsFragment : Fragment() {
                 date.text = shortTime
                 type.text = rec.typeName
                 reason.text = if (rec.reason.isNotBlank()) rec.reason else "申请 ${rec.requestedMinutes}m"
-                val costSign = if (rec.costMinutes > 0) "-${rec.costMinutes}m" else if (rec.costMinutes < 0) "+${-rec.costMinutes}m" else "0m"
-                val countAbs = kotlin.math.abs(rec.costCount)
-                val countText = if (countAbs % 1.0 == 0.0) countAbs.toInt().toString() else "%.1f".format(countAbs)
-                val countSign = if (rec.costCount > 0) " / -${countText}次" else if (rec.costCount < 0) " / +${countText}次" else ""
-                cost.text = "$costSign$countSign"
-                balance.text = "余 ${rec.balanceMinutes.toInt()}m / ${rec.balanceCount}次"
+                val minuteDelta = -rec.costMinutes
+                val countDelta = -rec.costCount
+                cost.text = "额度 ${formatQuotaDelta(minuteDelta, "m")} / 次数 ${formatQuotaDelta(countDelta, "次")}"
+                balance.text = "变动后结余 ${rec.balanceMinutes.toInt()}m / ${rec.balanceCount}次"
                 layoutRestRecentList.addView(v)
             }
         }
@@ -487,6 +485,15 @@ class StatisticsFragment : Fragment() {
         cardSecondary.isVisible = true
         tvSecondaryTitle.text = "冷却中再次申请"
         tvSecondaryDesc.text = "冷却中的再次申请不是一次成功出口，因此不叠进休息图，只单独记录次数。"
+    }
+
+    private fun formatQuotaDelta(value: Double, unit: String): String {
+        val amount = if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+        return when {
+            value > 0 -> "+${amount}${unit}"
+            value < 0 -> "${amount}${unit}"
+            else -> "0${unit}"
+        }
     }
 
     // ==========================================
@@ -760,7 +767,11 @@ class StatisticsFragment : Fragment() {
         layoutUsagePermissionWarning.isVisible = false
         tvCardTitle.text = "起床"
         tvCardSubtitle.text = "${resolvedRange.displayName} · ${resolvedRange.dateSubText} · ${uiState.weekdayFilter.summaryText()}"
-        tvCardBadge.text = if (summary.recordedDaysCount == 0) "暂无记录" else "记录 ${summary.recordedDaysCount} 天"
+        tvCardBadge.text = if (summary.recordedRecordsCount == 0) {
+            "暂无记录"
+        } else {
+            "记录 ${summary.recordedDaysCount} 天 · ${summary.recordedRecordsCount} 次"
+        }
 
         layoutRuleHero.isVisible = false
         gridKpis.isVisible = true

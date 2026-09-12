@@ -27,6 +27,7 @@ import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
@@ -209,6 +210,9 @@ class CoreService : AccessibilityService() {
         @Volatile private var diagnosticsAccessibilityCheckAtMs: Long = 0L
         @Volatile private var diagnosticsAccessibilityCheckResult: String = "INITIALIZING"
         private const val ACCESSIBILITY_CHECK_CACHE_MS = 5_000L
+        private const val NODE_IDENTIFIER_MAX_NODES = 128
+        private const val NODE_IDENTIFIER_MAX_DEPTH = 8
+        private const val NODE_IDENTIFIER_MAX_DURATION_MS = 20L
 
         /**
          * Diagnostics-only: classify accessibility status for ForegroundDiagnosticCycle.
@@ -1366,15 +1370,41 @@ class CoreService : AccessibilityService() {
 
 
 
-    private fun hasNodeIdentifier(root: AccessibilityNodeInfo?, targetId: String): Boolean {
+    private class NodeIdentifierBudget {
+        private val startedAt = SystemClock.uptimeMillis()
+        private var visitedNodes = 0
+        var exhausted: Boolean = false
+            private set
+
+        fun tryVisit(depth: Int): Boolean {
+            if (
+                depth > NODE_IDENTIFIER_MAX_DEPTH ||
+                visitedNodes >= NODE_IDENTIFIER_MAX_NODES ||
+                SystemClock.uptimeMillis() - startedAt >= NODE_IDENTIFIER_MAX_DURATION_MS
+            ) {
+                exhausted = true
+                return false
+            }
+            visitedNodes++
+            return true
+        }
+    }
+
+    private fun hasNodeIdentifier(
+        root: AccessibilityNodeInfo?,
+        targetId: String,
+        depth: Int = 0,
+        budget: NodeIdentifierBudget = NodeIdentifierBudget()
+    ): Boolean {
         if (root == null) return false
+        if (!budget.tryVisit(depth)) return false
         if (root.viewIdResourceName == targetId) return true
         
         val count = root.childCount
         for (i in 0 until count) {
             val child = root.getChild(i)
             if (child != null) {
-                if (hasNodeIdentifier(child, targetId)) {
+                if (hasNodeIdentifier(child, targetId, depth + 1, budget)) {
                     child.recycle()
                     return true
                 }

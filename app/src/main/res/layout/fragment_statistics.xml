@@ -896,7 +896,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="最近休息流水"
+                        android:text="最近额度流水"
                         android:textColor="?attr/zzText"
                         android:textSize="11sp"
                         android:textStyle="bold" />
@@ -923,7 +923,7 @@
                     android:layout_marginTop="8dp"
                     android:background="@drawable/bg_zz_control_btn"
                     android:gravity="center"
-                    android:text="查看全部休息流水 ➔"
+                    android:text="查看全部额度流水 ➔"
                     android:textColor="?attr/zzAccent"
                     android:textSize="12sp"
                     android:textStyle="bold" />

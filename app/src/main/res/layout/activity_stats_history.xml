@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_stats_history"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?attr/zzPageBg"
@@ -34,6 +35,18 @@
             android:textColor="?attr/zzText"
             android:textSize="18sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btn_history_retention"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:paddingHorizontal="8dp"
+            android:text="保留设置"
+            android:textColor="?attr/zzAccent"
+            android:textSize="12sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <!-- 两个主页签切换 -->
@@ -65,7 +78,7 @@
             android:layout_marginStart="6dp"
             android:background="@drawable/bg_zz_option_btn"
             app:backgroundTint="@null"
-            android:text="休息额度流水"
+            android:text="额度流水"
             android:textColor="?attr/zzText"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -103,7 +116,7 @@
                 android:paddingBottom="24dp" />
         </LinearLayout>
 
-        <!-- 休息流水容器 -->
+        <!-- 额度流水容器 -->
         <LinearLayout
             android:id="@+id/container_rest_history"
             android:layout_width="match_parent"
@@ -112,12 +125,27 @@
             android:paddingHorizontal="16dp"
             android:visibility="gone">
 
+            <Button
+                android:id="@+id/btn_history_rest_range"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingHorizontal="10dp"
+                android:text="显示范围：今天"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="12sp" />
+
             <TextView
                 android:id="@+id/tv_rest_empty"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:gravity="center"
-                android:text="暂无休息流水记录"
+                android:text="暂无额度流水记录"
                 android:textColor="?attr/zzMuted"
                 android:textSize="14sp"
                 android:visibility="gone" />
@@ -125,7 +153,8 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_rest_history"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:clipToPadding="false"
                 android:paddingBottom="24dp" />
         </LinearLayout>

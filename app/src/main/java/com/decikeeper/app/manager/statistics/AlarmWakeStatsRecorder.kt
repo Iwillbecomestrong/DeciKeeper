@@ -101,14 +101,20 @@ object AlarmWakeStatsRecorder {
             alarmId = alarmId
         )
 
-        val existingRecords = getAllRecords(context).toMutableList()
-        existingRecords.removeAll { it.id == newRecord.id }
-        existingRecords.add(0, newRecord)
-        saveRecords(context, existingRecords)
+        val earliestDayRecord = try {
+            withDatabase(context) { database ->
+                database.migrateIfNeeded { readLegacyRecords(context) }
+                if (!database.insert(newRecord)) return@withDatabase null
+                // 同一天有多个闹钟时，日均统计与旧键优先采用当天最早的一次。
+                database.findEarliestForDate(newRecord.dateLabel) ?: newRecord
+            }
+        } catch (_: Exception) {
+            // 保留活动会话，等待下次恢复/完成路径重试，不能把一次数据库故障伪装成成功。
+            return false
+        } ?: return false
 
-        // 维护旧键兼容：同一天有多个闹钟时，日均统计与旧键优先采用当天最早的一次
-        val dayRecords = existingRecords.filter { it.dateLabel == newRecord.dateLabel }
-        val earliestDayRecord = dayRecords.minByOrNull { it.alarmMinuteOfDay } ?: newRecord
+        // 清理失败不能让已成功落库的闹钟会话被重复提交。
+        runCatching { purgeExpired(context) }
 
         context.getSharedPreferences(LEDGER_PREFS, Context.MODE_PRIVATE)
             .edit()
@@ -127,6 +133,99 @@ object AlarmWakeStatsRecorder {
      * 获取全量打卡流水列表（按完成时间倒序）
      */
     fun getAllRecords(context: Context): List<AlarmWakeRecord> {
+        return try {
+            withDatabase(context) { database ->
+                database.migrateIfNeeded { readLegacyRecords(context) }
+                purgeExpired(context, database)
+                database.readAll()
+            }
+        } catch (_: Exception) {
+            // 数据库暂时不可用时仍展示旧账本，避免统计页直接崩溃或变成空白。
+            readLegacyRecords(context)
+        }
+    }
+
+    /**
+     * 删除单条打卡记录
+     */
+    fun deleteRecord(context: Context, id: String): Boolean {
+        return try {
+            withDatabase(context) { database ->
+                database.migrateIfNeeded { readLegacyRecords(context) }
+                database.delete(id)
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * 修改更新单条打卡记录
+     */
+    fun updateRecord(context: Context, updated: AlarmWakeRecord): Boolean {
+        return try {
+            withDatabase(context) { database ->
+                database.migrateIfNeeded { readLegacyRecords(context) }
+                database.update(updated)
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** 导出当前 SQLite 明细，供设置备份使用。 */
+    fun exportRecords(context: Context): List<AlarmWakeRecord> = getAllRecords(context)
+
+    /**
+     * 导入旧版备份：prefs 已先恢复，此处只在当前数据库为空时补入旧记录，
+     * 避免把已有的新历史静默覆盖掉。
+     */
+    fun importLegacyBackupRecords(context: Context): Boolean {
+        val records = readLegacyRecords(context)
+        return try {
+            withDatabase(context) { database -> database.replaceIfEmpty(records) }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** 应用包含 SQLite 明细的新版备份，空数组也代表明确清空该分类。 */
+    fun replaceAllRecords(context: Context, records: List<AlarmWakeRecord>) {
+        withDatabase(context) { database ->
+            database.replaceAll(records)
+        }
+        runCatching { purgeExpired(context) }
+    }
+
+    fun purgeExpired(context: Context) {
+        runCatching {
+            withDatabase(context) { database ->
+                database.migrateIfNeeded { readLegacyRecords(context) }
+                purgeExpired(context, database)
+            }
+        }
+    }
+
+    private fun purgeExpired(context: Context, database: AlarmWakeStatsDatabase) {
+        HistoryRetentionPolicy.cutoffMillis(
+            HistoryRetentionPolicy.get(context, HistoryRecordKind.WAKE),
+            System.currentTimeMillis()
+        )?.let(database::deleteBefore)
+    }
+
+    private inline fun <T> withDatabase(
+        context: Context,
+        block: (AlarmWakeStatsDatabase) -> T
+    ): T {
+        val database = AlarmWakeStatsDatabase(context)
+        return try {
+            block(database)
+        } finally {
+            database.close()
+        }
+    }
+
+    private fun readLegacyRecords(context: Context): List<AlarmWakeRecord> {
         val prefs = context.getSharedPreferences(LEDGER_PREFS, Context.MODE_PRIVATE)
         val jsonStr = prefs.getString(KEY_RECORDS_JSON, null)
         if (!jsonStr.isNullOrBlank()) {
@@ -134,7 +233,8 @@ object AlarmWakeStatsRecorder {
                 val array = JSONArray(jsonStr)
                 val list = mutableListOf<AlarmWakeRecord>()
                 for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
+                    // A malformed item cannot invalidate the remaining history.
+                    val obj = array.optJSONObject(i) ?: continue
                     list.add(
                         AlarmWakeRecord(
                             id = obj.optString("id", "wake_$i"),
@@ -150,66 +250,11 @@ object AlarmWakeStatsRecorder {
                 }
                 return list
             } catch (_: Exception) {
+                // Invalid JSON: use the older per-day ledger below.
             }
         }
 
-        // 迁移历史账本数据
-        val migrated = migrateLegacyRecords(prefs)
-        if (migrated.isNotEmpty()) {
-            saveRecords(context, migrated)
-        }
-        return migrated
-    }
-
-    /**
-     * 删除单条打卡记录
-     */
-    fun deleteRecord(context: Context, id: String): Boolean {
-        val records = getAllRecords(context).toMutableList()
-        val removed = records.removeAll { it.id == id }
-        if (removed) {
-            saveRecords(context, records)
-            return true
-        }
-        return false
-    }
-
-    /**
-     * 修改更新单条打卡记录
-     */
-    fun updateRecord(context: Context, updated: AlarmWakeRecord): Boolean {
-        val records = getAllRecords(context).toMutableList()
-        val index = records.indexOfFirst { it.id == updated.id }
-        if (index >= 0) {
-            records[index] = updated
-            saveRecords(context, records)
-            return true
-        }
-        return false
-    }
-
-    private fun saveRecords(context: Context, records: List<AlarmWakeRecord>) {
-        try {
-            val array = JSONArray()
-            records.take(1000).forEach { r ->
-                val obj = JSONObject().apply {
-                    put("id", r.id)
-                    put("dateLabel", r.dateLabel)
-                    put("alarmMinuteOfDay", r.alarmMinuteOfDay)
-                    put("firstStageCompletedMinute", r.firstStageCompletedMinute)
-                    put("firstStageDurationMinutes", r.firstStageDurationMinutes)
-                    put("totalFlowDurationMinutes", r.totalFlowDurationMinutes)
-                    put("completedAt", r.completedAt)
-                    put("alarmId", r.alarmId)
-                }
-                array.put(obj)
-            }
-            context.getSharedPreferences(LEDGER_PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putString(KEY_RECORDS_JSON, array.toString())
-                .apply()
-        } catch (_: Exception) {
-        }
+        return migrateLegacyRecords(prefs)
     }
 
     private fun migrateLegacyRecords(prefs: android.content.SharedPreferences): List<AlarmWakeRecord> {

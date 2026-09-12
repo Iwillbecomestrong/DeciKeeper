@@ -58,7 +58,12 @@ class ConsumePenaltySecondsEpisodeTest {
         // Also clear TimeRuleManager's prefs (segments_json lives in decikeeper_rules)
         context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)
             .edit().clear().commit()
+        context.getSharedPreferences("decikeeper_rules_pending", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+        context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE)
+            .edit().clear().commit()
         prefs.edit().clear().commit()
+        TimeRuleManager.invalidateSegmentsCache()
         RestStatsRecorder.clearAll(context)
     }
 
@@ -115,10 +120,8 @@ class ConsumePenaltySecondsEpisodeTest {
         val curH = now.get(java.util.Calendar.HOUR_OF_DAY)
         val curM = now.get(java.util.Calendar.MINUTE)
 
-        // saveTimeSegments rejects a configured refresh boundary that sits
-        // strictly inside a candidate segment. Build the two-segment fixture
-        // around that boundary so the test remains valid at every wall-clock
-        // time instead of depending on when CI happens to run.
+        // Build the two-segment fixture around the current wall-clock minute
+        // so the test remains valid at every ordinary wall-clock time.
         val refreshParts = TimeRuleManager.getRefreshTime(context).split(":")
         val refreshH = refreshParts.getOrNull(0)?.toIntOrNull() ?: 8
         val refreshM = refreshParts.getOrNull(1)?.toIntOrNull() ?: 0
@@ -132,6 +135,11 @@ class ConsumePenaltySecondsEpisodeTest {
         val boundaryH = boundaryTotal / 60
         val boundaryM = boundaryTotal % 60
 
+        // Clear the active fixture before moving the refresh boundary. The
+        // production entry guard rejects a refresh time that falls inside an
+        // existing segment; leaving the previous fixture in place makes the
+        // test capture one business-date key and the production call resolve
+        // another one at the same wall-clock instant.
         val segs = listOf(
             TimeSegment(
                 startHour = curH, startMinute = curM,
@@ -150,10 +158,43 @@ class ConsumePenaltySecondsEpisodeTest {
                 usableCountLimitHalfUnits = 4
             )
         )
-        TimeRuleManager.saveRefreshTime(context, String.format(java.util.Locale.US, "%02d:%02d", curH, curM))
-        TimeRuleManager.saveTimeSegments(context, segs)
-        // Reset the segments cache so the new save is picked up.
+        // This test fixture must not exercise the production adverse-change
+        // policy or a stale pending snapshot from another test. Install the
+        // active JSON directly, then use the public refresh setter at the
+        // segment boundary to keep the business-date key deterministic.
+        context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)
+            .edit()
+            .putString("segments_json", TimeRuleManager.segmentsToJson(segs))
+            .commit()
         TimeRuleManager.invalidateSegmentsCache()
+        // This is a black-box fixture for CreditManager, so write the
+        // already-validated boundary directly and do not route through the
+        // refresh-edit policy under test elsewhere.
+        prefs.edit()
+            .putString("config_refresh_time", String.format(java.util.Locale.US, "%02d:%02d", curH, curM))
+            .commit()
+    }
+
+    private fun forceCurrentSegmentToNowWithHistory() {
+        val now = java.util.Calendar.getInstance()
+        val currentTotal = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+            now.get(java.util.Calendar.MINUTE)
+        val currentH = currentTotal / 60
+        val currentM = currentTotal % 60
+        val nextTotal = (currentTotal + 60) % (24 * 60)
+        val nextH = nextTotal / 60
+        val nextM = nextTotal % 60
+        val segs = listOf(
+            TimeSegment(0, 0, currentH, currentM, 60, "history", true, usableCountLimitHalfUnits = 4),
+            TimeSegment(currentH, currentM, nextH, nextM, 60, "now", true, usableCountLimitHalfUnits = 4),
+            TimeSegment(nextH, nextM, 0, 0, 60, "next", true, usableCountLimitHalfUnits = 4)
+        )
+        context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)
+            .edit()
+            .putString("segments_json", TimeRuleManager.segmentsToJson(segs))
+            .commit()
+        TimeRuleManager.invalidateSegmentsCache()
+        prefs.edit().putString("config_refresh_time", "00:00").commit()
     }
 
     private fun captureLedgerKeys(): LedgerKeys {
@@ -169,11 +210,16 @@ class ConsumePenaltySecondsEpisodeTest {
         )
     }
 
+    private fun clearLedgerPreservingFixtureConfig() {
+        val refresh = prefs.getString("config_refresh_time", null)
+        prefs.edit().clear().apply {
+            if (refresh != null) putString("config_refresh_time", refresh)
+        }.commit()
+    }
+
     // ---------------------------------------------------------------------
-    // RED fixtures: each test asserts the post-Boundary-6 contract. Today
-    // (pre-T6) consumePenaltySeconds writes only time keys and never touches
-    // the count ledger, so every assertion that depends on count ledger
-    // mutation is RED.
+    // Boundary-6 contract fixtures: each test exercises the post-migration
+    // atomic time/count ledger behavior through the public entry point.
     // ---------------------------------------------------------------------
 
     /**
@@ -189,7 +235,7 @@ class ConsumePenaltySecondsEpisodeTest {
         assertTrue("currentUsageKey must resolve", keys.currentUsageKey != null)
         assertTrue("currentBorrowKey must resolve", keys.currentBorrowKey != null)
 
-        prefs.edit().clear().commit()
+        clearLedgerPreservingFixtureConfig()
         prefs.edit()
             .putInt(keys.currentUsageKey!!, 0)
             .putInt(keys.currentBorrowKey!!, 0)
@@ -260,7 +306,7 @@ class ConsumePenaltySecondsEpisodeTest {
         val currentUsageTimeKey = usageTimeKey(segments[curIdx])
         val nextUsageTimeKey = usageTimeKey(segments[nextIdx])
 
-        prefs.edit().clear().commit()
+        clearLedgerPreservingFixtureConfig()
         prefs.edit()
             .putInt(currentUsageTimeKey, 60 * 60) // already at limit (60 min × 60s)
             .putInt(nextUsageTimeKey, 0)
@@ -380,7 +426,7 @@ class ConsumePenaltySecondsEpisodeTest {
         val curIdx = TimeRuleManager.getCurrentSegmentIndex(context)
         val currentUsageTimeKey = usageTimeKey(segments[curIdx])
 
-        prefs.edit().clear().commit()
+        clearLedgerPreservingFixtureConfig()
         prefs.edit()
             .putInt(currentUsageTimeKey, 60 * 60)
             .putInt(keys.currentUsageKey!!, segments[curIdx].getEffectiveUsableCountLimitHalfUnits())
@@ -400,11 +446,11 @@ class ConsumePenaltySecondsEpisodeTest {
 
     @Test
     fun penaltyConsumesCurrentAndHistoricalSurplusOnlyOnce() {
-        forceCurrentSegmentToNow()
+        forceCurrentSegmentToNowWithHistory()
         val keys = captureLedgerKeys()
         val segments = TimeRuleManager.getTimeSegments(context)
         val curIdx = TimeRuleManager.getCurrentSegmentIndex(context)
-        val historicalIdx = (curIdx + 1) % segments.size
+        val historicalIdx = (curIdx - 1 + segments.size) % segments.size
         assertTrue("fixture must expose a distinct historical segment", historicalIdx != curIdx)
 
         val currentTimeKey = usageTimeKey(segments[curIdx])
@@ -499,7 +545,7 @@ class ConsumePenaltySecondsEpisodeTest {
         val keys = captureLedgerKeys()
         assertTrue("currentUsageKey must resolve", keys.currentUsageKey != null)
 
-        prefs.edit().clear().commit()
+        clearLedgerPreservingFixtureConfig()
         prefs.edit()
             .putInt(keys.currentUsageKey!!, 0)
             .putInt(keys.currentBorrowKey!!, 0)

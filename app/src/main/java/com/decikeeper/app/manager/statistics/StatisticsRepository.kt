@@ -34,6 +34,19 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+data class UsageTimelineEvent(
+    val timestamp: Long,
+    val packageName: String?,
+    val eventType: Int
+)
+
+data class UsageTimelineAggregation(
+    val totalOpens: Map<String, Int>,
+    val totalUsageMillis: Map<String, Long>,
+    val bucketOpens: Map<StatsBucket, Map<String, Int>>,
+    val bucketUsageMillis: Map<StatsBucket, Map<String, Long>>
+)
+
 /**
  * 统计数据仓储层
  * 统一提供四大板块（休息、起床、应用、规则保护）的数据聚合。
@@ -45,6 +58,7 @@ import java.time.format.DateTimeFormatter
 object StatisticsRepository {
 
     private const val TAG = "StatisticsRepository"
+    private const val MAX_USAGE_SESSION_MILLIS = 3 * 60 * 60 * 1000L
     private val zoneId = ZoneId.systemDefault()
     private val shortDateFormatter = DateTimeFormatter.ofPattern("MM/dd")
 
@@ -75,6 +89,124 @@ object StatisticsRepository {
 
     fun hasUsagePermission(context: Context): Boolean {
         return permissionChecker?.invoke(context) ?: PermissionManager.hasUsageStatsPermission(context)
+    }
+
+    /**
+     * Convert the ordered UsageStats event stream into exclusive foreground sessions.
+     * Non-transition events never close or re-count a session. Durations are split at
+     * bucket and local-midnight boundaries so weekday filters and trend buckets share
+     * the same physical interval.
+     */
+    internal fun aggregateUsageTimeline(
+        events: List<UsageTimelineEvent>,
+        rangeStart: Long,
+        rangeEnd: Long,
+        buckets: List<StatsBucket>,
+        weekdayFilter: WeekdayFilter,
+        zoneId: ZoneId
+    ): UsageTimelineAggregation {
+        val totalOpens = mutableMapOf<String, Int>()
+        val totalUsageMillis = mutableMapOf<String, Long>()
+        val bucketOpens = mutableMapOf<StatsBucket, MutableMap<String, Int>>()
+        val bucketUsageMillis = mutableMapOf<StatsBucket, MutableMap<String, Long>>()
+
+        fun addOpen(packageName: String, timestamp: Long) {
+            val date = Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDate()
+            if (!weekdayFilter.matches(date.dayOfWeek)) return
+            totalOpens[packageName] = (totalOpens[packageName] ?: 0) + 1
+            buckets.firstOrNull { timestamp >= it.startMillis && timestamp < it.endMillisExclusive }
+                ?.let { bucket ->
+                    val values = bucketOpens.getOrPut(bucket) { mutableMapOf() }
+                    values[packageName] = (values[packageName] ?: 0) + 1
+                }
+        }
+
+        fun settle(packageName: String, sessionStart: Long, requestedEnd: Long) {
+            val cappedEnd = minOf(requestedEnd, sessionStart + MAX_USAGE_SESSION_MILLIS, rangeEnd)
+            var cursor = maxOf(sessionStart, rangeStart)
+            if (cursor >= cappedEnd) return
+
+            while (cursor < cappedEnd) {
+                val date = Instant.ofEpochMilli(cursor).atZone(zoneId).toLocalDate()
+                val nextMidnight = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                val bucket = buckets.firstOrNull { cursor >= it.startMillis && cursor < it.endMillisExclusive }
+                val nextBucketBoundary = bucket?.endMillisExclusive
+                    ?: buckets.asSequence()
+                        .filter { it.startMillis > cursor }
+                        .minOfOrNull { it.startMillis }
+                    ?: cappedEnd
+                val segmentEnd = minOf(cappedEnd, nextMidnight, nextBucketBoundary)
+                if (segmentEnd <= cursor) break
+
+                if (weekdayFilter.matches(date.dayOfWeek)) {
+                    val duration = segmentEnd - cursor
+                    totalUsageMillis[packageName] = (totalUsageMillis[packageName] ?: 0L) + duration
+                    bucket?.let {
+                        val values = bucketUsageMillis.getOrPut(it) { mutableMapOf() }
+                        values[packageName] = (values[packageName] ?: 0L) + duration
+                    }
+                }
+                cursor = segmentEnd
+            }
+        }
+
+        var currentPackage: String? = null
+        var sessionStart = 0L
+        events.sortedBy { it.timestamp }.forEach { event ->
+            if (event.timestamp < rangeStart) return@forEach
+            if (event.timestamp > rangeEnd) return@forEach
+
+            when (event.eventType) {
+                1 -> { // ACTIVITY_RESUMED
+                    currentPackage?.let { settle(it, sessionStart, event.timestamp) }
+                    val packageName = event.packageName
+                    if (packageName != null) {
+                        addOpen(packageName, event.timestamp)
+                        currentPackage = packageName
+                        sessionStart = event.timestamp
+                    } else {
+                        currentPackage = null
+                        sessionStart = 0L
+                    }
+                }
+                2, 23 -> { // ACTIVITY_PAUSED / ACTIVITY_STOPPED
+                    if (currentPackage != null && (event.packageName == null || event.packageName == currentPackage)) {
+                        settle(currentPackage!!, sessionStart, event.timestamp)
+                        currentPackage = null
+                        sessionStart = 0L
+                    }
+                }
+                16 -> { // SCREEN_NON_INTERACTIVE
+                    currentPackage?.let { settle(it, sessionStart, event.timestamp) }
+                    currentPackage = null
+                    sessionStart = 0L
+                }
+            }
+        }
+        currentPackage?.let { settle(it, sessionStart, rangeEnd) }
+
+        return UsageTimelineAggregation(
+            totalOpens = totalOpens,
+            totalUsageMillis = totalUsageMillis,
+            bucketOpens = bucketOpens,
+            bucketUsageMillis = bucketUsageMillis
+        )
+    }
+
+    internal fun aggregateCategoryTrendBuckets(
+        buckets: List<StatsBucket>,
+        perAppBuckets: Map<String, List<AppUsageBucketData>>,
+        packageNames: Set<String>
+    ): List<AppUsageBucketData> = buckets.mapIndexed { index, bucket ->
+        val rows = packageNames.mapNotNull { perAppBuckets[it]?.getOrNull(index) }
+        val maxMillis = (bucket.endMillisExclusive - bucket.startMillis).coerceAtLeast(0L)
+        val usageMillis = (rows.sumOf { (it.usageMinutes * 60_000f).toLong() })
+            .coerceAtMost(maxMillis)
+        AppUsageBucketData(
+            bucket = bucket,
+            openCount = rows.sumOf { it.openCount },
+            usageMinutes = usageMillis / 60_000f
+        )
     }
 
     fun getCustomCategories(context: Context): Map<String, AppCategory> {
@@ -553,7 +685,15 @@ object StatisticsRepository {
             totalPrivilegeMinutes = sumPrivMinutes,
             cooldownAttemptCount = sumCooldownAttempts,
             buckets = bucketDataList,
-            recentRecords = RestStatsRecorder.getRecentRecords(context, 5)
+            recentRecords = RestStatsRecorder.getRecentRecords(context, 5).filter { record ->
+                record.timestamp >= resolvedRange.startMillis &&
+                    record.timestamp < resolvedRange.endMillisExclusive &&
+                    !LocalDateTime.ofInstant(Instant.ofEpochMilli(record.timestamp), zoneId)
+                        .toLocalDate().isAfter(today) &&
+                    weekdayFilter.isEnabled(
+                        LocalDateTime.ofInstant(Instant.ofEpochMilli(record.timestamp), zoneId).dayOfWeek
+                    )
+            }
         )
     }
 
@@ -665,77 +805,35 @@ object StatisticsRepository {
             try {
                 val events = usm.queryEvents(rangeStart, rangeEnd)
                 val event = UsageEvents.Event()
-                var currentForegroundPkg: String? = null
-                var lastResumedTimestamp = 0L
+                val timelineEvents = mutableListOf<UsageTimelineEvent>()
 
                 while (events.hasNextEvent()) {
                     events.getNextEvent(event)
-                    hasUsageEvents = true
-                    val t = event.timeStamp
-                    val pkg = event.packageName ?: continue
+                    val packageName = event.packageName
                     val eventType = event.eventType
-
-                    // 检查事件发生日是否符合星期过滤
-                    val eventDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(t), zoneId).toLocalDate()
-                    val matchesWeekday = weekdayFilter.matches(eventDate.dayOfWeek)
-                    val targetBucket = buckets.find { t >= it.startMillis && t < it.endMillisExclusive }
-
-                    // 处理前一个主前台 session 的排他结算 (对齐系统原生数字健康亮屏前台口径)
-                    if (currentForegroundPkg != null && lastResumedTimestamp > 0L && t > lastResumedTimestamp) {
-                        // 单次 session 上限 3 小时，防止遗漏 pause 事件导致异常延长
-                        val sessionDuration = (t - lastResumedTimestamp).coerceAtMost(3 * 3600 * 1000L)
-                        val prevDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(lastResumedTimestamp), zoneId).toLocalDate()
-                        val prevMatchesWeekday = weekdayFilter.matches(prevDate.dayOfWeek)
-
-                        if (prevMatchesWeekday) {
-                            val fgPkg = currentForegroundPkg!!
-                            totalUsageMap[fgPkg] = (totalUsageMap[fgPkg] ?: 0L) + sessionDuration
-                            val prevBucket = buckets.find { lastResumedTimestamp >= it.startMillis && lastResumedTimestamp < it.endMillisExclusive }
-                            if (prevBucket != null) {
-                                val map = bucketUsageMap.getOrPut(prevBucket) { mutableMapOf() }
-                                map[fgPkg] = (map[fgPkg] ?: 0L) + sessionDuration
-                            }
-                        }
+                    if (packageName != null && eventType in setOf(1, 2, 16, 23)) {
+                        hasUsageEvents = true
                     }
-
-                    when (eventType) {
-                        UsageEvents.Event.ACTIVITY_RESUMED, 1 -> {
-                            if (matchesWeekday) {
-                                if (targetBucket != null) {
-                                    val bMap = bucketOpensMap.getOrPut(targetBucket) { mutableMapOf() }
-                                    bMap[pkg] = (bMap[pkg] ?: 0) + 1
-                                }
-                                totalOpensMap[pkg] = (totalOpensMap[pkg] ?: 0) + 1
-                            }
-                            currentForegroundPkg = pkg
-                            lastResumedTimestamp = t
-                        }
-                        UsageEvents.Event.ACTIVITY_PAUSED, 2,
-                        UsageEvents.Event.ACTIVITY_STOPPED, 23,
-                        UsageEvents.Event.SCREEN_NON_INTERACTIVE, 16 -> {
-                            currentForegroundPkg = null
-                            lastResumedTimestamp = 0L
-                        }
-                        else -> {
-                            // 保持当前状态
-                        }
-                    }
+                    timelineEvents += UsageTimelineEvent(event.timeStamp, packageName, eventType)
                 }
 
-                // 最后一个活跃 session 结算
-                if (currentForegroundPkg != null && lastResumedTimestamp > 0L && rangeEnd > lastResumedTimestamp) {
-                    val sessionDuration = (rangeEnd - lastResumedTimestamp).coerceAtMost(30 * 60 * 1000L)
-                    val lastDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(lastResumedTimestamp), zoneId).toLocalDate()
-                    if (weekdayFilter.matches(lastDate.dayOfWeek)) {
-                        val fgPkg = currentForegroundPkg!!
-                        totalUsageMap[fgPkg] = (totalUsageMap[fgPkg] ?: 0L) + sessionDuration
-                        val b = buckets.find { lastResumedTimestamp >= it.startMillis && lastResumedTimestamp < it.endMillisExclusive }
-                        if (b != null) {
-                            val map = bucketUsageMap.getOrPut(b) { mutableMapOf() }
-                            map[fgPkg] = (map[fgPkg] ?: 0L) + sessionDuration
-                        }
-                    }
+                val timeline = aggregateUsageTimeline(
+                    events = timelineEvents,
+                    rangeStart = rangeStart,
+                    rangeEnd = rangeEnd,
+                    buckets = buckets,
+                    weekdayFilter = weekdayFilter,
+                    zoneId = zoneId
+                )
+                timeline.totalOpens.forEach { (pkg, count) -> totalOpensMap[pkg] = count }
+                timeline.totalUsageMillis.forEach { (pkg, millis) -> totalUsageMap[pkg] = millis }
+                timeline.bucketOpens.forEach { (bucket, values) ->
+                    bucketOpensMap[bucket] = values.toMutableMap()
                 }
+                timeline.bucketUsageMillis.forEach { (bucket, values) ->
+                    bucketUsageMap[bucket] = values.toMutableMap()
+                }
+
             } catch (e: Exception) {
                 Log.w(TAG, "queryEvents timeline processing failed: ${e.message}")
             }
@@ -889,6 +987,18 @@ object StatisticsRepository {
             AppUsageBucketData(b, bucketTotalOpens, minutes)
         }
 
+        val perAppBuckets = allActivePackages.associateWith { pkg ->
+            buckets.map { b ->
+                val bucketMaxMillis = (b.endMillisExclusive - b.startMillis).coerceAtLeast(0L)
+                val millis = (bucketUsageMap[b]?.get(pkg) ?: 0L).coerceAtMost(bucketMaxMillis)
+                AppUsageBucketData(
+                    bucket = b,
+                    openCount = bucketOpensMap[b]?.get(pkg) ?: 0,
+                    usageMinutes = millis / 60_000f
+                )
+            }
+        }
+
         // 单应用或游戏大类单独选中的趋势
         val selectedTrend = if (selectedApp != null) {
             buckets.map { b ->
@@ -956,7 +1066,8 @@ object StatisticsRepository {
             buckets = bucketDataList,
             selectedAppTrendBuckets = selectedTrend,
             hasUsageAccessPermission = true,
-            categorySummaries = categorySummaries
+            categorySummaries = categorySummaries,
+            perAppBuckets = perAppBuckets
         )
     }
 
@@ -1108,6 +1219,7 @@ object StatisticsRepository {
             medianFirstStageDurationMinutes = medianInt(dailyReps.map { it.firstStageDurationMinutes }),
             medianTotalFlowDurationMinutes = medianInt(dailyReps.map { it.totalFlowDurationMinutes }),
             recordedDaysCount = dailyReps.size,
+            recordedRecordsCount = datedRecords.distinctBy { it.second.id }.size,
             buckets = bucketDataList,
             recentRecords = recent
         )
@@ -1133,39 +1245,44 @@ object StatisticsRepository {
         val today = LocalDate.now(zoneId)
         val nowMillis = System.currentTimeMillis()
 
-        val pendingPrefs = try { context.getSharedPreferences("pending_config_prefs", Context.MODE_PRIVATE) } catch (_: Exception) { null }
-        val pendingCount = pendingPrefs?.all?.size ?: 0
-
-        val rulePrefs = try { context.getSharedPreferences("rule_protection_ledger", Context.MODE_PRIVATE) } catch (_: Exception) { null }
-        val recentChanges = mutableListOf<RuleProtectionItem>()
-
-        var totalFavorable = 0
-        var totalUnfavorable = 0
-        var totalReversed = 0
+        val pendingCount = countPendingRuleChanges(context)
 
         val bucketDataList = buckets.map { b ->
-            val sDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(b.startMillis), zoneId).toLocalDate()
-            val isFuture = sDate.isAfter(today) || b.startMillis > nowMillis
-
-            if (isFuture) {
-                return@map RuleProtectionBucketData(bucket = b)
+            var favorable = 0
+            var unfavorable = 0
+            var reversed = 0
+            var date = LocalDateTime.ofInstant(Instant.ofEpochMilli(b.startMillis), zoneId).toLocalDate()
+            val endDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(b.endMillisExclusive), zoneId).toLocalDate()
+            while (date.isBefore(endDate)) {
+                if (!date.isAfter(today) && weekdayFilter.isEnabled(date.dayOfWeek)) {
+                    val (fav, unfav, rev) = RuleChangeLedger.getCountsForDate(context, date)
+                    favorable += fav
+                    unfavorable += unfav
+                    reversed += rev
+                }
+                date = date.plusDays(1)
             }
-
-            val (fav, unfav, rev) = RuleChangeLedger.getCountsForDate(context, sDate)
-            totalFavorable += fav
-            totalUnfavorable += unfav
-            totalReversed += rev
 
             RuleProtectionBucketData(
                 bucket = b,
-                favorableCount = fav,
-                unfavorableCount = unfav,
-                reversedCount = rev
+                favorableCount = favorable,
+                unfavorableCount = unfavorable,
+                reversedCount = reversed
             )
         }
 
+        val totalFavorable = bucketDataList.sumOf { it.favorableCount }
+        val totalUnfavorable = bucketDataList.sumOf { it.unfavorableCount }
+        val totalReversed = bucketDataList.sumOf { it.reversedCount }
+
         val netChange = totalFavorable - totalUnfavorable
-        val recentRecords = RuleChangeLedger.getRecentRecords(context).map { record ->
+        val recentRecords = RuleChangeLedger.getRecentRecords(context).filter { record ->
+            record.timestamp >= resolvedRange.startMillis &&
+                record.timestamp < resolvedRange.endMillisExclusive &&
+                !LocalDateTime.ofInstant(Instant.ofEpochMilli(record.timestamp), zoneId)
+                    .toLocalDate().isAfter(today) &&
+                weekdayFilter.isEnabled(LocalDateTime.ofInstant(Instant.ofEpochMilli(record.timestamp), zoneId).dayOfWeek)
+        }.map { record ->
             val timeLabel = LocalDateTime.ofInstant(Instant.ofEpochMilli(record.timestamp), zoneId)
                 .format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
             RuleProtectionItem(
@@ -1191,8 +1308,8 @@ object StatisticsRepository {
             totalLoosenItems = totalUnfavorable,
             fullyRestoredCount = totalFavorable,
             partiallyRestoredCount = totalReversed,
-            effectiveCount = totalUnfavorable,
-            pendingCount = 0,
+            effectiveCount = (totalUnfavorable - totalReversed).coerceAtLeast(0),
+            pendingCount = pendingCount,
             buckets = bucketDataList,
             recentChanges = recentRecords,
             totalFavorable = totalFavorable,
@@ -1200,6 +1317,27 @@ object StatisticsRepository {
             totalReversed = totalReversed,
             netChange = netChange
         )
+    }
+
+    private fun countPendingRuleChanges(context: Context): Int {
+        var count = 0
+
+        val timePending = context.getSharedPreferences("decikeeper_rules_pending", Context.MODE_PRIVATE)
+        if (timePending.getBoolean("has_pending_changes", false) ||
+            timePending.getBoolean("has_pending_segments", false)
+        ) count++
+
+        val appWindowPending = context.getSharedPreferences("app_window_pending", Context.MODE_PRIVATE)
+        if (appWindowPending.getBoolean("has_pending_changes", false) ||
+            !appWindowPending.getString("pending_rules_json", null).isNullOrBlank()
+        ) count++
+
+        val blacklistPending = context.getSharedPreferences("decikeeper_pending_apps", Context.MODE_PRIVATE)
+        if (blacklistPending.getBoolean("has_pending_apps", false)) count++
+
+        val genericPending = context.getSharedPreferences("pending_config_prefs", Context.MODE_PRIVATE)
+        count += genericPending.all.keys.count { it.endsWith("_effective_time") }
+        return count
     }
 
     /**
@@ -1225,15 +1363,11 @@ object StatisticsRepository {
         val totalMinutes = subApps.sumOf { it.usageDurationMinutes }
         val totalOpens = subApps.sumOf { it.openCount }
 
-        val buckets = appSummary.buckets.map { b ->
-            val ratio = if (appSummary.totalUsageMinutes > 0) totalMinutes.toFloat() / appSummary.totalUsageMinutes else 0f
-            val opensRatio = if (appSummary.totalOpens > 0) totalOpens.toFloat() / appSummary.totalOpens else 0f
-            AppUsageBucketData(
-                bucket = b.bucket,
-                openCount = (b.openCount * opensRatio).toInt(),
-                usageMinutes = b.usageMinutes * ratio
-            )
-        }
+        val buckets = aggregateCategoryTrendBuckets(
+            buckets = appSummary.buckets.map { it.bucket },
+            perAppBuckets = appSummary.perAppBuckets,
+            packageNames = subApps.map { it.packageName }.toSet()
+        )
 
         return CategoryDetailData(
             category = category,

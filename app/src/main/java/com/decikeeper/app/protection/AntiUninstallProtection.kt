@@ -22,6 +22,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -44,6 +45,9 @@ class AntiUninstallProtection(private val context: Context) {
 
         private const val EVENT_LOG_THROTTLE_MS = 1000L
         private const val CHECK_LOG_THROTTLE_MS = 800L
+        private const val NODE_SCAN_MAX_NODES = 256
+        private const val NODE_SCAN_MAX_DURATION_MS = 40L
+        private const val EXIT_ACTION_DEBOUNCE_MS = 500L
         private var lastEventLogTime = 0L
         private var lastEventLogPackage: String? = null
         private var lastCheckLogTime = 0L
@@ -51,6 +55,12 @@ class AntiUninstallProtection(private val context: Context) {
         // Global dialog state shared across protection modules.
         @Volatile var isDialogShowing = false
         @Volatile var hasPendingDialog = false
+
+        internal fun shouldDispatchExitAction(
+            nowMs: Long,
+            lastDispatchMs: Long,
+            debounceMs: Long = EXIT_ACTION_DEBOUNCE_MS
+        ): Boolean = nowMs - lastDispatchMs >= debounceMs
         
         // Allowed "Safe" apps (system components only).
         val SAFE_PACKAGES_KEYWORDS = listOf(
@@ -316,6 +326,7 @@ class AntiUninstallProtection(private val context: Context) {
     private var mLastBlockTime: Long = 0
     private var lastLauncherHandleAt: Long = 0L
     private var lastLauncherHandleSignature: String? = null
+    private var lastExitActionAt: Long = 0L
     private var lastPrivateSpaceBlockAt: Long = 0L
     private var lastPrivateSpaceBlockSignature: String? = null
     private var privateSpaceSessionUntil: Long = 0L
@@ -925,7 +936,11 @@ class AntiUninstallProtection(private val context: Context) {
             }
             
             if (isMonitoredPackage && !detected) {
-                val uninstallSample = detectUninstallAttemptSample(root, currentPackage)
+                val uninstallSample = detectUninstallAttemptSample(
+                    root = root,
+                    currentPackage = currentPackage,
+                    eventText = event.text?.toString().orEmpty()
+                )
                 if (uninstallSample != null) {
                     Log.w(TAG, "!!! [Global Scan] 捕获到卸载尝试! $currentPackage !!!")
                     LogExporter.logEvent(TAG, "[BLOCK] Global scan detected uninstall in $currentPackage")
@@ -1284,10 +1299,30 @@ class AntiUninstallProtection(private val context: Context) {
         }
     }
 
-    private fun detectUninstallAttemptSample(root: AccessibilityNodeInfo, currentPackage: String): String? {
+    private fun detectUninstallAttemptSample(
+        root: AccessibilityNodeInfo,
+        currentPackage: String,
+        eventText: String
+    ): String? {
         val allText = StringBuilder()
-        collectAllText(root, allText)
-        val content = allText.toString()
+        val budget = NodeTraversalBudget()
+        collectAllText(root, allText, budget = budget)
+        val content = buildString {
+            append(eventText).append(" ")
+            append(allText)
+        }
+
+        // 既有 OEM 契约：无障碍服务列表页即使出现“停用/卸载”等邻近文案也不得拦截。
+        // 必须在超限 fail-closed 之前检查已收到的事件/节点证据，避免加固误伤该豁免。
+        if (shouldSkipAccessibilitySettings(content)) {
+            return null
+        }
+        if (budget.exhausted) {
+            // 该函数只在受监控的设置/安装器/商店包中调用。扫描无法在预算内
+            // 完成时必须 fail-closed，不能把“树太大”变成防卸载绕过窗口。
+            Log.w(TAG, "[Global Scan] node traversal budget exhausted for $currentPackage; blocking conservatively")
+            return "[TRAVERSAL_LIMIT_EXCEEDED]"
+        }
 
         // 🚫 [A11y List Skip] If the page is an accessibility service list page,
         // never treat it as an uninstall attempt — even if "卸载" appears in nearby UI
@@ -1377,6 +1412,14 @@ class AntiUninstallProtection(private val context: Context) {
             lastLauncherHandleAt = now
             lastLauncherHandleSignature = signature
         }
+
+        // OEM 窗口状态事件可能毫秒级连发；统一限制 BACK/HOME 退栈动作的发射频率，
+        // 防止重复动作轰炸主线程。该门禁只抑制重复动作，不改变拦截判定与热窗口。
+        if (!shouldDispatchExitAction(now, lastExitActionAt)) {
+            LogExporter.logEvent(TAG, "[HANDLE] Exit action debounced (${now - lastExitActionAt}ms)")
+            return
+        }
+        lastExitActionAt = now
         
         if (isAccessibilityContext) {
             Log.i(TAG, "[Exit Strategy] Accessibility Context: Triggering Double-Back to exit Settings")
@@ -1576,8 +1619,35 @@ class AntiUninstallProtection(private val context: Context) {
         pendingWarmupTask = null
     }
 
-    private fun collectAllText(node: AccessibilityNodeInfo?, sb: StringBuilder, depth: Int = 0, maxDepth: Int = 10, maxChildren: Int = 30) {
+    private class NodeTraversalBudget(
+        private val maxNodes: Int = NODE_SCAN_MAX_NODES,
+        private val maxDurationMs: Long = NODE_SCAN_MAX_DURATION_MS
+    ) {
+        private val startedAt = SystemClock.uptimeMillis()
+        private var visitedNodes = 0
+        var exhausted: Boolean = false
+            private set
+
+        fun tryVisit(): Boolean {
+            if (visitedNodes >= maxNodes || SystemClock.uptimeMillis() - startedAt >= maxDurationMs) {
+                exhausted = true
+                return false
+            }
+            visitedNodes++
+            return true
+        }
+    }
+
+    private fun collectAllText(
+        node: AccessibilityNodeInfo?,
+        sb: StringBuilder,
+        depth: Int = 0,
+        maxDepth: Int = 10,
+        maxChildren: Int = 30,
+        budget: NodeTraversalBudget = NodeTraversalBudget()
+    ) {
         if (node == null) return
+        if (!budget.tryVisit()) return
         if (node.isEditable || node.className == "android.widget.EditText") return
         
         // 🚀 [Performance] Safety Limits - balanced for detection speed
@@ -1596,7 +1666,7 @@ class AntiUninstallProtection(private val context: Context) {
         for (i in 0 until effectiveCount) {
             val child = node.getChild(i)
             if (child != null) {
-                collectAllText(child, sb, depth + 1, maxDepth, maxChildren)
+                collectAllText(child, sb, depth + 1, maxDepth, maxChildren, budget)
                 child.recycle()
                 if (sb.length > 5000) break
             }
@@ -1608,9 +1678,11 @@ class AntiUninstallProtection(private val context: Context) {
         sb: StringBuilder,
         depth: Int = 0,
         maxDepth: Int = 2,
-        maxChildren: Int = 18
+        maxChildren: Int = 18,
+        budget: NodeTraversalBudget = NodeTraversalBudget()
     ) {
         if (node == null) return
+        if (!budget.tryVisit()) return
         if (depth > maxDepth) return
         if (sb.length > 1800) return
 
@@ -1623,7 +1695,7 @@ class AntiUninstallProtection(private val context: Context) {
         for (i in 0 until effectiveCount) {
             val child = node.getChild(i)
             if (child != null) {
-                collectPrivateSpacePageHints(child, sb, depth + 1, maxDepth, maxChildren)
+                collectPrivateSpacePageHints(child, sb, depth + 1, maxDepth, maxChildren, budget)
                 child.recycle()
                 if (sb.length > 1800) break
             }
@@ -1633,8 +1705,12 @@ class AntiUninstallProtection(private val context: Context) {
     // 🚀 [Fix] Robust App Name Detection
     // Ignores "Clickable" occurrences (likely Desktop Icons)
     // Only flags "Static" occurrences (Likely Dialog Messages)
-    private fun hasStaticAppNameMention(root: AccessibilityNodeInfo?): Boolean {
+    private fun hasStaticAppNameMention(
+        root: AccessibilityNodeInfo?,
+        budget: NodeTraversalBudget = NodeTraversalBudget()
+    ): Boolean {
         if (root == null) return false
+        if (!budget.tryVisit()) return false
         
         // Check current node
         val text = root.text?.toString() ?: ""
@@ -1656,7 +1732,7 @@ class AntiUninstallProtection(private val context: Context) {
         for (i in 0 until effectiveCount) {
             val child = root.getChild(i)
             if (child != null) {
-                if (hasStaticAppNameMention(child)) {
+                if (hasStaticAppNameMention(child, budget)) {
                     child.recycle()
                     return true
                 }
