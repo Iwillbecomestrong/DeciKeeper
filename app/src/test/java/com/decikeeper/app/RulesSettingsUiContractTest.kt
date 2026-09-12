@@ -83,6 +83,7 @@ class RulesSettingsUiContractTest {
         assertTrue(source.contains("TimeRuleEditWindowPolicyManager.isEditLocked"))
         assertTrue(source.contains("TimeRuleEditWindowPolicyManager.applyPolicyChange"))
         assertTrue(source.contains("updateEditWindowPolicyUI"))
+        assertTrue(source.contains("val displayPolicy = pendingPolicy ?: activePolicy"))
     }
 
     @Test

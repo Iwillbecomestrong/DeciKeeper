@@ -467,9 +467,10 @@ class RulesFragment : Fragment() {
         val activePolicy = TimeRuleEditWindowPolicyManager.getPolicy(ctx)
         val pendingPolicy = TimeRuleEditWindowPolicyManager.getPendingPolicy(ctx)
 
+        val displayPolicy = pendingPolicy ?: activePolicy
         isEditWindowPolicyUiUpdating = true
         try {
-            if (activePolicy == TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT) {
+            if (displayPolicy == TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT) {
                 rbSettingsEditWindowEffectiveToMidnight?.isChecked = true
             } else {
                 rbSettingsEditWindowAllDay?.isChecked = true
