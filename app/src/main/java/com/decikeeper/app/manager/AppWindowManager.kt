@@ -252,7 +252,16 @@ object AppWindowManager {
 
     fun getPendingRules(context: Context): MutableList<AppWindowRule>? {
         val prefs = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
-        val json = prefs.getString(KEY_PENDING_RULES_JSON, null) ?: return null
+        var json = prefs.getString(KEY_PENDING_RULES_JSON, null)
+        if (json == null) {
+            val fallbackJson = prefs.getString(KEY_RULES_JSON, null)
+            if (fallbackJson != null) {
+                json = fallbackJson
+                // 自愈写回标准键
+                prefs.edit().putString(KEY_PENDING_RULES_JSON, fallbackJson).apply()
+            }
+        }
+        if (json == null) return null
         return parseRulesFromJson(json)
     }
 
@@ -360,7 +369,7 @@ object AppWindowManager {
         return result
     }
 
-    private fun hasPartialDelayedEntries(context: Context): Boolean {
+    fun hasPartialDelayedEntries(context: Context): Boolean {
         return loadPartialDelayMap(context).isNotEmpty()
     }
 
@@ -537,7 +546,22 @@ object AppWindowManager {
     }
 
     fun hasPendingChanges(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).getBoolean("has_pending_changes", false)
+        val prefs = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
+        val flag = prefs.getBoolean("has_pending_changes", false)
+        if (!flag) return false
+
+        ensureLoaded(context)
+        val pending = getPendingRules(context)
+        val hasPartial = hasPartialDelayedEntries(context)
+        if (pending == null && !hasPartial) {
+            clearAllPendingChanges(context)
+            return false
+        }
+        if (pending != null && isSameAsActive(pending) && !hasPartial) {
+            clearAllPendingChanges(context)
+            return false
+        }
+        return true
     }
 
     /**
@@ -1208,7 +1232,14 @@ object AppWindowManager {
         val effectiveTime = pendingPrefs.getLong("effective_timestamp", 0L)
         if (!force && System.currentTimeMillis() < effectiveTime) return
         
-        val json = pendingPrefs.getString(KEY_PENDING_RULES_JSON, null) ?: return
+        var json = pendingPrefs.getString(KEY_PENDING_RULES_JSON, null)
+        if (json == null) {
+            json = pendingPrefs.getString(KEY_RULES_JSON, null)
+        }
+        if (json == null) {
+            pendingPrefs.edit().clear().apply()
+            return
+        }
         val activePrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         activePrefs.edit().putString(KEY_RULES_JSON, json).apply()
         

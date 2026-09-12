@@ -210,10 +210,25 @@ class AppWindowFragment : Fragment() {
             cardPending.visibility = View.VISIBLE
             tvPendingChanges.text = changeLog
         } else {
-            // 有 pending flag 但 ChangeLog 为空——显示兜底提示（动态读取实际生效时间）
-            cardPending.visibility = View.VISIBLE
+            // 有 pending flag 但 ChangeLog 为空——提取待生效规则或自愈
+            val pendingRules = AppWindowManager.getPendingRules(ctx)
             val refreshTime = TimeRuleManager.getRefreshTime(ctx)
-            tvPendingChanges.text = "有待生效的变更，将在下一刷新时刻 $refreshTime 生效"
+            if (!pendingRules.isNullOrEmpty()) {
+                cardPending.visibility = View.VISIBLE
+                val names = pendingRules.joinToString("、") { it.name.ifBlank { it.getSummary() } }
+                tvPendingChanges.text = "待生效规则：$names\n将在下一刷新时刻 $refreshTime 生效"
+            } else if (AppWindowManager.hasPartialDelayedEntries(ctx)) {
+                cardPending.visibility = View.VISIBLE
+                tvPendingChanges.text = "有部分应用时间窗待生效，将在下一刷新时刻 $refreshTime 生效"
+            } else {
+                // 确实没有任何 pending 变更，自愈隐藏卡片并清理幽灵标志位
+                AppWindowManager.clearAllPendingChanges(ctx)
+                if (!isLocked) {
+                    cardPending.visibility = View.GONE
+                } else {
+                    tvPendingChanges.text = ""
+                }
+            }
         }
     }
     
