@@ -20,11 +20,13 @@ class EffectiveActivationPolicyUiCopyContractTest {
 
     @Test
     fun timeRulesHelpUsesCanonicalPolicyDescriptions() {
-        val timeRules = source("src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt")
+        val layout = source("src/main/res/layout/activity_global_params_new.xml")
+        val focusRules = source("src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt")
 
-        assertTrue(timeRules.contains("EffectiveActivationPolicyManager.getPolicyDescription(favorable)"))
-        assertTrue(timeRules.contains("EffectiveActivationPolicyManager.getPolicyDescription(allNextDay)"))
-        assertFalse(timeRules.contains("添加/删除/减少限制 → 立即生效"))
-        assertFalse(timeRules.contains("增加限制 → 次日 00:00 生效"))
+        assertTrue(layout.contains("「宽严有别」（推荐）"))
+        assertTrue(layout.contains("「统一延后」"))
+        assertFalse(focusRules.contains("EffectiveActivationPolicyManager"))
+        assertFalse(layout.contains("添加/删除/减少限制 → 立即生效"))
+        assertFalse(layout.contains("增加限制 → 次日 00:00 生效"))
     }
 }

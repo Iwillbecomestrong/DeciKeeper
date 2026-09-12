@@ -66,6 +66,26 @@ class RulesSettingsUiContractTest {
     }
 
     @Test
+    fun settingsPageOwnsEditWindowPolicyAboveProtectionSection() {
+        val xml = source("app/src/main/res/layout/fragment_rules.xml")
+        val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
+
+        assertTrue(xml.contains("@+id/card_edit_window_policy"))
+        assertTrue(xml.contains("@+id/rg_settings_edit_window_policy"))
+        assertTrue(xml.contains("@+id/rb_settings_edit_window_all_day"))
+        assertTrue(xml.contains("@+id/rb_settings_edit_window_effective_to_midnight"))
+
+        val policyIndex = xml.indexOf("@+id/card_edit_window_policy")
+        val protectionIndex = xml.indexOf("@string/settings_protection_section_title")
+        assertTrue("card_edit_window_policy must be above protection section", policyIndex < protectionIndex)
+
+        // Controller bindings and logic
+        assertTrue(source.contains("TimeRuleEditWindowPolicyManager.isEditLocked"))
+        assertTrue(source.contains("TimeRuleEditWindowPolicyManager.applyPolicyChange"))
+        assertTrue(source.contains("updateEditWindowPolicyUI"))
+    }
+
+    @Test
     fun recentTaskAndExportLogAreSeparateCards() {
         val xml = source("app/src/main/res/layout/fragment_rules.xml")
         val recentIndex = xml.indexOf("btn_hide_in_recent_tasks_help")

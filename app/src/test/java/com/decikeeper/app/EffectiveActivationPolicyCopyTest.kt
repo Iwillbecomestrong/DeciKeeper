@@ -13,7 +13,7 @@ class EffectiveActivationPolicyCopyTest {
 
         assertEquals("宽严有别", EffectiveActivationPolicyManager.getPolicyTitle(policy))
         assertEquals(
-            "加严立即生效；放宽在下一刷新时刻生效；恢复到当前基准的修改立即生效。仅影响勿扰时段和应用时间窗。",
+            "加严立即生效；放宽在下一刷新时刻生效；恢复到当前基准的修改立即生效。影响勿扰时段、应用时间窗、规则参数与全局黑名单。",
             EffectiveActivationPolicyManager.getPolicyDescription(policy)
         )
     }
@@ -24,7 +24,7 @@ class EffectiveActivationPolicyCopyTest {
 
         assertEquals("统一延后", EffectiveActivationPolicyManager.getPolicyTitle(policy))
         assertEquals(
-            "勿扰时段和应用时间窗的所有修改，都在下一刷新时刻生效。",
+            "勿扰时段、应用时间窗、规则参数与全局黑名单的所有修改，都在下一刷新时刻生效。",
             EffectiveActivationPolicyManager.getPolicyDescription(policy)
         )
     }
@@ -34,6 +34,7 @@ class EffectiveActivationPolicyCopyTest {
         val copy = EffectiveActivationPolicyManager.getPolicyScopeDescription()
         assertTrue(copy.contains("勿扰时段"))
         assertTrue(copy.contains("应用时间窗"))
-        assertTrue(copy.contains("仅"))
+        assertTrue(copy.contains("规则参数"))
+        assertTrue(copy.contains("全局黑名单"))
     }
 }

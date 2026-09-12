@@ -74,6 +74,114 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <!-- 可修改时段（除闹钟） -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_edit_window_policy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="?attr/zzSurface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="可修改时段（除闹钟）"
+                            android:textColor="?attr/zzText"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="控制除闹钟外的各项规则与保护功能在一天内的可修改时间范围。"
+                            android:textColor="?attr/zzMuted"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/btn_edit_window_policy_help"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="@drawable/bg_zz_help_pill"
+                        android:backgroundTint="?attr/zzSurface2"
+                        android:clickable="true"
+                        android:contentDescription="可修改时段说明"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:text="?"
+                        android:textColor="?attr/zzMuted"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <RadioGroup
+                    android:id="@+id/rg_settings_edit_window_policy"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="vertical">
+
+                    <RadioButton
+                        android:id="@+id/rb_settings_edit_window_all_day"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="?attr/zzAccent"
+                        android:paddingVertical="4dp"
+                        android:text="「全天可修改」（默认）\n全天任意时刻均可修改规则与保护功能"
+                        android:textColor="?attr/zzText"
+                        android:textSize="13sp" />
+
+                    <RadioButton
+                        android:id="@+id/rb_settings_edit_window_effective_to_midnight"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="?attr/zzAccent"
+                        android:paddingVertical="4dp"
+                        android:text="「仅生效时间至 24:00 可修改」\n00:00 至每日生效时间期间除闹钟外锁定为只读"
+                        android:textColor="?attr/zzText"
+                        android:textSize="13sp" />
+                </RadioGroup>
+
+                <TextView
+                    android:id="@+id/tv_settings_lockout_hint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="?attr/zzAccentStrong"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_settings_edit_window_pending"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="?attr/zzAccent"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

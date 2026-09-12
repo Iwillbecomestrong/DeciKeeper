@@ -14,6 +14,7 @@ import com.decikeeper.app.data.AdverseAnalysis
 import com.decikeeper.app.manager.BoundaryResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.EffectiveActivationPolicyManager
 import com.decikeeper.app.manager.MinuteBoundary
 import com.decikeeper.app.manager.ProbationManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
@@ -113,19 +114,15 @@ class GlobalParamsFragment : Fragment() {
         val pendingRefresh = if (hasPending) TimeRuleManager.getPendingRefreshTime(context) ?: currentRefreshTime else currentRefreshTime
         val pendingStrict = if (hasPending) TimeRuleManager.getPendingStrictPenaltyDurationSeconds(context) ?: currentStrict else currentStrict
 
-        val rgEditWindowPolicy = root.findViewById<android.widget.RadioGroup>(R.id.rg_edit_window_policy)
-        val rbEditWindowAllDay = root.findViewById<android.widget.RadioButton>(R.id.rb_edit_window_all_day)
-        val rbEditWindowEffectiveToMidnight = root.findViewById<android.widget.RadioButton>(R.id.rb_edit_window_effective_to_midnight)
+        val rgEffectivePolicy = root.findViewById<android.widget.RadioGroup>(R.id.rg_effective_policy)
+        val rbPolicyFavorable = root.findViewById<android.widget.RadioButton>(R.id.rb_policy_favorable)
+        val rbPolicyAllNextDay = root.findViewById<android.widget.RadioButton>(R.id.rb_policy_all_next_day)
 
-        val currentEditWindowPolicy = TimeRuleEditWindowPolicyManager.getPolicy(context)
-        val pendingEditWindowPolicy = if (hasPending) {
-            TimeRuleEditWindowPolicyManager.getPendingPolicy(context) ?: currentEditWindowPolicy
-        } else currentEditWindowPolicy
-
-        if (pendingEditWindowPolicy == TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT) {
-            rgEditWindowPolicy.check(R.id.rb_edit_window_effective_to_midnight)
+        val currentEffectivePolicy = EffectiveActivationPolicyManager.getPolicy(context)
+        if (currentEffectivePolicy == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY) {
+            rgEffectivePolicy?.check(R.id.rb_policy_all_next_day)
         } else {
-            rgEditWindowPolicy.check(R.id.rb_edit_window_all_day)
+            rgEffectivePolicy?.check(R.id.rb_policy_favorable)
         }
 
         etRest.setText(pendingCoolDownRest.toString())
@@ -145,8 +142,9 @@ class GlobalParamsFragment : Fragment() {
             listOf(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax, etRefreshTime,
                 etNotifyEntryFar, etNotifyEntryNear, etWeeklyPrivilegeCount, etWeeklyPrivilegeDuration,
                 etPrivWindowStart, etPrivWindowEnd).forEach { it.isEnabled = false }
-            rbEditWindowAllDay.isEnabled = false
-            rbEditWindowEffectiveToMidnight.isEnabled = false
+            rbPolicyFavorable?.isEnabled = false
+            rbPolicyAllNextDay?.isEnabled = false
+            rgEffectivePolicy?.isEnabled = false
         }
 
         val cardPending = root.findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)
@@ -252,15 +250,16 @@ class GlobalParamsFragment : Fragment() {
             newPrivWindowEnd = formatTime(newPrivWindowEnd)
             TimeRuleManager.setRefreshTimeSynced(context, switchSync.isChecked)
             TimeRuleManager.setPrivilegeWindowSynced(context, false)
-            val newEditWindowPolicy = if (rgEditWindowPolicy.checkedRadioButtonId == R.id.rb_edit_window_effective_to_midnight) {
-                TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT.key
+            val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
+                EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
             } else {
-                TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
+                EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
             }
+            EffectiveActivationPolicyManager.setPolicy(context, selectedPolicy)
             val result = TimeRuleManager.analyzeAndSaveGlobalParams(
                 context, newRest, newGap, newLockDuration, newBorrow, newNotifyFar, newNotifyNear,
                 newWeeklyCount, newWeeklyDuration, newRefreshTime, newTempRestrictedAccessMax,
-                newPrivWindowStart, newPrivWindowEnd, newEditWindowPolicy
+                newPrivWindowStart, newPrivWindowEnd
             )
             AdverseAnalysis.showAnalysisDialog(context, result) { reloadData() }
         }

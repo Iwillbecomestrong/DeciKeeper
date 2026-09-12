@@ -66,12 +66,12 @@ object EffectiveActivationPolicyManager {
     fun getPolicyDescription(policy: Policy): String {
         return when (policy) {
             Policy.FAVORABLE_IMMEDIATE ->
-                "加严立即生效；放宽在下一刷新时刻生效；恢复到当前基准的修改立即生效。仅影响勿扰时段和应用时间窗。"
+                "加严立即生效；放宽在下一刷新时刻生效；恢复到当前基准的修改立即生效。影响勿扰时段、应用时间窗、规则参数与全局黑名单。"
             Policy.ALL_NEXT_DAY ->
-                "勿扰时段和应用时间窗的所有修改，都在下一刷新时刻生效。"
+                "勿扰时段、应用时间窗、规则参数与全局黑名单的所有修改，都在下一刷新时刻生效。"
         }
     }
 
     fun getPolicyScopeDescription(): String =
-        "仅控制勿扰时段和应用时间窗的修改何时生效；黑白名单、全局参数和保护功能仍按各自规则处理。"
+        "控制勿扰时段、应用时间窗、规则参数与全局黑名单的修改何时生效；系统保护功能仍按各自规则处理。"
 }

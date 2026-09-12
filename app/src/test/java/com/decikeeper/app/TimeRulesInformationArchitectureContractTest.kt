@@ -28,17 +28,16 @@ class TimeRulesInformationArchitectureContractTest {
 
     @Test
     fun activationPolicyLivesOnTimeRulesPageNotSettingsLayout() {
-        val timeRules = source("src/main/res/layout/fragment_focus_rules.xml")
+        val globalParamsLayout = source("src/main/res/layout/activity_global_params_new.xml")
+        val focusRulesLayout = source("src/main/res/layout/fragment_focus_rules.xml")
         val settings = source("src/main/res/layout/fragment_rules.xml")
-        val controller = source("src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt")
+        val controller = source("src/main/java/com/decikeeper/app/ui/GlobalParamsFragment.kt")
 
-        assertTrue(timeRules.contains("时间规则生效策略"))
-        assertTrue(timeRules.contains("@+id/rg_effective_policy"))
-        assertTrue(timeRules.contains("@+id/btn_effective_policy_help"))
+        assertTrue(globalParamsLayout.contains("规则生效策略"))
+        assertTrue(globalParamsLayout.contains("@+id/rg_effective_policy"))
+        assertFalse(focusRulesLayout.contains("@+id/rg_effective_policy"))
         assertFalse(settings.contains("@+id/rg_effective_policy"))
-        assertFalse(settings.contains("@+id/btn_effective_policy_help"))
         assertTrue(controller.contains("EffectiveActivationPolicyManager"))
-        assertTrue(controller.contains("setupEffectivePolicyToggle"))
     }
 
     @Test

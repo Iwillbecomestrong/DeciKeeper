@@ -4,17 +4,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.RadioButton
-import android.widget.RadioGroup
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import com.google.android.material.tabs.TabLayout
 import com.decikeeper.app.R
-import com.decikeeper.app.manager.EffectiveActivationPolicyManager
-import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
-import com.decikeeper.app.manager.TimeRuleManager
 
 class FocusRulesFragment : Fragment() {
 
@@ -25,8 +17,6 @@ class FocusRulesFragment : Fragment() {
     }
 
     private var pendingTabIndex: Int? = null
-    private var rgEffectivePolicy: RadioGroup? = null
-    private var policyUiUpdating = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -51,7 +41,6 @@ class FocusRulesFragment : Fragment() {
         val containerTime = view.findViewById<View>(R.id.container_time_config)
         val containerAppWindow = view.findViewById<View>(R.id.container_app_window)
         val containerGlobalParams = view.findViewById<View>(R.id.container_global_params)
-        val cardEffectivePolicy = view.findViewById<View>(R.id.card_effective_policy)
 
         if (childFragmentManager.findFragmentByTag("time_config") == null) {
             childFragmentManager.beginTransaction()
@@ -68,29 +57,15 @@ class FocusRulesFragment : Fragment() {
                 containerTime.visibility = if (isTime) View.VISIBLE else View.GONE
                 containerAppWindow.visibility = if (!isTime && !isGlobal) View.VISIBLE else View.GONE
                 containerGlobalParams.visibility = if (isGlobal) View.VISIBLE else View.GONE
-                cardEffectivePolicy.visibility = if (isGlobal) View.GONE else View.VISIBLE
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
 
-        rgEffectivePolicy = view.findViewById(R.id.rg_effective_policy)
-        bindPolicyCopy(view)
-        setupEffectivePolicyToggle()
-        view.findViewById<TextView>(R.id.btn_effective_policy_help)?.setOnClickListener {
-            showEffectivePolicyHelpDialog()
-        }
-        updateEffectivePolicyUI()
-
         pendingTabIndex?.let { index ->
             tabLayout.getTabAt(index)?.select()
             pendingTabIndex = null
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        updateEffectivePolicyUI()
     }
 
     override fun onHiddenChanged(hidden: Boolean) {
@@ -103,13 +78,7 @@ class FocusRulesFragment : Fragment() {
                     is GlobalParamsFragment -> fragment.reloadData()
                 }
             }
-            updateEffectivePolicyUI()
         }
-    }
-
-    override fun onDestroyView() {
-        rgEffectivePolicy = null
-        super.onDestroyView()
     }
 
     fun selectTab(index: Int) {
@@ -119,97 +88,5 @@ class FocusRulesFragment : Fragment() {
         } else {
             tabLayout.getTabAt(index)?.select()
         }
-    }
-
-    private fun bindPolicyCopy(view: View) {
-        val favorable = EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
-        val allNextDay = EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
-
-        view.findViewById<RadioButton>(R.id.rb_policy_favorable)?.text =
-            "「${EffectiveActivationPolicyManager.getPolicyTitle(favorable)}」（推荐）\n" +
-                EffectiveActivationPolicyManager.getPolicyDescription(favorable)
-        view.findViewById<RadioButton>(R.id.rb_policy_all_next_day)?.text =
-            "「${EffectiveActivationPolicyManager.getPolicyTitle(allNextDay)}」\n" +
-                EffectiveActivationPolicyManager.getPolicyDescription(allNextDay)
-    }
-
-    private fun setupEffectivePolicyToggle() {
-        rgEffectivePolicy?.setOnCheckedChangeListener { _, checkedId ->
-            if (policyUiUpdating || !isAdded) return@setOnCheckedChangeListener
-
-            val context = requireContext()
-            if (TimeRuleManager.isTimeRuleEditLocked(context)) {
-                Toast.makeText(
-                    context,
-                    TimeRuleEditWindowPolicyManager.getLockoutHintText(context),
-                    Toast.LENGTH_SHORT
-                ).show()
-                updateEffectivePolicyUI()
-                return@setOnCheckedChangeListener
-            }
-
-            val selected = if (checkedId == R.id.rb_policy_all_next_day) {
-                EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
-            } else {
-                EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
-            }
-            val current = EffectiveActivationPolicyManager.getPolicy(context)
-            if (current == selected) return@setOnCheckedChangeListener
-
-            EffectiveActivationPolicyManager.setPolicy(context, selected)
-            updateEffectivePolicyUI()
-            Toast.makeText(
-                context,
-                "已切换为：${EffectiveActivationPolicyManager.getPolicyTitle(selected)}",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    private fun updateEffectivePolicyUI() {
-        if (!isAdded) return
-        val context = context ?: return
-
-        val policy = EffectiveActivationPolicyManager.getPolicy(context)
-        val targetId = if (policy == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY) {
-            R.id.rb_policy_all_next_day
-        } else {
-            R.id.rb_policy_favorable
-        }
-
-        val locked = TimeRuleManager.isTimeRuleEditLocked(context)
-        val alpha = if (locked) 0.5f else 1.0f
-        view?.findViewById<RadioButton>(R.id.rb_policy_favorable)?.apply {
-            isEnabled = !locked
-            this.alpha = alpha
-        }
-        view?.findViewById<RadioButton>(R.id.rb_policy_all_next_day)?.apply {
-            isEnabled = !locked
-            this.alpha = alpha
-        }
-
-        policyUiUpdating = true
-        rgEffectivePolicy?.check(targetId)
-        policyUiUpdating = false
-    }
-
-    private fun showEffectivePolicyHelpDialog() {
-        val favorable = EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
-        val allNextDay = EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
-        val message = buildString {
-            append(EffectiveActivationPolicyManager.getPolicyScopeDescription())
-            append("\n\n")
-            append("【${EffectiveActivationPolicyManager.getPolicyTitle(favorable)}（推荐）】\n")
-            append(EffectiveActivationPolicyManager.getPolicyDescription(favorable))
-            append("\n\n")
-            append("【${EffectiveActivationPolicyManager.getPolicyTitle(allNextDay)}】\n")
-            append(EffectiveActivationPolicyManager.getPolicyDescription(allNextDay))
-        }
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("时间规则生效策略")
-            .setMessage(message)
-            .setPositiveButton("知道了", null)
-            .show()
     }
 }

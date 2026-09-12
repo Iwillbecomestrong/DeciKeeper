@@ -79,12 +79,16 @@ object TimeRuleEditWindowPolicyManager {
             .apply()
     }
 
-    /**
-     * 判断当前时间是否处于时间规则与参数禁止修改时段
-     * @param context 上下文
-     * @param nowCalendar 允许注入时间以便于测试，默认为当前系统时间
-     */
+    sealed class PolicyChangeResult {
+        data class Immediate(val message: String) : PolicyChangeResult()
+        data class Pending(val message: String) : PolicyChangeResult()
+        object NoChange : PolicyChangeResult()
+    }
+
     fun isTimeRuleEditLocked(context: Context, nowCalendar: Calendar = Calendar.getInstance()): Boolean {
+        if (TimeRuleManager.isInAdaptationPeriod(context)) {
+            return false
+        }
         val policy = getPolicy(context)
         if (policy == Policy.ALL_DAY) {
             return false
@@ -93,6 +97,39 @@ object TimeRuleEditWindowPolicyManager {
         val refreshMinutes = TimeRuleManager.parseHHMMToMinutes(refreshTimeStr) ?: (8 * 60)
         val nowMinutes = nowCalendar.get(Calendar.HOUR_OF_DAY) * 60 + nowCalendar.get(Calendar.MINUTE)
         return nowMinutes in 0 until refreshMinutes
+    }
+
+    fun isEditLocked(context: Context, nowCalendar: Calendar = Calendar.getInstance()): Boolean {
+        return isTimeRuleEditLocked(context, nowCalendar)
+    }
+
+    fun applyPolicyChange(context: Context, targetPolicy: Policy): PolicyChangeResult {
+        val currentPolicy = getPolicy(context)
+        val pending = getPendingPolicy(context)
+
+        if (currentPolicy == targetPolicy) {
+            if (pending != null) {
+                clearPendingPolicy(context)
+                return PolicyChangeResult.Immediate("已撤销待生效的时段修改，维持当前设置")
+            }
+            return PolicyChangeResult.NoChange
+        }
+
+        if (targetPolicy == Policy.EFFECTIVE_TIME_TO_MIDNIGHT) {
+            clearPendingPolicy(context)
+            setPolicy(context, targetPolicy)
+            return PolicyChangeResult.Immediate("已切换为：仅生效时间至 24:00 可修改")
+        }
+
+        if (TimeRuleManager.isInAdaptationPeriod(context)) {
+            clearPendingPolicy(context)
+            setPolicy(context, targetPolicy)
+            return PolicyChangeResult.Immediate("当前处于适应期，已立即切换为：全天可修改")
+        } else {
+            setPendingPolicy(context, targetPolicy)
+            val refreshTime = TimeRuleManager.getRefreshTime(context)
+            return PolicyChangeResult.Pending("切换为「全天可修改」将在明日 $refreshTime 生效")
+        }
     }
 
     fun getPolicyTitle(policy: Policy): String {
@@ -105,14 +142,14 @@ object TimeRuleEditWindowPolicyManager {
     fun getPolicyDescription(policy: Policy): String {
         return when (policy) {
             Policy.ALL_DAY ->
-                "全天任意时刻均可新增、编辑与调整时间规则及参数。"
+                "全天任意时刻均可新增、编辑与调整规则及系统保护功能。"
             Policy.EFFECTIVE_TIME_TO_MIDNIGHT ->
-                "00:00 至每日生效时间期间，时间规则与参数锁定为只读，仅在生效时间后允许修改。"
+                "00:00 至每日生效时间期间，除闹钟外各项规则与保护功能锁定为只读，仅在生效时间后允许修改。"
         }
     }
 
     fun getLockoutHintText(context: Context): String {
         val refreshTimeStr = TimeRuleManager.getRefreshTime(context)
-        return "当前处于保护期（00:00 ~ $refreshTimeStr），时间规则与参数已锁定，仅供查看"
+        return "当前处于保护期（00:00 ~ $refreshTimeStr），除闹钟外各项规则与保护功能已锁定，仅供查看"
     }
 }
