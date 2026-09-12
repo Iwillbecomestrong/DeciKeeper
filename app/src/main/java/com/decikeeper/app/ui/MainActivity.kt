@@ -144,6 +144,7 @@ class MainActivity : AppCompatActivity() {
 
     fun showFocusRules(tabIndex: Int) { bottomNav.selectedItemId = R.id.nav_time_config; focusRulesFragment.selectTab(tabIndex) }
     fun showAppWindow() { showFocusRules(FocusRulesFragment.TAB_APP_WINDOW) }
+    fun showAlarm() { bottomNav.selectedItemId = R.id.nav_alarm }
 
     private fun startGuardService() {
         try { val i = Intent(this, A11yGuardService::class.java); if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i) }

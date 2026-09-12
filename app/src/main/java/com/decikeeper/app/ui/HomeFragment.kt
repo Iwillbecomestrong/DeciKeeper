@@ -42,6 +42,7 @@ import com.decikeeper.app.R
 import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.calculateQuotaDetail
 import com.decikeeper.app.data.formatUsableCountHalfUnits
+import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AppVisibilityTracker
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
@@ -73,9 +74,40 @@ class HomeFragment : Fragment() {
     // 🚀 [Request Notification Permission] 使用 registerForActivityResult 替代弃用的 requestPermissions
     private val notificationPermissionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { /* 无需额外操作，下次 updateSetupGuide 会自动刷新状态 */ }
+    ) {
+        updateProtectionStatus()
+        updateSetupGuide()
+        if (activeProtectionDialog?.isShowing == true) {
+            refreshProtectionDialogContent?.invoke()
+        }
+    }
 
     companion object {
+        const val PREF_SETUP_GUIDE_DISMISSED: String = "setup_guide_dismissed"
+
+        /**
+         * 判定初始化设置向导卡片是否应当显示。
+         *
+         * @param isDismissed 用户是否已主动点击跳过
+         * @param permsDone 基础权限是否全部开启
+         * @param blacklistDone 是否已设置黑白名单
+         * @param dndDone 是否已配置勿扰时段
+         * @param alarmDone 是否已建立至少一个挑战闹钟
+         * @return true 表示应展示向导卡片，false 表示向导已完成或已被跳过
+         */
+        fun shouldShowSetupGuide(
+            isDismissed: Boolean,
+            permsDone: Boolean,
+            blacklistDone: Boolean,
+            dndDone: Boolean,
+            alarmDone: Boolean
+        ): Boolean {
+            if (isDismissed) return false
+            val timeRulesBranchDone = blacklistDone && dndDone
+            val functionalBranchDone = timeRulesBranchDone || alarmDone
+            return !(permsDone && functionalBranchDone)
+        }
+
         internal fun shouldAutoMarkPendingPermission(
             detected: Boolean?,
             hasRecentGuidedVisit: Boolean = false
@@ -314,17 +346,24 @@ class HomeFragment : Fragment() {
 
     // ✈️ [NEW] Setup Guide Views
     private var cardSetupGuide: CardView? = null
+    private var btnSetupSkip: View? = null
     private var tvIconPerm: TextView? = null
     private var tvIconBlacklist: TextView? = null
     private var tvIconDnd: TextView? = null
+    private var tvIconAlarm: TextView? = null
     private var btnGoPerm: View? = null
     private var btnGoBlacklist: View? = null
     private var btnGoDnd: View? = null
+    private var btnGoAlarm: View? = null
 
     private var uiTimer: CountDownTimer? = null
 
     // 🚀 [Fix] 防止 WindowLeaked - 保存当前显示的权限检查对话框引用
     private var activePermissionDialog: AlertDialog? = null
+
+    // 🛡️ 权限设置弹窗引用与动态刷新闭包（支持在弹窗展示期间实时刷新权限勾选状态）
+    private var activeProtectionDialog: AlertDialog? = null
+    private var refreshProtectionDialogContent: (() -> Unit)? = null
 
     // 🚀 [Fix] 待确认权限队列 (持久化到SP，支持多项权限顺序确认)
     private val PREF_PENDING_CONFIRM_KEYS = "pending_confirm_keys"
@@ -391,6 +430,11 @@ class HomeFragment : Fragment() {
         updateSetupGuide() // 🚀 [NEW]
         // 🚀 [优化] 用户从设置页返回后自动识别并标记已处理权限
         processPendingPermissionAutoMark()
+
+        // 🚀 [实时刷新] 若当前正在展示权限设置弹窗，立即刷新弹窗内的各项权限开启状态
+        if (activeProtectionDialog?.isShowing == true) {
+            refreshProtectionDialogContent?.invoke()
+        }
     }
 
     override fun onPause() {
@@ -411,6 +455,16 @@ class HomeFragment : Fragment() {
     override fun onDestroyView() {
         uiTimer?.cancel()
         freeTimeTimer?.cancel()
+        try {
+            activeProtectionDialog?.let {
+                if (it.isShowing) it.dismiss()
+            }
+        } catch (e: Exception) {
+            Log.w("HomeFragment", "Failed to dismiss active protection dialog", e)
+        }
+        activeProtectionDialog = null
+        refreshProtectionDialogContent = null
+
         try {
             requireContext().unregisterReceiver(updateReceiver)
         } catch (e: Exception) {
@@ -462,12 +516,15 @@ class HomeFragment : Fragment() {
 
         // ✈️ [NEW] Setup Guide Initialization
         cardSetupGuide = view.findViewById(R.id.card_setup_guide)
+        btnSetupSkip = view.findViewById(R.id.btn_setup_skip)
         tvIconPerm = view.findViewById(R.id.tv_setup_icon_perm)
         tvIconBlacklist = view.findViewById(R.id.tv_setup_icon_blacklist)
         tvIconDnd = view.findViewById(R.id.tv_setup_icon_dnd)
+        tvIconAlarm = view.findViewById(R.id.tv_setup_icon_alarm)
         btnGoPerm = view.findViewById(R.id.btn_setup_go_perm)
         btnGoBlacklist = view.findViewById(R.id.btn_setup_go_blacklist)
         btnGoDnd = view.findViewById(R.id.btn_setup_go_dnd)
+        btnGoAlarm = view.findViewById(R.id.btn_setup_go_alarm)
     }
 
     private fun setupClickEvents() {
@@ -650,9 +707,16 @@ class HomeFragment : Fragment() {
         }
 
         // ✈️ [NEW] Setup Guide Click Listeners
+        btnSetupSkip?.setOnClickListener {
+            val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putBoolean(PREF_SETUP_GUIDE_DISMISSED, true).apply()
+            cardSetupGuide?.visibility = View.GONE
+            Toast.makeText(ctx, "已跳过初始化向导，可在各页面随时配置", Toast.LENGTH_SHORT).show()
+        }
         btnGoPerm?.setOnClickListener { showProtectionDialog() }
         btnGoBlacklist?.setOnClickListener { (activity as? MainActivity)?.showFocusRules(FocusRulesFragment.TAB_TIME) }
         btnGoDnd?.setOnClickListener { (activity as? MainActivity)?.showFocusRules(FocusRulesFragment.TAB_TIME) }
+        btnGoAlarm?.setOnClickListener { (activity as? MainActivity)?.showAlarm() }
     }
 
     private fun getPrivilegeBoundaryLabel(context: Context): String {
@@ -1631,159 +1695,200 @@ class HomeFragment : Fragment() {
             setPadding(50, 40, 50, 40)
         }
 
-        fun addItem(name: String, isGranted: Boolean, grantedLabel: String = "已开启", onLongClick: (() -> Unit)? = null, action: () -> Unit) {
-            if (isGranted) {
-                val row = android.widget.LinearLayout(ctx).apply {
+        val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+
+        fun populateDialogContent() {
+            layout.removeAllViews()
+            val currentCtx = context ?: return
+
+            fun addItem(
+                name: String,
+                isGranted: Boolean,
+                grantedLabel: String = "已开启",
+                onLongClick: (() -> Unit)? = null,
+                action: () -> Unit
+            ) {
+                if (isGranted) {
+                    val row = android.widget.LinearLayout(currentCtx).apply {
+                        orientation = android.widget.LinearLayout.HORIZONTAL
+                        setPadding(0, 8, 0, 8)
+                        gravity = android.view.Gravity.CENTER_VERTICAL
+                    }
+                    val tv = TextView(currentCtx).apply {
+                        text = if (onLongClick != null) "✅ $name：$grantedLabel (长按重测)" else "✅ $name：$grantedLabel"
+                        textSize = 15f
+                        setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+                        layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    if (onLongClick != null) {
+                        row.setOnLongClickListener { 
+                            onLongClick()
+                            true 
+                        }
+                    }
+                    row.addView(tv)
+                    layout.addView(row)
+                } else {
+                    val btn = Button(currentCtx).apply {
+                        text = "👉 去设置：$name"
+                        textSize = 14f
+                        setTextColor(android.graphics.Color.WHITE)
+                        setBackgroundColor(android.graphics.Color.parseColor("#1976D2"))
+                        setOnClickListener { action() }
+                    }
+                    layout.addView(btn)
+                }
+            }
+
+            fun addUndetectablePermissionItem(
+                name: String,
+                key: String,
+                hint: String,
+                linkedPendingKeys: List<String> = emptyList(),
+                onLongClick: (() -> Unit)? = null
+            ) {
+                val granted = isShortTimeConfirmed(prefs, key)
+                if (granted) {
+                    addItem(name, true, grantedLabel = "已确认", onLongClick = onLongClick) {}
+                    return
+                }
+
+                val row = android.widget.LinearLayout(currentCtx).apply {
                     orientation = android.widget.LinearLayout.HORIZONTAL
                     setPadding(0, 8, 0, 8)
                     gravity = android.view.Gravity.CENTER_VERTICAL
                 }
-                val tv = TextView(ctx).apply {
-                    text = "✅ $name：$grantedLabel"
-                    if (onLongClick != null) {
-                        text = "✅ $name：$grantedLabel (长按重测)"
-                    }
-                    textSize = 15f
-                    setTextColor(android.graphics.Color.parseColor("#2E7D32"))
-                    layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                }
-                if (onLongClick != null) {
-                    row.setOnLongClickListener { 
-                        onLongClick()
-                        true 
-                    }
-                }
-                row.addView(tv)
-                layout.addView(row)
-            } else {
-                val btn = Button(ctx).apply {
+
+                val btn = Button(currentCtx).apply {
                     text = "👉 去设置：$name"
-                    textSize = 14f
+                    textSize = 13f
                     setTextColor(android.graphics.Color.WHITE)
                     setBackgroundColor(android.graphics.Color.parseColor("#1976D2"))
-                    setOnClickListener { action() }
-                }
-                layout.addView(btn)
-            }
-        }
-
-        val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-
-        fun addUndetectablePermissionItem(
-            name: String,
-            key: String,
-            hint: String,
-            linkedPendingKeys: List<String> = emptyList(),
-            onLongClick: (() -> Unit)? = null
-        ) {
-            val granted = isShortTimeConfirmed(prefs, key)
-            if (granted) {
-                addItem(name, true, grantedLabel = "已确认", onLongClick = onLongClick) {}
-                return
-            }
-
-            val row = android.widget.LinearLayout(ctx).apply {
-                orientation = android.widget.LinearLayout.HORIZONTAL
-                setPadding(0, 8, 0, 8)
-                gravity = android.view.Gravity.CENTER_VERTICAL
-            }
-
-            val btn = Button(ctx).apply {
-                text = "👉 去设置：$name"
-                textSize = 13f
-                setTextColor(android.graphics.Color.WHITE)
-                setBackgroundColor(android.graphics.Color.parseColor("#1976D2"))
-                layoutParams = android.widget.LinearLayout.LayoutParams(
-                    0,
-                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                    1f
-                )
-                setOnClickListener {
-                    launchManualPermissionSettings(key)
-                    Toast.makeText(ctx, hint, Toast.LENGTH_LONG).show()
-                    addPendingPermissionConfirm(key, markSettingsLaunch = true)
-                    linkedPendingKeys.forEach { linkedKey ->
-                        addPendingPermissionConfirm(linkedKey, markSettingsLaunch = true)
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        0,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+                    setOnClickListener {
+                        launchManualPermissionSettings(key)
+                        Toast.makeText(currentCtx, hint, Toast.LENGTH_LONG).show()
+                        addPendingPermissionConfirm(key, markSettingsLaunch = true)
+                        linkedPendingKeys.forEach { linkedKey ->
+                            addPendingPermissionConfirm(linkedKey, markSettingsLaunch = true)
+                        }
                     }
                 }
-            }
 
-            val check = android.widget.CheckBox(ctx).apply {
-                text = "已开启"
-                isChecked = false
-                setOnCheckedChangeListener { _, checked ->
-                    if (checked) {
-                        markPermissionConfirmed(prefs, key)
-                        val pending = prefs.getStringSet(PREF_PENDING_CONFIRM_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
-                        pending.remove(key)
-                        prefs.edit().putStringSet(PREF_PENDING_CONFIRM_KEYS, pending).apply()
-                        updateProtectionStatus()
-                        updateSetupGuide()
-                    } else {
-                        prefs.edit()
-                            .remove(key)
-                            .remove("${key}_at")
-                            .apply()
-                        updateProtectionStatus()
-                        updateSetupGuide()
+                val check = android.widget.CheckBox(currentCtx).apply {
+                    text = "已开启"
+                    isChecked = false
+                    setOnCheckedChangeListener { _, checked ->
+                        if (checked) {
+                            markPermissionConfirmed(prefs, key)
+                            val pending = prefs.getStringSet(PREF_PENDING_CONFIRM_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
+                            pending.remove(key)
+                            prefs.edit().putStringSet(PREF_PENDING_CONFIRM_KEYS, pending).apply()
+                            updateProtectionStatus()
+                            updateSetupGuide()
+                            populateDialogContent()
+                        } else {
+                            prefs.edit()
+                                .remove(key)
+                                .remove("${key}_at")
+                                .apply()
+                            updateProtectionStatus()
+                            updateSetupGuide()
+                            populateDialogContent()
+                        }
                     }
                 }
+
+                row.addView(btn)
+                row.addView(check)
+                if (onLongClick != null) {
+                    row.setOnLongClickListener {
+                        onLongClick()
+                        true
+                    }
+                }
+                layout.addView(row)
             }
 
-            row.addView(btn)
-            row.addView(check)
-            if (onLongClick != null) {
-                row.setOnLongClickListener {
-                    onLongClick()
-                    true
+            val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(currentCtx) else true
+            addItem("悬浮窗权限", hasOverlay) {
+                try {
+                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${currentCtx.packageName}")))
+                } catch (e: Exception) {
+                    Log.w("HomeFragment", "Failed to open overlay settings", e)
                 }
             }
-            layout.addView(row)
-        }
 
-        val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
-        addItem("悬浮窗权限", hasOverlay) {
-            try {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${ctx.packageName}")))
-            } catch (e: Exception) {
-                Log.w("HomeFragment", "Failed to open overlay settings", e)
+            // [DO NOT DELETE] 通知权限：Android 13+ 运行时权限，前台服务需要此权限才能显示通知
+            if (Build.VERSION.SDK_INT >= 33) {
+                val hasNotification = currentCtx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                addItem("通知权限", hasNotification) {
+                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+
+            val hasBgBattery = !isChineseRomDevice() || isBgBatteryPermissionSatisfied(currentCtx)
+            addItem("后台耗电管理", hasBgBattery) {
+                addPendingPermissionConfirm("bg_battery_confirmed", markSettingsLaunch = true)
+                openBgBatterySettings(currentCtx)
+            }
+
+            addUndetectablePermissionItem(
+                name = "自启动权限",
+                key = "auto_start_confirmed",
+                hint = "请在权限详情页开启自启动等开关",
+                onLongClick = {
+                    prefs.edit().remove("auto_start_confirmed").remove("auto_start_confirmed_at").apply()
+                    updateProtectionStatus()
+                    updateSetupGuide()
+                    populateDialogContent()
+                    Toast.makeText(currentCtx, "已清除自启动缓存，请重新检测", Toast.LENGTH_SHORT).show()
+                }
+            )
+
+            val permState = getHomePermissionState(currentCtx)
+            if (permState.allGranted) {
+                val tvAllReady = TextView(currentCtx).apply {
+                    text = "🎉 所有基础权限已就绪！"
+                    textSize = 14f
+                    setTextColor(android.graphics.Color.parseColor("#2E7D32"))
+                    setPadding(0, 16, 0, 0)
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                }
+                layout.addView(tvAllReady)
             }
         }
 
-        // [DO NOT DELETE] 通知权限：Android 13+ 运行时权限，前台服务需要此权限才能显示通知
-        // 首次进入不主动弹窗（"只在使用时弹"），用户可从主页权限向导手动触发
-        if (Build.VERSION.SDK_INT >= 33) {
-            val hasNotification = ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            addItem("通知权限", hasNotification) {
-                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
+        populateDialogContent()
+        refreshProtectionDialogContent = { populateDialogContent() }
 
-        addItem("后台耗电管理", !isChineseRomDevice() || isBgBatteryPermissionSatisfied(ctx)) {
-            openBgBatterySettings(ctx)
-        }
-
-        addUndetectablePermissionItem(
-            name = "自启动权限",
-            key = "auto_start_confirmed",
-            hint = "请在权限详情页开启自启动等开关",
-            onLongClick = {
-                prefs.edit().remove("auto_start_confirmed").remove("auto_start_confirmed_at").apply()
-                updateProtectionStatus()
-                updateSetupGuide()
-                Toast.makeText(ctx, "已清除自启动缓存，请重新检测", Toast.LENGTH_SHORT).show()
-            }
-        )
-
-        AlertDialog.Builder(ctx)
+        val dialog = AlertDialog.Builder(ctx)
             .setTitle("🛡️ 权限设置")
             .setView(layout)
             .setPositiveButton("完成", null)
-            .show()
+            .create()
+
+        dialog.setOnDismissListener {
+            if (activeProtectionDialog == dialog) {
+                activeProtectionDialog = null
+                refreshProtectionDialogContent = null
+            }
+            updateProtectionStatus()
+            updateSetupGuide()
+        }
+
+        activeProtectionDialog = dialog
+        dialog.show()
     }
 
     private fun updateSetupGuide() {
         val ctx = context ?: return
+        val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+        val isDismissed = prefs.getBoolean(PREF_SETUP_GUIDE_DISMISSED, false)
         
         // 1. Check Permissions
         val permState = getHomePermissionState(ctx)
@@ -1805,8 +1910,20 @@ class HomeFragment : Fragment() {
         tvIconDnd?.text = if (dndDone) "✅" else "⭕"
         btnGoDnd?.visibility = if (dndDone) View.GONE else View.VISIBLE
 
-        // Show/Hide Card: Hide if all ESSENTIAL (Perms, Blacklist, DND) are done.
-        cardSetupGuide?.visibility = if (permsDone && blacklistDone && dndDone) View.GONE else View.VISIBLE
+        // 4. Check Alarm
+        val alarmDone = AlarmScheduler.getAlarms(ctx).isNotEmpty()
+        tvIconAlarm?.text = if (alarmDone) "✅" else "⭕"
+        btnGoAlarm?.visibility = if (alarmDone) View.GONE else View.VISIBLE
+
+        // Show/Hide Card: Hide if dismissed or if (permsDone && ((blacklistDone && dndDone) || alarmDone))
+        val shouldShow = shouldShowSetupGuide(
+            isDismissed = isDismissed,
+            permsDone = permsDone,
+            blacklistDone = blacklistDone,
+            dndDone = dndDone,
+            alarmDone = alarmDone
+        )
+        cardSetupGuide?.visibility = if (shouldShow) View.VISIBLE else View.GONE
     }
 
     private data class HomePermissionState(
