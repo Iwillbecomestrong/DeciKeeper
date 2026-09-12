@@ -77,7 +77,11 @@ class RulesSettingsUiContractTest {
 
         val policyIndex = xml.indexOf("@+id/card_edit_window_policy")
         val protectionIndex = xml.indexOf("@string/settings_protection_section_title")
+        val themeIndex = xml.indexOf("showThemePicker")
+        val a11yIndex = xml.indexOf("switch_accessibility_service")
         assertTrue("card_edit_window_policy must be above protection section", policyIndex < protectionIndex)
+        assertTrue("card_edit_window_policy must be below theme card", themeIndex < policyIndex)
+        assertTrue("card_edit_window_policy must be above accessibility service", policyIndex < a11yIndex)
 
         // Controller bindings and logic
         assertTrue(source.contains("TimeRuleEditWindowPolicyManager.isEditLocked"))
