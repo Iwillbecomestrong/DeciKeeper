@@ -509,6 +509,8 @@ object LockWindowManager {
         fun launchQrScan()
         fun onAlarmOverlayFinished()
         fun onScanCancel() {}
+        fun toggleTorch(): Boolean { return false }
+        fun isTorchOn(): Boolean { return false }
     }
 
     // ── 会话级复习数据（仅记录用户操作过的题目） ──
@@ -1083,6 +1085,10 @@ object LockWindowManager {
 
     fun cancelAlarmScan() {
         LockAlarmOverlayController.cancelAlarmScan()
+    }
+
+    fun updateAlarmOverlayTorchState(isOn: Boolean) {
+        LockAlarmOverlayController.updateTorchState(isOn)
     }
 
     fun setLockScreenVisibleForAlarmScan(visible: Boolean) {

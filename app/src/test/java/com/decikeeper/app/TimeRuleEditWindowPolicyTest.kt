@@ -105,7 +105,7 @@ class TimeRuleEditWindowPolicyTest {
             context = context,
             newRest = 60, newGap = 60, newLockDuration = 15,
             newBorrow = 50, newNotifyFar = 20, newNotifyNear = 5,
-            newWeeklyCount = 2, newWeeklyDuration = 600,
+            newWeeklyCount = 1, newWeeklyDuration = 480,
             newRefreshTime = "08:00",
             newEditWindowPolicy = TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT.key
         )
@@ -133,7 +133,7 @@ class TimeRuleEditWindowPolicyTest {
             context = context,
             newRest = 60, newGap = 60, newLockDuration = 15,
             newBorrow = 50, newNotifyFar = 20, newNotifyNear = 5,
-            newWeeklyCount = 2, newWeeklyDuration = 600,
+            newWeeklyCount = 1, newWeeklyDuration = 480,
             newRefreshTime = "08:00",
             newEditWindowPolicy = TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
         )
@@ -177,7 +177,7 @@ class TimeRuleEditWindowPolicyTest {
             context = context,
             newRest = 60, newGap = 60, newLockDuration = 15,
             newBorrow = 50, newNotifyFar = 20, newNotifyNear = 5,
-            newWeeklyCount = 2, newWeeklyDuration = 600,
+            newWeeklyCount = 1, newWeeklyDuration = 480,
             newRefreshTime = "08:00",
             newEditWindowPolicy = TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
         )

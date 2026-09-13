@@ -111,7 +111,9 @@ class GlobalParamsFragment : Fragment() {
         val pendingPrivilegeDuration = if (CreditManager.hasPendingWeeklyPrivilegeLimit(context)) CreditManager.getPendingWeeklyPrivilegeDurationLimit(context) else currentPrivilegeDuration
         val pendingPrivWindowStart = TimeRuleManager.getPendingPrivilegeWindowStart(context) ?: currentPrivWindowStart
         val pendingPrivWindowEnd = TimeRuleManager.getPendingPrivilegeWindowEnd(context) ?: currentPrivWindowEnd
-        val pendingRefresh = if (hasPending) TimeRuleManager.getPendingRefreshTime(context) ?: currentRefreshTime else currentRefreshTime
+        val hasCustomRefreshTime = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE).contains("config_refresh_time")
+        val defaultRefreshTime = if (hasCustomRefreshTime) currentRefreshTime else "07:30"
+        val pendingRefresh = if (hasPending) TimeRuleManager.getPendingRefreshTime(context) ?: defaultRefreshTime else defaultRefreshTime
         val pendingStrict = if (hasPending) TimeRuleManager.getPendingStrictPenaltyDurationSeconds(context) ?: currentStrict else currentStrict
 
         val rgEffectivePolicy = root.findViewById<android.widget.RadioGroup>(R.id.rg_effective_policy)

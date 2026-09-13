@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -34,10 +36,14 @@ android {
         applicationId = "com.decikeeper.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.2.0"
+        versionCode = 2
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters.addAll(listOf("arm64-v8a"))
+        }
     }
 
     lint {
@@ -46,10 +52,42 @@ android {
         checkReleaseBuilds = false
     }
 
+    val localProperties = Properties()
+    val localPropFile = rootProject.file("local.properties")
+    if (localPropFile.exists()) {
+        localPropFile.inputStream().use { stream ->
+            localProperties.load(stream)
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val keyStorePath = localProperties.getProperty("RELEASE_KEYSTORE_PATH")
+            val storePass = localProperties.getProperty("RELEASE_KEYSTORE_PASSWORD")
+            val keyAliasName = localProperties.getProperty("RELEASE_KEY_ALIAS") ?: "decikeeper"
+            val keyPass = localProperties.getProperty("RELEASE_KEY_PASSWORD") ?: storePass
+
+            if (!keyStorePath.isNullOrBlank() && !storePass.isNullOrBlank()) {
+                val candidate = file(keyStorePath)
+                if (candidate.exists()) {
+                    storeFile = candidate
+                    storePassword = storePass
+                    keyAlias = keyAliasName
+                    keyPassword = keyPass
+                }
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigning = signingConfigs.getByName("release")
+            signingConfig = if (releaseSigning.storeFile != null) {
+                releaseSigning
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -137,7 +175,11 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation("androidx.gridlayout:gridlayout:1.0.0")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.mlkit.barcode.scanning)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     // 用户手册继续使用 docs/user/ 单一来源；App 内通过 Markwon 真正渲染 Markdown。
     implementation("io.noties.markwon:core:4.6.2")

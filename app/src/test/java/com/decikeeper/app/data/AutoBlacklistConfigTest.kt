@@ -2,6 +2,7 @@ package com.decikeeper.app.data
 
 import android.content.Context
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.TimeRuleManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -106,5 +107,49 @@ class AutoBlacklistConfigTest {
 
         // Subsequent tryAutoBlacklistNewPackage should skip because it's user-removed
         assertFalse(CreditManager.tryAutoBlacklistNewPackage(context, qqPkg))
+    }
+
+    @Test
+    fun testAutoBlacklistSyncsToDecoupledSegments() {
+        val qqPkg = "com.tencent.mobileqq"
+        val existingPkg = "com.example.existing"
+
+        val decoupledSeg = TimeSegment(
+            name = "独立时段",
+            startHour = 9,
+            startMinute = 0,
+            endHour = 12,
+            endMinute = 0,
+            limitMins = 30,
+            listApps = listOf(existingPkg),
+            listMode = SegmentBlacklist.LIST_MODE_BLACKLIST
+        )
+        val inheritedSeg = TimeSegment(
+            name = "全局继承时段",
+            startHour = 14,
+            startMinute = 0,
+            endHour = 18,
+            endMinute = 0,
+            limitMins = 30,
+            listApps = null
+        )
+
+        TimeRuleManager.saveTimeSegments(context, listOf(decoupledSeg, inheritedSeg))
+        BlacklistStore.setAutoBlacklistEnabled(context, true)
+
+        val autoAdded = CreditManager.tryAutoBlacklistNewPackage(context, qqPkg)
+        assertTrue(autoAdded)
+
+        // 验证全局黑名单包含 qqPkg
+        assertTrue(BlacklistStore.getBlacklistApps(context).contains(qqPkg))
+
+        // 验证脱钩时段同步追加了 qqPkg，同时保留了原有应用
+        val updatedSegments = TimeRuleManager.getTimeSegments(context)
+        val updatedDecoupled = updatedSegments.find { it.name == "独立时段" }
+        val updatedInherited = updatedSegments.find { it.name == "全局继承时段" }
+
+        assertTrue(updatedDecoupled?.listApps?.contains(existingPkg) == true)
+        assertTrue(updatedDecoupled?.listApps?.contains(qqPkg) == true)
+        assertNull(updatedInherited?.listApps)
     }
 }

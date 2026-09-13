@@ -396,29 +396,43 @@ object CreditManager {
             return false
         }
 
+        var addedAny = false
         val currentBlacklist = getBlacklistApps(context)
-        if (currentBlacklist.contains(pkg)) {
-            Log.d("CreditManager", "[AutoBlacklist] $pkg already in blacklist, skipping")
-            return false
-        }
+        if (!currentBlacklist.contains(pkg)) {
+            val newBlacklist = currentBlacklist.toMutableSet().apply { add(pkg) }
+            val effectiveTime = saveBlacklistApps(context, newBlacklist)
+            addedAny = true
 
-        val newBlacklist = currentBlacklist.toMutableSet().apply { add(pkg) }
-        val effectiveTime = saveBlacklistApps(context, newBlacklist)
+            val appLabel = try {
+                val pm = context.packageManager
+                pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+            } catch (e: Exception) { pkg }
 
-        val appLabel = try {
-            val pm = context.packageManager
-            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
-        } catch (e: Exception) { pkg }
+            val logMsg = if (effectiveTime > 0) {
+                "[AutoBlacklist] ADDED: $appLabel ($pkg) category=$matchedCategory pendingEffective=$effectiveTime"
+            } else {
+                "[AutoBlacklist] ADDED: $appLabel ($pkg) category=$matchedCategory immediate"
+            }
 
-        val logMsg = if (effectiveTime > 0) {
-            "[AutoBlacklist] ADDED: $appLabel ($pkg) category=$matchedCategory pendingEffective=$effectiveTime"
+            LogExporter.i("CreditManager", logMsg)
+            LogExporter.logEvent("AutoBlacklist", logMsg)
         } else {
-            "[AutoBlacklist] ADDED: $appLabel ($pkg) category=$matchedCategory immediate"
+            Log.d("CreditManager", "[AutoBlacklist] $pkg already in global blacklist, skipping global add")
         }
 
-        LogExporter.i("CreditManager", logMsg)
-        LogExporter.logEvent("AutoBlacklist", logMsg)
-        return true
+        // 联动独立时段名单
+        val segsUpdated = TimeRuleManager.appendAppsToDecoupledSegments(context, setOf(pkg))
+        if (segsUpdated > 0) {
+            addedAny = true
+            LogExporter.i("CreditManager", "[AutoBlacklist] Synced $pkg to $segsUpdated decoupled time segment(s)")
+            runCatching {
+                val refreshIntent = android.content.Intent(com.decikeeper.app.service.MonitorService.ACTION_REFRESH_RULES)
+                refreshIntent.setPackage(context.packageName)
+                context.sendBroadcast(refreshIntent)
+            }
+        }
+
+        return addedAny
     }
 
     /** 上一次定期扫描的时间戳，避免频繁扫包 */
@@ -462,14 +476,32 @@ object CreditManager {
         val userRemoved = getUserRemovedApps(context)
         val toAdd = installedPkgs.intersect(categoryPkgs).subtract(currentBlacklist).subtract(userRemoved)
 
-        if (toAdd.isEmpty()) return 0
+        var totalAdded = 0
+        if (toAdd.isNotEmpty()) {
+            val newBlacklist = currentBlacklist.toMutableSet().apply { addAll(toAdd) }
+            saveBlacklistApps(context, newBlacklist)
+            totalAdded += toAdd.size
 
-        val newBlacklist = currentBlacklist.toMutableSet().apply { addAll(toAdd) }
-        saveBlacklistApps(context, newBlacklist)
+            LogExporter.i("CreditManager", "[PeriodicScan] Auto-added ${toAdd.size} apps: ${toAdd.joinToString()}")
+            LogExporter.logEvent("AutoBlacklist", "PERIODIC_SCAN added=${toAdd.size} pkgs=${toAdd.joinToString()}")
+        }
 
-        LogExporter.i("CreditManager", "[PeriodicScan] Auto-added ${toAdd.size} apps: ${toAdd.joinToString()}")
-        LogExporter.logEvent("AutoBlacklist", "PERIODIC_SCAN added=${toAdd.size} pkgs=${toAdd.joinToString()}")
-        return toAdd.size
+        // 4. 联动独立时段名单
+        val candidatePkgs = installedPkgs.intersect(categoryPkgs).subtract(userRemoved)
+        if (candidatePkgs.isNotEmpty()) {
+            val segsUpdated = TimeRuleManager.appendAppsToDecoupledSegments(context, candidatePkgs)
+            if (segsUpdated > 0) {
+                totalAdded += segsUpdated
+                LogExporter.i("CreditManager", "[PeriodicScan] Synced candidate apps to $segsUpdated decoupled time segment(s)")
+                runCatching {
+                    val refreshIntent = android.content.Intent(com.decikeeper.app.service.MonitorService.ACTION_REFRESH_RULES)
+                    refreshIntent.setPackage(context.packageName)
+                    context.sendBroadcast(refreshIntent)
+                }
+            }
+        }
+
+        return totalAdded
     }
 
     /**
@@ -1003,10 +1035,10 @@ object CreditManager {
     fun getWeeklyPrivilegeLimit(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (prefs.contains(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT)) {
-            return prefs.getInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, 3)
+            return prefs.getInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, 1)
         }
 
-        val legacyLimit = prefs.getInt(KEY_LEGACY_WEEKLY_PRIVILEGE_COUNT_LIMIT, 3)
+        val legacyLimit = prefs.getInt(KEY_LEGACY_WEEKLY_PRIVILEGE_COUNT_LIMIT, 1)
         prefs.edit().putInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, legacyLimit).apply()
         return legacyLimit
     }
@@ -1014,10 +1046,10 @@ object CreditManager {
     fun getWeeklyPrivilegeDurationLimit(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (prefs.contains(KEY_WEEKLY_PRIVILEGE_DURATION_LIMIT)) {
-            return prefs.getInt(KEY_WEEKLY_PRIVILEGE_DURATION_LIMIT, 600)
+            return prefs.getInt(KEY_WEEKLY_PRIVILEGE_DURATION_LIMIT, 480)
         }
 
-        val legacyLimit = prefs.getInt(KEY_LEGACY_WEEKLY_PRIVILEGE_DURATION_LIMIT, 600)
+        val legacyLimit = prefs.getInt(KEY_LEGACY_WEEKLY_PRIVILEGE_DURATION_LIMIT, 480)
         prefs.edit().putInt(KEY_WEEKLY_PRIVILEGE_DURATION_LIMIT, legacyLimit).apply()
         return legacyLimit
     }
@@ -1136,12 +1168,12 @@ object CreditManager {
     
     fun getPendingWeeklyPrivilegeLimit(context: Context): Int {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt("weekly_privilege_count_limit_pending", 3)
+            .getInt("weekly_privilege_count_limit_pending", 1)
     }
 
     fun getPendingWeeklyPrivilegeDurationLimit(context: Context): Int {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt("weekly_privilege_duration_limit_pending", 600)
+            .getInt("weekly_privilege_duration_limit_pending", 480)
     }
 
     fun getPendingWeeklyPrivilegeEffectiveTime(context: Context): Long {
@@ -1668,8 +1700,8 @@ object CreditManager {
 
             if (now >= pendingEffective) {
                 // Apply pending immediately
-                val pendingCount = prefs.getInt("weekly_privilege_count_limit_pending", 3)
-                val pendingDur = prefs.getInt("weekly_privilege_duration_limit_pending", 600)
+                val pendingCount = prefs.getInt("weekly_privilege_count_limit_pending", 1)
+                val pendingDur = prefs.getInt("weekly_privilege_duration_limit_pending", 480)
 
                 prefs.edit()
                     .putInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, pendingCount)
@@ -1692,8 +1724,8 @@ object CreditManager {
         // week-boundary logic to advance the marker and apply any implicit pending.
         if (thisWeekStart > lastApplyWeek) {
             if (hasPendingWeeklyPrivilegeLimit(context)) {
-                val pendingCount = prefs.getInt("weekly_privilege_count_limit_pending", 3)
-                val pendingDur = prefs.getInt("weekly_privilege_duration_limit_pending", 600)
+                val pendingCount = prefs.getInt("weekly_privilege_count_limit_pending", 1)
+                val pendingDur = prefs.getInt("weekly_privilege_duration_limit_pending", 480)
                 
                 prefs.edit()
                     .putInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, pendingCount)

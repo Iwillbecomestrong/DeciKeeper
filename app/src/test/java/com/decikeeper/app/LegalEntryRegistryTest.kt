@@ -158,7 +158,7 @@ class LegalEntryRegistryTest {
             version,
             LegalDocumentRepository.USER_AGREEMENT_VERSION
         )
-        assertEquals("v0.2.0", version)
+        assertEquals("v0.3.0", version)
     }
 
     @Test

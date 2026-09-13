@@ -56,10 +56,10 @@
    - 收集个人信息：否
    - 官网：https://github.com/PhilJay/MPAndroidChart
 
-【9】ZXing Android Embedded
-   - 作用：二维码扫描与生成（仅在用户主动触发"扫码导入"时调用）
-   - 收集个人信息：否（仅读取用户镜头指向的二维码，**不上传任何数据**）
-   - 官网：https://github.com/journeyapps/zxing-android-embedded
+【9】Google ML Kit Barcode Scanning & AndroidX CameraX
+   - 作用：二维码离线扫描（仅在闹钟唤醒挑战中用户主动触发扫码时调用）
+   - 收集个人信息：否（完全离线独立运行，**不上传任何数据**，无网络请求）
+   - 官网：https://developers.google.com/ml-kit/vision/barcode-scanning
 
 ==============================================
 会收集个人信息的 SDK
@@ -83,7 +83,6 @@
 
 ==============================================
 
-开发者：[待法务填写]
 联系邮箱：cyz200303@163.com
-审计日期：2026-07-05
-依据：app/build.gradle.kts commit efe533d0
+审计日期：2026-09-13
+依据：app/build.gradle.kts (v0.3.0)

@@ -141,4 +141,23 @@ class AlarmOverlayThemeContractTest {
             tm.contains("typedValue.data != 0")
         )
     }
+
+    @Test
+    fun defaultThemeMustBeSummer() {
+        val tm = source("app/src/main/java/com/decikeeper/app/ui/ThemeManager.kt")
+        assertTrue(
+            "ThemeManager currentKey must default to summer",
+            tm.contains("getString(KEY, \"summer\") ?: \"summer\"")
+        )
+        assertTrue(
+            "ThemeManager themeRes fallback must be Summer",
+            tm.contains("else -> R.style.Theme_DeciKeeper_Summer")
+        )
+
+        val themes = source("app/src/main/res/values/themes.xml")
+        assertTrue(
+            "Theme.DeciKeeper parent must be Theme.DeciKeeper.Summer",
+            themes.contains("<style name=\"Theme.DeciKeeper\" parent=\"Theme.DeciKeeper.Summer\" />")
+        )
+    }
 }

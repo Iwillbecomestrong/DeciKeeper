@@ -1335,11 +1335,19 @@ class AntiUninstallProtection(private val context: Context) {
             return null
         }
 
-        // 📦 [安装/更新流程豁免] 安装器在执行安装/更新操作时，绝非卸载流程。
-        // 即使节点众多导致预算耗尽，也不得阻断合法的安装/更新升级。
-        if (isInstallationFlow(currentPackage, content)) {
-            Log.d(TAG, "[Global Scan] Installation/Update flow detected in $currentPackage, allowing.")
-            return null
+        val isInstaller = currentPackage.contains("packageinstaller", ignoreCase = true) ||
+            currentPackage.contains("installer", ignoreCase = true)
+
+        // 📦 [第一性原理：包安装器安装/更新豁免]
+        // 包安装器（packageinstaller）的核心常态职责是安装与更新，更新页因展示庞大权限列表极易超过节点预算。
+        // 只有当明确出现卸载关键词（UNINSTALL_KEYWORDS）时才构成卸载威胁。
+        // 如果包安装器内根本没有卸载关键词，则无论节点数多少、预算是否耗尽，都绝对属于合法的安装/更新流程，必须直接放行！
+        if (isInstaller) {
+            val hasUninstallKeyword = UNINSTALL_KEYWORDS.any { content.contains(it, ignoreCase = true) }
+            if (!hasUninstallKeyword) {
+                Log.i(TAG, "[Global Scan] Package installer $currentPackage without uninstall keyword, allowing install/update flow.")
+                return null
+            }
         }
 
         // 1. App Name Check - 只有页面明确包含受保护应用标识，才可能是对本应用的威胁
@@ -1351,7 +1359,7 @@ class AntiUninstallProtection(private val context: Context) {
                          || content.contains("ironwill", ignoreCase = true)
         if (!hasAppName) return null
 
-        // 2. 超限 fail-closed：在已确认涉及本应用、且非安装/无障碍页面的前提下，
+        // 2. 超限 fail-closed：在已确认涉及本应用、且非安装器非无障碍页面的前提下（如系统设置 App Info 详情页），
         // 扫描无法在预算内完成时 fail-closed，不能把“树太大”变成防卸载绕过窗口。
         if (budget.exhausted) {
             Log.w(TAG, "[Global Scan] node traversal budget exhausted for $currentPackage with app present; blocking conservatively")

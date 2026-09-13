@@ -12,6 +12,10 @@
 .cxx
 local.properties
 
+# Signing keys
+*.jks
+*.keystore
+
 
 # Node / Backend
 node_modules/

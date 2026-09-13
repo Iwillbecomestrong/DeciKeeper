@@ -729,21 +729,21 @@ class TimeConfigFragment : Fragment() {
         val ctx = requireContext()
         AlertDialog.Builder(ctx)
             .setTitle("⚡ 恢复默认方案")
-            .setMessage("确定要加载默认配置吗？(深夜每天生效，其余时段仅工作日)\n\n" +
-                "① 深夜: 22:00 - 07:00 (休息 10min, 2次)\n" +
-                "② 上午: 08:45 - 12:00 (休息 30min, 6次)\n" +
-                "③ 下午: 12:45 - 17:00 (休息 30min, 6次)\n" +
-                "④ 晚上: 17:45 - 21:00 (休息 20min, 4次)\n\n" +
+            .setMessage("确定要加载默认配置吗？(善用空档期，晚上仅工作日)\n\n" +
+                "① 深夜: 23:00 - 07:30 (休息 10min, 4次, 每天)\n" +
+                "② 上午: 08:15 - 12:00 (休息 30min, 7次, 每天)\n" +
+                "③ 下午: 12:45 - 16:45 (休息 35min, 7次, 每天)\n" +
+                "④ 晚上: 17:30 - 22:00 (休息 35min, 7次, 工作日)\n\n" +
                 "这将覆盖当前所有配置。")
             .setPositiveButton("确定") { _, _ ->
                 segments.clear()
                 adapter?.resetStates()
                 val workdays = listOf(2, 3, 4, 5, 6)
                 val everyday = listOf(1, 2, 3, 4, 5, 6, 7)
-                segments.add(TimeSegment(name = "深夜", startHour = 22, startMinute = 0, endHour = 7, endMinute = 0, limitMins = 10, daysOfWeek = everyday))
-                segments.add(TimeSegment(name = "上午", startHour = 8, startMinute = 45, endHour = 12, endMinute = 0, limitMins = 30, daysOfWeek = workdays))
-                segments.add(TimeSegment(name = "下午", startHour = 12, startMinute = 45, endHour = 17, endMinute = 0, limitMins = 30, daysOfWeek = workdays))
-                segments.add(TimeSegment(name = "晚上", startHour = 17, startMinute = 45, endHour = 21, endMinute = 0, limitMins = 20, daysOfWeek = workdays))
+                segments.add(TimeSegment(name = "深夜", startHour = 23, startMinute = 0, endHour = 7, endMinute = 30, limitMins = 10, daysOfWeek = everyday, usableCountLimitHalfUnits = 8))
+                segments.add(TimeSegment(name = "上午", startHour = 8, startMinute = 15, endHour = 12, endMinute = 0, limitMins = 30, daysOfWeek = everyday, usableCountLimitHalfUnits = 14))
+                segments.add(TimeSegment(name = "下午", startHour = 12, startMinute = 45, endHour = 16, endMinute = 45, limitMins = 35, daysOfWeek = everyday))
+                segments.add(TimeSegment(name = "晚上", startHour = 17, startMinute = 30, endHour = 22, endMinute = 0, limitMins = 35, daysOfWeek = workdays))
                 segments.forEach { adapter?.markAsNew(it) }
                 sortSegments(segments)
                 adapter?.notifyDataSetChanged()

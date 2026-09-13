@@ -125,6 +125,12 @@ class AppSelectionActivity : AppCompatActivity() {
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
 
+        val toolsLayout = findViewById<View>(R.id.ll_segment_tools)
+        val btnSelectAll = findViewById<Button>(R.id.btn_select_all)
+        val btnInvert = findViewById<Button>(R.id.btn_invert)
+        val btnRestoreOrClear = findViewById<Button>(R.id.btn_restore_global)
+        val btnQuickImport = findViewById<Button>(R.id.btn_quick_import)
+
         if (currentMode == "blacklist") {
             val pendingSet = CreditManager.getPendingBlacklistApps(this)
             val savedBlocked = if (pendingSet != null && pendingSet.isNotEmpty()) pendingSet else CreditManager.getBlacklistApps(this)
@@ -134,6 +140,12 @@ class AppSelectionActivity : AppCompatActivity() {
             btnSave.text = "保存配置"
             findViewById<TextView>(R.id.tv_title_main)?.text = "黑白名单"
             updatePendingHint()
+            toolsLayout?.visibility = View.VISIBLE
+            btnRestoreOrClear?.text = "清空"
+            btnQuickImport?.apply {
+                visibility = View.VISIBLE
+                text = "批量勾选与新应用自动拦截"
+            }
             if (isReadOnly) applySettingsLockoutState()
         } else if (currentMode == "segment_blacklist") {
             val globalBlacklist = CreditManager.getBlacklistApps(this)
@@ -147,8 +159,12 @@ class AppSelectionActivity : AppCompatActivity() {
             findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)?.visibility = View.GONE
             findViewById<TextView>(R.id.tv_lockout_hint)?.visibility = View.GONE
             findViewById<TextView>(R.id.tv_pending_hint_legacy)?.visibility = View.GONE
-            findViewById<View>(R.id.ll_segment_tools)?.visibility = View.VISIBLE
-            findViewById<Button>(R.id.btn_quick_import)?.visibility = View.GONE
+            toolsLayout?.visibility = View.VISIBLE
+            btnRestoreOrClear?.text = "恢复全局"
+            btnQuickImport?.apply {
+                visibility = View.VISIBLE
+                text = "批量勾选与新应用自动拦截"
+            }
         } else if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
             val savedPackages = AlarmChallengeEmergencyWhitelist.getPackages(this)
             selectedApps.addAll(savedPackages)
@@ -160,10 +176,11 @@ class AppSelectionActivity : AppCompatActivity() {
             findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)?.visibility = View.GONE
             findViewById<TextView>(R.id.tv_lockout_hint)?.visibility = View.GONE
             findViewById<TextView>(R.id.tv_pending_hint_legacy)?.visibility = View.GONE
-            findViewById<View>(R.id.ll_segment_tools)?.visibility = View.GONE
-            findViewById<Button>(R.id.btn_quick_import)?.visibility = View.GONE
+            toolsLayout?.visibility = View.GONE
+            btnQuickImport?.visibility = View.GONE
             findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_list_mode)?.visibility = View.GONE
         } else {
+            // MODE_RESULT: 应用时间窗受控应用
             if (initialSelectionExtra != null) {
                 selectedApps.addAll(initialSelectionExtra)
                 originalSelection.addAll(initialSelectionExtra)
@@ -173,15 +190,27 @@ class AppSelectionActivity : AppCompatActivity() {
             tvModeHint.text = "请勾选需要在应用时间窗中受限的应用"
             tvModeHint.setTextColor(resources.getColor(android.R.color.darker_gray))
             findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)?.visibility = View.GONE
+            toolsLayout?.visibility = View.VISIBLE
+            btnRestoreOrClear?.text = "清空"
+            btnQuickImport?.apply {
+                visibility = View.VISIBLE
+                text = "批量勾选"
+            }
         }
 
         loadInstalledApps()
         setupListModeSwitch()
-        findViewById<Button>(R.id.btn_quick_import).setOnClickListener { showQuickImportDialog() }
-        if (currentMode == "segment_blacklist") {
-            findViewById<Button>(R.id.btn_select_all).setOnClickListener { onSelectAll() }
-            findViewById<Button>(R.id.btn_invert).setOnClickListener { onInvertSelection() }
-            findViewById<Button>(R.id.btn_restore_global).setOnClickListener { onRestoreGlobal() }
+        btnQuickImport?.setOnClickListener { showQuickImportDialog() }
+        if (currentMode != MODE_ALARM_EMERGENCY_WHITELIST) {
+            btnSelectAll?.setOnClickListener { onSelectAll() }
+            btnInvert?.setOnClickListener { onInvertSelection() }
+            btnRestoreOrClear?.setOnClickListener {
+                if (currentMode == "segment_blacklist") {
+                    onRestoreGlobal()
+                } else {
+                    onClearAll()
+                }
+            }
         }
         btnSave.setOnClickListener {
             if (currentMode == MODE_ALARM_EMERGENCY_WHITELIST) {
@@ -221,6 +250,23 @@ class AppSelectionActivity : AppCompatActivity() {
             .setMessage("确定恢复跟随全局黑/白名单吗？本时段的独立名单将被清除。")
             .setPositiveButton("恢复") { _, _ -> followGlobal = true; restoreRequested = true; selectedApps.clear(); returnResult() }
             .setNegativeButton("取消", null).show()
+    }
+
+    private fun onClearAll() {
+        if (selectedApps.isEmpty()) {
+            Toast.makeText(this, "当前未选择任何应用", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("清空已选应用")
+            .setMessage("确定清空当前已勾选的所有应用吗？")
+            .setPositiveButton("清空") { _, _ ->
+                selectedApps.clear()
+                syncSelectionState()
+                updateLists()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun setupListModeSwitch() {
@@ -346,6 +392,8 @@ class AppSelectionActivity : AppCompatActivity() {
 
     private fun showUnifiedCategoryConfigDialog() {
         val isBlacklistMode = currentMode == "blacklist"
+        val isSegmentMode = currentMode == "segment_blacklist"
+        val hasAutoIntercept = isBlacklistMode || isSegmentMode
         val savedCategories = com.decikeeper.app.data.BlacklistStore.getAutoBlacklistCategories(this)
         val isAutoEnabled = com.decikeeper.app.data.BlacklistStore.isAutoBlacklistEnabled(this)
         val dialogView = layoutInflater.inflate(R.layout.dialog_quick_import_config, null)
@@ -356,7 +404,7 @@ class AppSelectionActivity : AppCompatActivity() {
         val cbBrowser = dialogView.findViewById<CheckBox>(R.id.cb_dialog_browser)
         switchMaster?.isChecked = isAutoEnabled
         val masterCard = switchMaster?.parent?.parent as? View
-        if (!isBlacklistMode && masterCard != null) masterCard.visibility = View.GONE
+        if (!hasAutoIntercept && masterCard != null) masterCard.visibility = View.GONE
 
         fun isCategoryAllSelected(code: String): Boolean {
             val installedCategoryApps = CreditManager.getBlacklistCategory(code).filter { isAppInstalled(it) }
@@ -367,11 +415,13 @@ class AppSelectionActivity : AppCompatActivity() {
         cbGame?.isChecked = savedCategories.contains("game") || isCategoryAllSelected("game")
         cbBrowser?.isChecked = savedCategories.contains("browser") || isCategoryAllSelected("browser")
 
+        val dialogTitle = if (hasAutoIntercept) "批量勾选与新应用自动拦截配置" else "快速批量勾选应用"
+
         AlertDialog.Builder(this)
-            .setTitle(if (isBlacklistMode) "批量勾选与新应用自动拦截配置" else "快速批量应用设置")
+            .setTitle(dialogTitle)
             .setView(dialogView)
             .setPositiveButton("应用配置与变更") { _, _ ->
-                if (isBlacklistMode && switchMaster != null) com.decikeeper.app.data.BlacklistStore.setAutoBlacklistEnabled(this, switchMaster.isChecked)
+                if (hasAutoIntercept && switchMaster != null) com.decikeeper.app.data.BlacklistStore.setAutoBlacklistEnabled(this, switchMaster.isChecked)
                 val newCategories = mutableSetOf<String>()
                 val categoryMap = mapOf("comm" to (cbComm?.isChecked == true), "video" to (cbVideo?.isChecked == true), "game" to (cbGame?.isChecked == true), "browser" to (cbBrowser?.isChecked == true))
                 var addedCount = 0; var removedCount = 0
@@ -382,11 +432,14 @@ class AppSelectionActivity : AppCompatActivity() {
                         else if (!isChecked && selectedApps.remove(pkg)) removedCount++
                     }
                 }
-                if (isBlacklistMode) com.decikeeper.app.data.BlacklistStore.setAutoBlacklistCategories(this, newCategories)
+                if (hasAutoIntercept) com.decikeeper.app.data.BlacklistStore.setAutoBlacklistCategories(this, newCategories)
                 val msgList = mutableListOf<String>()
                 if (addedCount > 0) msgList.add("批量导入 $addedCount 个应用")
                 if (removedCount > 0) msgList.add("批量取消 $removedCount 个应用")
-                Toast.makeText(this, if (msgList.isNotEmpty()) "已" + msgList.joinToString("，") else "自动加黑与分类配置已更新", Toast.LENGTH_SHORT).show()
+                val toastMsg = if (msgList.isNotEmpty()) "已" + msgList.joinToString("，")
+                    else if (hasAutoIntercept) "自动加黑与分类配置已更新"
+                    else "分类配置已应用"
+                Toast.makeText(this, toastMsg, Toast.LENGTH_SHORT).show()
                 syncSelectionState(); updateLists()
             }.setNegativeButton("取消", null).show()
     }
@@ -395,6 +448,9 @@ class AppSelectionActivity : AppCompatActivity() {
         if (!isReadOnly) return
         btnSave.isEnabled = false; btnSave.alpha = 0.4f
         findViewById<Button>(R.id.btn_quick_import)?.apply { isEnabled = false; alpha = 0.4f }
+        findViewById<Button>(R.id.btn_select_all)?.apply { isEnabled = false; alpha = 0.4f }
+        findViewById<Button>(R.id.btn_invert)?.apply { isEnabled = false; alpha = 0.4f }
+        findViewById<Button>(R.id.btn_restore_global)?.apply { isEnabled = false; alpha = 0.4f }
     }
 
     private fun showLockoutDialogOncePerDay() {

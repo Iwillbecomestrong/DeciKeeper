@@ -1551,33 +1551,48 @@ object TestScenarioManager {
     }
 
     private fun testDndPresetDefaultTimeAndExitCalculation() {
-        // Expected Input: preset segments using 5-minutes-per-exit rule
-        // Expected Output: deep-night starts at 22:00, evening ends at 21:00, exits = breakMinutes / 5
+        // Expected Input: preset segments matching golden routine parameters
+        // Expected Output: deep-night 23:00-07:30, morning 08:15-12:00, afternoon 12:45-16:45, evening 17:30-22:00
         val presetSegments = listOf(
-            TimeSegment(22, 0, 7, 0, 10, "深夜", true, listOf(1, 2, 3, 4, 5, 6, 7)),
-            TimeSegment(8, 45, 12, 0, 30, "上午", true, listOf(2, 3, 4, 5, 6)),
-            TimeSegment(12, 45, 17, 0, 30, "下午", true, listOf(2, 3, 4, 5, 6)),
-            TimeSegment(17, 45, 21, 0, 20, "晚上", true, listOf(2, 3, 4, 5, 6))
+            TimeSegment(23, 0, 7, 30, 10, "深夜", true, listOf(1, 2, 3, 4, 5, 6, 7), usableCountLimitHalfUnits = 8),
+            TimeSegment(8, 15, 12, 0, 30, "上午", true, listOf(1, 2, 3, 4, 5, 6, 7), usableCountLimitHalfUnits = 14),
+            TimeSegment(12, 45, 16, 45, 35, "下午", true, listOf(1, 2, 3, 4, 5, 6, 7)),
+            TimeSegment(17, 30, 22, 0, 35, "晚上", true, listOf(2, 3, 4, 5, 6))
         )
 
         val deepNight = presetSegments.first { it.name == "深夜" }
+        val morning = presetSegments.first { it.name == "上午" }
+        val afternoon = presetSegments.first { it.name == "下午" }
         val evening = presetSegments.first { it.name == "晚上" }
         assertPass(
-            deepNight.startHour == 22 && deepNight.startMinute == 0 &&
-                deepNight.endHour == 7 && deepNight.endMinute == 0,
+            deepNight.startHour == 23 && deepNight.startMinute == 0 &&
+                deepNight.endHour == 7 && deepNight.endMinute == 30,
             "勿扰默认-深夜时间",
-            "Expected Input: 深夜默认方案; Expected Output: 22:00-07:00"
+            "Expected Input: 深夜默认方案; Expected Output: 23:00-07:30"
         )
         assertPass(
-            evening.endHour == 21 && evening.endMinute == 0,
-            "勿扰默认-晚上结束时间",
-            "Expected Input: 晚上默认方案; Expected Output: 21:00结束"
+            morning.startHour == 8 && morning.startMinute == 15 &&
+                morning.endHour == 12 && morning.endMinute == 0,
+            "勿扰默认-上午时间",
+            "Expected Input: 上午默认方案; Expected Output: 08:15-12:00"
+        )
+        assertPass(
+            afternoon.startHour == 12 && afternoon.startMinute == 45 &&
+                afternoon.endHour == 16 && afternoon.endMinute == 45,
+            "勿扰默认-下午时间",
+            "Expected Input: 下午默认方案; Expected Output: 12:45-16:45"
+        )
+        assertPass(
+            evening.startHour == 17 && evening.startMinute == 30 &&
+                evening.endHour == 22 && evening.endMinute == 0,
+            "勿扰默认-晚上时间",
+            "Expected Input: 晚上默认方案; Expected Output: 17:30-22:00"
         )
         val exitsMatchRule = presetSegments.all { it.limitMins > 0 }
         assertPass(
             exitsMatchRule,
             "勿扰默认-休息时间配置校验",
-            "Expected Input: 10/20/30分钟休息; Expected Output: 所有预设休息时间大于0"
+            "Expected Input: 10/30/35分钟休息; Expected Output: 所有预设休息时间大于0"
         )
     }
 

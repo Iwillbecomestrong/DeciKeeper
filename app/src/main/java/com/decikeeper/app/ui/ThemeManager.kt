@@ -13,14 +13,14 @@ object ThemeManager {
     private val keys = arrayOf("spring", "summer", "autumn", "winter")
     val labels = arrayOf("春 · 苔樱", "夏 · 潮汐", "秋 · 茶陶", "冬 · 雪岚")
 
-    fun currentKey(context: Context): String = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "spring") ?: "spring"
+    fun currentKey(context: Context): String = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "summer") ?: "summer"
     fun currentLabel(context: Context): String = labels[keys.indexOf(currentKey(context)).coerceAtLeast(0)]
 
     fun themeRes(context: Context): Int = when (currentKey(context)) {
-        "summer" -> R.style.Theme_DeciKeeper_Summer
+        "spring" -> R.style.Theme_DeciKeeper_Spring
         "autumn" -> R.style.Theme_DeciKeeper_Autumn
         "winter" -> R.style.Theme_DeciKeeper_Winter
-        else -> R.style.Theme_DeciKeeper_Spring
+        else -> R.style.Theme_DeciKeeper_Summer
     }
 
     fun apply(activity: Activity) = activity.setTheme(themeRes(activity))
@@ -63,22 +63,22 @@ object ThemeManager {
 
     private fun getSeasonColorFallback(season: String, attrRes: Int): Int {
         return when (season) {
-            "summer" -> when (attrRes) {
-                R.attr.zzPageBg -> Color.parseColor("#F2F8F8")
-                R.attr.zzSurface -> Color.parseColor("#FBFFFF")
-                R.attr.zzSurface2 -> Color.parseColor("#E8F3F2")
-                R.attr.zzSurface3 -> Color.parseColor("#EAF2F6")
-                R.attr.zzSurfaceStrong -> Color.parseColor("#DDEBEA")
-                R.attr.zzText -> Color.parseColor("#24383A")
-                R.attr.zzMuted -> Color.parseColor("#65787A")
-                R.attr.zzSubtle -> Color.parseColor("#879799")
-                R.attr.zzLine -> Color.parseColor("#D2E1E1")
-                R.attr.zzAccent -> Color.parseColor("#4C7C7D")
-                R.attr.zzAccentStrong -> Color.parseColor("#365F61")
-                R.attr.zzWarning -> Color.parseColor("#3D868F")
-                R.attr.zzDanger -> Color.parseColor("#AD4848")
-                R.attr.zzSuccess -> Color.parseColor("#537C70")
-                else -> Color.parseColor("#F2F8F8")
+            "spring" -> when (attrRes) {
+                R.attr.zzPageBg -> Color.parseColor("#F7F8F2")
+                R.attr.zzSurface -> Color.parseColor("#FFFDF8")
+                R.attr.zzSurface2 -> Color.parseColor("#F0F4E9")
+                R.attr.zzSurface3 -> Color.parseColor("#F7ECEE")
+                R.attr.zzSurfaceStrong -> Color.parseColor("#E7EDE0")
+                R.attr.zzText -> Color.parseColor("#29352C")
+                R.attr.zzMuted -> Color.parseColor("#6B776D")
+                R.attr.zzSubtle -> Color.parseColor("#8B958D")
+                R.attr.zzLine -> Color.parseColor("#DBE2D6")
+                R.attr.zzAccent -> Color.parseColor("#67816C")
+                R.attr.zzAccentStrong -> Color.parseColor("#4F6655")
+                R.attr.zzWarning -> Color.parseColor("#7D8436")
+                R.attr.zzDanger -> Color.parseColor("#B2455A")
+                R.attr.zzSuccess -> Color.parseColor("#607B63")
+                else -> Color.parseColor("#F7F8F2")
             }
             "autumn" -> when (attrRes) {
                 R.attr.zzPageBg -> Color.parseColor("#F6F1E8")
@@ -114,22 +114,22 @@ object ThemeManager {
                 R.attr.zzSuccess -> Color.parseColor("#667B72")
                 else -> Color.parseColor("#F6F8F9")
             }
-            else -> when (attrRes) { // spring
-                R.attr.zzPageBg -> Color.parseColor("#F7F8F2")
-                R.attr.zzSurface -> Color.parseColor("#FFFDF8")
-                R.attr.zzSurface2 -> Color.parseColor("#F0F4E9")
-                R.attr.zzSurface3 -> Color.parseColor("#F7ECEE")
-                R.attr.zzSurfaceStrong -> Color.parseColor("#E7EDE0")
-                R.attr.zzText -> Color.parseColor("#29352C")
-                R.attr.zzMuted -> Color.parseColor("#6B776D")
-                R.attr.zzSubtle -> Color.parseColor("#8B958D")
-                R.attr.zzLine -> Color.parseColor("#DBE2D6")
-                R.attr.zzAccent -> Color.parseColor("#67816C")
-                R.attr.zzAccentStrong -> Color.parseColor("#4F6655")
-                R.attr.zzWarning -> Color.parseColor("#7D8436")
-                R.attr.zzDanger -> Color.parseColor("#B2455A")
-                R.attr.zzSuccess -> Color.parseColor("#607B63")
-                else -> Color.parseColor("#F7F8F2")
+            else -> when (attrRes) { // summer (default)
+                R.attr.zzPageBg -> Color.parseColor("#F2F8F8")
+                R.attr.zzSurface -> Color.parseColor("#FBFFFF")
+                R.attr.zzSurface2 -> Color.parseColor("#E8F3F2")
+                R.attr.zzSurface3 -> Color.parseColor("#EAF2F6")
+                R.attr.zzSurfaceStrong -> Color.parseColor("#DDEBEA")
+                R.attr.zzText -> Color.parseColor("#24383A")
+                R.attr.zzMuted -> Color.parseColor("#65787A")
+                R.attr.zzSubtle -> Color.parseColor("#879799")
+                R.attr.zzLine -> Color.parseColor("#D2E1E1")
+                R.attr.zzAccent -> Color.parseColor("#4C7C7D")
+                R.attr.zzAccentStrong -> Color.parseColor("#365F61")
+                R.attr.zzWarning -> Color.parseColor("#3D868F")
+                R.attr.zzDanger -> Color.parseColor("#AD4848")
+                R.attr.zzSuccess -> Color.parseColor("#537C70")
+                else -> Color.parseColor("#F2F8F8")
             }
         }
     }

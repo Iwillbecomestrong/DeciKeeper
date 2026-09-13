@@ -10,7 +10,8 @@
 | AndroidX GridLayout / WorkManager / ViewPager2 | 见 app/build.gradle.kts | Apache License 2.0 | 布局与后台工作调度库 |
 | Google Material Components for Android | 见 gradle/libs.versions.toml | Apache License 2.0 | UI 组件 |
 | MPAndroidChart | 3.1.0 | Apache License 2.0 | 统计图表（周/月/年使用统计面板） |
-| zxing-android-embedded | 4.3.0 | Apache License 2.0 | 二维码扫描（闹钟扫码挑战）；内嵌 ZXing Core（Apache License 2.0） |
+| AndroidX CameraX | 1.3.4 | Apache License 2.0 | 相机驱动与生命周期绑定（闹钟扫码挑战） |
+| Google ML Kit Barcode Scanning | 17.3.0 | Apache License 2.0 | 离线深度学习二维码检测与识别（闹钟扫码挑战） |
 | Markwon Core / Tables | 4.6.2 | Apache License 2.0 | App 内用户手册 Markdown 与表格渲染 |
 
 ## 测试依赖（仅构建测试用，不随 APK 分发）

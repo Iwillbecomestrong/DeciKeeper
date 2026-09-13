@@ -11,7 +11,7 @@
         <item name="colorOnSurface">?attr/zzText</item>
         <item name="colorOutline">?attr/zzLine</item>
     </style>
-    <style name="Theme.DeciKeeper" parent="Theme.DeciKeeper.Spring" />
+    <style name="Theme.DeciKeeper" parent="Theme.DeciKeeper.Summer" />
     <style name="Theme.DeciKeeper.Spring" parent="Base.Theme.DeciKeeper">
         <item name="zzPageBg">#F7F8F2</item><item name="zzSurface">#FFFDF8</item><item name="zzSurface2">#F0F4E9</item><item name="zzSurface3">#F7ECEE</item><item name="zzSurfaceStrong">#E7EDE0</item><item name="zzText">#29352C</item><item name="zzMuted">#6B776D</item><item name="zzSubtle">#8B958D</item><item name="zzLine">#DBE2D6</item><item name="zzLineStrong">#CBD5C6</item><item name="zzNavBg">#FFFDF8</item><item name="zzAccent">#67816C</item><item name="zzAccentStrong">#4F6655</item><item name="zzAccentSoft">#DDE8D8</item><item name="zzAccentSofter">#EDF3E9</item><item name="zzAlt">#AF6D79</item><item name="zzAltSoft">#F3E2E6</item><item name="zzSuccess">#607B63</item><item name="zzSuccessSoft">#E4EDE1</item><item name="zzWarning">#7D8436</item><item name="zzWarningSoft">#EBF2DC</item><item name="zzDanger">#B2455A</item><item name="zzDangerSoft">#F8E4E7</item><item name="zzInfo">#697F91</item><item name="zzInfoSoft">#E5EBF0</item>
     </style>
@@ -34,7 +34,7 @@
         <item name="android:textStyle">normal</item>
         <item name="android:includeFontPadding">false</item>
     </style>
-    <style name="Theme.DeciKeeper.Transparent" parent="Theme.DeciKeeper.Spring"><item name="android:windowIsTranslucent">true</item><item name="android:windowBackground">@android:color/transparent</item><item name="android:windowNoTitle">true</item><item name="android:backgroundDimEnabled">false</item></style>
+    <style name="Theme.DeciKeeper.Transparent" parent="Theme.DeciKeeper.Summer"><item name="android:windowIsTranslucent">true</item><item name="android:windowBackground">@android:color/transparent</item><item name="android:windowNoTitle">true</item><item name="android:backgroundDimEnabled">false</item></style>
     <style name="Theme.DeciKeeper.Alarm" parent="Theme.DeciKeeper">
         <item name="android:windowIsTranslucent">false</item>
         <item name="android:windowBackground">?attr/zzPageBg</item>

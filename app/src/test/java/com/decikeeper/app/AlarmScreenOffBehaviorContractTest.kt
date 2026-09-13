@@ -40,13 +40,17 @@ class AlarmScreenOffBehaviorContractTest {
 
     private fun source(path: String): String {
         val cwd = File(System.getProperty("user.dir") ?: ".")
+        val normalized = path.removePrefix("app/")
         val candidates = listOf(
             File(cwd, path),
-            File(cwd.parentFile, "IronWill-alarm-priority/$path"),
-            File("G:/IronWIl0329/IronWill-alarm-priority", path)
+            File(cwd, normalized),
+            File(cwd, "app/$normalized"),
+            File(cwd.parentFile ?: cwd, path),
+            File(cwd.parentFile ?: cwd, normalized),
+            File(cwd.parentFile ?: cwd, "app/$normalized")
         )
         for (candidate in candidates) {
-            if (candidate.exists()) return candidate.readText()
+            if (candidate.isFile) return candidate.readText()
         }
         throw AssertionError("Could not find $path from ${cwd.absolutePath}")
     }

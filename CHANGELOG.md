@@ -4,7 +4,9 @@
 
 ---
 
-## [Unreleased] - 开发中
+## [Unreleased]
+
+## [0.3.0] - 2026-09-13
 
 ### 核心改进 (Changed / Improved)
 - **全面更名「决定守护 (DeciKeeper)」**：

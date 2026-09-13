@@ -40,6 +40,7 @@ import android.view.ViewTreeObserver
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -975,6 +976,18 @@ internal object LockAlarmOverlayController {
         view.findViewById<Button>(R.id.btn_alarm_scan_cancel).setOnClickListener {
             cancelAlarmScan()
         }
+        val btnTorch = view.findViewById<ImageButton>(R.id.btn_alarm_torch)
+        val tvTorchHint = view.findViewById<TextView>(R.id.tv_alarm_torch_hint)
+        val layoutTorch = view.findViewById<View>(R.id.layout_alarm_torch)
+        val onTorchClick = View.OnClickListener {
+            val controller = mAlarmController
+            if (controller != null) {
+                val isOn = controller.toggleTorch()
+                updateTorchUi(btnTorch, tvTorchHint, isOn)
+            }
+        }
+        btnTorch?.setOnClickListener(onTorchClick)
+        layoutTorch?.setOnClickListener(onTorchClick)
 
         view.findViewById<Button>(R.id.btn_alarm_close).setOnClickListener {
             handleAlarmAction(false)
@@ -3081,8 +3094,31 @@ internal object LockAlarmOverlayController {
             v.isFocusable = true
             v.isFocusableInTouchMode = true
             v.requestFocus()
+            val btnTorch = v.findViewById<ImageButton>(R.id.btn_alarm_torch)
+            val tvTorchHint = v.findViewById<TextView>(R.id.tv_alarm_torch_hint)
+            updateTorchUi(btnTorch, tvTorchHint, false)
         }
         mAlarmController?.onScanCancel()
+    }
+
+    fun updateTorchState(isOn: Boolean) {
+        val view = LockWindowManager.getAlarmView() ?: return
+        val btnTorch = view.findViewById<ImageButton>(R.id.btn_alarm_torch)
+        val tvTorchHint = view.findViewById<TextView>(R.id.tv_alarm_torch_hint)
+        updateTorchUi(btnTorch, tvTorchHint, isOn)
+    }
+
+    private fun updateTorchUi(btnTorch: ImageButton?, tvTorchHint: TextView?, isOn: Boolean) {
+        btnTorch?.isSelected = isOn
+        if (isOn) {
+            btnTorch?.setColorFilter(Color.parseColor("#FFD600"))
+            tvTorchHint?.text = "轻触关闭"
+            tvTorchHint?.setTextColor(Color.parseColor("#FFD600"))
+        } else {
+            btnTorch?.clearColorFilter()
+            tvTorchHint?.text = "轻触照亮"
+            tvTorchHint?.setTextColor(Color.parseColor("#FFFFFF"))
+        }
     }
 
     fun detachAlarmController(controller: LockWindowManager.AlarmOverlayController) {
@@ -3232,32 +3268,12 @@ internal object LockAlarmOverlayController {
     }
 
     fun startAlarmInlineScan() {
-        val view = LockWindowManager.getAlarmView()
-        if (view == null) {
-            Log.w(TAG, "startAlarmInlineScan: mAlarmView is NULL, cannot start scan")
-            return
-        }
-        view.findViewById<View>(R.id.layout_alarm_scan).visibility = View.VISIBLE
-        // Barcode scanner auto-starts based on layout visibility
-        val barcodeView = view.findViewById<com.journeyapps.barcodescanner.DecoratedBarcodeView>(R.id.barcode_alarm_scanner)
-        barcodeView?.resume()
-        val callbackGeneration = alarmSessionGeneration
-        barcodeView?.decodeContinuous { result ->
-            if (result != null) {
-                if (!isAlarmOverlayActive.get() || callbackGeneration != alarmSessionGeneration) {
-                    barcodeView.pause()
-                    return@decodeContinuous
-                }
-                barcodeView.pause()
-                onAlarmScanResult(true)
-            }
-        }
+        // 覆盖层窗口无法渲染相机预览，扫码统一由下方 AlarmActivity 承载（透过开孔透出）
+        Log.w(TAG, "startAlarmInlineScan: camera preview is hosted by AlarmActivity via cutout")
     }
 
     fun stopAlarmInlineScan() {
-        val view = LockWindowManager.getAlarmView() ?: return
-        val barcodeView = view.findViewById<com.journeyapps.barcodescanner.DecoratedBarcodeView>(R.id.barcode_alarm_scanner)
-        barcodeView?.pause()
+        // no-op: 由 AlarmActivity 统一控制相机启停
     }
 
     fun fallbackFromQrToMath() {

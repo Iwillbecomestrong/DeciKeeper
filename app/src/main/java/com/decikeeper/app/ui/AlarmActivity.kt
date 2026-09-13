@@ -13,11 +13,12 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageButton
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
-import com.google.zxing.BarcodeFormat
 import com.decikeeper.app.R
 import com.decikeeper.app.data.AndroidLogcatNormalEventSink
 import com.decikeeper.app.data.DefaultLogDebugConfig
@@ -31,9 +32,6 @@ import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmWindowManager
 import com.decikeeper.app.service.AlarmChallengeEmergencyGuardService
 import com.decikeeper.app.service.AlarmVibrationService
-import com.journeyapps.barcodescanner.DecoratedBarcodeView
-import com.journeyapps.barcodescanner.DefaultDecoderFactory
-import com.journeyapps.barcodescanner.camera.CameraSettings
 
 internal fun shouldFinishExternalAlarmHost(
     isScanMode: Boolean,
@@ -60,7 +58,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     private var isScanMode = false
     private var isLockedScreenMode = false
     private var newAlarmSession = false
-    private var barcodeView: DecoratedBarcodeView? = null
+    private var barcodeView: CameraXScanManager? = null
     private var torchOn = false
     private var scanGeneration = 0L
     private var scanSessionToken = ""
@@ -137,72 +135,75 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     private fun startBarcodeScanner() {
         LockWindowManager.setAlarmOverlayPassthrough(true)
-        barcodeView?.let { view ->
-            scanSessionToken = AlarmScheduler.getActiveScheduleToken(this)
-            val callbackGeneration = ++scanGeneration
-            view.setCameraSettings(CameraSettings().apply {
-                focusMode = CameraSettings.FocusMode.CONTINUOUS
-            })
-            view.setDecoderFactory(DefaultDecoderFactory(listOf(BarcodeFormat.QR_CODE)))
-            if (!qrChallengeStartEmitted) {
-                qrChallengeStartEmitted = true
-                alarmProtectionEventBridge.recordAlarmChallengeStart(
+        val previewView = findViewById<PreviewView>(R.id.preview_view) ?: return
+        val manager = barcodeView ?: CameraXScanManager(this, this).also { barcodeView = it }
+        scanSessionToken = AlarmScheduler.getActiveScheduleToken(this)
+        val callbackGeneration = ++scanGeneration
+        if (!qrChallengeStartEmitted) {
+            qrChallengeStartEmitted = true
+            alarmProtectionEventBridge.recordAlarmChallengeStart(
+                alarmId = alarmId.toString(),
+                challengeId = "QR-$alarmId",
+                totalSteps = 1
+            )
+        }
+        manager.start(previewView) { result ->
+            val activeToken = AlarmScheduler.getActiveScheduleToken(this@AlarmActivity)
+            val sessionStillCurrent = callbackGeneration == scanGeneration &&
+                (alarmId <= 0 || (AlarmScheduler.isAlarmActive(this@AlarmActivity) &&
+                    AlarmScheduler.getActiveAlarmId(this@AlarmActivity) == alarmId &&
+                    (scanSessionToken.isBlank() || activeToken == scanSessionToken)))
+            if (!sessionStillCurrent) {
+                android.util.Log.w("AlarmActivity", "Ignoring stale QR callback: id=$alarmId generation=$callbackGeneration currentGeneration=$scanGeneration")
+                manager.pause()
+                return@start
+            }
+            if (torchOn) {
+                torchOn = false
+                manager.setTorch(false)
+                updateTorchUi(false)
+            }
+            manager.pause()
+            isScanMode = false
+            android.util.Log.i("AlarmActivity", "Scan success, updating alarm challenge stage")
+            if (!qrChallengeResultEmitted) {
+                qrChallengeResultEmitted = true
+                alarmProtectionEventBridge.recordAlarmChallengeResult(
                     alarmId = alarmId.toString(),
                     challengeId = "QR-$alarmId",
+                    step = 1,
+                    result = "FINAL_CORRECT",
+                    cumulativeProgress = 1,
                     totalSteps = 1
                 )
             }
-            view.resume()
-            view.decodeContinuous { result ->
-                if (result != null) {
-                    val activeToken = AlarmScheduler.getActiveScheduleToken(this@AlarmActivity)
-                    val sessionStillCurrent = callbackGeneration == scanGeneration &&
-                        (alarmId <= 0 || (AlarmScheduler.isAlarmActive(this@AlarmActivity) &&
-                            AlarmScheduler.getActiveAlarmId(this@AlarmActivity) == alarmId &&
-                            (scanSessionToken.isBlank() || activeToken == scanSessionToken)))
-                    if (!sessionStillCurrent) {
-                        android.util.Log.w("AlarmActivity", "Ignoring stale QR callback: id=$alarmId generation=$callbackGeneration currentGeneration=$scanGeneration")
-                        view.pause()
-                        return@decodeContinuous
-                    }
-                    view.pause()
-                    isScanMode = false
-                    android.util.Log.i("AlarmActivity", "Scan success, updating alarm challenge stage")
-                    if (!qrChallengeResultEmitted) {
-                        qrChallengeResultEmitted = true
-                        alarmProtectionEventBridge.recordAlarmChallengeResult(
-                            alarmId = alarmId.toString(),
-                            challengeId = "QR-$alarmId",
-                            step = 1,
-                            result = "FINAL_CORRECT",
-                            cumulativeProgress = 1,
-                            totalSteps = 1
-                        )
-                    }
-                    LockWindowManager.setAlarmOverlayPassthrough(false)
-                    LockWindowManager.showAlarmOverlayIfHidden()
-                    LockWindowManager.onScanChallengePassed()
-                    // [Fix: overlay detach / white screen]
-                    // 若覆盖层已在独立窗口模式（!isCurrentOverlayInline()）或挑战已完成，
-                    // 绝不能调用 showAlarmOverlayInlineInActivity 把已在 WindowManager
-                    // 渲染好的独立窗口摘下来塞回 Activity（removeView 的异步 MSG_DIE 会摧毁
-                    // CanvasContext 导致白屏死锁）。直接 finishAndRemoveTask 退出扫码器，
-                    // 露出已渲染好完成态/第二关的独立覆盖层窗口即可。
-                    // 仅当覆盖层依然是 inline 模式、锁屏且挑战未全部完成（需进入第二关）时才内嵌回 Activity。
-                    val isInline = LockWindowManager.isCurrentOverlayInline()
-                    val isCompleted = AlarmScheduler.isChallengeCompleted(this@AlarmActivity)
-                    if (isLockedScreenMode && isInline && !isCompleted) {
-                        LockWindowManager.showAlarmOverlayInlineInActivity(this, this)
-                    } else if (!isLockedScreenMode) {
-                        finishAndRemoveTask()
-                    }
-                }
+            LockWindowManager.setAlarmOverlayPassthrough(false)
+            LockWindowManager.showAlarmOverlayIfHidden()
+            LockWindowManager.onScanChallengePassed()
+            // [Fix: overlay detach / white screen]
+            // 若覆盖层已在独立窗口模式（!isCurrentOverlayInline()）或挑战已完成，
+            // 绝不能调用 showAlarmOverlayInlineInActivity 把已在 WindowManager
+            // 渲染好的独立窗口摘下来塞回 Activity（removeView 的异步 MSG_DIE 会摧毁
+            // CanvasContext 导致白屏死锁）。直接 finishAndRemoveTask 退出扫码器，
+            // 露出已渲染好完成态/第二关的独立覆盖层窗口即可。
+            // 仅当覆盖层依然是 inline 模式、锁屏且挑战未全部完成（需进入第二关）时才内嵌回 Activity。
+            val isInline = LockWindowManager.isCurrentOverlayInline()
+            val isCompleted = AlarmScheduler.isChallengeCompleted(this@AlarmActivity)
+            if (isLockedScreenMode && isInline && !isCompleted) {
+                LockWindowManager.showAlarmOverlayInlineInActivity(this, this)
+            } else if (!isLockedScreenMode) {
+                finishAndRemoveTask()
             }
         }
     }
 
     override fun onScanCancel() {
         android.util.Log.i("AlarmActivity", "onScanCancel: isLockedScreenMode=$isLockedScreenMode")
+        if (torchOn) {
+            torchOn = false
+            barcodeView?.setTorch(false)
+            updateTorchUi(false)
+        }
         barcodeView?.pause()
         isScanMode = false
         if (!isLockedScreenMode) {
@@ -211,16 +212,39 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     }
 
     private fun finishScanAndRestoreOverlay() {
+        if (torchOn) {
+            torchOn = false
+            barcodeView?.setTorch(false)
+            updateTorchUi(false)
+        }
         LockWindowManager.cancelAlarmScan()
     }
 
-    private fun toggleTorch() {
+    override fun toggleTorch(): Boolean {
         torchOn = !torchOn
-        if (torchOn) {
-            barcodeView?.setTorchOn()
+        barcodeView?.setTorch(torchOn)
+        updateTorchUi(torchOn)
+        return torchOn
+    }
+
+    override fun isTorchOn(): Boolean {
+        return torchOn
+    }
+
+    private fun updateTorchUi(isOn: Boolean) {
+        val btnTorch = findViewById<ImageButton>(R.id.btn_torch)
+        val tvHint = findViewById<TextView>(R.id.tv_torch_hint)
+        btnTorch?.isSelected = isOn
+        if (isOn) {
+            btnTorch?.setColorFilter(android.graphics.Color.parseColor("#FFD600"))
+            tvHint?.text = "轻触关闭"
+            tvHint?.setTextColor(android.graphics.Color.parseColor("#FFD600"))
         } else {
-            barcodeView?.setTorchOff()
+            btnTorch?.clearColorFilter()
+            tvHint?.text = "轻触照亮"
+            tvHint?.setTextColor(android.graphics.Color.parseColor("#FFFFFF"))
         }
+        LockWindowManager.updateAlarmOverlayTorchState(isOn)
     }
 
     private fun startScanMode() {
@@ -240,14 +264,18 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                 View.SYSTEM_UI_FLAG_FULLSCREEN or
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             )
-        barcodeView = findViewById(R.id.barcode_scanner)
+        if (barcodeView == null) {
+            barcodeView = CameraXScanManager(this, this)
+        }
         findViewById<Button>(R.id.btn_scan_cancel).setOnClickListener {
             barcodeView?.pause()
             finishScanAndRestoreOverlay()
         }
-        findViewById<ImageButton>(R.id.btn_torch).setOnClickListener {
+        val onTorchClick = View.OnClickListener {
             toggleTorch()
         }
+        findViewById<ImageButton>(R.id.btn_torch)?.setOnClickListener(onTorchClick)
+        findViewById<View>(R.id.layout_scan_torch)?.setOnClickListener(onTorchClick)
         startBarcodeScanner()
     }
 
@@ -493,6 +521,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         super.onDestroy()
         scanGeneration++
         barcodeView?.pause()
+        barcodeView?.release()
         barcodeView = null
         if (isScanMode) {
             LockWindowManager.setAlarmOverlayPassthrough(false)

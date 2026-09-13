@@ -251,7 +251,7 @@ object TimeRuleManager {
     private const val KEY_SEGMENTS_JSON = "segments_json"
     private const val KEY_CHANGE_LOG = "change_log_json"
     const val KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = "temp_restricted_access_max_seconds"
-    const val DEFAULT_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 30
+    const val DEFAULT_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 180
     const val MAX_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 180
 
     // 🚀 [Logic] Adaptation Period Check
@@ -530,6 +530,92 @@ object TimeRuleManager {
         return parseSegmentsFromJson(json)
     }
 
+    /**
+     * 将指定的应用包名集合同步加入所有脱钩的独立时段名单（listApps != null）。
+     * 仅当应用尚未存在于 listApps 且非硬豁免（Hard Exempt）时追加。
+     * 支持同时更新 Active 列表、Baseline 以及 Pending 规则。
+     * @return 更新的时段数量
+     */
+    fun appendAppsToDecoupledSegments(context: Context, packages: Set<String>): Int {
+        if (packages.isEmpty()) return 0
+
+        var updatedCount = 0
+
+        // 1. 更新 Active Segments
+        val activeSegments = getTimeSegments(context)
+        var activeModified = false
+        val newActiveSegments = activeSegments.map { seg ->
+            if (seg.listApps != null) {
+                val toAdd = packages.filter { pkg ->
+                    !seg.listApps.contains(pkg) && !com.decikeeper.app.data.SegmentBlacklist.isHardExempt(context, pkg)
+                }
+                if (toAdd.isNotEmpty()) {
+                    activeModified = true
+                    updatedCount++
+                    seg.copy(listApps = seg.listApps + toAdd, lastModified = System.currentTimeMillis())
+                } else seg
+            } else seg
+        }
+
+        if (activeModified) {
+            val json = segmentsToJson(newActiveSegments)
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_SEGMENTS_JSON, json).apply()
+            getDeviceProtectedPrefs(context)?.edit()?.putString(KEY_SEGMENTS_JSON, json)?.apply()
+            invalidateSegmentsCache()
+
+            // 同步更新 Baseline（若存在脱钩时段，保持 baseline 对齐）
+            val baselineSegments = getBaselineSegments(context)
+            if (baselineSegments != null) {
+                var baselineModified = false
+                val newBaselineSegments = baselineSegments.map { seg ->
+                    if (seg.listApps != null) {
+                        val toAdd = packages.filter { pkg ->
+                            !seg.listApps.contains(pkg) && !com.decikeeper.app.data.SegmentBlacklist.isHardExempt(context, pkg)
+                        }
+                        if (toAdd.isNotEmpty()) {
+                            baselineModified = true
+                            seg.copy(listApps = seg.listApps + toAdd, lastModified = System.currentTimeMillis())
+                        } else seg
+                    } else seg
+                }
+                if (baselineModified) {
+                    val baseJson = segmentsToJson(newBaselineSegments)
+                    context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+                        .edit().putString(KEY_SEGMENTS_JSON, baseJson).apply()
+                }
+            }
+
+            AutoBackupManager.triggerDebouncedBackup(context)
+        }
+
+        // 2. 更新 Pending Segments（若存在）
+        if (hasPendingRules(context)) {
+            val pendingSegments = getPendingTimeSegments(context)
+            if (pendingSegments != null) {
+                var pendingModified = false
+                val newPendingSegments = pendingSegments.map { seg ->
+                    if (seg.listApps != null) {
+                        val toAdd = packages.filter { pkg ->
+                            !seg.listApps.contains(pkg) && !com.decikeeper.app.data.SegmentBlacklist.isHardExempt(context, pkg)
+                        }
+                        if (toAdd.isNotEmpty()) {
+                            pendingModified = true
+                            seg.copy(listApps = seg.listApps + toAdd, lastModified = System.currentTimeMillis())
+                        } else seg
+                    } else seg
+                }
+                if (pendingModified) {
+                    val pendingJson = segmentsToJson(newPendingSegments)
+                    context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
+                        .edit().putString(KEY_SEGMENTS_JSON, pendingJson).apply()
+                }
+            }
+        }
+
+        return updatedCount
+    }
+
     fun getCoolDownSeconds(context: Context): Int {
         val currentSeg = getCurrentSegment(context)
         return if (currentSeg != null) {
@@ -580,8 +666,8 @@ object TimeRuleManager {
     fun getBaselineBorrowPercentage(context: Context): Int? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains("borrow_percentage")) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getInt("borrow_percentage", 50) else null
     fun getBaselineTemporaryRestrictedAccessMaxSeconds(context: Context): Int? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains(KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS)) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getInt(KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS, DEFAULT_TEMP_RESTRICTED_ACCESS_MAX_SECONDS) else null
     // Note: Parameter names in PREFS_BASELINE rely on `saveBaselineSnapshot` keys.
-    fun getBaselineWeeklyPrivilegeLimit(context: Context): Int? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains("weekly_privilege_limit")) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getInt("weekly_privilege_limit", 2) else null
-    fun getBaselineWeeklyPrivilegeDurationLimit(context: Context): Int? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains("weekly_privilege_duration_limit")) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getInt("weekly_privilege_duration_limit", 600) else null
+    fun getBaselineWeeklyPrivilegeLimit(context: Context): Int? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains("weekly_privilege_limit")) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getInt("weekly_privilege_limit", 1) else null
+    fun getBaselineWeeklyPrivilegeDurationLimit(context: Context): Int? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains("weekly_privilege_duration_limit")) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getInt("weekly_privilege_duration_limit", 480) else null
     fun getBaselinePrivilegeWindowStart(context: Context): String? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains(KEY_PRIVILEGE_WINDOW_START)) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getString(KEY_PRIVILEGE_WINDOW_START, null) else null
     fun getBaselinePrivilegeWindowEnd(context: Context): String? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains(KEY_PRIVILEGE_WINDOW_END)) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getString(KEY_PRIVILEGE_WINDOW_END, null) else null
     
@@ -827,12 +913,12 @@ object TimeRuleManager {
 
     /**
      * 获取特权可用窗口结束时间 (HH:MM 格式)
-     * 默认值："24:00"
+     * 默认值："23:00"
      */
     fun getPrivilegeWindowEnd(context: Context): String {
         val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_END, null)
         if (stored != null) return stored
-        return "24:00"
+        return "23:00"
     }
 
     fun setPrivilegeWindow(context: Context, start: String, end: String) {
@@ -1002,8 +1088,8 @@ object TimeRuleManager {
         val basTempRestrictedAccess = basPrefs.getInt(KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS, DEFAULT_TEMP_RESTRICTED_ACCESS_MAX_SECONDS)
         // 🚀 [Fix] Use getter to enforce 15s Floor!
         val basLock = getBaselineStrictPenaltyDurationSeconds(context) ?: 15L
-        val basWeekly = basPrefs.getInt("weekly_privilege_limit", 2)
-        val basWeeklyDuration = basPrefs.getInt("weekly_privilege_duration_limit", 600)
+        val basWeekly = basPrefs.getInt("weekly_privilege_limit", 1)
+        val basWeeklyDuration = basPrefs.getInt("weekly_privilege_duration_limit", 480)
         val basRefresh = basPrefs.getString("config_refresh_time", "08:00") ?: "08:00"
         val basNotifyFar = basPrefs.getInt("notify_advance_minutes", 20)
         val basNotifyNear = basPrefs.getInt("notify_entry_near_minutes", 5)
