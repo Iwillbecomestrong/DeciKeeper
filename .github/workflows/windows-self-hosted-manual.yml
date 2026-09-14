@@ -47,7 +47,7 @@ jobs:
 
       - name: Upload debug APK
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DeciKeeper-debug-apk-windows
           path: app/build/outputs/apk/debug/*.apk
