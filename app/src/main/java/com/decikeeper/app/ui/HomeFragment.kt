@@ -1756,17 +1756,21 @@ class HomeFragment : Fragment() {
                     row.addView(tv)
                     layout.addView(row)
                 } else {
+                    val density = currentCtx.resources.displayMetrics.density
                     val btn = Button(currentCtx).apply {
                         text = "👉 去设置：$name"
                         textSize = 14f
                         setTextColor(android.graphics.Color.WHITE)
                         setBackgroundResource(R.drawable.bg_zz_pill)
                         backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(currentCtx, R.attr.zzAccent))
+                        minHeight = (44 * density).toInt()
+                        setPadding((12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt())
+                        gravity = android.view.Gravity.CENTER
                         layoutParams = android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            (44 * currentCtx.resources.displayMetrics.density).toInt()
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
                         ).apply {
-                            setMargins(0, (6 * currentCtx.resources.displayMetrics.density).toInt(), 0, (6 * currentCtx.resources.displayMetrics.density).toInt())
+                            setMargins(0, (6 * density).toInt(), 0, (6 * density).toInt())
                         }
                         setOnClickListener { action() }
                     }
@@ -1788,6 +1792,7 @@ class HomeFragment : Fragment() {
                     return
                 }
 
+                val density = currentCtx.resources.displayMetrics.density
                 val row = android.widget.LinearLayout(currentCtx).apply {
                     orientation = android.widget.LinearLayout.HORIZONTAL
                     setPadding(0, 8, 0, 8)
@@ -1800,12 +1805,15 @@ class HomeFragment : Fragment() {
                     setTextColor(android.graphics.Color.WHITE)
                     setBackgroundResource(R.drawable.bg_zz_pill)
                     backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(currentCtx, R.attr.zzAccent))
+                    minHeight = (44 * density).toInt()
+                    setPadding((10 * density).toInt(), (6 * density).toInt(), (10 * density).toInt(), (6 * density).toInt())
+                    gravity = android.view.Gravity.CENTER
                     layoutParams = android.widget.LinearLayout.LayoutParams(
                         0,
-                        (44 * currentCtx.resources.displayMetrics.density).toInt(),
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
                         1f
                     ).apply {
-                        setMargins(0, 0, (8 * currentCtx.resources.displayMetrics.density).toInt(), 0)
+                        setMargins(0, 0, (8 * density).toInt(), 0)
                     }
                     setOnClickListener {
                         if (onAction != null) {
