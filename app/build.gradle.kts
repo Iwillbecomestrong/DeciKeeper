@@ -122,52 +122,55 @@ tasks.register("testClasses") {
 }
 
 tasks.withType<Test>().configureEach {
-    notCompatibleWithConfigurationCache("Custom ASCII classpath rewrite mutates test classpath at execution time")
+    val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+    if (isWindows) {
+        notCompatibleWithConfigurationCache("Custom ASCII classpath rewrite mutates test classpath at execution time")
 
-    // 修复 Windows 中文工程路径下 UnitTest 偶发 ClassNotFound：
-    // 在执行前把测试类与主类 JAR 复制到 ASCII 路径，并以该路径重建类路径。
-    val variant = name
-        .removePrefix("test")
-        .removeSuffix("UnitTest")
-        .replaceFirstChar { it.lowercase() } + "UnitTest"
-    val mainVariant = variant.removeSuffix("UnitTest")
-    val mainVariantCap = mainVariant.replaceFirstChar { it.uppercase() }
-    val kotlinTestClasses = layout.buildDirectory.dir("tmp/kotlin-classes/$variant")
-    val mainClassesJar = layout.buildDirectory.file(
-        "intermediates/runtime_app_classes_jar/$mainVariant/bundle${mainVariantCap}ClassesToRuntimeJar/classes.jar"
-    )
+        // 修复 Windows 中文工程路径下 UnitTest 偶发 ClassNotFound：
+        // 在执行前把测试类与主类 JAR 复制到 ASCII 路径，并以该路径重建类路径。
+        val variant = name
+            .removePrefix("test")
+            .removeSuffix("UnitTest")
+            .replaceFirstChar { it.lowercase() } + "UnitTest"
+        val mainVariant = variant.removeSuffix("UnitTest")
+        val mainVariantCap = mainVariant.replaceFirstChar { it.uppercase() }
+        val kotlinTestClasses = layout.buildDirectory.dir("tmp/kotlin-classes/$variant")
+        val mainClassesJar = layout.buildDirectory.file(
+            "intermediates/runtime_app_classes_jar/$mainVariant/bundle${mainVariantCap}ClassesToRuntimeJar/classes.jar"
+        )
 
-    dependsOn("compile${mainVariantCap}UnitTestKotlin")
-    dependsOn("bundle${mainVariantCap}ClassesToRuntimeJar")
+        dependsOn("compile${mainVariantCap}UnitTestKotlin")
+        dependsOn("bundle${mainVariantCap}ClassesToRuntimeJar")
 
-    doFirst {
-        val asciiRoot = file("C:/GradleAsciiTestClasspath/${project.name}/$variant")
-        val asciiTestDir = file("${asciiRoot.absolutePath}/tests")
-        val asciiMainJar = file("${asciiRoot.absolutePath}/main/classes.jar")
-        // [Fix: 幽灵测试] 复制前清空目标目录。旧实现只增不删:
-        // 已从仓库删除的测试源码, 其陈旧 .class 会永久残留在 ASCII 目录里,
-        // 被测试任务当作仍然存在的测试反复执行(仓库无源码, 报告却有失败)。
-        // 清空后每次运行只包含当前源码编译出的测试类, 新克隆也不受影响。
-        delete(asciiRoot)
-        asciiTestDir.mkdirs()
-        asciiMainJar.parentFile?.mkdirs()
+        doFirst {
+            val asciiRoot = file("C:/GradleAsciiTestClasspath/${project.name}/$variant")
+            val asciiTestDir = file("${asciiRoot.absolutePath}/tests")
+            val asciiMainJar = file("${asciiRoot.absolutePath}/main/classes.jar")
+            // [Fix: 幽灵测试] 复制前清空目标目录。旧实现只增不删:
+            // 已从仓库删除的测试源码, 其陈旧 .class 会永久残留在 ASCII 目录里,
+            // 被测试任务当作仍然存在的测试反复执行(仓库无源码, 报告却有失败)。
+            // 清空后每次运行只包含当前源码编译出的测试类, 新克隆也不受影响。
+            delete(asciiRoot)
+            asciiTestDir.mkdirs()
+            asciiMainJar.parentFile?.mkdirs()
 
-        copy {
-            from(kotlinTestClasses.get().asFile)
-            into(asciiTestDir)
+            copy {
+                from(kotlinTestClasses.get().asFile)
+                into(asciiTestDir)
+            }
+            copy {
+                from(mainClassesJar.get().asFile)
+                into(asciiMainJar.parentFile)
+                rename { "classes.jar" }
+            }
+
+            val cachedDeps = classpath.filter {
+                val p = it.absolutePath
+                p.contains("\\caches\\") || p.contains("/caches/")
+            }
+            testClassesDirs = files(asciiTestDir)
+            classpath = files(asciiTestDir, asciiMainJar).plus(cachedDeps)
         }
-        copy {
-            from(mainClassesJar.get().asFile)
-            into(asciiMainJar.parentFile)
-            rename { "classes.jar" }
-        }
-
-        val cachedDeps = classpath.filter {
-            val p = it.absolutePath
-            p.contains("\\caches\\") || p.contains("/caches/")
-        }
-        testClassesDirs = files(asciiTestDir)
-        classpath = files(asciiTestDir, asciiMainJar).plus(cachedDeps)
     }
 }
 
