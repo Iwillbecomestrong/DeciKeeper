@@ -71,6 +71,20 @@ object SettingsNavigator {
     }
 
     /**
+     * 获取针对各品牌系统级「睡眠待机优化 / 省电管理」关闭指引的提示文案
+     * （系统级对睡眠的优化，区别于单个应用的后台高耗电行为）
+     */
+    fun getSleepOptimizationTips(): String {
+        return when {
+            isVivoOrIqoo() -> "请前往：电池 → 省电模式 → 省电管理，关闭「睡眠待机优化」"
+            isOppoOrOnePlusOrRealme() -> "请在「电池 → 高级设置」或「省电设置」中关闭「睡眠待机优化」"
+            isXiaomiOrRedmi() -> "请在「电池与性能」中检查夜间睡眠待机或极速省电设置"
+            isHuaweiOrHonor() -> "请在「电池」中检查睡眠休眠设置"
+            else -> "请在系统电池或省电设置中，关闭夜间「睡眠待机优化」"
+        }
+    }
+
+    /**
      * 获取当前机型对应的后台耗电/行为权限友好展示文案
      */
     fun getBatteryOptimizationLabel(): String {
@@ -261,6 +275,61 @@ object SettingsNavigator {
 
     // 兼容旧接口命名
     fun openVivoHighPowerConsumption(context: Context): Boolean = openBatteryKeepAliveSettings(context)
+
+    // ─── 6. 全品牌系统级「睡眠待机优化 / 省电管理」直跳（对睡眠的优化，区别于单个应用的后台高耗电） ───
+    fun openSleepOptimizationSettings(context: Context): Boolean {
+        val candidates = mutableListOf<Intent>()
+
+        when {
+            isVivoOrIqoo() -> {
+                // vivo/iQOO 系统级省电管理（路径：设置 -> 电池 -> 省电模式 -> 省电管理 -> 睡眠待机优化）
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.PowerSavingManagerActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.UpSlidePowerManagerActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.PowerManagerSettingsActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.PowerDirectorManagerActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.fuelgauge.PowerUsageSummaryActivity")))
+                candidates.add(Intent("android.settings.BATTERY_SAVER_SETTINGS"))
+                candidates.add(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
+            }
+            isOppoOrOnePlusOrRealme() -> {
+                // OPPO ColorOS 省电与电池设置
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.BatteryMainActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerSaverModeActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.powermanager", "com.coloros.powermanager.fuelgaard.PowerSaverModeActivity")))
+                candidates.add(Intent("android.settings.BATTERY_SAVER_SETTINGS"))
+                candidates.add(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
+            }
+            isXiaomiOrRedmi() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.powercenter.PowerCenter")))
+                candidates.add(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
+            }
+            isHuaweiOrHonor() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.power.ui.HwPowerManagerActivity")))
+                candidates.add(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
+            }
+        }
+
+        // 系统通用标准省电与电池用量页面
+        candidates.add(Intent("android.settings.BATTERY_SAVER_SETTINGS"))
+        candidates.add(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
+        candidates.add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+
+        for (intent in candidates) {
+            try {
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                context.startActivity(intent)
+                Log.i(TAG, "openSleepOptimizationSettings: successfully jumped via $intent")
+                return true
+            } catch (e: Exception) {
+                Log.d(TAG, "openSleepOptimizationSettings candidate failed: $intent", e)
+            }
+        }
+
+        // 兜底：尝试标准电池优化页面，最后回退至应用详情
+        if (openBatteryOptimization(context)) return true
+        return openAppDetails(context)
+    }
 
     // ─── 6. 兜底:App 详情页(用户可手动找) ───
     fun openAppDetails(context: Context): Boolean = try {

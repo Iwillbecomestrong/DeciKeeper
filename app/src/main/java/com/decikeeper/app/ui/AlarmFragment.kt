@@ -234,7 +234,11 @@ class AlarmFragment : Fragment() {
         container.addView(rowSleep)
 
         val tvTip = TextView(ctx).apply {
-            text = "* 注：部分机型（如 OPPO、Vivo）在夜间待机会深度冻结应用，请在系统「省电设置」中关闭「睡眠待机优化」，确认后勾选“已关闭”（若系统无此项可直接勾选）。"
+            text = if (com.decikeeper.app.manager.SettingsNavigator.isVivoOrIqoo()) {
+                "* 注：vivo/iQOO 在夜间待机会深度冻结应用，请在系统「电池 → 省电模式 → 省电管理」中关闭「睡眠待机优化」，确认后勾选“已关闭”（若系统无此项可直接勾选）。"
+            } else {
+                "* 注：部分机型（如 OPPO、Vivo）在夜间待机会深度冻结应用，请在系统「省电设置」中关闭「睡眠待机优化」，确认后勾选“已关闭”（若系统无此项可直接勾选）。"
+            }
             textSize = 11f
             setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             setPadding(0, 0, 0, (10 * density).toInt())
@@ -275,7 +279,7 @@ class AlarmFragment : Fragment() {
         }
 
         btnSleep.setOnClickListener {
-            openVivoBatterySettings(ctx)
+            openSleepOptimizationSettings(ctx)
         }
         cbSleep.setOnCheckedChangeListener { _, checked ->
             if (uiUpdating) return@setOnCheckedChangeListener
@@ -301,10 +305,12 @@ class AlarmFragment : Fragment() {
         Toast.makeText(ctx, com.decikeeper.app.manager.SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
     }
 
-    private fun openVivoBatterySettings(ctx: Context) {
-        com.decikeeper.app.manager.SettingsNavigator.openBatteryKeepAliveSettings(ctx)
-        Toast.makeText(ctx, com.decikeeper.app.manager.SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
+    private fun openSleepOptimizationSettings(ctx: Context) {
+        com.decikeeper.app.manager.SettingsNavigator.openSleepOptimizationSettings(ctx)
+        Toast.makeText(ctx, com.decikeeper.app.manager.SettingsNavigator.getSleepOptimizationTips(), Toast.LENGTH_LONG).show()
     }
+
+    private fun openVivoBatterySettings(ctx: Context) = openSleepOptimizationSettings(ctx)
 
     /** 闹钟挑战只能承载在悬浮窗中；没有权限时不进入页面版挑战。 */
     private fun ensureAlarmOverlayPermission(ctx: Context = requireContext()): Boolean {
