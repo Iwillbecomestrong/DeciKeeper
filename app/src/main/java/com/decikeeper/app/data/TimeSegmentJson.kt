@@ -282,6 +282,10 @@ object TimeSegmentJson {
                  obj.put("usableCountLimitHalfUnits", seg.usableCountLimitHalfUnits)
              }
 
+             if (seg.lastModified > 0L) {
+                 obj.put("lastModified", seg.lastModified)
+             }
+
              if (seg.daysOfWeek != null) {
                  val dArray = JSONArray()
                  seg.daysOfWeek.forEach { dArray.put(it) }

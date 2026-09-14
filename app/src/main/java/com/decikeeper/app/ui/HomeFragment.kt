@@ -951,14 +951,15 @@ class HomeFragment : Fragment() {
 
             val remaining = CreditManager.getRemainingMinutes(ctx)
             val prevRemaining = CreditManager.getAllPreviousSegmentsRemainingMinutes(ctx)
-            val currentLimitMins = TimeRuleManager.getMinutesLimitForSegment(ctx, currentSeg)
+            val currentLimitMins = CreditManager.getSegmentEffectiveLimitMinutes(ctx, currentSeg)
+            val currentLimitStr = formatMinutesForHome(currentLimitMins)
             val borrowedMinsFromNext = CreditManager.getBorrowedMinutesFromNext(ctx)
 
             // Time big number — 当前可用
             tvStatTimeBig?.text = "${formatMinutesForHome(remaining)}min"
 
             // Count column
-            val usableLimit = currentSeg.getEffectiveUsableCountLimit()
+            val usableLimit = CreditManager.getSegmentEffectiveUsableCountLimitHalfUnits(ctx, currentSeg)
             val usableUsed = CreditManager.getUsedUsableCountForCurrentSegment(ctx)
             val usableBorrowed = CreditManager.getBorrowedUsableCountFromNext(ctx)
             val usablePrevRemaining = CreditManager.getAllPreviousSegmentsRemainingUsableCount(ctx)
@@ -972,7 +973,7 @@ class HomeFragment : Fragment() {
             val carry = CreditManager.captureSurplusCarrySnapshot(ctx, currentSeg)
             val timeModel = calculateQuotaDetail(
                 remaining,
-                currentLimitMins.toDouble(),
+                currentLimitMins,
                 prevRemaining,
                 carry.timeTotal
             )
@@ -983,9 +984,9 @@ class HomeFragment : Fragment() {
                 carry.countTotal.toDouble()
             )
             val timeDetail = if (timeModel.surplusTotal > 0.0) {
-                "时间 ${formatMinutesForHome(timeModel.currentRemaining)}/${currentLimitMins} + ${formatMinutesForHome(timeModel.surplusRemaining)}/${formatMinutesForHome(timeModel.surplusTotal)}min(结余)"
+                "时间 ${formatMinutesForHome(timeModel.currentRemaining)}/${currentLimitStr} + ${formatMinutesForHome(timeModel.surplusRemaining)}/${formatMinutesForHome(timeModel.surplusTotal)}min(结余)"
             } else {
-                "时间 ${formatMinutesForHome(remaining)}/${currentLimitMins}min"
+                "时间 ${formatMinutesForHome(remaining)}/${currentLimitStr}min"
             }
             val countDetail = if (countModel.surplusTotal > 0.0) {
                 "次数 ${formatUsableCountHalfUnits(countModel.currentRemaining.toInt())}/${formatUsableCountHalfUnits(usableLimit)} + ${formatUsableCountHalfUnits(countModel.surplusRemaining.toInt())}/${formatUsableCountHalfUnits(countModel.surplusTotal.toInt())}次(结余)"

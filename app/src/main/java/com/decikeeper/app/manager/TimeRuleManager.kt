@@ -2970,9 +2970,11 @@ object TimeRuleManager {
         return inputSegments
             .sortedBy { it.startHour * 60 + it.startMinute }
             .map { candidate ->
-                val alreadyExists = SegmentAdverseAnalysis.findMatchingOldSegment(candidate, beforeSegments) != null
-                if (!alreadyExists && candidate.lastModified <= 0L) {
-                    candidate.copy(lastModified = changeTimestamp)
+                val oldMatch = SegmentAdverseAnalysis.findMatchingOldSegment(candidate, beforeSegments)
+                if (oldMatch == null) {
+                    candidate.copy(lastModified = if (candidate.lastModified > 0L) candidate.lastModified else changeTimestamp)
+                } else if (candidate.lastModified <= 0L) {
+                    candidate.copy(lastModified = oldMatch.lastModified)
                 } else {
                     candidate
                 }

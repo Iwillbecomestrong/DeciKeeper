@@ -2861,13 +2861,14 @@ object LockWindowManager {
                     tvTimeDetail?.visibility = View.VISIBLE
                     tvUsableCountBig?.visibility = View.VISIBLE
 
-                    val currentLimitMins = TimeRuleManager.getMinutesLimitForSegment(context, currentSeg)
+                    val currentLimitMins = CreditManager.getSegmentEffectiveLimitMinutes(context, currentSeg)
+                    val currentLimitStr = formatMinutesForLock(currentLimitMins)
                     val debtMinutes = CreditManager.getDebtMinutesToPrevious(context)
 
                     tvTimeBig?.text = "${formatMinutesForLock(remaining)}min"
 
                     // 🆕 次数栏
-                    val usableLimit = currentSeg.getEffectiveUsableCountLimit()
+                    val usableLimit = CreditManager.getSegmentEffectiveUsableCountLimitHalfUnits(context, currentSeg)
                     val usableUsed = CreditManager.getUsedUsableCountForCurrentSegment(context)
                     val usableBorrowed = borrowedCountFromNext
                     val usablePrevRemaining = CreditManager.getAllPreviousSegmentsRemainingUsableCount(context)
@@ -2878,12 +2879,12 @@ object LockWindowManager {
                     tvUsableCountBig?.text = "${formatUsableCountHalfUnits(usableRemaining)}次"
 
                     val carry = CreditManager.captureSurplusCarrySnapshot(context, currentSeg)
-                    val timeModel = calculateQuotaDetail(remaining, currentLimitMins.toDouble(), prevRemaining, carry.timeTotal)
+                    val timeModel = calculateQuotaDetail(remaining, currentLimitMins, prevRemaining, carry.timeTotal)
                     val countModel = calculateQuotaDetail(usableRemaining.toDouble(), usableLimit.toDouble(), usablePrevRemaining.toDouble(), carry.countTotal.toDouble())
                     val timeDetail = if (timeModel.surplusTotal > 0.0) {
-                        "时间 ${formatMinutesForLock(timeModel.currentRemaining)}/${currentLimitMins} + ${formatMinutesForLock(timeModel.surplusRemaining)}/${formatMinutesForLock(timeModel.surplusTotal)}min(结余)"
+                        "时间 ${formatMinutesForLock(timeModel.currentRemaining)}/${currentLimitStr} + ${formatMinutesForLock(timeModel.surplusRemaining)}/${formatMinutesForLock(timeModel.surplusTotal)}min(结余)"
                     } else {
-                        "时间 ${formatMinutesForLock(remaining)}/${currentLimitMins}min"
+                        "时间 ${formatMinutesForLock(remaining)}/${currentLimitStr}min"
                     }
                     val countDetail = if (countModel.surplusTotal > 0.0) {
                         "次数 ${formatUsableCountHalfUnits(countModel.currentRemaining.toInt())}/${formatUsableCountHalfUnits(usableLimit)} + ${formatUsableCountHalfUnits(countModel.surplusRemaining.toInt())}/${formatUsableCountHalfUnits(countModel.surplusTotal.toInt())}次(结余)"
@@ -3263,7 +3264,7 @@ object LockWindowManager {
                 view.findViewById<TextView>(R.id.tv_stat_time_big)?.text = "${formatMinutesForLock(remaining)}min"
                 view.findViewById<TextView>(R.id.tv_usable_count_big)?.visibility = View.VISIBLE
 
-                val usableLimit = currentSeg.getEffectiveUsableCountLimit()
+                val usableLimit = CreditManager.getSegmentEffectiveUsableCountLimitHalfUnits(ctx, currentSeg)
                 // 🐛 [Fix 2026-07-01] 借用后本金已立即消费，不应再作为可用次数展示；
                 // 统一使用 getRemainingUsableCount()，与按钮可用性判定一致
                 val usableRemainingFromManager = CreditManager.getRemainingUsableCount(ctx)
@@ -3281,17 +3282,18 @@ object LockWindowManager {
 
                 // 明细行同步刷新（与 updateStatus 保持一致）
                 val prevRemaining = CreditManager.getAllPreviousSegmentsRemainingMinutes(ctx)
-                val currentLimitMins = TimeRuleManager.getMinutesLimitForSegment(ctx, currentSeg)
+                val currentLimitMins = CreditManager.getSegmentEffectiveLimitMinutes(ctx, currentSeg)
+                val currentLimitStr = formatMinutesForLock(currentLimitMins)
                 val carry = CreditManager.captureSurplusCarrySnapshot(ctx, currentSeg)
-                val timeModel = calculateQuotaDetail(remaining, currentLimitMins.toDouble(), prevRemaining, carry.timeTotal)
+                val timeModel = calculateQuotaDetail(remaining, currentLimitMins, prevRemaining, carry.timeTotal)
                 val countModel = calculateQuotaDetail(
                     usableRemainingFromManager.toDouble(), usableLimit.toDouble(),
                     usablePrevRemaining.toDouble(), carry.countTotal.toDouble()
                 )
                 val timeDetail = if (timeModel.surplusTotal > 0.0) {
-                    "时间 ${formatMinutesForLock(timeModel.currentRemaining)}/${currentLimitMins} + ${formatMinutesForLock(timeModel.surplusRemaining)}/${formatMinutesForLock(timeModel.surplusTotal)}min(结余)"
+                    "时间 ${formatMinutesForLock(timeModel.currentRemaining)}/${currentLimitStr} + ${formatMinutesForLock(timeModel.surplusRemaining)}/${formatMinutesForLock(timeModel.surplusTotal)}min(结余)"
                 } else {
-                    "时间 ${formatMinutesForLock(remaining)}/${currentLimitMins}min"
+                    "时间 ${formatMinutesForLock(remaining)}/${currentLimitStr}min"
                 }
                 val countDetail = if (countModel.surplusTotal > 0.0) {
                     "次数 ${formatUsableCountHalfUnits(countModel.currentRemaining.toInt())}/${formatUsableCountHalfUnits(usableLimit)} + ${formatUsableCountHalfUnits(countModel.surplusRemaining.toInt())}/${formatUsableCountHalfUnits(countModel.surplusTotal.toInt())}次(结余)"

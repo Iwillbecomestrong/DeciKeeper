@@ -1827,18 +1827,88 @@ object CreditManager {
         return System.currentTimeMillis() < getFreeTimeEnd(context)
     }
 
-    internal fun isSegmentEligibleForSurplus(lastModified: Long, occurrenceStartMillis: Long): Boolean {
-        return lastModified <= 0L || lastModified <= occurrenceStartMillis
-    }
+    data class SegmentProration(
+        val ratio: Double,
+        val isEligibleForSurplus: Boolean,
+        val effectiveLimitMins: Double,
+        val effectiveUsableCountHalfUnits: Int
+    )
 
-    private fun isSegmentEligibleForSurplus(context: Context, segment: TimeSegment, now: Long): Boolean {
-        if (segment.lastModified <= 0L) return true
+    fun getSegmentProration(context: Context, segment: TimeSegment, now: Long = System.currentTimeMillis()): SegmentProration {
+        val baseLimitMins = segment.limitMins.toDouble()
+        val baseHalfUnits = segment.getEffectiveUsableCountLimitHalfUnits()
+        if (segment.lastModified <= 0L) {
+            return SegmentProration(1.0, true, baseLimitMins, baseHalfUnits)
+        }
+
+        val startOfBizDay = TimeRuleManager.getStartOfBusinessDay(context, now)
+        if (segment.lastModified < startOfBizDay) {
+            return SegmentProration(1.0, true, baseLimitMins, baseHalfUnits)
+        }
 
         val refreshMinutes = TimeRuleManager.parseHHMMToMinutes(TimeRuleManager.getRefreshTime(context)) ?: 8 * 60
         val segmentStartMinutes = segment.startHour * 60 + segment.startMinute
         val logicalOffsetMinutes = (segmentStartMinutes - refreshMinutes + 24 * 60) % (24 * 60)
-        val occurrenceStartMillis = TimeRuleManager.getStartOfBusinessDay(context, now) + logicalOffsetMinutes * 60_000L
-        return isSegmentEligibleForSurplus(segment.lastModified, occurrenceStartMillis)
+        val occurrenceStartMillis = startOfBizDay + logicalOffsetMinutes * 60_000L
+        val durationMinutes = segment.getDurationMinutes()
+        val occurrenceEndMillis = occurrenceStartMillis + durationMinutes * 60_000L
+
+        if (segment.lastModified >= occurrenceEndMillis) {
+            // 已完全过去：不可产生结余，额度归零
+            return SegmentProration(0.0, false, 0.0, 0)
+        }
+
+        if (segment.lastModified <= occurrenceStartMillis) {
+            // 尚未开始：完整额度，正常结余
+            return SegmentProration(1.0, true, baseLimitMins, baseHalfUnits)
+        }
+
+        // 进行中加入：按剩余时间比例折算，宽松保底 1min / 1次
+        val totalMillis = (occurrenceEndMillis - occurrenceStartMillis).coerceAtLeast(60_000L)
+        val remainingMillis = (occurrenceEndMillis - segment.lastModified).coerceIn(0L, totalMillis)
+        val ratio = remainingMillis.toDouble() / totalMillis.toDouble()
+
+        val proratedMins = if (segment.limitMins > 0) {
+            val rounded = Math.round(segment.limitMins * ratio * 10.0) / 10.0
+            Math.max(1.0, rounded)
+        } else 0.0
+
+        val proratedHalfUnits = if (baseHalfUnits > 0) {
+            val baseCount = baseHalfUnits.toDouble() / 2.0
+            val roundedCount = Math.max(1, Math.round(baseCount * ratio).toInt())
+            roundedCount * 2
+        } else baseHalfUnits
+
+        return SegmentProration(
+            ratio = ratio,
+            isEligibleForSurplus = true,
+            effectiveLimitMins = proratedMins,
+            effectiveUsableCountHalfUnits = proratedHalfUnits
+        )
+    }
+
+    fun getSegmentEffectiveLimitMinutes(context: Context, segment: TimeSegment, now: Long = System.currentTimeMillis()): Double {
+        val segments = TimeRuleManager.getTimeSegments(context)
+        val segIndex = segments.indexOf(segment)
+        if (segIndex >= 0 && isSegmentPrivileged(context, segIndex)) return 9999.0
+        return getSegmentProration(context, segment, now).effectiveLimitMins
+    }
+
+    fun getSegmentEffectiveUsableCountLimitHalfUnits(context: Context, segment: TimeSegment, now: Long = System.currentTimeMillis()): Int {
+        return getSegmentProration(context, segment, now).effectiveUsableCountHalfUnits
+    }
+
+    fun getSegmentEffectiveUsableCountLimit(context: Context, segment: TimeSegment, now: Long = System.currentTimeMillis()): Int {
+        val halfUnits = getSegmentEffectiveUsableCountLimitHalfUnits(context, segment, now)
+        return (halfUnits + 1) / 2
+    }
+
+    internal fun isSegmentEligibleForSurplus(lastModified: Long, occurrenceStartMillis: Long): Boolean {
+        return lastModified <= 0L || lastModified <= occurrenceStartMillis
+    }
+
+    internal fun isSegmentEligibleForSurplus(context: Context, segment: TimeSegment, now: Long): Boolean {
+        return getSegmentProration(context, segment, now).isEligibleForSurplus
     }
 
     fun getRemainingMinutes(context: Context): Double {
@@ -1896,13 +1966,14 @@ object CreditManager {
             val usedSeconds = getUsedSecondsForSegment(context, seg)
             // Privilege Check: override limit if privileged
             val isPrivileged = isSegmentPrivileged(context, i)
-            val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else seg.limitMins * 60
+            val proration = getSegmentProration(context, seg, now)
+            val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else Math.round(proration.effectiveLimitMins * 60.0).toInt()
 
             // Calculate remaining for this specific segment
             var segRemainingSeconds = (effectiveLimitSeconds - usedSeconds).coerceAtLeast(0)
 
-            if (i != currentIndex && !isSegmentEligibleForSurplus(context, seg, now)) {
-                LogExporter.i("CreditManager", "getRemainingMinutes: skip seg=${seg.name} because it was changed after its occurrence started")
+            if (i != currentIndex && !proration.isEligibleForSurplus) {
+                LogExporter.i("CreditManager", "getRemainingMinutes: skip seg=${seg.name} because it was changed after its occurrence ended")
                 segRemainingSeconds = 0
             }
 
@@ -1966,8 +2037,9 @@ object CreditManager {
                 continue
             }
 
-            if (!isSegmentEligibleForSurplus(context, seg, now)) {
-                LogExporter.i("CreditManager", "getAllPreviousSegmentsRemainingMinutes: skip seg=${seg.name} because it was changed after its occurrence started")
+            val proration = getSegmentProration(context, seg, now)
+            if (!proration.isEligibleForSurplus) {
+                LogExporter.i("CreditManager", "getAllPreviousSegmentsRemainingMinutes: skip seg=${seg.name} because it was changed after its occurrence ended")
                 i = (i + 1) % segments.size
                 if (i == firstLogicalIndex) break
                 continue
@@ -1976,7 +2048,7 @@ object CreditManager {
             val usedSeconds = getUsedSecondsForSegment(context, seg)
 
             val isPrivileged = isSegmentPrivileged(context, i)
-            val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else seg.limitMins * 60
+            val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else Math.round(proration.effectiveLimitMins * 60.0).toInt()
 
             val segDuration = seg.getDurationMinutes()
             val isEffectivelyUnlimited = isPrivileged ||
@@ -2023,13 +2095,14 @@ object CreditManager {
                 if (i == firstLogicalIndex) break
                 continue
             }
-            if (!isSegmentEligibleForSurplus(context, seg, now)) {
+            val proration = getSegmentProration(context, seg, now)
+            if (!proration.isEligibleForSurplus) {
                 i = (i + 1) % segments.size
                 if (i == firstLogicalIndex) break
                 continue
             }
             val isPrivileged = isSegmentPrivileged(context, i)
-            val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else seg.limitMins * 60
+            val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else Math.round(proration.effectiveLimitMins * 60.0).toInt()
             val segDuration = seg.getDurationMinutes()
             val isEffectivelyUnlimited = isPrivileged ||
                                           (segDuration > 0 && seg.limitMins > segDuration * 0.5)
@@ -2711,7 +2784,6 @@ object CreditManager {
     }
 
     // 🆕 获取所有前序段结余的解锁次数（镜像 getRemainingMinutes 的滚存逻辑）
-    // 🆕 获取所有前序段结余的解锁次数（镜像 getRemainingMinutes 的滚存逻辑）
     fun getAllPreviousSegmentsRemainingUsableCountHalfUnits(context: Context): Int {
         // [TASK-04 / F-01] 关键读取路径前先调 seam
         val now = System.currentTimeMillis()
@@ -2735,13 +2807,14 @@ object CreditManager {
             if (seg.isActiveToday()) {
                 // 🔴 [BugFix] 跨天过滤：跳过不属于同一业务天的段
                 if (getSegmentBusinessDateString(context, seg) == targetBizDate) {
-                    if (!isSegmentEligibleForSurplus(context, seg, now)) {
-                        LogExporter.i("CreditManager", "getAllPreviousSegmentsRemainingUsableCountHalfUnits: skip seg=${seg.name} because it was changed after its occurrence started")
+                    val proration = getSegmentProration(context, seg, now)
+                    if (!proration.isEligibleForSurplus) {
+                        LogExporter.i("CreditManager", "getAllPreviousSegmentsRemainingUsableCountHalfUnits: skip seg=${seg.name} because it was changed after its occurrence ended")
                         i = (i + 1) % segments.size
                         if (i == firstLogicalIndex) break
                         continue
                     }
-                    val limit = seg.getEffectiveUsableCountLimitHalfUnits()
+                    val limit = proration.effectiveUsableCountHalfUnits
                     if (limit > 0) {
                         if (getCountUsageKeyForSegment(context, seg) == null) return 0
                         val used = getCurrentSegmentUsableCountUsedHalfUnits(context, seg)
@@ -2818,12 +2891,13 @@ object CreditManager {
             val seg = segments[i]
             if (seg.isActiveToday()) {
                 if (getSegmentBusinessDateString(context, seg) == targetBizDate) {
-                    if (!isSegmentEligibleForSurplus(context, seg, now)) {
+                    val proration = getSegmentProration(context, seg, now)
+                    if (!proration.isEligibleForSurplus) {
                         i = (i + 1) % segments.size
                         if (i == firstLogicalIndex) break
                         continue
                     }
-                    totalLimit += seg.getEffectiveUsableCountLimitHalfUnits()
+                    totalLimit += proration.effectiveUsableCountHalfUnits
                 }
             }
             i = (i + 1) % segments.size
@@ -2839,7 +2913,7 @@ object CreditManager {
             return getAllPreviousSegmentsRemainingUsableCountHalfUnits(context)
         }
         if (getCountUsageKeyForSegment(context, seg) == null) return 0
-        val limit = seg.getEffectiveUsableCountLimitHalfUnits()
+        val limit = getSegmentEffectiveUsableCountLimitHalfUnits(context, seg)
         if (limit == 0) return 0 // 禁止临时解锁
         val used = getUsedUsableCountHalfUnitsForCurrentSegment(context)
         val prevRemaining = getAllPreviousSegmentsRemainingUsableCountHalfUnits(context)
@@ -3451,7 +3525,8 @@ object CreditManager {
 
         // 💎 [Privilege Check]
         val isPrivileged = isCurrentSegmentPrivileged(context)
-        val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else currentSegment.limitMins * 60
+        val proration = getSegmentProration(context, currentSegment)
+        val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else Math.round(proration.effectiveLimitMins * 60.0).toInt()
 
         val remaining = ((effectiveLimitSeconds - usedSeconds).coerceAtLeast(0)) / 60.0
         Log.d("CreditManager", "getCurrentSegmentRemainingMinutes: seg=${currentSegment.name} key=$usageKey limit=${effectiveLimitSeconds}s used=${usedSeconds}s remaining=${remaining}min")
