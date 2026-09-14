@@ -34,6 +34,7 @@ class StatisticsRepositoryTest {
         context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE).edit().clear().commit()
         StatisticsRepository.permissionChecker = null
         StatisticsRepository.nowProvider = { fixedNow }
+        StatisticsRepository.zoneIdOverride = zoneId
     }
 
     @After
@@ -42,6 +43,7 @@ class StatisticsRepositoryTest {
         context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE).edit().clear().commit()
         StatisticsRepository.permissionChecker = null
         StatisticsRepository.nowProvider = null
+        StatisticsRepository.zoneIdOverride = null
     }
 
     @Test
@@ -79,7 +81,7 @@ class StatisticsRepositoryTest {
             .putInt("usage_${dateStr}_09:00-18:00", 1800) // 30 分钟休息
             .putInt("borrow_time_${dateStr}_09:00-18:00", 600) // 10 分钟临时解锁
             .putInt("privilege_usage_${dateStr}_09:00-18:00", 20) // 20 分钟特权
-            .apply()
+            .commit()
 
         val range = StatsDateRange.Today
         val resolved = StatsDateRangeResolver.resolveRange(range, fixedNow, zoneId)
@@ -107,7 +109,7 @@ class StatisticsRepositoryTest {
             .putInt("exit_rest_count_$dateStr", 4) // 真实调用了 4 次休息
             .putInt("exit_rest_count_${dateStr}_10", 2) // 10 点 2 次
             .putInt("exit_rest_count_${dateStr}_14", 2) // 14 点 2 次
-            .apply()
+            .commit()
 
         val range = StatsDateRange.Today
         val resolved = StatsDateRangeResolver.resolveRange(range, testNow, zoneId)
@@ -138,7 +140,7 @@ class StatisticsRepositoryTest {
             .putString("time_segments_json", segsJson)
             .putInt("usage_${dateStr}_09:00-18:00", 1800)
             .putInt("count_usage_half_units_v2_${dateStr}_09:00-18:00", 3) // 历史休息次数消耗账本
-            .apply()
+            .commit()
 
         val range = StatsDateRange.Today
         val resolved = StatsDateRangeResolver.resolveRange(range, fixedNow, zoneId)
@@ -159,7 +161,7 @@ class StatisticsRepositoryTest {
             .putString("time_segments_json", segsJson)
             .putInt("borrow_time_${dateStr}_09:00-18:00", 600)
             .putInt("count_borrow_half_units_v2_${dateStr}_09:00-18:00", 4) // 历史借用/临时解锁次数消耗账本
-            .apply()
+            .commit()
 
         val range = StatsDateRange.Today
         val resolved = StatsDateRangeResolver.resolveRange(range, fixedNow, zoneId)
