@@ -20,6 +20,9 @@ class LegalDocumentActivity : AppCompatActivity() {
         ThemeManager.apply(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_legal_document)
+        findViewById<android.widget.ImageView>(R.id.btn_legal_back)?.setOnClickListener {
+            finish()
+        }
         val doc = LegalDocumentRepository.findById(intent.getStringExtra(EXTRA_DOC_ID))
         if (doc == null) {
             Log.w(TAG, "Unknown doc id: ${intent.getStringExtra(EXTRA_DOC_ID)}")
