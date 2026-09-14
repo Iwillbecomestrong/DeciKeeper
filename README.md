@@ -151,6 +151,13 @@
 
 ---
 
+## 下载
+
+- [GitHub Releases](https://github.com/Iwillbecomestrong/DeciKeeper/releases)
+- [Gitee Releases](https://gitee.com/my_room_welcome_you/zhizhi/releases)
+
+---
+
 ## 第一次使用
 
 1. 安装最新 APK；
@@ -158,6 +165,14 @@
 3. 确认基础功能稳定后，再考虑开启无障碍以及依托无障碍的加强约束。
 
 完整上手流程见 [快速上手](docs/user/getting-started.md)。
+
+---
+
+## 交流与反馈
+
+- **交流反馈 QQ 群**：**`980203768`**（日常交流、自律心得、快速排查与内测发布）
+- **开发者邮箱**：**`cyz200303@163.com`**
+- **问题反馈**：欢迎通过 GitHub Issues 提交问题（⚠️ **请勿在公开 Issue 中包含手机运行日志或漏洞利用代码**，隐私日志请通过邮件或 QQ 群私信发送）
 
 ---
 
@@ -171,21 +186,6 @@
 | **设置 → 关于我们** | `AboutActivity.kt`<br/>`LegalDocumentRepository.kt` | 1. 隐私及权限：`app/src/main/res/raw/privacy_notice.txt`<br/>2. 开源许可：`app/src/main/res/raw/open_source_licenses.txt`<br/>3. 反馈邮箱：`app/src/main/res/raw/feedback_email.txt`<br/>4. 题库来源：硬编码在 `AboutActivity.kt` | 编译期打包至 `res/raw`，点击列表项进入 `LegalDocumentActivity` 显示。 |
 | **首屏隐私协议弹窗** | `PrivacyConsentActivity.kt` | 1. 用户协议：`app/src/main/res/raw/user_agreement.txt`<br/>2. 隐私政策：`app/src/main/res/raw/privacy_policy.txt` | 仅首屏/重置同意时弹出，不作为内测 About 页直接入口。 |
 | **系统规则与技术契约** | 系统底层引擎 | 1. 总契约：[SPEC.md](SPEC.md)<br/>2. 详细模块规格：[docs/specs/](docs/specs/) | 面向开发者的架构、契约与红线规范。 |
-
----
-
-## 下载
-
-- [GitHub Releases](https://github.com/Iwillbecomestrong/DeciKeeper/releases)
-- [Gitee Releases](https://gitee.com/my_room_welcome_you/zhizhi/releases)
-
----
-
-## 交流与反馈
-
-- **交流反馈 QQ 群**：**`980203768`**（日常交流、自律心得、快速排查与内测发布）
-- **开发者邮箱**：**`cyz200303@163.com`**
-- **问题反馈**：欢迎通过 GitHub Issues 提交问题（⚠️ **请勿在公开 Issue 中包含手机运行日志或漏洞利用代码**，隐私日志请通过邮件或 QQ 群私信发送）
 
 ---
 
