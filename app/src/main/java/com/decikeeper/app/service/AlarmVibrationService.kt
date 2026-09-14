@@ -196,26 +196,12 @@ class AlarmVibrationService : Service() {
 
     private fun applyAttenuation() {
         isAttenuated = true
-        currentDisplayVolume = 1
-        currentDisplayIntensity = 1
+        currentDisplayVolume = 0
+        currentDisplayIntensity = 0
         currentVibrationMode = "attenuated"
-        val mpVol = 0.02f
-        mediaPlayer?.setVolume(mpVol, mpVol)
-
-        if (alarmMode != AlarmScheduler.AlarmMode.RING_ONLY) {
-            if (vibrator == null) {
-                vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            }
-            vibrator?.cancel()
-            val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .build()
-            val pattern = longArrayOf(0, 300, 2700)
-            val amplitudes = intArrayOf(0, 20, 0)
-            val effect = VibrationEffect.createWaveform(pattern, amplitudes, 0)
-            vibrator?.vibrate(effect, audioAttributes)
-        }
-        Log.i(TAG, "Alarm attenuated: volume=0.02f, vibration=mild 20/255 pulse")
+        mediaPlayer?.setVolume(0f, 0f)
+        vibrator?.cancel()
+        Log.i(TAG, "Alarm attenuated: volume=0f (muted), vibration=stopped")
     }
 
     private fun applySnoozeSilence(targetAlarmId: Int, durationMs: Long) {
@@ -348,7 +334,7 @@ class AlarmVibrationService : Service() {
     // 不设超时——闹钟持续响铃直到用户完成挑战（扫码关闭）
     private val vibrationKeepAliveRunnable = object : Runnable {
         override fun run() {
-            if (!isSnoozeSilenced && vibrator != null) {
+            if (!isSnoozeSilenced && !isAttenuated && vibrator != null) {
                 Log.d(TAG, "Vibration keep-alive: re-triggering")
                 startVibrationImpl()
             }
@@ -564,22 +550,10 @@ class AlarmVibrationService : Service() {
             return
         }
         if (isAttenuated) {
-            currentDisplayIntensity = 1
-            currentDisplayVolume = 1
-            val mpVol = 0.02f
-            mediaPlayer?.setVolume(mpVol, mpVol)
-            if (alarmMode != AlarmScheduler.AlarmMode.RING_ONLY) {
-                if (vibrator == null) {
-                    vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                }
-                val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .build()
-                val pattern = longArrayOf(0, 300, 2700)
-                val amplitudes = intArrayOf(0, 20, 0)
-                val effect = VibrationEffect.createWaveform(pattern, amplitudes, 0)
-                vibrator?.vibrate(effect, audioAttributes)
-            }
+            currentDisplayIntensity = 0
+            currentDisplayVolume = 0
+            mediaPlayer?.setVolume(0f, 0f)
+            vibrator?.cancel()
             return
         }
 
@@ -636,9 +610,8 @@ class AlarmVibrationService : Service() {
             return
         }
         if (isAttenuated) {
-            currentDisplayVolume = 1
-            val mpVol = 0.02f
-            mediaPlayer?.setVolume(mpVol, mpVol)
+            currentDisplayVolume = 0
+            mediaPlayer?.setVolume(0f, 0f)
             return
         }
         val volume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)

@@ -2661,12 +2661,12 @@ class MonitorService : Service() {
 
         val candidateDeltaMs = if (mLastTopUsageStatTs > 0L) now - mLastTopUsageStatTs else Long.MAX_VALUE
         val isManaged = AppWindowManager.isManaged(this, candidatePkg)
+        val isAppWindowBlocked = isManaged && !AppWindowManager.isAppAllowed(this, candidatePkg)
+        val isBlacklisted = SegmentBlacklist.isSubjectToBlock(this, TimeRuleManager.getCurrentSegment(this), candidatePkg)
         val isBlockable = if (isPrivilege) {
             false
-        } else if (isDndLocked) {
-            SegmentBlacklist.isSubjectToBlock(this, TimeRuleManager.getCurrentSegment(this), candidatePkg) || isManaged
         } else {
-            isManaged && !AppWindowManager.isAppAllowed(this, candidatePkg)
+            (isDndLocked && isBlacklisted) || isAppWindowBlocked
         }
 
         if (!shouldAdoptCarrierFallbackCandidate(candidateDeltaMs, isBlockable)) {

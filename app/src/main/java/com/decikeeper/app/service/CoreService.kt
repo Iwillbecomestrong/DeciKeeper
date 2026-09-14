@@ -40,6 +40,7 @@ import com.decikeeper.app.data.DefaultLogDebugConfig
 import com.decikeeper.app.data.DefaultNormalEventRenderer
 import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
+import com.decikeeper.app.data.SegmentBlacklist
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.A11ySelfDisableAuthorization
 import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
@@ -1165,12 +1166,10 @@ class CoreService : AccessibilityService() {
         // To prevent blocking background music, we verify against the Active Window Root.
         fun shouldBlockPackage(pkg: String): Boolean {
             if (isPrivilege) return false
-            val isManaged = AppWindowManager.isManaged(context, pkg)
-            return if (isDndLocked) {
-                CreditManager.isAppOnBlacklist(context, pkg) || isManaged
-            } else {
-                isManaged && !AppWindowManager.isAppAllowed(context, pkg)
-            }
+            val currentSeg = TimeRuleManager.getCurrentSegment(context)
+            val isBlacklisted = SegmentBlacklist.isSubjectToBlock(context, currentSeg, pkg)
+            val isAppWindowBlocked = AppWindowManager.isManaged(context, pkg) && !AppWindowManager.isAppAllowed(context, pkg)
+            return (isDndLocked && isBlacklisted) || isAppWindowBlocked
         }
 
         if (packageName != context.packageName) {

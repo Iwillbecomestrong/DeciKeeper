@@ -43,6 +43,31 @@ class AlarmChallengeTwoStageFlowTest {
     }
 
     @Test
+    fun testAttenuationMustBeSilentAndCancelVibration() {
+        val serviceFile = listOf(
+            java.io.File("src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt"),
+            java.io.File("app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt")
+        ).firstOrNull { it.exists() }
+        assertNotNull("AlarmVibrationService.kt must exist", serviceFile)
+        val serviceSource = serviceFile!!.readText()
+        assertTrue(
+            "applyAttenuation must mute media player and cancel vibrator",
+            serviceSource.contains("private fun applyAttenuation()") &&
+                serviceSource.contains("mediaPlayer?.setVolume(0f, 0f)") &&
+                serviceSource.contains("vibrator?.cancel()")
+        )
+        assertTrue(
+            "applyAttenuation must set display volume and intensity to 0",
+            serviceSource.contains("currentDisplayVolume = 0") &&
+                serviceSource.contains("currentDisplayIntensity = 0")
+        )
+        assertTrue(
+            "vibration keep-alive must skip when attenuated",
+            serviceSource.contains("!isAttenuated")
+        )
+    }
+
+    @Test
     fun testTwoStageValidationLogic() {
         val s1Empty = emptySet<String>()
         val s2Valid = setOf("math")

@@ -149,10 +149,11 @@ class AlarmSessionIsolationContractTest {
             overlay.contains("val preserveSessionState = !newSession") &&
                 overlay.contains("if (!preserveSessionState)")
         )
+        val activity = source("app/src/main/java/com/decikeeper/app/ui/AlarmActivity.kt")
         assertTrue(
             "QR callbacks must be invalidated when the Activity session generation changes",
-            source("app/src/main/java/com/decikeeper/app/ui/AlarmActivity.kt").contains("callbackGeneration == scanGeneration") &&
-                overlay.contains("callbackGeneration != alarmSessionGeneration")
+            activity.contains("val callbackGeneration = ++scanGeneration") &&
+                activity.contains("callbackGeneration == scanGeneration")
         )
         assertTrue(
             "cooldown restoration must hide every challenge card",

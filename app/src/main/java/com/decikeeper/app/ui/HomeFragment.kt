@@ -886,6 +886,7 @@ class HomeFragment : Fragment() {
         val now = System.currentTimeMillis()
 
         updateWeeklyPrivilegeEntryDisplay()
+        updateTodayAlarmDisplay()
 
         if (currentSeg == null) {
             val prevSeg = TimeRuleManager.getPreviousSegment(ctx)
@@ -1059,7 +1060,6 @@ class HomeFragment : Fragment() {
             tvNextSegmentInfo?.visibility = View.VISIBLE
         }
 
-        updateTodayAlarmDisplay()
     }
 
     private fun updateTodayAlarmDisplay() {

@@ -2962,6 +2962,23 @@ object TimeRuleManager {
     /**
      * 🚀 [New] Time Segments Analysis & Save
      */
+    internal fun markNewSegments(
+        inputSegments: List<TimeSegment>,
+        beforeSegments: List<TimeSegment>,
+        changeTimestamp: Long
+    ): List<TimeSegment> {
+        return inputSegments
+            .sortedBy { it.startHour * 60 + it.startMinute }
+            .map { candidate ->
+                val alreadyExists = SegmentAdverseAnalysis.findMatchingOldSegment(candidate, beforeSegments) != null
+                if (!alreadyExists && candidate.lastModified <= 0L) {
+                    candidate.copy(lastModified = changeTimestamp)
+                } else {
+                    candidate
+                }
+            }
+    }
+
     fun analyzeAndSaveTimeSegments(context: Context, inputSegments: List<TimeSegment>): AnalysisResult {
         // WP-03-T02 DA-D1 entry guard: refuse to save if any candidate
         // segment strictly contains the configured refresh time (`start <
@@ -2998,13 +3015,15 @@ object TimeRuleManager {
             }
         }
 
-        // 🚀 [Rule] Sort by Start Time: Morning segments come first, cross-midnight segments come last.
-        val newSegments = inputSegments.sortedBy { it.startHour * 60 + it.startMinute }
-
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         
         // Change Log Prep
         val beforeSegments = getTimeSegments(context)
+        val segmentChangeTimestamp = System.currentTimeMillis()
+
+        // A newly created/imported segment must not retroactively generate surplus
+        // for an occurrence that had already started before it existed.
+        val newSegments = markNewSegments(inputSegments, beforeSegments, segmentChangeTimestamp)
         val coolDown = getCoolDownSeconds(context)
         val notify = getNotifyAdvanceMinutes(context)
         val borrow = getBorrowPercentage(context)

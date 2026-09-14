@@ -540,11 +540,15 @@ internal object LockAlarmOverlayController {
             val vibIntensity = AlarmVibrationService.currentDisplayIntensity
             val vibMode = AlarmVibrationService.currentVibrationMode
             tvVib?.visibility = View.VISIBLE
-            if (tvVib != null && vibIntensity > 0) {
-                tvVib.text = if (vibMode == "progressive") {
-                    "📳 震动: 渐进 $vibIntensity/10"
+            if (tvVib != null) {
+                if (vibIntensity > 0) {
+                    tvVib.text = if (vibMode == "progressive") {
+                        "📳 震动: 渐进 $vibIntensity/10"
+                    } else {
+                        "📳 震动: $vibIntensity/10"
+                    }
                 } else {
-                    "📳 震动: $vibIntensity/10"
+                    tvVib.text = if (vibMode == "attenuated") "📳 震动: 缓冲静音" else "📳 震动: 已静音"
                 }
             }
         } else {
@@ -554,9 +558,14 @@ internal object LockAlarmOverlayController {
         // 声音强度
         if (isRingMode) {
             val ringVolume = AlarmVibrationService.currentDisplayVolume
+            val vibMode = AlarmVibrationService.currentVibrationMode
             tvRing?.visibility = View.VISIBLE
-            if (tvRing != null && ringVolume > 0) {
-                tvRing.text = "🔊 声音: $ringVolume/10"
+            if (tvRing != null) {
+                if (ringVolume > 0) {
+                    tvRing.text = "🔊 声音: $ringVolume/10"
+                } else {
+                    tvRing.text = if (vibMode == "attenuated") "🔊 声音: 缓冲静音" else "🔊 声音: 静音"
+                }
             }
         } else {
             tvRing?.visibility = View.GONE
