@@ -286,72 +286,13 @@ class AlarmFragment : Fragment() {
     }
 
     private fun openKeepAliveSettings(ctx: Context) {
-        if (isVivoOrIqoo()) {
-            openVivoBatterySettings(ctx)
-        } else {
-            val opened = com.decikeeper.app.manager.SettingsNavigator.openBatteryOptimization(ctx)
-            if (!opened) {
-                try {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    ctx.startActivity(intent)
-                } catch (_: Exception) {}
-            }
-            Toast.makeText(ctx, "请允许后台运行并忽略电池优化", Toast.LENGTH_LONG).show()
-        }
+        com.decikeeper.app.manager.SettingsNavigator.openBatteryKeepAliveSettings(ctx)
+        Toast.makeText(ctx, com.decikeeper.app.manager.SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
     }
 
     private fun openVivoBatterySettings(ctx: Context) {
-        val intents = mutableListOf<Intent>()
-        // 1) Vivo 后台耗电管理
-        intents.add(Intent().setComponent(ComponentName(
-            "com.iqoo.powersaving",
-            "com.iqoo.powersaving.activity.ExcessivePowerDescriptionActivity"
-        )).apply { putExtra("package_name", ctx.packageName) })
-        // 2) 电池使用概览
-        intents.add(Intent().setComponent(ComponentName(
-            "com.iqoo.powersaving",
-            "com.iqoo.powersaving.fuelgauge.PowerUsageSummaryActivity"
-        )))
-        // 3) Vivo 高耗电管理
-        intents.add(Intent().setComponent(ComponentName(
-            "com.vivo.abe",
-            "com.vivo.applicationbehaviorengine.ui.ExcessivePowerManagerActivity"
-        )).apply { putExtra("package_name", ctx.packageName) })
-        intents.add(Intent().setComponent(ComponentName(
-            "com.iqoo.powersaving",
-            "com.iqoo.powersaving.activity.ExcessivePowerManagerActivity"
-        )).apply { putExtra("package_name", ctx.packageName) })
-        intents.add(Intent().setComponent(ComponentName(
-            "com.iqoo.powersaving",
-            "com.iqoo.powersaving.BackgroundHighUsageActivity"
-        )).apply { putExtra("package_name", ctx.packageName) })
-        intents.add(Intent("com.vivo.abe.highpower.search.powermanageractivity").apply {
-            putExtra("package_name", ctx.packageName)
-        })
-        // 4) 系统设置-电池页面
-        intents.add(Intent().setComponent(ComponentName(
-            "com.android.settings",
-            "com.android.settings.Settings\$PowerUsageSummaryActivity"
-        )))
-        intents.add(Intent().setComponent(ComponentName(
-            "com.android.settings",
-            "com.android.settings.Settings\$BatterySaverSettingsActivity"
-        )))
-        intents.add(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
-        intents.add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-        intents.add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
-
-        var launched = false
-        for (intent in intents) {
-            try {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-                launched = true
-                break
-            } catch (_: Exception) {}
-        }
-        Toast.makeText(ctx, "请关闭「睡眠待机优化」并允许「后台高耗电」", Toast.LENGTH_LONG).show()
+        com.decikeeper.app.manager.SettingsNavigator.openBatteryKeepAliveSettings(ctx)
+        Toast.makeText(ctx, com.decikeeper.app.manager.SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
     }
 
     /** 闹钟挑战只能承载在悬浮窗中；没有权限时不进入页面版挑战。 */

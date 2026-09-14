@@ -27,10 +27,48 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import java.util.Locale
 
 object SettingsNavigator {
 
     private const val TAG = "SettingsNavigator"
+
+    val manufacturer: String = Build.MANUFACTURER.lowercase(Locale.ROOT)
+    val brand: String = Build.BRAND.lowercase(Locale.ROOT)
+
+    fun isXiaomiOrRedmi(): Boolean =
+        manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || brand.contains("xiaomi") || brand.contains("redmi")
+
+    fun isHuaweiOrHonor(): Boolean =
+        manufacturer.contains("huawei") || manufacturer.contains("honor") || brand.contains("huawei") || brand.contains("honor")
+
+    fun isOppoOrOnePlusOrRealme(): Boolean =
+        manufacturer.contains("oppo") || manufacturer.contains("oneplus") || manufacturer.contains("realme") ||
+                brand.contains("oppo") || brand.contains("oneplus") || brand.contains("realme")
+
+    fun isVivoOrIqoo(): Boolean =
+        manufacturer.contains("vivo") || manufacturer.contains("iqoo") || brand.contains("vivo") || brand.contains("iqoo")
+
+    fun isMeizu(): Boolean =
+        manufacturer.contains("meizu") || brand.contains("meizu")
+
+    fun isSamsung(): Boolean =
+        manufacturer.contains("samsung") || brand.contains("samsung")
+
+    /**
+     * 根据当前手机品牌获取针对性的后台保活与防睡眠冻结提示文案
+     */
+    fun getBrandKeepAliveTips(): String {
+        return when {
+            isXiaomiOrRedmi() -> "请将「省电策略」设为「无限制」，并开启「自启动」"
+            isVivoOrIqoo() -> "请允许「后台高耗电」，并关闭电池设置中的「睡眠待机优化」"
+            isHuaweiOrHonor() -> "请将应用启动管理设为「手动管理」（允许自启动、关联启动与后台活动）"
+            isOppoOrOnePlusOrRealme() -> "请允许「完全后台行为」，并开启「自启动」"
+            isMeizu() -> "请将待机耗电管理设为「保持运行」，并开启「自启动」"
+            isSamsung() -> "请将本应用加入「未休眠应用程序」白名单"
+            else -> "请允许后台高耗电并忽略电池优化；若系统有夜间睡眠优化请将其排除"
+        }
+    }
 
     // ─── 1. 电池优化白名单(标准 API,所有厂商都支持) ───
     fun openBatteryOptimization(context: Context): Boolean = try {
@@ -77,32 +115,125 @@ object SettingsNavigator {
         Log.w(TAG, "openFullScreenIntentPermission failed", e); false
     }
 
-    // ─── 4. Vivo 自启动(Vivo 私有 component,多版本 fallback) ───
-    fun openVivoAutostart(context: Context): Boolean = tryStartAny(
-        context,
-        listOf(
-            // OriginOS 3+ / 新版 FuntouchOS
-            ComponentName("com.vivo.permissionmanager",
-                "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"),
-            // 老版 FuntouchOS
-            ComponentName("com.iqoo.secure",
-                "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"),
-            ComponentName("com.iqoo.secure", "com.iqoo.secure.MainActivity")
-        ),
-        "Vivo autostart"
-    )
+    // ─── 4. 全品牌自启动管理智能直跳 ───
+    fun openAutostartSettings(context: Context): Boolean {
+        val candidates = mutableListOf<Intent>()
 
-    // ─── 5. Vivo 高耗电(Vivo 私有 component) ───
-    fun openVivoHighPowerConsumption(context: Context): Boolean = tryStartAny(
-        context,
-        listOf(
-            ComponentName("com.vivo.permissionmanager",
-                "com.vivo.permissionmanager.activity.HighPowerConsumptionActivity"),
-            ComponentName("com.iqoo.secure",
-                "com.iqoo.secure.ui.phoneoptimize.HighPowerConsumptionActivity")
-        ),
-        "Vivo high power"
-    )
+        when {
+            isXiaomiOrRedmi() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")))
+            }
+            isHuaweiOrHonor() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.honor.systemmanager", "com.honor.systemmanager.startupmgr.ui.StartupNormalAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.honor.systemmanager", "com.honor.systemmanager.appcontrol.activity.StartupAppListActivity")))
+            }
+            isOppoOrOnePlusOrRealme() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")))
+            }
+            isVivoOrIqoo() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.MainActivity")))
+            }
+            isMeizu() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.meizu.safe", "com.meizu.safe.permission.SmartBGActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.meizu.safe", "com.meizu.safe.permission.PermissionMainActivity")))
+            }
+            isSamsung() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.android.sm.battery.ui.BatteryActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")))
+            }
+        }
+
+        // 尝试启动厂商专属自启动组件
+        for (intent in candidates) {
+            try {
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                context.startActivity(intent)
+                return true
+            } catch (_: Exception) {}
+        }
+
+        // 兜底：回退到应用详情页
+        return openAppDetails(context)
+    }
+
+    // 兼容旧接口命名
+    fun openVivoAutostart(context: Context): Boolean = openAutostartSettings(context)
+
+    // ─── 5. 全品牌电池省电策略 / 后台耗电 / 睡眠优化直跳 ───
+    fun openBatteryKeepAliveSettings(context: Context): Boolean {
+        val candidates = mutableListOf<Intent>()
+
+        when {
+            isXiaomiOrRedmi() -> {
+                // 小米神隐模式 / 应用智能省电（直接设为无限制）
+                candidates.add(Intent("miui.intent.action.HIDDEN_APPS_CONFIG_ACTIVITY").apply {
+                    putExtra("package_name", context.packageName)
+                    putExtra("package_label", "决定守护")
+                })
+                candidates.add(Intent().setComponent(ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity")).apply {
+                    putExtra("package_name", context.packageName)
+                })
+                candidates.add(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.powercenter.PowerCenter")))
+            }
+            isHuaweiOrHonor() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.power.ui.HwPowerManagerActivity")))
+            }
+            isOppoOrOnePlusOrRealme() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerConsumptionActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerSaverModeActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.BatteryMainActivity")))
+            }
+            isVivoOrIqoo() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.HighPowerConsumptionActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.HighPowerConsumptionActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.activity.ExcessivePowerDescriptionActivity")).apply {
+                    putExtra("package_name", context.packageName)
+                })
+                candidates.add(Intent().setComponent(ComponentName("com.vivo.abe", "com.vivo.applicationbehaviorengine.ui.ExcessivePowerManagerActivity")).apply {
+                    putExtra("package_name", context.packageName)
+                })
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.activity.ExcessivePowerManagerActivity")).apply {
+                    putExtra("package_name", context.packageName)
+                })
+                candidates.add(Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.BackgroundHighUsageActivity")).apply {
+                    putExtra("package_name", context.packageName)
+                })
+            }
+            isMeizu() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.meizu.safe", "com.meizu.safe.permission.SmartBGActivity")))
+            }
+            isSamsung() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.android.sm.battery.ui.BatteryActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")))
+            }
+        }
+
+        // 系统标准电源管理页面
+        candidates.add(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
+        candidates.add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+
+        for (intent in candidates) {
+            try {
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                context.startActivity(intent)
+                return true
+            } catch (_: Exception) {}
+        }
+
+        // 兜底：先尝试标准忽略电池优化请求弹窗，若失败再进 App 详情页
+        if (openBatteryOptimization(context)) return true
+        return openAppDetails(context)
+    }
+
+    // 兼容旧接口命名
+    fun openVivoHighPowerConsumption(context: Context): Boolean = openBatteryKeepAliveSettings(context)
 
     // ─── 6. 兜底:App 详情页(用户可手动找) ───
     fun openAppDetails(context: Context): Boolean = try {
@@ -119,8 +250,6 @@ object SettingsNavigator {
 
     /**
      * 尝试多个 ComponentName,全部失败回退到 App 详情页。
-     * Vivo 不同 OS 版本(FuntouchOS/OriginOS)对应不同的 component,
-     * 顺序: 新版 → 旧版 → 兜底
      */
     private fun tryStartAny(
         context: Context, components: List<ComponentName>, label: String
