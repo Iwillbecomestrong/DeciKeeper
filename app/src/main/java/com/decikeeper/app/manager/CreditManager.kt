@@ -222,8 +222,8 @@ object CreditManager {
         }
 
         // 6. App Time Window Managed Check
-        // If managed, we treat it as "Monitored" (Subject to Interception)
-        if (AppWindowManager.isManaged(context, packageName)) {
+        // If managed, only block if currently outside its allowed window
+        if (AppWindowManager.isManaged(context, packageName) && !AppWindowManager.isAppAllowed(context, packageName)) {
             return true
         }
 
@@ -1827,10 +1827,25 @@ object CreditManager {
         return System.currentTimeMillis() < getFreeTimeEnd(context)
     }
 
+    internal fun isSegmentEligibleForSurplus(lastModified: Long, occurrenceStartMillis: Long): Boolean {
+        return lastModified <= 0L || lastModified <= occurrenceStartMillis
+    }
+
+    private fun isSegmentEligibleForSurplus(context: Context, segment: TimeSegment, now: Long): Boolean {
+        if (segment.lastModified <= 0L) return true
+
+        val refreshMinutes = TimeRuleManager.parseHHMMToMinutes(TimeRuleManager.getRefreshTime(context)) ?: 8 * 60
+        val segmentStartMinutes = segment.startHour * 60 + segment.startMinute
+        val logicalOffsetMinutes = (segmentStartMinutes - refreshMinutes + 24 * 60) % (24 * 60)
+        val occurrenceStartMillis = TimeRuleManager.getStartOfBusinessDay(context, now) + logicalOffsetMinutes * 60_000L
+        return isSegmentEligibleForSurplus(segment.lastModified, occurrenceStartMillis)
+    }
+
     fun getRemainingMinutes(context: Context): Double {
         checkDayChange(context)
         // [TASK-04 / F-01] 在关键读取路径前调 seam,确保自然日刷新事件能在首次关键读取即时观察到
-        observeDndNaturalDay(context, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        observeDndNaturalDay(context, now)
         val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
 
         // [WP-02-T01 / F-02 removed] v3 撤掉刚跨过自然日 00:00 时屏蔽旧自然日 DND 日状态与结余可见性的短路逻辑
@@ -1886,6 +1901,11 @@ object CreditManager {
             // Calculate remaining for this specific segment
             var segRemainingSeconds = (effectiveLimitSeconds - usedSeconds).coerceAtLeast(0)
 
+            if (i != currentIndex && !isSegmentEligibleForSurplus(context, seg, now)) {
+                LogExporter.i("CreditManager", "getRemainingMinutes: skip seg=${seg.name} because it was changed after its occurrence started")
+                segRemainingSeconds = 0
+            }
+
             // Flush unlimited segments (no carryover)
             if (i != currentIndex) {
                 val segDuration = seg.getDurationMinutes()
@@ -1907,7 +1927,8 @@ object CreditManager {
     
     fun getAllPreviousSegmentsRemainingMinutes(context: Context): Double {
         // [TASK-04 / F-01] 关键读取路径前先调 seam
-        observeDndNaturalDay(context, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        observeDndNaturalDay(context, now)
         val segments = TimeRuleManager.getTimeSegments(context)
         val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
         val targetIndex = if (currentIndex == -1) {
@@ -1945,6 +1966,13 @@ object CreditManager {
                 continue
             }
 
+            if (!isSegmentEligibleForSurplus(context, seg, now)) {
+                LogExporter.i("CreditManager", "getAllPreviousSegmentsRemainingMinutes: skip seg=${seg.name} because it was changed after its occurrence started")
+                i = (i + 1) % segments.size
+                if (i == firstLogicalIndex) break
+                continue
+            }
+
             val usedSeconds = getUsedSecondsForSegment(context, seg)
 
             val isPrivileged = isSegmentPrivileged(context, i)
@@ -1969,6 +1997,7 @@ object CreditManager {
     /** 获取前序段结余总额度（不计消耗，仅限额总和） */
     fun getAllPreviousSegmentsTotalMinutes(context: Context): Double {
         val segments = TimeRuleManager.getTimeSegments(context)
+        val now = System.currentTimeMillis()
         val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
         val targetIndex = if (currentIndex == -1) {
              TimeRuleManager.getNextSegmentIndex(context)
@@ -1990,6 +2019,11 @@ object CreditManager {
                 continue
             }
             if (getSegmentBusinessDateString(context, seg) != targetBizDate) {
+                i = (i + 1) % segments.size
+                if (i == firstLogicalIndex) break
+                continue
+            }
+            if (!isSegmentEligibleForSurplus(context, seg, now)) {
                 i = (i + 1) % segments.size
                 if (i == firstLogicalIndex) break
                 continue
@@ -2680,7 +2714,8 @@ object CreditManager {
     // 🆕 获取所有前序段结余的解锁次数（镜像 getRemainingMinutes 的滚存逻辑）
     fun getAllPreviousSegmentsRemainingUsableCountHalfUnits(context: Context): Int {
         // [TASK-04 / F-01] 关键读取路径前先调 seam
-        observeDndNaturalDay(context, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        observeDndNaturalDay(context, now)
         val segments = TimeRuleManager.getTimeSegments(context)
         val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
         val targetIndex = if (currentIndex == -1) {
@@ -2700,6 +2735,12 @@ object CreditManager {
             if (seg.isActiveToday()) {
                 // 🔴 [BugFix] 跨天过滤：跳过不属于同一业务天的段
                 if (getSegmentBusinessDateString(context, seg) == targetBizDate) {
+                    if (!isSegmentEligibleForSurplus(context, seg, now)) {
+                        LogExporter.i("CreditManager", "getAllPreviousSegmentsRemainingUsableCountHalfUnits: skip seg=${seg.name} because it was changed after its occurrence started")
+                        i = (i + 1) % segments.size
+                        if (i == firstLogicalIndex) break
+                        continue
+                    }
                     val limit = seg.getEffectiveUsableCountLimitHalfUnits()
                     if (limit > 0) {
                         if (getCountUsageKeyForSegment(context, seg) == null) return 0
@@ -2761,6 +2802,7 @@ object CreditManager {
     /** 获取前序段结余总次数额度（不计消耗，仅限额总和） */
     fun getAllPreviousSegmentsTotalUsableCount(context: Context): Int {
         val segments = TimeRuleManager.getTimeSegments(context)
+        val now = System.currentTimeMillis()
         val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
         val targetIndex = if (currentIndex == -1) {
             TimeRuleManager.getNextSegmentIndex(context)
@@ -2776,6 +2818,11 @@ object CreditManager {
             val seg = segments[i]
             if (seg.isActiveToday()) {
                 if (getSegmentBusinessDateString(context, seg) == targetBizDate) {
+                    if (!isSegmentEligibleForSurplus(context, seg, now)) {
+                        i = (i + 1) % segments.size
+                        if (i == firstLogicalIndex) break
+                        continue
+                    }
                     totalLimit += seg.getEffectiveUsableCountLimitHalfUnits()
                 }
             }

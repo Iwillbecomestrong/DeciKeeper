@@ -111,14 +111,15 @@ object SegmentBlacklist {
     /**
      * 【Phase 3 解耦】"是否受本时段名单拦截"的**唯一语义来源**（勿扰锁判定 / billing /
      * 重锁路径共用，消费者不得各自重复实现）：
-     *   - 脱钩时段（currentSeg != null && listApps != null）→ 按名单 + 硬剔除过滤；
-     *   - 否则（继承态 / 空档期）→ 回退 CreditManager.shouldBlockApp。
+     *   - 有时段时（无论是脱钩态还是继承态），均按该时段有效名单判定（effectiveList 内部已处理脱钩与全局黑名单继承）；
+     *   - 空档期（currentSeg == null）时，按全局黑名单并排除硬豁免应用判定；
+     *   - 绝不将「应用时间窗管理应用」误判为勿扰黑名单（时间窗由 AppWindowManager 单独管控）。
      */
     fun isSubjectToBlock(context: Context, currentSeg: TimeSegment?, pkg: String): Boolean {
-        return if (currentSeg != null && currentSeg.listApps != null) {
+        return if (currentSeg != null) {
             isInEffectiveList(context, currentSeg, pkg)
         } else {
-            CreditManager.shouldBlockApp(context, pkg, "")
+            !isHardExempt(context, pkg) && CreditManager.isAppOnBlacklist(context, pkg)
         }
     }
 

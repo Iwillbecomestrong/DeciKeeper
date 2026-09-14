@@ -1596,10 +1596,11 @@ class AlarmFragment : Fragment() {
             val isVibOnly = modeId == testRbVibOnly.id
             val isRingOnly = modeId == testRbRingOnly.id
             val isProgressive = testRgVibMode.checkedRadioButtonId == testRbVibProg.id
-            btnPickRingtone.visibility = if (isVibOnly) View.GONE else View.VISIBLE
-            testProgHintRow.visibility = if (!isProgressive) View.GONE else View.VISIBLE
-            testVibRow.visibility = if (isProgressive || isRingOnly) View.GONE else View.VISIBLE
-            testVolRow.visibility = if (isProgressive || isVibOnly) View.GONE else View.VISIBLE
+            // Keep every optional row in the layout so switching modes does not resize the dialog.
+            btnPickRingtone.visibility = if (isVibOnly) View.INVISIBLE else View.VISIBLE
+            testProgHintRow.visibility = if (!isProgressive) View.INVISIBLE else View.VISIBLE
+            testVibRow.visibility = if (isProgressive || isRingOnly) View.INVISIBLE else View.VISIBLE
+            testVolRow.visibility = if (isProgressive || isVibOnly) View.INVISIBLE else View.VISIBLE
         }
         testRgRingMode.setOnCheckedChangeListener { _, _ -> updateTestRingtoneVisibility() }
         testRgVibMode.setOnCheckedChangeListener { _, _ -> updateTestRingtoneVisibility() }

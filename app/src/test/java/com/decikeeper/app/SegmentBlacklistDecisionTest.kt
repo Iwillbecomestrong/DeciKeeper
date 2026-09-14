@@ -312,4 +312,56 @@ class SegmentBlacklistDecisionTest {
         assertTrue("managed 应用", isManaged)
         assertFalse("时间窗内 → isAppWindowBlocked=false（放行）", isAppWindowBlocked)
     }
+
+    // ────────────────────────────────────────────────────────────
+    //  S7 双锁正交：继承态下仅时间窗管控的应用绝不误判为勿扰黑名单
+    // ────────────────────────────────────────────────────────────
+
+    @Test
+    fun inheritedSegment_managedAppNotInGlobalBlacklist_isSubjectToBlockReturnsFalse() {
+        // 配置 timed 在时间窗中，但全局黑名单只有 normalGame
+        writeWindowRule(timed, insideWindow = true)
+        writeSegments(listOf(fullDaySegment(listApps = null)))
+        writeBlacklist(setOf(normalGame))
+
+        val seg = fullDaySegment(listApps = null)
+        assertFalse(
+            "继承态下仅配置应用时间窗的应用，绝不被误判为命中勿扰黑名单",
+            SegmentBlacklist.isSubjectToBlock(context, seg, timed)
+        )
+        assertFalse(
+            "继承态下仅配置应用时间窗的应用，shouldLock 必须返回 false",
+            SegmentBlacklist.shouldLock(context, timed)
+        )
+        assertTrue(
+            "继承态下真正的全局黑名单应用仍正常拦截",
+            SegmentBlacklist.isSubjectToBlock(context, seg, normalGame)
+        )
+    }
+
+    @Test
+    fun creditManager_shouldBlockApp_managedAppAllowedToday_returnsFalse() {
+        val windowApp = "com.example.windowapp"
+        // 配置 windowApp 在时间窗开放中，且不在全局黑名单
+        writeWindowRule(windowApp, insideWindow = true)
+        writeBlacklist(emptySet())
+
+        assertFalse(
+            "时间窗开放/今日无限制时，CreditManager.shouldBlockApp 必须返回 false",
+            CreditManager.shouldBlockApp(context, windowApp)
+        )
+    }
+
+    @Test
+    fun creditManager_shouldBlockApp_managedAppBlockedToday_returnsTrue() {
+        val windowApp = "com.example.windowapp"
+        // 配置 windowApp 在时间窗外，且不在全局黑名单
+        writeWindowRule(windowApp, insideWindow = false)
+        writeBlacklist(emptySet())
+
+        assertTrue(
+            "时间窗关闭拦截时，CreditManager.shouldBlockApp 返回 true",
+            CreditManager.shouldBlockApp(context, windowApp)
+        )
+    }
 }

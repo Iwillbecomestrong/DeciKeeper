@@ -190,7 +190,7 @@ class AlarmOverlayAttachContractTest {
     @Test
     fun scanSuccessDoesNotDowngradeWindowModeToInline() {
         val activity = source("src/main/java/com/decikeeper/app/ui/AlarmActivity.kt")
-        val callback = activity.substring(activity.indexOf("view.decodeContinuous {"))
+        val callback = activity.substring(activity.indexOf("manager.start(previewView) {"))
         assertTrue(
             "扫码成功后必须先检查 isCurrentOverlayInline",
             callback.contains("LockWindowManager.isCurrentOverlayInline()")
