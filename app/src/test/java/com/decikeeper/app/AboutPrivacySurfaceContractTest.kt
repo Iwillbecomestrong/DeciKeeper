@@ -27,7 +27,7 @@ class AboutPrivacySurfaceContractTest {
         assertTrue(layout.contains("应用信息"))
         assertTrue(layout.contains("功能说明"))
         assertTrue("About 页面功能说明必须阐明决定保护定位", layout.contains("决定守护是一款决定保护软件。"))
-        assertTrue("About 页面功能说明必须包含规则保护与挑战闹钟双核", layout.contains("规则保护") && layout.contains("挑战闹钟"))
+        assertTrue("About 页面功能说明必须包含时间规则与挑战闹钟双核", layout.contains("时间规则") && layout.contains("挑战闹钟"))
         assertFalse("About 页面不得将应用狭隘定义为闹钟应用", layout.contains("闹钟应用"))
         assertTrue(activity.contains("内容来源"))
         assertTrue(activity.contains("KaoYan-English"))
@@ -65,8 +65,10 @@ class AboutPrivacySurfaceContractTest {
     fun currentManifestHasNoNetworkPermissionOrAnalyticsDependency() {
         val manifest = read("src/main/AndroidManifest.xml")
         val gradle = read("app/build.gradle.kts")
-        assertFalse(manifest.contains("android.permission.INTERNET"))
-        assertFalse(manifest.contains("android.permission.ACCESS_NETWORK_STATE"))
+        val hasGrantedInternet = manifest.lines().any { it.contains("android.permission.INTERNET") && !it.contains("tools:node=\"remove\"") }
+        val hasGrantedNetworkState = manifest.lines().any { it.contains("android.permission.ACCESS_NETWORK_STATE") && !it.contains("tools:node=\"remove\"") }
+        assertFalse("Manifest 不得主动申请 INTERNET 权限", hasGrantedInternet)
+        assertFalse("Manifest 不得主动申请 ACCESS_NETWORK_STATE 权限", hasGrantedNetworkState)
         assertFalse(gradle.contains("firebase"))
         assertFalse(gradle.contains("bugly"))
         assertFalse(gradle.contains("umeng"))

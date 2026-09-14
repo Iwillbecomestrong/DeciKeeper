@@ -53,9 +53,9 @@
 
 > **按需选用，完全独立**：
 > - **用闹钟只设置闹钟即可**：无需配置任何时间规则，闹钟独立运行；
-> - **只使用规则保护时**：第一次**不需要加应用时间窗**，只需设置**勿扰时段**（受限时段）与**特权时段**（自由时段）即可轻松起步；后续有单个应用单日限额需求时再按需添加。
+> - **只使用时间规则时**：第一次**不需要加应用时间窗**，只需设置**勿扰时段**（受限时段）与**特权时段**（自由时段）即可轻松起步；后续有单个应用单日限额需求时再按需添加。
 
-### 1. 规则保护 —— 保护你已经决定的使用边界
+### 1. 时间规则 —— 保护你已经决定的使用边界
 
 - **面对**：冲动中的自己
 - **解决**：想立即推翻规则
@@ -77,7 +77,7 @@
 
 ## 为什么这两个模块属于同一个产品
 
-规则保护限制手机使用，挑战闹钟帮助早起，看起来是两件事。但它们解决的是同一个问题：
+时间规则限制手机使用，挑战闹钟帮助早起，看起来是两件事。但它们解决的是同一个问题：
 
 ```text
 清醒时做出决定
@@ -153,8 +153,11 @@
 
 ## 下载
 
-- [GitHub Releases](https://github.com/Iwillbecomestrong/DeciKeeper/releases)
-- [Gitee Releases](https://gitee.com/my_room_welcome_you/zhizhi/releases)
+| 渠道 / 资产 | 最新安装包 | 特性与适用说明 |
+| :--- | :--- | :--- |
+| **GitHub Releases（推荐）** | [**`DeciKeeper-v0.3.0-arm64.apk`**](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.3.0/DeciKeeper-v0.3.0-arm64.apk) | 物理零联网、无网络权限、纯单机运行，主流 64 位 Android 手机直接安装 |
+| **GitHub Releases 页面** | [全部版本与校验文件 (Releases)](https://github.com/Iwillbecomestrong/DeciKeeper/releases) | 提供完整发布说明与 `.sha256` 完整性校验文件 |
+| **Gitee Releases** | [Gitee 发行版](https://gitee.com/my_room_welcome_you/zhizhi/releases) | 国内镜像发布通道 |
 
 ---
 
