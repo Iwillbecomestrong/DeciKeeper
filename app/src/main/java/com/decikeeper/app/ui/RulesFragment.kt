@@ -1123,21 +1123,25 @@ class RulesFragment : Fragment() {
             val assocStartReady = !isChineseRom || isAssocStartPermissionSatisfied(ctx)
             val baseOk = permState.allGranted
             val assocStartConfirmed = prefs.getBoolean(ASSOC_START_CONFIRMED_KEY, false)
+            val hideRecentsOk = RecentTasksHideManager.isHideEnabled(ctx)
 
             tvMessage.text = buildString {
                 append("开启无障碍服务后，可启用以下保护功能：\n")
                 append("  • 防卸载保护\n")
                 append("  • 防关权限保护\n")
                 append("  • 闹钟防关机保护\n\n")
-                append("请先补齐以下前置权限：\n\n")
+                append("请先补齐以下前置项：\n\n")
                 if (!baseOk) {
                     append("基础权限未齐全：${permState.missingLabels.joinToString("、")}\n")
                 }
                 if (!assocStartReady && !assocStartConfirmed) {
                     append("关联启动未开启（非国产ROM可忽略）\n")
                 }
-                if (baseOk && (assocStartReady || assocStartConfirmed)) {
-                    append("\n所有前置权限已齐全，可开启无障碍。")
+                if (!hideRecentsOk) {
+                    append("隐藏多任务卡片未开启（防划杀推荐，避免无障碍掉线）\n")
+                }
+                if (baseOk && (assocStartReady || assocStartConfirmed) && hideRecentsOk) {
+                    append("\n所有前置条件已齐全，可开启无障碍。")
                 }
             }
 
@@ -1158,10 +1162,14 @@ class RulesFragment : Fragment() {
                 btnAssocStart.alpha = if (assocStartReady) 0.6f else 1.0f
             }
 
-            val allReady = baseOk && (assocStartReady || assocStartConfirmed)
+            val allReady = baseOk && (assocStartReady || assocStartConfirmed) && hideRecentsOk
             btnEnable.isEnabled = allReady
-            btnEnable.text = if (allReady) "开启无障碍" else "请先补齐以上权限"
-
+            btnEnable.text = when {
+                !baseOk -> "请先补齐基础权限"
+                !assocStartReady && !assocStartConfirmed -> "请先开启关联启动"
+                !hideRecentsOk -> "请开启隐藏多任务卡片"
+                else -> "开启无障碍"
+            }
         }
 
         btnBase.setOnClickListener {
@@ -1234,12 +1242,37 @@ class RulesFragment : Fragment() {
         rowAssocStart.addView(btnAssocStart, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         rowAssocStart.addView(cbAssocStart!!)
 
+        // 隐藏多任务卡片（防划杀保活 Switch 开关）
+        val rowHideRecents = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, (6 * density).toInt(), 0, (10 * density).toInt())
+        }
+        val tvHideRecents = TextView(ctx).apply {
+            text = "隐藏多任务卡片\n(防划杀推荐，开启后多任务界面隐身)"
+            textSize = 13f
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        val switchHideRecents = androidx.appcompat.widget.SwitchCompat(ctx).apply {
+            isChecked = RecentTasksHideManager.isHideEnabled(ctx)
+            setOnCheckedChangeListener { _, isChecked ->
+                RecentTasksHideManager.setHideEnabled(ctx, isChecked)
+                switchHideInRecentTasksUiUpdating = true
+                switchHideInRecentTasks?.isChecked = isChecked
+                switchHideInRecentTasksUiUpdating = false
+                updateDialogUi()
+            }
+        }
+        rowHideRecents.addView(tvHideRecents, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        rowHideRecents.addView(switchHideRecents)
+
         dialog = AlertDialog.Builder(ctx)
             .setView(container)
             .create()
 
         buttonContainer.addView(btnBase)
         buttonContainer.addView(rowAssocStart)
+        buttonContainer.addView(rowHideRecents)
         buttonContainer.addView(btnEnable)
 
         container.addView(buttonContainer)

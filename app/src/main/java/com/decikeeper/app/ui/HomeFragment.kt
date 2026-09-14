@@ -1654,6 +1654,7 @@ class HomeFragment : Fragment() {
             "bg_popup_confirmed" -> "后台弹出界面权限"
             "bg_battery_confirmed" -> "允许后台耗电"
             "assoc_start_confirmed" -> "关联启动权限"
+            "recents_lock_confirmed" -> "多任务卡片加锁"
             else -> key
         }
     }
@@ -1663,6 +1664,7 @@ class HomeFragment : Fragment() {
             "auto_start_confirmed" -> "auto_start_confirmed_at"
             "bg_popup_confirmed" -> "bg_popup_confirmed_at"
             "assoc_start_confirmed" -> "assoc_start_confirmed_at"
+            "recents_lock_confirmed" -> "recents_lock_confirmed_at"
             else -> null
         }
     }
@@ -1777,6 +1779,7 @@ class HomeFragment : Fragment() {
                 key: String,
                 hint: String,
                 linkedPendingKeys: List<String> = emptyList(),
+                onAction: (() -> Unit)? = null,
                 onLongClick: (() -> Unit)? = null
             ) {
                 val granted = isShortTimeConfirmed(prefs, key)
@@ -1805,11 +1808,15 @@ class HomeFragment : Fragment() {
                         setMargins(0, 0, (8 * currentCtx.resources.displayMetrics.density).toInt(), 0)
                     }
                     setOnClickListener {
-                        launchManualPermissionSettings(key)
-                        Toast.makeText(currentCtx, hint, Toast.LENGTH_LONG).show()
-                        addPendingPermissionConfirm(key, markSettingsLaunch = true)
-                        linkedPendingKeys.forEach { linkedKey ->
-                            addPendingPermissionConfirm(linkedKey, markSettingsLaunch = true)
+                        if (onAction != null) {
+                            onAction()
+                        } else {
+                            launchManualPermissionSettings(key)
+                            Toast.makeText(currentCtx, hint, Toast.LENGTH_LONG).show()
+                            addPendingPermissionConfirm(key, markSettingsLaunch = true)
+                            linkedPendingKeys.forEach { linkedKey ->
+                                addPendingPermissionConfirm(linkedKey, markSettingsLaunch = true)
+                            }
                         }
                     }
                 }
@@ -1897,6 +1904,23 @@ class HomeFragment : Fragment() {
                 }
             )
 
+            // 多任务卡片加锁（防误清理保活推荐项）
+            addUndetectablePermissionItem(
+                name = "多任务卡片加锁（防误清理）",
+                key = "recents_lock_confirmed",
+                hint = "请在多任务界面下拉或长按决定守护卡片进行加锁",
+                onAction = {
+                    showRecentsLockGuideDialog(currentCtx)
+                },
+                onLongClick = {
+                    prefs.edit().remove("recents_lock_confirmed").remove("recents_lock_confirmed_at").apply()
+                    updateProtectionStatus()
+                    updateSetupGuide()
+                    populateDialogContent()
+                    Toast.makeText(currentCtx, "已清除多任务加锁状态", Toast.LENGTH_SHORT).show()
+                }
+            )
+
             val permState = getHomePermissionState(currentCtx)
             if (permState.allGranted) {
                 val tvAllReady = TextView(currentCtx).apply {
@@ -1931,6 +1955,22 @@ class HomeFragment : Fragment() {
 
         activeProtectionDialog = dialog
         dialog.show()
+    }
+
+    private fun showRecentsLockGuideDialog(ctx: Context) {
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle("🔒 多任务卡片加锁指引")
+            .setMessage(
+                "• 作用：防止系统一键清理后台时误杀决定守护；\n\n" +
+                "• 操作步骤：\n" +
+                "  1. 呼出手机的多任务（最近任务）界面；\n" +
+                "  2. 找到「决定守护」卡片；\n" +
+                "  3. 下拉卡片，或长按/点击卡片右上角菜单；\n" +
+                "  4. 点击【加锁】（卡片上出现 🔒 小锁图标）；\n\n" +
+                "• 设置完成后，回到这里勾选「已开启」即可。"
+            )
+            .setPositiveButton("知道了", null)
+            .show()
     }
 
     private fun updateSetupGuide() {
