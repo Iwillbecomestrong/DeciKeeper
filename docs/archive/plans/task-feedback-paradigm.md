@@ -3,9 +3,9 @@
 ## 1. 目标与依据 (Goal & Authority)
 - **需求依据**：用户已确认联系邮箱为 `cyz200303@163.com`，官方网站为 GitHub (`https://github.com/Iwillbecomestrong/DeciKeeper`) 与 Gitee (`https://gitee.com/my_room_welcome_you/decikeeper`)，并在 SPEC [docs/work/task-feedback-paradigm.md](docs/work/task-feedback-paradigm.md) 中确认推行「4 要素问题反馈范式」与「三级渠道体系」。
 - **实现目标**：
-  1. 修复代码 [LogExporter.kt](file:///g:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/data/LogExporter.kt) 中的假邮箱占位符，统一为真实反馈邮箱 `cyz200303@163.com`。
-  2. 在 [contact_and_complaint.txt](file:///g:/IronWIl0329/IronWill-OpenSource/app/src/main/res/raw/contact_and_complaint.txt) 与合规文档中规范常规联系、官方网站、投诉渠道、以及推荐的 GitHub/Gitee Issues 公开渠道。
-  3. 建立 4 要素反馈范式（运行环境、应用版本、复现步骤与现象、取证日志），并在 [HelpActivity.kt](file:///g:/IronWIl0329/IronWill-OpenSource/app/src/main/java/com/decikeeper/app/ui/HelpActivity.kt) 与 [docs/使用手册.md](file:///g:/IronWIl0329/IronWill-OpenSource/docs/%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C.md) 中同步。
+  1. 修复代码 [LogExporter.kt](../../../app/src/main/java/com/decikeeper/app/data/LogExporter.kt) 中的假邮箱占位符，统一为真实反馈邮箱 `cyz200303@163.com`。
+  2. 在 [contact_and_complaint.txt](../../../app/src/main/res/raw/contact_and_complaint.txt) 与合规文档中规范常规联系、官方网站、投诉渠道、以及推荐的 GitHub/Gitee Issues 公开渠道。
+  3. 建立 4 要素反馈范式（运行环境、应用版本、复现步骤与现象、取证日志），并在 [HelpActivity.kt](../../../app/src/main/java/com/decikeeper/app/ui/HelpActivity.kt) 与 [docs/使用手册.md](../../使用手册.md) 中同步。
   4. 保持 `LegalEntryRegistryTest` 和既有单测 100% 绿色通过，确保法务契约不被破坏。
 
 ---

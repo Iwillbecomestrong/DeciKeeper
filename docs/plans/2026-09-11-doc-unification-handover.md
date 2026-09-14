@@ -39,7 +39,7 @@
 ### 构建与测试
 
 ```bash
-cp ../IronWill-OpenSource/local.properties .   # worktree 里没有，需复制
+# 确保已配置好 Android SDK 环境（或在 local.properties 中指定 sdk.dir）
 ./gradlew.bat --console=plain :app:testDebugUnitTest :app:assembleDebug
 # 当前基线：1201 例 / 0 失败 / 11 跳过
 ```

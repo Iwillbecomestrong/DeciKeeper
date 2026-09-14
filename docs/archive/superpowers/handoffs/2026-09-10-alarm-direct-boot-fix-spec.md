@@ -9,7 +9,7 @@
 1. `LOCKED_BOOT_COMPLETED` 仍保留现有 active alarm recovery：重启前已经在响的闹钟继续恢复。
 2. 普通 `BOOT_COMPLETED`、`USER_PRESENT`、App 内设置闹钟的正常行为不改变。
 3. 挑战题目、铃声选择、保护策略、统计业务不复制到 DPS，也不在 Direct Boot 重新实现。
-4. 不改原始 `G:\IronWIl0329\IronWill-OpenSource` dirty `dev`，不提交 Git，不卸载 App 或清除用户数据。
+4. 不改原始主仓库 dirty `dev`，不提交 Git，不卸载 App 或清除用户数据。
 
 ## 存储契约
 

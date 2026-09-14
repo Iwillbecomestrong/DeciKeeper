@@ -42,6 +42,19 @@ class AboutActivity : AppCompatActivity() {
         } catch (_: Exception) { "?" }
         findViewById<TextView>(R.id.tv_about_version_value).text = "v$versionName"
         findViewById<TextView>(R.id.tv_about_app_version).text = "决定守护 v$versionName"
+        setupQqGroupEntry()
+    }
+
+    private fun setupQqGroupEntry() {
+        findViewById<TextView>(R.id.tv_about_qq_group)?.apply {
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                if (copyToClipboard("QQ Group", "980203768")) {
+                    Toast.makeText(this@AboutActivity, "QQ 群号已复制，可在 QQ 中搜索加入", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun attrColor(attr: Int): Int {
@@ -99,13 +112,19 @@ class AboutActivity : AppCompatActivity() {
         Toast.makeText(this, "链接已复制，可粘贴到浏览器打开", Toast.LENGTH_LONG).show()
     }
 
-    private fun copyClozeSourceUrl() {
-        try {
+    private fun copyToClipboard(label: String, text: String): Boolean {
+        return try {
             val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            cm.setPrimaryClip(ClipData.newPlainText("Cloze Source", clozeSourceUrl))
+            cm.setPrimaryClip(ClipData.newPlainText(label, text))
+            true
         } catch (e: Exception) {
-            Log.e("AboutActivity", "复制链接失败", e)
+            Log.e("AboutActivity", "复制失败: $label", e)
+            false
         }
+    }
+
+    private fun copyClozeSourceUrl() {
+        copyToClipboard("Cloze Source", clozeSourceUrl)
     }
 
     private fun buildEntryView(doc: LegalDocument, density: Float): View = TextView(this).apply {

@@ -25,8 +25,7 @@
 ### 构建
 
 ```bash
-# worktree 里没有 local.properties，需从主仓库复制
-cp ../IronWill-OpenSource/local.properties .
+# 确保已配置好 Android SDK 环境（或在 local.properties 中指定 sdk.dir）
 ./gradlew.bat --console=plain :app:testDebugUnitTest :app:assembleDebug
 # 基线：1186 例 / 0 失败 / 11 跳过
 ```
@@ -51,7 +50,7 @@ adb -s $D shell dumpsys package com.decikeeper.app | grep lastUpdateTime   # 核
 `adb logcat -f <path>` 在本机被沙箱拒绝（报 `Read-only file system`）。必须用管道：
 
 ```bash
-adb -s $D logcat -v threadtime 2>&1 | ForEach-Object { $_ | Out-File -FilePath 'G:\IronWIl0329\.alarm-verify3.log' -Encoding utf8 -Append }
+adb -s $D logcat -v threadtime 2>&1 | ForEach-Object { $_ | Out-File -FilePath './alarm-verify.log' -Encoding utf8 -Append }
 ```
 
 **不要 `adb logcat -c`**——我第一次清了缓冲，把扫码成功那几秒的关键证据冲掉了。

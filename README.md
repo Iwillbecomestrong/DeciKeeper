@@ -233,6 +233,15 @@ adb install -r -d app/build/outputs/apk/debug/app-debug.apk
 - 第三方组件许可证见 [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md)。
 - 请不要向仓库提交未经授权的商业题库、出版物解析或付费翻译内容。
 
+
+---
+
+## 交流与反馈
+
+- **交流反馈 QQ 群**：**`980203768`**（日常交流、自律心得、快速排查与内测发布）
+- **开发者邮箱**：**`cyz200303@163.com`**
+- **问题反馈**：欢迎通过 GitHub Issues 提交问题（⚠️ **请勿在公开 Issue 中包含手机运行日志或漏洞利用代码**，隐私日志请通过邮件或 QQ 群私信发送）
+
 ---
 
 ## 贡献

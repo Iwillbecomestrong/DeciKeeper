@@ -2,10 +2,10 @@
 
 ## 当前工作区
 
-- Worktree: `C:\Users\23248\.codex\worktrees\alarm-direct-boot`
+- Worktree: `<worktree-root>/alarm-direct-boot`
 - Branch: `codex/alarm-direct-boot`
 - Base: committed `dev` snapshot `975c4ba`
-- 原始 `G:\IronWIl0329\IronWill-OpenSource` 的 dirty `dev` 不得修改、清理或合并。
+- 原始主仓库工作区的 dirty `dev` 不得修改、清理或合并。
 
 ## 已有实现
 

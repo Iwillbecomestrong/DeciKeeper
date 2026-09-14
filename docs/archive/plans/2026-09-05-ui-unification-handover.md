@@ -1,7 +1,7 @@
 # 决定守护 (DeciKeeper) UI 规范统一与交互收敛交接文档
 
 > **文档性质**：跨会话 / 跨智能体协作与架构交接文档  
-> **归属工程**：`g:\IronWIl0329\IronWill-OpenSource` (决定守护 / DeciKeeper)  
+> **归属工程**：决定守护 / DeciKeeper (IronWill-OpenSource)  
 > **建立时间**：2026-09-05  
 > **核心原则**：**一切以真实代码为准，严禁无中生有；统一散装视觉，绝不颠覆既有业务结构**
 
