@@ -87,6 +87,12 @@ object StatisticsRepository {
     @androidx.annotation.VisibleForTesting
     var permissionChecker: ((Context) -> Boolean)? = null
 
+    @androidx.annotation.VisibleForTesting
+    var nowProvider: (() -> LocalDateTime)? = null
+
+    internal fun getCurrentDateTime(): LocalDateTime =
+        nowProvider?.invoke() ?: LocalDateTime.now(zoneId)
+
     fun hasUsagePermission(context: Context): Boolean {
         return permissionChecker?.invoke(context) ?: PermissionManager.hasUsageStatsPermission(context)
     }
@@ -422,8 +428,9 @@ object StatisticsRepository {
         val buckets = StatsDateRangeResolver.buildBuckets(range, resolvedRange, weekdayFilter, zoneId)
         val bucketDataList = mutableListOf<ExitBucketData>()
 
-        val today = LocalDate.now(zoneId)
-        val nowMillis = System.currentTimeMillis()
+        val currentDateTime = getCurrentDateTime()
+        val today = currentDateTime.toLocalDate()
+        val nowMillis = currentDateTime.atZone(zoneId).toInstant().toEpochMilli()
         val prefs = try { context.getSharedPreferences("decikeeper_ledger", Context.MODE_PRIVATE) } catch (e: Exception) { null }
         val segsJson = prefs?.getString("time_segments_json", null)
         val granularity = StatsDateRangeResolver.resolveBucketGranularity(range, resolvedRange)
@@ -720,8 +727,9 @@ object StatisticsRepository {
         customGamePackages: Set<String>? = null
     ): AppUsageSummary {
         val buckets = StatsDateRangeResolver.buildBuckets(range, resolvedRange, weekdayFilter, zoneId)
-        val today = LocalDate.now(zoneId)
-        val nowMillis = System.currentTimeMillis()
+        val currentDateTime = getCurrentDateTime()
+        val today = currentDateTime.toLocalDate()
+        val nowMillis = currentDateTime.atZone(zoneId).toInstant().toEpochMilli()
 
         val hasPermission = hasUsagePermission(context)
         if (!hasPermission) {
@@ -1081,7 +1089,8 @@ object StatisticsRepository {
         weekdayFilter: WeekdayFilter
     ): AlarmStatsSummary {
         val buckets = StatsDateRangeResolver.buildBuckets(range, resolvedRange, weekdayFilter, zoneId)
-        val today = LocalDate.now(zoneId)
+        val currentDateTime = getCurrentDateTime()
+        val today = currentDateTime.toLocalDate()
         val prefs = try {
             context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE)
         } catch (_: Exception) {
@@ -1242,8 +1251,9 @@ object StatisticsRepository {
         weekdayFilter: WeekdayFilter
     ): RuleProtectionSummary {
         val buckets = StatsDateRangeResolver.buildBuckets(range, resolvedRange, weekdayFilter, zoneId)
-        val today = LocalDate.now(zoneId)
-        val nowMillis = System.currentTimeMillis()
+        val currentDateTime = getCurrentDateTime()
+        val today = currentDateTime.toLocalDate()
+        val nowMillis = currentDateTime.atZone(zoneId).toInstant().toEpochMilli()
 
         val pendingCount = countPendingRuleChanges(context)
 
