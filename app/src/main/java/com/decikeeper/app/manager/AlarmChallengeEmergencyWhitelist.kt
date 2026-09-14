@@ -35,6 +35,8 @@ object AlarmChallengeEmergencyWhitelist {
         return packageName == "com.android.permissioncontroller" ||
             packageName == "com.google.android.permissioncontroller" ||
             packageName == "com.vivo.permissionmanager" ||
+            packageName == "com.oplus.securitypermission" ||
+            packageName == "com.coloros.securitypermission" ||
             packageName == "com.android.packageinstaller"
     }
 

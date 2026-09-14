@@ -119,7 +119,9 @@ class RulesSettingsUiContractTest {
         val source = source("app/src/main/java/com/decikeeper/app/ui/HomeFragment.kt")
         assertFalse(source.contains("addItem(\"使用情况访问权限\""))
         assertFalse(source.contains("name = \"后台弹出界面权限\""))
-        assertTrue(source.indexOf("addItem(\"后台耗电管理\"") < source.indexOf("name = \"自启动权限\""))
+        val batteryIndex = listOf("addItem(\"后台耗电管理\"", "addItem(bgBatteryLabel").map { source.indexOf(it) }.firstOrNull { it >= 0 } ?: -1
+        val autoStartIndex = listOf("name = \"自启动权限\"", "name = autostartLabel").map { source.indexOf(it) }.firstOrNull { it >= 0 } ?: -1
+        assertTrue(batteryIndex in 0 until autoStartIndex)
     }
 
     @Test

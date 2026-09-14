@@ -47,6 +47,7 @@ import com.decikeeper.app.manager.AppVisibilityTracker
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
 import com.decikeeper.app.manager.RomPermissionDetector
+import com.decikeeper.app.manager.SettingsNavigator
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.manager.getEffectiveUsableCountLimit
 import com.decikeeper.app.service.CoreService
@@ -1519,7 +1520,12 @@ class HomeFragment : Fragment() {
         val intents = mutableListOf<Intent>()
         val manufacturer = Build.MANUFACTURER.lowercase()
 
-        if (manufacturer.contains("vivo") || manufacturer.contains("iqoo")) {
+        if (manufacturer.contains("oppo") || manufacturer.contains("realme") || manufacturer.contains("oneplus")) {
+            intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startupInit.StartupNormalAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.StartupAppListActivity")))
+        } else if (manufacturer.contains("vivo") || manufacturer.contains("iqoo")) {
             intents.add(
                 Intent().setComponent(
                     android.content.ComponentName(
@@ -1532,6 +1538,19 @@ class HomeFragment : Fragment() {
                     putExtra("pkg", ctx.packageName)
                 }
             )
+            intents.add(
+                Intent().setComponent(
+                    android.content.ComponentName(
+                        "com.vivo.permissionmanager",
+                        "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
+                    )
+                )
+            )
+        } else if (manufacturer.contains("xiaomi") || manufacturer.contains("redmi")) {
+            intents.add(Intent().setComponent(android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")))
+        } else if (manufacturer.contains("huawei") || manufacturer.contains("honor")) {
+            intents.add(Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppListActivity")))
         }
 
         intents.add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}")))
@@ -1540,6 +1559,11 @@ class HomeFragment : Fragment() {
 
     private fun launchManualPermissionSettings(permissionKey: String) {
         val ctx = context ?: return
+        if (permissionKey == "auto_start_confirmed") {
+            if (SettingsNavigator.openAutostartSettings(ctx)) {
+                return
+            }
+        }
         val intents = when (permissionKey) {
             "auto_start_confirmed", "bg_popup_confirmed", "assoc_start_confirmed" -> buildManualPermissionSettingsIntents(ctx)
             else -> emptyList()
@@ -1842,16 +1866,28 @@ class HomeFragment : Fragment() {
                 }
             }
 
+            val bgBatteryLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
+                "后台行为控制（完全允许后台行为）"
+            } else if (SettingsNavigator.isVivoOrIqoo()) {
+                "后台耗电管理（允许后台高耗电）"
+            } else {
+                "后台耗电管理（允许后台运行）"
+            }
             val hasBgBattery = !isChineseRomDevice() || isBgBatteryPermissionSatisfied(currentCtx)
-            addItem("后台耗电管理", hasBgBattery) {
+            addItem(bgBatteryLabel, hasBgBattery) {
                 addPendingPermissionConfirm("bg_battery_confirmed", markSettingsLaunch = true)
                 openBgBatterySettings(currentCtx)
             }
 
+            val autostartLabel = SettingsNavigator.getAutostartLabel()
             addUndetectablePermissionItem(
-                name = "自启动权限",
+                name = autostartLabel,
                 key = "auto_start_confirmed",
-                hint = "请在权限详情页开启自启动等开关",
+                hint = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
+                    "请在设置中开启「自启动 / 开机启动」"
+                } else {
+                    "请在设置中开启「自启动」开关"
+                },
                 onLongClick = {
                     prefs.edit().remove("auto_start_confirmed").remove("auto_start_confirmed_at").apply()
                     updateProtectionStatus()
@@ -1963,8 +1999,10 @@ class HomeFragment : Fragment() {
         val missing = mutableListOf<String>()
         if (!hasOverlay) missing.add("悬浮窗")
         if (!hasNotification) missing.add("通知权限")
-        if (!hasBgBattery) missing.add("后台耗电管理")
-        if (!hasAutoStart) missing.add("自启动")
+        val bgBatteryMissingLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) "完全后台行为" else "后台耗电管理"
+        val autostartMissingLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) "自启动/开机启动" else "自启动"
+        if (!hasBgBattery) missing.add(bgBatteryMissingLabel)
+        if (!hasAutoStart) missing.add(autostartMissingLabel)
 
         val allGranted = missing.isEmpty()
         return HomePermissionState(allGranted = allGranted, missingLabels = missing)
@@ -1980,6 +2018,10 @@ class HomeFragment : Fragment() {
     }
 
     private fun openBgBatterySettings(ctx: Context) {
+        if (SettingsNavigator.openBatteryKeepAliveSettings(ctx)) {
+            Toast.makeText(ctx, SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
+            return
+        }
         val intents = listOf(
             Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}"))
@@ -1987,6 +2029,7 @@ class HomeFragment : Fragment() {
         for (intent in intents) {
             try {
                 startActivity(intent)
+                Toast.makeText(ctx, SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
                 return
             } catch (e: Exception) {
                 Log.w("HomeFragment", "Failed to open battery settings", e)

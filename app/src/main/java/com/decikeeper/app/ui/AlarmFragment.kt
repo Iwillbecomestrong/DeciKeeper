@@ -20,7 +20,9 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import com.decikeeper.app.manager.SettingsNavigator
 import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.graphics.Typeface
@@ -126,17 +128,27 @@ class AlarmFragment : Fragment() {
         return mf.contains("vivo") || mf.contains("iqoo")
     }
 
+    private fun isOppoOrOnePlusOrRealmeDevice(): Boolean {
+        return SettingsNavigator.isOppoOrOnePlusOrRealme()
+    }
+
+    private fun isSleepStandbyConfirmed(prefs: SharedPreferences): Boolean {
+        return prefs.getBoolean("sleep_standby_confirmed", false) ||
+            prefs.getBoolean("vivo_sleep_standby_confirmed", false)
+    }
+
     private fun isAlarmKeepaliveSatisfied(ctx: Context): Boolean {
         val isBgBatteryOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val powerManager = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
             powerManager?.isIgnoringBatteryOptimizations(ctx.packageName) == true
         } else true
 
-        val isVivo = isVivoOrIqoo()
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
-        val isSleepConfirmed = prefs.getBoolean("vivo_sleep_standby_confirmed", false)
+        val isSleepConfirmed = isSleepStandbyConfirmed(prefs)
 
-        return isBgBatteryOk && (!isVivo || isSleepConfirmed)
+        // 对 Vivo 和 OPPO 等国内典型机型强化睡眠优化确认，其他机型后台耗电满足即可
+        val isStrictOem = isVivoOrIqoo() || isOppoOrOnePlusOrRealmeDevice()
+        return isBgBatteryOk && (!isStrictOem || isSleepConfirmed)
     }
 
     private var hasPromptedKeepaliveInSession = false
@@ -153,7 +165,6 @@ class AlarmFragment : Fragment() {
     private fun showAlarmKeepAliveGuideDialog() {
         val ctx = context ?: return
         val density = ctx.resources.displayMetrics.density
-        val isVivo = isVivoOrIqoo()
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
 
         val container = LinearLayout(ctx).apply {
@@ -190,13 +201,15 @@ class AlarmFragment : Fragment() {
             }
         }
 
-        // 行 1：后台高耗电
+        val batteryLabel = SettingsNavigator.getBatteryOptimizationLabel()
+
+        // 行 1：后台耗电/完全允许后台行为
         val rowBgBattery = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, (10 * density).toInt())
         }
-        val btnBgBattery = buildButton("后台高耗电")
+        val btnBgBattery = buildButton("去设置「$batteryLabel」")
         val cbBgBattery = CheckBox(ctx).apply {
             text = "已开启"
             setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
@@ -205,32 +218,28 @@ class AlarmFragment : Fragment() {
         rowBgBattery.addView(cbBgBattery)
         container.addView(rowBgBattery)
 
-        // 行 2：睡眠待机优化 (仅 Vivo/OriginOS)
-        var btnSleep: com.google.android.material.button.MaterialButton? = null
-        var cbSleep: CheckBox? = null
-        if (isVivo) {
-            val rowSleep = LinearLayout(ctx).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 0, 0, (10 * density).toInt())
-            }
-            btnSleep = buildButton("去关闭「睡眠待机优化」")
-            cbSleep = CheckBox(ctx).apply {
-                text = "已关闭"
-                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
-            }
-            rowSleep.addView(btnSleep)
-            rowSleep.addView(cbSleep)
-            container.addView(rowSleep)
-
-            val tvTip = TextView(ctx).apply {
-                text = "* 注：系统无法自动读取「睡眠待机优化」开关状态，请在系统设置关闭后勾选“已关闭”。"
-                textSize = 11f
-                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
-                setPadding(0, 0, 0, (10 * density).toInt())
-            }
-            container.addView(tvTip)
+        // 行 2：睡眠待机优化（全机型开放引导，支持一键勾选）
+        val rowSleep = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, (10 * density).toInt())
         }
+        val btnSleep = buildButton("去关闭「睡眠待机优化」")
+        val cbSleep = CheckBox(ctx).apply {
+            text = "已关闭"
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        rowSleep.addView(btnSleep)
+        rowSleep.addView(cbSleep)
+        container.addView(rowSleep)
+
+        val tvTip = TextView(ctx).apply {
+            text = "* 注：部分机型（如 OPPO、Vivo）在夜间待机会深度冻结应用，请在系统「省电设置」中关闭「睡眠待机优化」，确认后勾选“已关闭”（若系统无此项可直接勾选）。"
+            textSize = 11f
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setPadding(0, 0, 0, (10 * density).toInt())
+        }
+        container.addView(tvTip)
 
         var dialog: AlertDialog? = null
         var uiUpdating = false
@@ -242,18 +251,17 @@ class AlarmFragment : Fragment() {
                 powerManager?.isIgnoringBatteryOptimizations(ctx.packageName) == true
             } else true
 
-            btnBgBattery.text = if (isBgBatteryOk) "后台高耗电已开启" else "去设置后台高耗电"
+            btnBgBattery.text = if (isBgBatteryOk) "${batteryLabel}已开启" else "去设置「$batteryLabel」"
             btnBgBattery.isEnabled = !isBgBatteryOk
             btnBgBattery.alpha = if (isBgBatteryOk) 0.5f else 1.0f
             cbBgBattery.isChecked = isBgBatteryOk
             cbBgBattery.isEnabled = !isBgBatteryOk
 
-            if (isVivo && cbSleep != null && btnSleep != null) {
-                val isSleepConfirmed = prefs.getBoolean("vivo_sleep_standby_confirmed", false)
-                cbSleep.isChecked = isSleepConfirmed
-                btnSleep.text = if (isSleepConfirmed) "睡眠待机优化已关闭" else "去关闭「睡眠待机优化」"
-                btnSleep.alpha = if (isSleepConfirmed) 0.5f else 1.0f
-            }
+            val isSleepConfirmed = isSleepStandbyConfirmed(prefs)
+            cbSleep.isChecked = isSleepConfirmed
+            btnSleep.text = if (isSleepConfirmed) "睡眠待机优化已关闭" else "去关闭「睡眠待机优化」"
+            btnSleep.alpha = if (isSleepConfirmed) 0.5f else 1.0f
+
             uiUpdating = false
             refreshSettingsSummaries()
         }
@@ -266,12 +274,15 @@ class AlarmFragment : Fragment() {
             updateDialogUi()
         }
 
-        btnSleep?.setOnClickListener {
+        btnSleep.setOnClickListener {
             openVivoBatterySettings(ctx)
         }
-        cbSleep?.setOnCheckedChangeListener { _, checked ->
+        cbSleep.setOnCheckedChangeListener { _, checked ->
             if (uiUpdating) return@setOnCheckedChangeListener
-            prefs.edit().putBoolean("vivo_sleep_standby_confirmed", checked).apply()
+            prefs.edit()
+                .putBoolean("sleep_standby_confirmed", checked)
+                .putBoolean("vivo_sleep_standby_confirmed", checked)
+                .apply()
             updateDialogUi()
         }
 
@@ -325,6 +336,7 @@ class AlarmFragment : Fragment() {
         val ctx = context ?: return
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
         val shown = prefs.getBoolean("alarm_keepalive_guide_shown", false) ||
+            prefs.getBoolean("sleep_standby_guide_shown", false) ||
             prefs.getBoolean("vivo_sleep_standby_guide_shown", false)
         if (!shown) {
             prefs.edit().putBoolean("alarm_keepalive_guide_shown", true).apply()

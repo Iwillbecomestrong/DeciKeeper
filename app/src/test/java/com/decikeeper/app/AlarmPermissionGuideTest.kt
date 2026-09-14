@@ -13,6 +13,8 @@ class AlarmPermissionGuideTest {
             "com.android.permissioncontroller",
             "com.google.android.permissioncontroller",
             "com.vivo.permissionmanager",
+            "com.oplus.securitypermission",
+            "com.coloros.securitypermission",
             "com.android.packageinstaller"
         )
         for (pkg in controllers) {

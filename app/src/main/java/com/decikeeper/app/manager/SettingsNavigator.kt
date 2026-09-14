@@ -63,10 +63,32 @@ object SettingsNavigator {
             isXiaomiOrRedmi() -> "请将「省电策略」设为「无限制」，并开启「自启动」"
             isVivoOrIqoo() -> "请允许「后台高耗电」，并关闭电池设置中的「睡眠待机优化」"
             isHuaweiOrHonor() -> "请将应用启动管理设为「手动管理」（允许自启动、关联启动与后台活动）"
-            isOppoOrOnePlusOrRealme() -> "请允许「完全后台行为」，并开启「自启动」"
+            isOppoOrOnePlusOrRealme() -> "请将耗电行为设为「完全允许后台行为」，开启「开机/自启动」，并关闭「睡眠待机优化」"
             isMeizu() -> "请将待机耗电管理设为「保持运行」，并开启「自启动」"
             isSamsung() -> "请将本应用加入「未休眠应用程序」白名单"
-            else -> "请允许后台高耗电并忽略电池优化；若系统有夜间睡眠优化请将其排除"
+            else -> "请允许后台高耗电/完全后台行为并忽略电池优化；若系统有夜间睡眠待机优化请将其关闭"
+        }
+    }
+
+    /**
+     * 获取当前机型对应的后台耗电/行为权限友好展示文案
+     */
+    fun getBatteryOptimizationLabel(): String {
+        return when {
+            isOppoOrOnePlusOrRealme() -> "完全允许后台行为"
+            isVivoOrIqoo() -> "允许后台高耗电"
+            isXiaomiOrRedmi() -> "省电策略设为无限制"
+            else -> "允许后台耗电/行为"
+        }
+    }
+
+    /**
+     * 获取当前机型对应的自启动权限友好展示文案（含开机启动别名）
+     */
+    fun getAutostartLabel(): String {
+        return when {
+            isOppoOrOnePlusOrRealme() -> "自启动 / 开机启动"
+            else -> "自启动权限"
         }
     }
 
@@ -132,6 +154,8 @@ object SettingsNavigator {
             isOppoOrOnePlusOrRealme() -> {
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startupInit.StartupNormalAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.StartupAppListActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")))
             }
             isVivoOrIqoo() -> {
@@ -186,9 +210,12 @@ object SettingsNavigator {
                 candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.power.ui.HwPowerManagerActivity")))
             }
             isOppoOrOnePlusOrRealme() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.BatteryMainActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerConsumptionActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerSaverModeActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.BatteryMainActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.powermanager", "com.coloros.powermanager.fuelgaard.PowerConsumptionActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.powermanager", "com.coloros.powermanager.fuelgaard.PowerSaverModeActivity")))
             }
             isVivoOrIqoo() -> {
                 candidates.add(Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.HighPowerConsumptionActivity")))
