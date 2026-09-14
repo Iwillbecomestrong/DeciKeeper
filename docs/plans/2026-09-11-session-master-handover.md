@@ -10,12 +10,12 @@
 
 | worktree | 分支 | HEAD | 状态 | 能不能动 |
 | --- | --- | --- | --- | --- |
-| `G:/IronWIl0329/IronWill-OpenSource` | `dev` | `fde3c93` | 干净 | **不要动**（主仓库） |
-| `G:/IronWIl0329/IronWill-docs` | `docs/product-refactor` | `e247731` | 干净 | ✅ **本会话主战场** |
-| `G:/IronWIl0329/IronWill-alarm-overlay` | `fix/alarm-overlay-detach` | `eefa178` | **有未提交改动** | ❌ **另一个 AI 正在做，不要碰** |
-| `G:/IronWIl0329/IronWill-time-rule-edit-window` | `feat/time-rule-edit-window` | `23c821a` | — | ❓ 本会话不了解 |
-| `C:/Users/23248/.codex/worktrees/*` | `codex/*` 等 | — | — | 历史分支 |
-| `G:/IronWIl0329/IronWill-decikeeper` / `-return-home-penalty` | `ai/*` | — | — | 历史分支 |
+| `<main-repo>` | `dev` | `fde3c93` | 干净 | **不要动**（主仓库） |
+| `<worktree-docs>` | `docs/product-refactor` | `e247731` | 干净 | ✅ **本会话主战场** |
+| `<worktree-alarm-overlay>` | `fix/alarm-overlay-detach` | `eefa178` | **有未提交改动** | ❌ **另一个 AI 正在做，不要碰** |
+| `<worktree-time-rule>` | `feat/time-rule-edit-window` | `23c821a` | — | ❓ 本会话不了解 |
+| `~/.codex/worktrees/*` | `codex/*` 等 | — | — | 历史分支 |
+| `<worktree-decikeeper>` / `-return-home-penalty` | `ai/*` | — | — | 历史分支 |
 
 **关键事实**：`dev` 已经走到 `fde3c93`（"实现双锁系统收敛、到期决策解析器与浮窗保护"，67 文件 +5464/−1308），
 本会话的文档分支**已 rebase 到它之上**，落后 0。
@@ -204,7 +204,7 @@ About 页实际展示的入口与 `SPEC.md` §8.1 是否完全一致——只确
 
 | 文件 | 内容 |
 | --- | --- |
-| `G:/IronWIl0329/.alarm-repro.log` / `.alarm-verify.log` / `.alarm-verify2.log` | 闹钟白屏的三次真机复现日志 |
+| `~/.alarm-repro.log` / `.alarm-verify.log` / `.alarm-verify2.log` | 闹钟白屏的三次真机复现日志 |
 
 ### 备份标签
 

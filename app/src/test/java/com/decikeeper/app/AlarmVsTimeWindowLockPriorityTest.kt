@@ -61,8 +61,9 @@ class AlarmVsTimeWindowLockPriorityTest {
         val cwd = File(System.getProperty("user.dir") ?: ".")
         val candidates = listOf(
             File(cwd, path),
-            File(cwd.parentFile, "IronWill-alarm-priority/$path"),
-            File("G:/IronWIl0329/IronWill-alarm-priority", path)
+            File(cwd, "app/$path"),
+            File(cwd.parentFile, path),
+            File(cwd.parentFile, "app/$path")
         )
         for (candidate in candidates) {
             if (candidate.exists()) return candidate.readText()

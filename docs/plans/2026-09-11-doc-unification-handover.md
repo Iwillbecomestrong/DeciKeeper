@@ -29,12 +29,12 @@
 
 | 项 | 值 |
 | --- | --- |
-| **工作 worktree** | `G:/IronWIl0329/IronWill-docs` |
+| **工作 worktree** | `<worktree-docs>` |
 | 分支 | `docs/product-refactor`（已 rebase 到最新 dev） |
 | 基线 | `dev` = `fde3c93`（落后 0） |
 | 备份标签 | `backup/docs-product-refactor`（rebase 前的原始 HEAD） |
-| 主仓库 | `G:/IronWIl0329/IronWill-OpenSource`（dev，工作区干净，**不要动**） |
-| 另一 worktree | `G:/IronWIl0329/IronWill-alarm-overlay`（分支 `fix/alarm-overlay-detach`，闹钟白屏 bug，见另一份交接） |
+| 主仓库 | `<main-repo>`（dev，工作区干净，**不要动**） |
+| 另一 worktree | `<worktree-alarm-overlay>`（分支 `fix/alarm-overlay-detach`，闹钟白屏 bug，见另一份交接） |
 
 ### 构建与测试
 
@@ -216,5 +216,5 @@ dev 最新提交是 `fde3c93`（"feat(focus): 实现双锁系统收敛、到期�
 
 | 文件 | 内容 |
 | --- | --- |
-| `G:/IronWIl0329/.alarm-verify2.log` | 闹钟白屏相关的最新真机日志 |
+| `~/.alarm-verify2.log` | 闹钟白屏相关的最新真机日志 |
 

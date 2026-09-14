@@ -62,11 +62,15 @@ git ls-remote gitee          # 均应能列出 main / dev 等分支
 > 这样国内用户既能 `git clone`/读代码（信任链完整），又能直接下包。
 
 ```bash
-# 同一个 debug APK，两端都传
-APK=app/build/outputs/apk/debug/app-debug.apk
+# 正式发版必须使用官方 keystore 签名的 Release APK（严禁在正式 Release 中分发 debug APK）
+APK=app/build/outputs/apk/release/app-release.apk
 
-# GitHub：在仓库 Releases 页点「Draft a new release」，tag 如 v0.1.0，附上 APK
-# Gitee ：仓库「发行版」页点「创建发行版」，tag 保持一致，附上同一份 APK
+# 校验签名合法性并生成 SHA-256 校验文件
+apksigner verify --verbose $APK
+sha256sum $APK > $APK.sha256
+
+# GitHub：在仓库 Releases 页点「Draft a new release」，tag 如 v0.3.0，上传 app-release.apk 与 sha256 文件
+# Gitee ：仓库「发行版」页点「创建发行版」，tag 保持一致，上传同名同版本 Release APK
 ```
 
 Release 文案至少写明三件事：
@@ -142,18 +146,25 @@ git push github main && git push gitee main
 ## 4. 构建与签名
 
 ```bash
-# 日常验证：debug APK 免签名，可直接安装
+# 日常开发与调试验证：debug APK 仅供内部与真机测试
 ./gradlew assembleDebug
 
 # 装真机（红线：严禁 adb uninstall，会抹掉本地规则与词库）
 adb install -r -d app/build/outputs/apk/debug/app-debug.apk
+
+# 正式发版构建：必须配置有效的 release keystore（local.properties 或环境变量）
+./gradlew assembleRelease
+
+# 签名校验（必须显示 Verified using v2/v3 scheme: true，且发行证书主体正确）
+apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
 ```
 
-正式分发再动 `assembleRelease` + 签名：
+正式分发严格遵循签名准则：
 
 1. 生成 keystore 后，**离线备份到至少两个物理位置**。
 2. ⚠️ **签名密钥丢失 = 无法再更新**，用户必须卸载重装并丢失全部本地数据。
-3. keystore 与密码**禁止**进仓库；如需 CI 签名，用 GitHub Secrets 注入。
+3. keystore 与密码**绝对禁止**提交进代码仓库；如果配置 CI 自动签名，使用 GitHub Secrets 安全注入。
+4. 未配置官方 keystore 时，`assembleRelease` 将产出未签名 APK，**绝不会静默降级为 debug key**。
 
 ---
 
@@ -207,7 +218,7 @@ Gitee 需实名认证 + 开源审核，**无障碍服务属敏感权限**，审�
 Host gitee.com
     HostName gitee.com
     User git
-    IdentityFile C:\Users\23248\.ssh\id_ed25519_gitee
+    IdentityFile ~/.ssh/id_ed25519_gitee
     PreferredAuthentications publickey
 ```
 

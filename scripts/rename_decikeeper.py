@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 
-ROOT = r"G:\IronWIl0329\IronWill-decikeeper"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
 
 BINARY_EXT = {
