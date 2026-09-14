@@ -67,48 +67,97 @@ class AntiUninstallProtection(private val context: Context) {
             "intentresolver", "resolver"  // Android System Share Sheet (鍒嗕韩閫夋嫨鍣?
         )
         
-        // Vivo Launcher Packages
+        // Vivo Launcher Packages (保留向下兼容)
         val VIVO_LAUNCHER_PACKAGES = setOf(
             "com.bbk.launcher2", "com.vivo.launcher", "com.vivo.upslide"
         )
 
-        // Monitored Packages (Installers, Stores, Settings)
+        // All Supported OEM Launchers (OPPO, Vivo, Xiaomi, Huawei, Honor, Samsung, Pixel etc.)
+        val LAUNCHER_PACKAGES = setOf(
+            // Vivo / iQOO
+            "com.bbk.launcher2", "com.vivo.launcher", "com.vivo.upslide",
+            // OPPO / Realme / OnePlus (ColorOS / RealmeUI / OxygenOS)
+            "com.android.launcher", "com.oplus.launcher", "com.oppo.launcher", "com.oneplus.launcher",
+            // Xiaomi / Redmi (MIUI / HyperOS)
+            "com.miui.home",
+            // Huawei / Honor (HarmonyOS / EMUI / MagicOS)
+            "com.huawei.android.launcher", "com.hihonor.android.launcher",
+            // Samsung (One UI)
+            "com.sec.android.app.launcher",
+            // Google Pixel / AOSP
+            "com.google.android.apps.nexuslauncher"
+        )
+
+        internal fun isLauncherPackage(pkg: String): Boolean {
+            if (pkg.isBlank()) return false
+            if (pkg in LAUNCHER_PACKAGES) return true
+            if (pkg.contains("launcher", ignoreCase = true)) return true
+            return pkg.endsWith(".home")
+        }
+
+        // Monitored Packages (Installers, Stores, Settings, Phone Managers)
         // CRITICAL: Only scan these for "Uninstall" keywords to avoid Launcher false positives
         val MONITORED_PACKAGES = setOf(
             "com.android.settings",
             "com.android.packageinstaller",
             "com.google.android.packageinstaller",
+            "com.oplus.packageinstaller",
             "com.miui.securitycenter",           // Xiaomi
+            "com.miui.cleanmaster",
             "com.huawei.systemmanager",          // Huawei
+            "com.hihonor.systemmanager",         // Honor
             "com.coloros.safecenter",            // OPPO
+            "com.oplus.safecenter",              // OPPO/Realme
+            "com.coloros.phonemanager",          // OPPO 手机管家 (批量卸载/空间清理)
+            "com.oplus.phonemanager",            // ColorOS 手机管家
+            "com.coloros.securitypermission",    // OPPO 权限与安全
+            "com.oplus.securitypermission",
+            "com.coloros.appmanager",            // OPPO 应用管理
+            "com.oplus.appdetail",               // OPPO 应用详情
             "com.vivo.permissionmanager",        // Vivo
             "com.samsung.android.sm",            // Samsung
+            "com.samsung.android.sm_cn",
             "com.oneplus.security",              // OnePlus
-            "com.oplus.safecenter",              // OPPO/Realme
             "com.vivo.imanager",                 // Vivo iManager
             "com.iqoo.secure",                   // Vivo/iQOO Secure
             
             // App Stores
-            "com.bbk.appstore",         // Vivo App Store
-            "com.oppo.market",          // Oppo App Store
-            "com.xiaomi.market",        // Xiaomi App Store
-            "com.huawei.appmarket",     // Huawei App Gallery
-            "com.android.vending",      // Google Play Store
-            "com.coolapk.market",       // Coolapk
-            "com.android.vending",      // Google Play Store
-            "com.coolapk.market",       // Coolapk
-            "com.tencent.android.qqdownloader", // Tencent MyApp
+            "com.bbk.appstore",                  // Vivo App Store
+            "com.oppo.market",                   // Oppo App Store
+            "com.heytap.market",                 // Oppo / OnePlus 欢太软件商店
+            "com.xiaomi.market",                 // Xiaomi App Store
+            "com.huawei.appmarket",              // Huawei App Gallery
+            "com.hihonor.appmarket",             // Honor App Market
+            "com.android.vending",               // Google Play Store
+            "com.coolapk.market",                // Coolapk
+            "com.tencent.android.qqdownloader",  // Tencent MyApp
             // Fallback for custom launchers not caught by specific logic
             "com.bbk.launcher2", "com.vivo.launcher", "com.vivo.upslide",
-            "com.huawei.android.launcher", "com.miui.home", "com.oppo.launcher"
+            "com.android.launcher", "com.oplus.launcher", "com.oppo.launcher", "com.oneplus.launcher",
+            "com.huawei.android.launcher", "com.hihonor.android.launcher", "com.miui.home",
+            "com.sec.android.app.launcher"
         )
 
         val PROTECTED_APP_NAMES = setOf("决定守护", "DeciKeeper", "IronWill", "Iron Will", "意引", "钢铁意志")
+
+        // 强卸载/破坏性确认提示特征
+        val DESTRUCTIVE_UNINSTALL_KEYWORDS = listOf(
+            "要卸载", "是否卸载", "确认卸载", "确认要卸载", "将卸载应用",
+            "将从本设备彻底删除", "删除所有应用数据", "及其数据将会被删除", "及其数据将被删除",
+            "Do you want to uninstall", "will be uninstalled", "delete all app data"
+        )
+
+        val CONFIRM_KEYWORDS = listOf(
+            "确定", "确认", "卸载", "一键卸载", "直接卸载", "直接", "確定", "確認", "解除安裝", "刪除",
+            "Confirm", "OK", "Yes", "Uninstall", "Delete", "Remove"
+        )
+
+        val CANCEL_KEYWORDS = listOf("取消", "Cancel", "Annuler", "Cancelar", "Abbrechen", "No", "關閉", "关闭")
         
         // Multi-Language Uninstall Keywords
         val UNINSTALL_KEYWORDS = setOf(
             // 1. Chinese & English
-            "卸载", "删除应用", "移除", "强行停止", "停用", // SC
+            "卸载", "一键卸载", "直接卸载", "删除应用", "移除", "强行停止", "停用", "彻底删除", // SC
             "解除安裝", "刪除應用程式", "移除", "強制停止", "停用", // TC
             "Uninstall", "Force stop", "Disable",
 
@@ -756,26 +805,26 @@ class AntiUninstallProtection(private val context: Context) {
 
         // 3. Detection Logic
         if (ProtectionManager.DEBUG) {
-            Log.d(TAG, "[Scan] Reached detection: Pkg=$currentPackage isVivo=${VIVO_LAUNCHER_PACKAGES.contains(currentPackage)} isMonitored=${MONITORED_PACKAGES.any { currentPackage.contains(it) }}")
+            Log.d(TAG, "[Scan] Reached detection: Pkg=$currentPackage isLauncher=${isLauncherPackage(currentPackage)} isMonitored=${MONITORED_PACKAGES.any { currentPackage.contains(it) }}")
         }
         
         var detected = false
-        val isVivoLauncher = VIVO_LAUNCHER_PACKAGES.contains(currentPackage)
+        val isLauncher = isLauncherPackage(currentPackage)
         var blockReason: String? = null
         var blockDetails: String? = null
         
-        if (isVivoLauncher) {
-             // 🚀 [Vivo Launcher] Detection Strategy:
-             // Vivo long-press menu shows: [鍗歌浇] [搴旂敤淇℃伅] [鍒嗕韩]
-             // When user clicks "卸载", a confirmation dialog pops up with [直接卸载] [取消] etc.
+        if (isLauncher) {
+             // 🚀 [OEM Launcher Protection] (Vivo, OPPO, Xiaomi, Huawei, Honor, Samsung, etc.)
+             // Long-press menu shows: [卸载] [应用信息] [分享]
+             // When user clicks "卸载", a confirmation dialog pops up with [卸载] [取消] or [确定] etc.
              // 
              // KEY INSIGHT: The long-press MENU and the confirmation DIALOG are different UI states.
              // - Long-press Menu: TYPE_WINDOW_STATE_CHANGED with PopupWindow/ListView class
              // - Confirmation Dialog: TYPE_WINDOW_STATE_CHANGED with AlertDialog class
              //
              // STRATEGY: 
-             //   1. If we see a long-press menu (has 鍒嗕韩/搴旂敤淇℃伅 alongside 鍗歌浇) 鈫?ALLOW (don't block)
-             //   2. If we see a confirmation dialog (has 确定/取消/直接卸载) → BLOCK
+             //   1. If we see a long-press menu (has 分享/应用信息 alongside 卸载) → ALLOW (don't block)
+             //   2. If we see a confirmation dialog (has 确定/取消/卸载/直接卸载/破坏性文案) → BLOCK
              //   3. The menu itself is harmless; only the CONFIRMATION is dangerous.
              
              val eventText = event.text.toString()
@@ -791,22 +840,23 @@ class AntiUninstallProtection(private val context: Context) {
              if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
                  !hasArmedMenuContext &&
                  !eventClass.contains("dialog", ignoreCase = true) &&
-                 !eventClass.contains("alert", ignoreCase = true)) {
+                 !eventClass.contains("alert", ignoreCase = true) &&
+                 !eventClass.contains("coui", ignoreCase = true)) {
                  return
              }
 
-             // Fast path: Vivo confirms often expose enough signal in event text.
+             // Fast path: Confirmation dialogs often expose enough signal in event text.
              // Block immediately to avoid deep-scan latency windows.
              val canUseFastPathEvent =
                  event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
                      event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
              if (canUseFastPathEvent && isVivoDialogFastPath(eventClass, eventText, hasArmedMenuContext)) {
-                 Log.w(TAG, "!!! [Vivo] Fast-path confirmation dialog detected. Blocking immediately.")
-                 LogExporter.logEvent(TAG, "[BLOCK] Vivo fast-path dialog hit. Class=$eventClass")
-                 blockReason = if (hasArmedMenuContext) "VIVO_DIALOG_FAST_PATH_ARMED" else "VIVO_DIALOG_FAST_PATH"
-                 blockDetails = "class=$eventClass armed=$hasArmedMenuContext"
+                 Log.w(TAG, "!!! [Launcher] Fast-path confirmation dialog detected. Blocking immediately. Pkg=$currentPackage Class=$eventClass")
+                 LogExporter.logEvent(TAG, "[BLOCK] Launcher fast-path dialog hit. Pkg=$currentPackage Class=$eventClass")
+                 blockReason = if (hasArmedMenuContext) "LAUNCHER_DIALOG_FAST_PATH_ARMED" else "LAUNCHER_DIALOG_FAST_PATH"
+                 blockDetails = "pkg=$currentPackage class=$eventClass armed=$hasArmedMenuContext"
                  logBlock(
-                     reason = blockReason ?: "VIVO_DIALOG_FAST_PATH",
+                     reason = blockReason ?: "LAUNCHER_DIALOG_FAST_PATH",
                      pkg = currentPackage,
                      cls = eventClass,
                      context = "launcherFastPath",
@@ -829,12 +879,14 @@ class AntiUninstallProtection(private val context: Context) {
              }
              
              // 1. Fast Filter: Check if this event is relevant at all
-             val hasUninstallInEvent = UNINSTALL_KEYWORDS.any { eventText.contains(it) }
+             val hasUninstallInEvent = UNINSTALL_KEYWORDS.any { eventText.contains(it, ignoreCase = true) }
              val hasAppNameInEvent = PROTECTED_APP_NAMES.any { eventText.contains(it, ignoreCase = true) }
+             val hasDestructiveInEvent = DESTRUCTIVE_UNINSTALL_KEYWORDS.any { eventText.contains(it, ignoreCase = true) }
              
-             val isSuspicious = hasUninstallInEvent || hasAppNameInEvent || 
+             val isSuspicious = hasUninstallInEvent || hasAppNameInEvent || hasDestructiveInEvent ||
                                 eventClass.contains("Dialog", ignoreCase = true) ||
-                                eventClass.contains("Alert", ignoreCase = true)
+                                eventClass.contains("Alert", ignoreCase = true) ||
+                                eventClass.contains("COUI", ignoreCase = true)
              
              if (!isSuspicious) {
                  return // Safe event (scrolling, swiping, etc.)
@@ -846,54 +898,45 @@ class AntiUninstallProtection(private val context: Context) {
              collectAllText(root, sb, maxDepth = 6, maxChildren = 18)
              val combinedText = sb.toString()
              
-             Log.d(TAG, "[Vivo Scan] combinedText=$combinedText")
-             Log.d(TAG, "[Vivo Scan] eventClass=$eventClass")
+             Log.d(TAG, "[Launcher Scan] combinedText=$combinedText")
+             Log.d(TAG, "[Launcher Scan] eventClass=$eventClass")
 
              val hasAppName = PROTECTED_APP_NAMES.any { combinedText.contains(it, ignoreCase = true) }
              val hasUninstall = UNINSTALL_KEYWORDS.any { combinedText.contains(it, ignoreCase = true) }
+             val hasDestructive = DESTRUCTIVE_UNINSTALL_KEYWORDS.any { combinedText.contains(it, ignoreCase = true) }
              
              // 3. Distinguish Long-Press Menu vs Confirmation Dialog
-             // Long-press menu contains MULTIPLE action items together: 鍗歌浇 + 鍒嗕韩 + 搴旂敤淇℃伅
-             // Confirmation dialog contains: 卸载 + (确定/直接/取消)
+             // Long-press menu contains MULTIPLE action items together: 卸载 + 分享 + 应用信息
+             // Confirmation dialog contains: 卸载 + (确定/直接/取消) 或 破坏性文案 (要卸载/彻底删除)
              val isLongPressMenu = SAFE_MENU_KEYWORDS.any { combinedText.contains(it, ignoreCase = true) }
              
-             // Confirmation keywords (buttons in a real uninstall dialog)
-             // 🚀 [Fix] Enhanced English Support: Add "Uninstall", "Delete", "Yes" as confirmation actions.
-             val confirmKeywords = listOf(
-                 "确定", "确认", "直接卸载", "直接", "確定", "確認", "解除安裝",
-                 "Confirm", "OK", "Yes", "Uninstall", "Delete", "Remove"
-             )
-             val cancelKeywords = listOf("鍙栨秷", "Cancel", "Annuler", "Cancelar", "Abbrechen", "No")
+             val confirmKeywords = CONFIRM_KEYWORDS
+             val cancelKeywords = CANCEL_KEYWORDS
              
-             // Case-insensitive check for buttons
              val hasConfirm = confirmKeywords.any { combinedText.contains(it, ignoreCase = true) }
              val hasCancel = cancelKeywords.any { combinedText.contains(it, ignoreCase = true) }
              
-             // 🔒 判定是否为卸载确认对话框的核心逻辑:
-             // - 方式1: Dialog 类名 + 卸载关键词 (如 com.originui.widget.dialog.d 弹出"卸载IronWill")
-             //   Vivo 纭妗嗘枃鏈? [鍗歌浇"IronWill"锛? "IronWill"鍙婂叾鏁版嵁灏嗕細琚垹闄ゃ€? 鍗歌浇, 鍙栨秷]
-             // - 方式2: 有确认按钮 (确定/直接卸载)
-             // ⚠️ 关键: 当 isLongPressMenu=true 时 "取消"按钮不能单独判定为确认对话框
-             //   因为分享面板等正常UI也有取消按钮, 会误拦截!
              val isDialogClassEvent = eventClass.contains("dialog", ignoreCase = true) ||
-                                      eventClass.contains("alert", ignoreCase = true)
-             val isConfirmationDialog = hasConfirm ||
-                                        (isDialogClassEvent && hasCancel) ||  // Dialog 绫诲悕 + 鍙栨秷 = 纭妗?
-                                        (!isLongPressMenu && hasCancel)       // 无菜单特征 + 取消 = 确认框
-             if (hasAppName && hasUninstall) {
+                                      eventClass.contains("alert", ignoreCase = true) ||
+                                      eventClass.contains("coui", ignoreCase = true)
+             val isConfirmationDialog = hasDestructive ||
+                                        hasConfirm ||
+                                        (isDialogClassEvent && hasCancel) ||
+                                        (!isLongPressMenu && hasCancel)
+             if (hasAppName && (hasUninstall || hasDestructive)) {
                  if (isLongPressMenu && !isConfirmationDialog) {
-                     // This is the long-press popup menu with [鍗歌浇][鍒嗕韩][搴旂敤淇℃伅]
+                     // This is the long-press popup menu with [卸载][分享][应用信息]
                      // 或者用户点击"分享"后弹出了分享面板（仍有菜单特征词，但无确认类名）
                      // Do NOT block - 允许分享等正常操作
-                     Log.d(TAG, "[Vivo Scan] Long-press menu or share panel detected (has Share/AppInfo, no Dialog class). Allowing.")
+                     Log.d(TAG, "[Launcher Scan] Long-press menu or share panel detected (has Share/AppInfo, no Dialog class). Allowing.")
                  } else if (isConfirmationDialog) {
-                     // This is a real confirmation dialog with 确定/直接卸载，或者 Dialog 类名+取消
-                     Log.w(TAG, "!!! [Vivo] Uninstall CONFIRMATION dialog detected !!! Blocking. isDialogClass=$isDialogClassEvent")
-                     LogExporter.logEvent(TAG, "[BLOCK] Vivo confirmation dialog. Confirm=$hasConfirm Cancel=$hasCancel DialogClass=$isDialogClassEvent")
-                    blockReason = "VIVO_CONFIRM_DIALOG"
-                    blockDetails = "hasConfirm=$hasConfirm hasCancel=$hasCancel isDialogClass=$isDialogClassEvent isLongPressMenu=$isLongPressMenu"
+                     // This is a real confirmation dialog with 确定/直接卸载/取消，或者破坏性说明
+                     Log.w(TAG, "!!! [Launcher] Uninstall CONFIRMATION dialog detected !!! Blocking. Pkg=$currentPackage isDialogClass=$isDialogClassEvent")
+                     LogExporter.logEvent(TAG, "[BLOCK] Launcher confirmation dialog. Pkg=$currentPackage Confirm=$hasConfirm Cancel=$hasCancel DialogClass=$isDialogClassEvent Destructive=$hasDestructive")
+                    blockReason = "LAUNCHER_CONFIRM_DIALOG"
+                    blockDetails = "pkg=$currentPackage hasConfirm=$hasConfirm hasCancel=$hasCancel isDialogClass=$isDialogClassEvent hasDestructive=$hasDestructive"
                     logBlock(
-                        reason = blockReason ?: "VIVO_CONFIRM_DIALOG",
+                        reason = blockReason ?: "LAUNCHER_CONFIRM_DIALOG",
                         pkg = currentPackage,
                         cls = eventClass,
                         context = "launcher",
@@ -905,12 +948,12 @@ class AntiUninstallProtection(private val context: Context) {
                      // Ambiguous: has Uninstall + AppName but no menu items and no confirm/cancel
                      // Could be a transitional state or a simple uninstall prompt without buttons yet
                      // Be conservative: block it (better safe than sorry)
-                     Log.w(TAG, "!!! [Vivo] Uninstall detected (no menu, no confirm). Blocking as precaution.")
-                     LogExporter.logEvent(TAG, "[BLOCK] Vivo ambiguous uninstall (no menu, no confirm)")
-                    blockReason = "VIVO_AMBIGUOUS_UNINSTALL"
-                    blockDetails = "hasUninstall=$hasUninstall hasAppName=$hasAppName isLongPressMenu=$isLongPressMenu"
+                     Log.w(TAG, "!!! [Launcher] Uninstall detected (no menu, no confirm). Blocking as precaution. Pkg=$currentPackage")
+                     LogExporter.logEvent(TAG, "[BLOCK] Launcher ambiguous uninstall (no menu, no confirm) Pkg=$currentPackage")
+                    blockReason = "LAUNCHER_AMBIGUOUS_UNINSTALL"
+                    blockDetails = "pkg=$currentPackage hasUninstall=$hasUninstall hasAppName=$hasAppName isLongPressMenu=$isLongPressMenu"
                     logBlock(
-                        reason = blockReason ?: "VIVO_AMBIGUOUS_UNINSTALL",
+                        reason = blockReason ?: "LAUNCHER_AMBIGUOUS_UNINSTALL",
                         pkg = currentPackage,
                         cls = eventClass,
                         context = "launcher",
@@ -920,7 +963,7 @@ class AntiUninstallProtection(private val context: Context) {
                      detected = true
                  }
              } else {
-                 Log.d(TAG, "[Vivo Scan] Safe. Name=$hasAppName Uninstall=$hasUninstall")
+                 Log.d(TAG, "[Launcher Scan] Safe. Name=$hasAppName Uninstall=$hasUninstall Destructive=$hasDestructive")
              }
         } else {
             // Generic Handling
@@ -1033,16 +1076,23 @@ class AntiUninstallProtection(private val context: Context) {
         isHotWindow: Boolean,
         isStartupWindow: Boolean
     ): Boolean {
-        val isInstallerLikePkg =
+        val isInstallerOrManagerPkg =
             pkg.contains("packageinstaller", ignoreCase = true) ||
-                pkg == "com.android.settings"
-        if (!isInstallerLikePkg) return false
+                pkg == "com.android.settings" ||
+                pkg.contains("phonemanager", ignoreCase = true) ||
+                pkg.contains("safecenter", ignoreCase = true) ||
+                pkg.contains("securitycenter", ignoreCase = true) ||
+                pkg.contains("market", ignoreCase = true) ||
+                pkg.contains("appstore", ignoreCase = true)
+        if (!isInstallerOrManagerPkg) return false
 
         val isDialogClass = eventClass.contains("dialog", ignoreCase = true) ||
-            eventClass.contains("alert", ignoreCase = true)
+            eventClass.contains("alert", ignoreCase = true) ||
+            eventClass.contains("coui", ignoreCase = true)
         if (!isDialogClass) return false
 
-        val hasUninstall = UNINSTALL_KEYWORDS.any { eventText.contains(it, ignoreCase = true) }
+        val hasUninstall = UNINSTALL_KEYWORDS.any { eventText.contains(it, ignoreCase = true) } ||
+            DESTRUCTIVE_UNINSTALL_KEYWORDS.any { eventText.contains(it, ignoreCase = true) }
         if (!hasUninstall) return false
 
         val hasProtectedName = PROTECTED_APP_NAMES.any { eventText.contains(it, ignoreCase = true) } ||
@@ -1056,6 +1106,8 @@ class AntiUninstallProtection(private val context: Context) {
             eventText.contains("cancel", ignoreCase = true) ||
             eventText.contains("确定", ignoreCase = true) ||
             eventText.contains("确认", ignoreCase = true) ||
+            eventText.contains("卸载", ignoreCase = true) ||
+            eventText.contains("一键卸载", ignoreCase = true) ||
             eventText.contains("ok", ignoreCase = true)
         return hasDecisionButton
     }
@@ -1424,8 +1476,7 @@ class AntiUninstallProtection(private val context: Context) {
         val actionStartTime = System.currentTimeMillis()
         
         // 🚀 [Fix] Different exit strategies based on context
-        val isLauncherContext = VIVO_LAUNCHER_PACKAGES.contains(pkg) || 
-                                listOf("launcher", "home").any { pkg.contains(it, ignoreCase = true) }
+        val isLauncherContext = isLauncherPackage(pkg)
 
         if (isLauncherContext &&
             lastLauncherHandleSignature == signature &&
