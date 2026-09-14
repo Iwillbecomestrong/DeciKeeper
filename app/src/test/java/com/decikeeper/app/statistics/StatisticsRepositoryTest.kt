@@ -33,6 +33,7 @@ class StatisticsRepositoryTest {
         context.deleteDatabase(AlarmWakeStatsDatabase.DATABASE_NAME)
         context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE).edit().clear().commit()
         StatisticsRepository.permissionChecker = null
+        StatisticsRepository.nowProvider = { fixedNow }
     }
 
     @After
@@ -40,6 +41,7 @@ class StatisticsRepositoryTest {
         context.deleteDatabase(AlarmWakeStatsDatabase.DATABASE_NAME)
         context.getSharedPreferences("alarm_stats_ledger", Context.MODE_PRIVATE).edit().clear().commit()
         StatisticsRepository.permissionChecker = null
+        StatisticsRepository.nowProvider = null
     }
 
     @Test
@@ -92,7 +94,9 @@ class StatisticsRepositoryTest {
 
     @Test
     fun testExitStats_MultipleRestSessionsRecordedAccurately() {
-        val today = fixedNow.toLocalDate()
+        val testNow = LocalDateTime.of(2026, 9, 7, 18, 0, 0)
+        StatisticsRepository.nowProvider = { testNow }
+        val today = testNow.toLocalDate()
         val dateStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
 
         val prefs = context.getSharedPreferences("decikeeper_ledger", Context.MODE_PRIVATE)
@@ -106,7 +110,7 @@ class StatisticsRepositoryTest {
             .apply()
 
         val range = StatsDateRange.Today
-        val resolved = StatsDateRangeResolver.resolveRange(range, fixedNow, zoneId)
+        val resolved = StatsDateRangeResolver.resolveRange(range, testNow, zoneId)
         val summary = StatisticsRepository.getExitStats(context, range, resolved, WeekdayFilter.ALL)
 
         assertEquals(60L, summary.totalRestMinutes)
