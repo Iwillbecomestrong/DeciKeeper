@@ -43,6 +43,7 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.calculateQuotaDetail
 import com.decikeeper.app.data.formatUsableCountHalfUnits
 import com.decikeeper.app.manager.AlarmScheduler
+import com.decikeeper.app.manager.RecentTasksHideManager
 import com.decikeeper.app.manager.AppVisibilityTracker
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
@@ -1290,8 +1291,10 @@ class HomeFragment : Fragment() {
                 .setMessage("决定守护需要「显示在其他应用上层」权限才能显示锁屏界面。")
                 .setPositiveButton("去开启") { _, _ ->
                     try {
+                        RecentTasksHideManager.markNavigating()
                         startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${ctx.packageName}")))
                     } catch (e: Exception) {
+                        RecentTasksHideManager.clearNavigating()
                         Toast.makeText(ctx, "无法打开设置页面", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -1358,8 +1361,10 @@ class HomeFragment : Fragment() {
                     btn.setOnClickListener {
                         try {
                             com.decikeeper.app.protection.AccessibilityProtection.markManualSettingsLaunch()
+                            RecentTasksHideManager.markNavigating()
                             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         } catch (e: Exception) {
+                            RecentTasksHideManager.clearNavigating()
                             Log.w("HomeFragment", "Failed to open accessibility settings", e)
                         }
                     }
@@ -1572,10 +1577,12 @@ class HomeFragment : Fragment() {
         for (intent in intents) {
             try {
                 if (intent.resolveActivity(ctx.packageManager) != null) {
+                    RecentTasksHideManager.markNavigating()
                     startActivity(intent)
                     return
                 }
             } catch (_: Exception) {
+                RecentTasksHideManager.clearNavigating()
             }
         }
     }
@@ -1867,8 +1874,10 @@ class HomeFragment : Fragment() {
             val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(currentCtx) else true
             addItem("悬浮窗权限", hasOverlay) {
                 try {
+                    RecentTasksHideManager.markNavigating()
                     startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${currentCtx.packageName}")))
                 } catch (e: Exception) {
+                    RecentTasksHideManager.clearNavigating()
                     Log.w("HomeFragment", "Failed to open overlay settings", e)
                 }
             }
@@ -1877,6 +1886,7 @@ class HomeFragment : Fragment() {
             if (Build.VERSION.SDK_INT >= 33) {
                 val hasNotification = currentCtx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 addItem("通知权限", hasNotification) {
+                    RecentTasksHideManager.markNavigating()
                     notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
@@ -2076,10 +2086,12 @@ class HomeFragment : Fragment() {
         )
         for (intent in intents) {
             try {
+                RecentTasksHideManager.markNavigating()
                 startActivity(intent)
                 Toast.makeText(ctx, SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
                 return
             } catch (e: Exception) {
+                RecentTasksHideManager.clearNavigating()
                 Log.w("HomeFragment", "Failed to open battery settings", e)
             }
         }

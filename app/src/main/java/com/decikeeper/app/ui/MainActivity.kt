@@ -134,8 +134,10 @@ class MainActivity : AppCompatActivity() {
             .setMessage("时间规则需要使用情况访问来识别当前前台应用并执行黑名单、勿扰时段规则。请先在系统设置中开启，返回后再次进入时间规则。")
             .setPositiveButton("去开启") { _, _ ->
                 try {
+                    RecentTasksHideManager.markNavigating()
                     startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 } catch (e: Exception) {
+                    RecentTasksHideManager.clearNavigating()
                     Log.w("MainActivity", "Failed to open usage access settings", e)
                 }
             }
@@ -187,10 +189,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        RecentTasksHideManager.clearNavigating()
         val serviceIntent = Intent(this, MonitorService::class.java).apply { action = MonitorService.ACTION_REFRESH_RULES }
         startService(serviceIntent)
         ChangeLogManager.syncLogStatusWithPendingState(this)
         ChangeLogManager.applyStuckPendingRules(this)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (RecentTasksHideManager.shouldDismissOnUserLeave(this)) {
+            Log.d("MainActivity", "User leaving task with recents hide enabled, finishing and removing task")
+            finishAndRemoveTask()
+        }
     }
 
     @Deprecated("Deprecated in Java")

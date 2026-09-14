@@ -106,49 +106,49 @@ object SettingsNavigator {
         }
     }
 
-    // ─── 1. 电池优化白名单(标准 API,所有厂商都支持) ───
-    fun openBatteryOptimization(context: Context): Boolean = try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            context.startActivity(
-                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-            )
+    private fun startActivitySafely(context: Context, intent: Intent): Boolean {
+        return try {
+            RecentTasksHideManager.markNavigating()
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(intent)
             true
-        } else false
-    } catch (e: Exception) {
-        Log.w(TAG, "openBatteryOptimization failed", e); false
+        } catch (e: Exception) {
+            RecentTasksHideManager.clearNavigating()
+            false
+        }
+    }
+
+    // ─── 1. 电池优化白名单(标准 API,所有厂商都支持) ───
+    fun openBatteryOptimization(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+            if (startActivitySafely(context, intent)) return true
+        }
+        return false
     }
 
     // ─── 2. 精确闹钟权限(Android 12+, API 31) ───
-    fun openExactAlarmPermission(context: Context): Boolean = try {
+    fun openExactAlarmPermission(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.startActivity(
-                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-            )
-            true
-        } else false
-    } catch (e: Exception) {
-        Log.w(TAG, "openExactAlarmPermission failed", e); false
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+            if (startActivitySafely(context, intent)) return true
+        }
+        return false
     }
 
     // ─── 3. 全屏意图权限(Android 14+, API 34) ───
-    fun openFullScreenIntentPermission(context: Context): Boolean = try {
+    fun openFullScreenIntentPermission(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            context.startActivity(
-                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-            )
-            true
-        } else false
-    } catch (e: Exception) {
-        Log.w(TAG, "openFullScreenIntentPermission failed", e); false
+            val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+            if (startActivitySafely(context, intent)) return true
+        }
+        return false
     }
 
     // ─── 4. 全品牌自启动管理智能直跳 ───
@@ -189,11 +189,7 @@ object SettingsNavigator {
 
         // 尝试启动厂商专属自启动组件
         for (intent in candidates) {
-            try {
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                context.startActivity(intent)
-                return true
-            } catch (_: Exception) {}
+            if (startActivitySafely(context, intent)) return true
         }
 
         // 兜底：回退到应用详情页
@@ -209,7 +205,6 @@ object SettingsNavigator {
 
         when {
             isXiaomiOrRedmi() -> {
-                // 小米神隐模式 / 应用智能省电（直接设为无限制）
                 candidates.add(Intent("miui.intent.action.HIDDEN_APPS_CONFIG_ACTIVITY").apply {
                     putExtra("package_name", context.packageName)
                     putExtra("package_label", "决定守护")
@@ -261,11 +256,7 @@ object SettingsNavigator {
         candidates.add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
 
         for (intent in candidates) {
-            try {
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                context.startActivity(intent)
-                return true
-            } catch (_: Exception) {}
+            if (startActivitySafely(context, intent)) return true
         }
 
         // 兜底：先尝试标准忽略电池优化请求弹窗，若失败再进 App 详情页
@@ -316,13 +307,9 @@ object SettingsNavigator {
         candidates.add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
 
         for (intent in candidates) {
-            try {
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                context.startActivity(intent)
+            if (startActivitySafely(context, intent)) {
                 Log.i(TAG, "openSleepOptimizationSettings: successfully jumped via $intent")
                 return true
-            } catch (e: Exception) {
-                Log.d(TAG, "openSleepOptimizationSettings candidate failed: $intent", e)
             }
         }
 
@@ -331,17 +318,12 @@ object SettingsNavigator {
         return openAppDetails(context)
     }
 
-    // ─── 6. 兜底:App 详情页(用户可手动找) ───
-    fun openAppDetails(context: Context): Boolean = try {
-        context.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.parse("package:${context.packageName}")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
-        )
-        true
-    } catch (e: Exception) {
-        Log.w(TAG, "openAppDetails failed", e); false
+    // ─── 7. 兜底:App 详情页(用户可手动找) ───
+    fun openAppDetails(context: Context): Boolean {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:${context.packageName}")
+        }
+        return startActivitySafely(context, intent)
     }
 
     /**
@@ -351,17 +333,12 @@ object SettingsNavigator {
         context: Context, components: List<ComponentName>, label: String
     ): Boolean {
         for (component in components) {
-            try {
-                context.startActivity(Intent().apply {
-                    this.component = component
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                })
+            val intent = Intent().apply {
+                this.component = component
+            }
+            if (startActivitySafely(context, intent)) {
                 Log.i(TAG, "$label: jumped to $component")
                 return true
-            } catch (e: ActivityNotFoundException) {
-                Log.w(TAG, "$label: $component not found, trying next")
-            } catch (e: Exception) {
-                Log.w(TAG, "$label: $component failed", e)
             }
         }
         Log.w(TAG, "$label: no candidate works, fallback to app details")

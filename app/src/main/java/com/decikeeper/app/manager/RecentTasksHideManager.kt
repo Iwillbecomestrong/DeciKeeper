@@ -15,6 +15,50 @@ object RecentTasksHideManager {
 
     private val isHideEnabledCached = AtomicReference<Boolean?>(null)
     private var registeredApplication: Application? = null
+
+    @Volatile
+    private var navigatingTimestamp: Long = 0L
+
+    @Volatile
+    private var isNavigatingExternal: Boolean = false
+
+    /**
+     * 标记当前正在进行主动外部/子页面导航（如打开文件选择器导出/导入配置、跳系统权限设置等）。
+     * 在此期间，MainActivity 等页面离开时不触发 finishAndRemoveTask 物理抹除。
+     */
+    fun markNavigating() {
+        navigatingTimestamp = android.os.SystemClock.uptimeMillis()
+        isNavigatingExternal = true
+    }
+
+    /**
+     * 恢复就绪态（通常在 Activity 的 onResume 中调用）。
+     */
+    fun clearNavigating() {
+        isNavigatingExternal = false
+        navigatingTimestamp = 0L
+    }
+
+    /**
+     * 判断当前是否处于主动导航状态或在 3000ms 导航保护期内。
+     */
+    fun isNavigating(): Boolean {
+        if (isNavigatingExternal) return true
+        if (navigatingTimestamp <= 0L) return false
+        val elapsed = android.os.SystemClock.uptimeMillis() - navigatingTimestamp
+        return elapsed in 0..3000
+    }
+
+    /**
+     * 在 Activity 的 onUserLeaveHint() 中调用，判断当前用户切离动作是否应触发物理抹除。
+     * 仅当开启了隐藏且当前非主动导航状态时返回 true。
+     */
+    fun shouldDismissOnUserLeave(context: Context): Boolean {
+        if (!isHideEnabled(context)) return false
+        if (isNavigating()) return false
+        return true
+    }
+
     private val callback = object : Application.ActivityLifecycleCallbacks {
         override fun onActivityCreated(activity: Activity, savedInstanceState: android.os.Bundle?) = Unit
         override fun onActivityStarted(activity: Activity) = Unit
@@ -102,5 +146,6 @@ object RecentTasksHideManager {
         registeredApplication?.unregisterActivityLifecycleCallbacks(callback)
         registeredApplication = null
         isHideEnabledCached.set(null)
+        clearNavigating()
     }
 }

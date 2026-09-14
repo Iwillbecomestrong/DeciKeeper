@@ -504,19 +504,23 @@ class RulesFragment : Fragment() {
 
     private fun setupClickEvents(view: View) {
         view.findViewById<Button>(R.id.btn_open_help)?.setOnClickListener {
+            RecentTasksHideManager.markNavigating()
             startActivity(Intent(requireContext(), HelpActivity::class.java))
         }
         // REQ-5: 设置 → 关于我们
         view.findViewById<Button>(R.id.btn_open_about)?.setOnClickListener {
+            RecentTasksHideManager.markNavigating()
             startActivity(Intent(requireContext(), AboutActivity::class.java))
         }
         btnQuickSendLogs?.setOnClickListener {
+            RecentTasksHideManager.markNavigating()
             LogExporter.showQuickSendLogOptions(requireContext(), "导出日志", "请选择要导出的时间范围")
         }
         btnExportSettings?.setOnClickListener {
             showExportCategoryDialog()
         }
         btnImportSettings?.setOnClickListener {
+            RecentTasksHideManager.markNavigating()
             importSettingsLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
         }
     }
@@ -539,6 +543,7 @@ class RulesFragment : Fragment() {
                     return@setPositiveButton
                 }
                 pendingExportCategories = selected
+                RecentTasksHideManager.markNavigating()
                 exportSettingsLauncher.launch(SettingsBackupManager.createSuggestedFileName())
             }
             .setNegativeButton("取消", null)
@@ -1186,6 +1191,7 @@ class RulesFragment : Fragment() {
         btnAssocStart.setOnClickListener {
             if (!isAssocStartPermissionSatisfied(ctx)) {
                 try {
+                    RecentTasksHideManager.markNavigating()
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", ctx.packageName, null)
                     }
@@ -1209,9 +1215,11 @@ class RulesFragment : Fragment() {
         btnEnable.setOnClickListener {
             com.decikeeper.app.protection.AccessibilityProtection.markManualSettingsLaunch()
             try {
+                RecentTasksHideManager.markNavigating()
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 Toast.makeText(ctx, "请在系统中找到「决定守护」并开启无障碍服务", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
+                RecentTasksHideManager.clearNavigating()
                 Toast.makeText(ctx, "无法打开无障碍设置", Toast.LENGTH_SHORT).show()
             }
             dialog?.dismiss()
@@ -1766,6 +1774,7 @@ class RulesFragment : Fragment() {
         btnAssocStart.setOnClickListener {
             ManualPermissionRecoveryManager.recordSettingsVisit(ctx, ASSOC_START_CONFIRMED_KEY)
             try {
+                RecentTasksHideManager.markNavigating()
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}")))
             } catch (_: Exception) {
             }
@@ -2008,11 +2017,13 @@ class RulesFragment : Fragment() {
         var launched = false
         for (intent in intents) {
             try {
+                RecentTasksHideManager.markNavigating()
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
                 launched = true
                 break
             } catch (e: Exception) {
+                RecentTasksHideManager.clearNavigating()
                 Log.w("RulesFragment", "Failed to open battery settings", e)
             }
         }
@@ -2039,9 +2050,11 @@ class RulesFragment : Fragment() {
             }
             // 然后打开应用信息页面
             try {
+                RecentTasksHideManager.markNavigating()
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                     android.net.Uri.parse("package:${ctx.packageName}")))
             } catch (e: Exception) {
+                RecentTasksHideManager.clearNavigating()
                 Log.w("RulesFragment", "Failed to open app details settings", e)
             }
         }
@@ -2410,9 +2423,11 @@ class RulesFragment : Fragment() {
     /** 打开系统无障碍设置 (用于隐私空间拦截开启引导) */
     private fun openAccessibilitySettings() {
         try {
+            RecentTasksHideManager.markNavigating()
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             startActivity(intent)
         } catch (e: Exception) {
+            RecentTasksHideManager.clearNavigating()
             Toast.makeText(requireContext(), "无法打开无障碍设置", Toast.LENGTH_SHORT).show()
         }
     }
@@ -2431,9 +2446,11 @@ class RulesFragment : Fragment() {
 
     private fun openAppDetailsSettings() {
         try {
+            RecentTasksHideManager.markNavigating()
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${requireContext().packageName}"))
             startActivity(intent)
         } catch (e: Exception) {
+            RecentTasksHideManager.clearNavigating()
             Toast.makeText(requireContext(), "无法打开应用设置", Toast.LENGTH_SHORT).show()
         }
     }

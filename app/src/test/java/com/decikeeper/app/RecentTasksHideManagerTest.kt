@@ -59,4 +59,32 @@ class RecentTasksHideManagerTest {
         RecentTasksHideManager.unregister()
         RecentTasksHideManager.register(context)  // 再挂不应抛
     }
+
+    @Test fun 默认开关关闭且非导航时不应抹除() {
+        RecentTasksHideManager.setHideEnabled(context, false)
+        RecentTasksHideManager.clearNavigating()
+        assertFalse(RecentTasksHideManager.shouldDismissOnUserLeave(context))
+    }
+
+    @Test fun 开关开启且非导航时应当抹除() {
+        RecentTasksHideManager.setHideEnabled(context, true)
+        RecentTasksHideManager.clearNavigating()
+        assertTrue(RecentTasksHideManager.shouldDismissOnUserLeave(context))
+    }
+
+    @Test fun 开关开启但处于导航状态时受到保护不抹除() {
+        RecentTasksHideManager.setHideEnabled(context, true)
+        RecentTasksHideManager.markNavigating()
+        assertTrue(RecentTasksHideManager.isNavigating())
+        assertFalse(RecentTasksHideManager.shouldDismissOnUserLeave(context))
+    }
+
+    @Test fun clearNavigating后恢复允许抹除() {
+        RecentTasksHideManager.setHideEnabled(context, true)
+        RecentTasksHideManager.markNavigating()
+        assertTrue(RecentTasksHideManager.isNavigating())
+        RecentTasksHideManager.clearNavigating()
+        assertFalse(RecentTasksHideManager.isNavigating())
+        assertTrue(RecentTasksHideManager.shouldDismissOnUserLeave(context))
+    }
 }
