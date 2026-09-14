@@ -177,7 +177,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-    implementation("androidx.gridlayout:gridlayout:1.0.0")
+    implementation("androidx.gridlayout:gridlayout:1.1.0")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
