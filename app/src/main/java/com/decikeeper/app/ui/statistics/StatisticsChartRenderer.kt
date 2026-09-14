@@ -70,6 +70,7 @@ object StatisticsChartRenderer {
      * 基础通用图表初始化配置
      */
     private fun setupCommonChart(chart: com.github.mikephil.charting.charts.BarLineChartBase<*>, context: Context) {
+        chart.fitScreen()
         chart.description.isEnabled = false
         chart.axisRight.isEnabled = false
         chart.legend.isEnabled = false // 统一在原生布局绘制四季联动图例
@@ -94,6 +95,12 @@ object StatisticsChartRenderer {
         }
 
         chart.axisLeft.apply {
+            resetAxisMinimum()
+            resetAxisMaximum()
+            setDrawZeroLine(false)
+            spaceTop = 20f
+            spaceBottom = 0f
+            isGranularityEnabled = false
             setDrawGridLines(true)
             textColor = textMuted
             axisLineColor = lineSoft
@@ -166,8 +173,18 @@ object StatisticsChartRenderer {
                 barWidth = if (buckets.size > 7) 0.55f else 0.45f
             }
 
+            val maxBarY = entries.maxOfOrNull { entry ->
+                entry.yVals?.sum() ?: entry.y
+            } ?: 0f
+
             barChart.axisLeft.apply {
+                resetAxisMinimum()
+                resetAxisMaximum()
                 axisMinimum = 0f
+                spaceTop = 20f
+                if (maxBarY <= 0f) {
+                    axisMaximum = if (metric == MetricDimension.DURATION) 1f else 5f
+                }
                 if (metric == MetricDimension.COUNT) {
                     granularity = 1f
                     isGranularityEnabled = true
@@ -227,8 +244,17 @@ object StatisticsChartRenderer {
             val ds3 = createLine(l3Entries, COLOR_PRIVILEGE)
 
             lineChart.data = LineData(ds3, ds2, ds1)
+
+            val maxLineY = l3Entries.maxOfOrNull { it.y } ?: 0f
+
             lineChart.axisLeft.apply {
+                resetAxisMinimum()
+                resetAxisMaximum()
                 axisMinimum = 0f
+                spaceTop = 20f
+                if (maxLineY <= 0f) {
+                    axisMaximum = if (metric == MetricDimension.DURATION) 1f else 5f
+                }
                 if (metric == MetricDimension.COUNT) {
                     granularity = 1f
                     isGranularityEnabled = true
@@ -286,8 +312,15 @@ object StatisticsChartRenderer {
                 barWidth = if (buckets.size > 7) 0.55f else 0.45f
             }
 
+            val maxBarY = entries.maxOfOrNull { it.y } ?: 0f
             barChart.axisLeft.apply {
+                resetAxisMinimum()
+                resetAxisMaximum()
                 axisMinimum = 0f
+                spaceTop = 20f
+                if (maxBarY <= 0f) {
+                    axisMaximum = if (metric == MetricDimension.DURATION) 1f else 5f
+                }
                 if (metric == MetricDimension.COUNT) {
                     granularity = 1f
                     isGranularityEnabled = true
@@ -323,8 +356,15 @@ object StatisticsChartRenderer {
             }
 
             lineChart.data = LineData(dataSet)
+            val maxLineY = entries.maxOfOrNull { it.y } ?: 0f
             lineChart.axisLeft.apply {
+                resetAxisMinimum()
+                resetAxisMaximum()
                 axisMinimum = 0f
+                spaceTop = 20f
+                if (maxLineY <= 0f) {
+                    axisMaximum = if (metric == MetricDimension.DURATION) 1f else 5f
+                }
                 if (metric == MetricDimension.COUNT) {
                     granularity = 1f
                     isGranularityEnabled = true
@@ -396,10 +436,18 @@ object StatisticsChartRenderer {
 
             lineChart.data = LineData(ds1, ds2)
             lineChart.axisLeft.apply {
-                val minVal = alarmEntries.minOfOrNull { it.y } ?: 360f
-                val maxVal = stageDoneEntries.maxOfOrNull { it.y } ?: 540f
+                resetAxisMinimum()
+                resetAxisMaximum()
+                val minVal = minOf(
+                    alarmEntries.minOfOrNull { it.y } ?: 420f,
+                    stageDoneEntries.minOfOrNull { it.y } ?: 420f
+                )
+                val maxVal = maxOf(
+                    alarmEntries.maxOfOrNull { it.y } ?: 540f,
+                    stageDoneEntries.maxOfOrNull { it.y } ?: 540f
+                )
                 axisMinimum = (minVal - 30).coerceAtLeast(0f)
-                axisMaximum = maxVal + 30
+                axisMaximum = (maxVal + 30).coerceAtMost(1440f)
                 granularity = 30f
                 isGranularityEnabled = true
                 valueFormatter = object : ValueFormatter() {
@@ -435,8 +483,15 @@ object StatisticsChartRenderer {
             }
 
             lineChart.data = LineData(ds1, ds2)
+            val maxDurY = (stage1Entries + totalEntries).maxOfOrNull { it.y } ?: 0f
             lineChart.axisLeft.apply {
+                resetAxisMinimum()
+                resetAxisMaximum()
                 axisMinimum = 0f
+                spaceTop = 20f
+                if (maxDurY <= 0f) {
+                    axisMaximum = 30f
+                }
                 granularity = 5f
                 isGranularityEnabled = true
                 valueFormatter = object : ValueFormatter() {
@@ -539,8 +594,15 @@ object StatisticsChartRenderer {
                 createLine(revEntries, COLOR_RULE_REVERSED)
             )
 
+            val maxRuleY = (favEntries + unfavEntries + revEntries).maxOfOrNull { it.y } ?: 0f
             lineChart.axisLeft.apply {
+                resetAxisMinimum()
+                resetAxisMaximum()
                 axisMinimum = 0f
+                spaceTop = 20f
+                if (maxRuleY <= 0f) {
+                    axisMaximum = 5f
+                }
                 granularity = 1f
                 isGranularityEnabled = true
                 valueFormatter = object : ValueFormatter() {
