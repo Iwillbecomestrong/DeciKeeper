@@ -5,9 +5,6 @@ import android.util.Log
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.random.Random
 import org.json.JSONArray
@@ -700,46 +697,7 @@ object AlarmChallengeManager {
     }
 
     /**
-     * 异步查有道词典（短文长按查词时使用）。
-     * 同步实现：在 IO 线程调用方自行包一层 withContext(Dispatchers.IO)。
-     * 返回 ec.word.trs[0].tr[0].l.i 数组第一个翻译；失败返回 null。
-     */
-    fun queryYoudaoDict(word: String): String? {
-        val w = word.trim()
-        if (w.isEmpty()) return null
-        return try {
-            val urlStr = "https://dict.youdao.com/jsonapi?q=" + URLEncoder.encode(w, "UTF-8")
-            val conn = URL(urlStr).openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 3000
-            conn.readTimeout = 3000
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (IronWill/1.0)")
-            try {
-                val code = conn.responseCode
-                if (code !in 200..299) return null
-                val stream: InputStream = conn.inputStream
-                val text = BufferedReader(InputStreamReader(stream, StandardCharsets.UTF_8)).use { it.readText() }
-                val root = JSONObject(text)
-                val ec = root.optJSONObject("ec") ?: return null
-                val wordObj = ec.optJSONObject("word") ?: return null
-                val trs = wordObj.optJSONArray("trs") ?: return null
-                if (trs.length() == 0) return null
-                val first = trs.optJSONObject(0) ?: return null
-                val trArr = first.optJSONArray("tr") ?: return null
-                if (trArr.length() == 0) return null
-                val lObj = trArr.optJSONObject(0)?.optJSONObject("l") ?: return null
-                lObj.optJSONArray("i")?.let { iArr ->
-                    if (iArr.length() > 0) return iArr.optString(0, "")
-                }
-                null
-            } finally {
-                conn.disconnect()
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "queryYoudaoDict failed: $w", e)
-            null
-        }
-    }
+
 
     /**
      * 安全获取选项释义：
