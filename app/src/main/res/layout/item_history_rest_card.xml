@@ -134,7 +134,7 @@
                 android:paddingHorizontal="6dp"
                 android:paddingVertical="4dp"
                 android:text="删除此条流水"
-                android:textColor="#FF4D4F"
+                android:textColor="?attr/zzMuted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>

@@ -955,6 +955,47 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- 中间空态/完成延迟居中区：当挑战和复习均不可见时自动撑开并居中，防止头重脚轻与空旷 -->
+        <LinearLayout
+            android:id="@+id/layout_alarm_empty_center"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_alarm_center_icon"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:background="@drawable/bg_zz_pill"
+                android:backgroundTint="?attr/zzAccentSoft"
+                android:gravity="center"
+                android:text="⏰"
+                android:textSize="32sp" />
+
+            <TextView
+                android:id="@+id/tv_alarm_center_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="挑战已完成"
+                android:textColor="?attr/zzText"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_alarm_center_desc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="保持清醒，美好的一天已经开始"
+                android:textColor="?attr/zzMuted"
+                android:textSize="13sp" />
+        </LinearLayout>
+
         <!-- 完成后/阶段间延迟：固定在挑战列表和复习区域之外，避免单阶段无复习内容时不可见 -->
         <TextView
             android:id="@+id/tv_stage_cooldown"
@@ -972,32 +1013,35 @@
             android:id="@+id/layout_alarm_actions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="64dp"
+            android:minHeight="54dp"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp">
+            android:layout_marginTop="12dp"
+            android:paddingVertical="4dp">
 
             <Button
                 android:id="@+id/btn_alarm_close"
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:layout_height="52dp"
                 android:layout_weight="1"
+                android:background="@drawable/bg_zz_pill"
+                android:backgroundTint="?attr/zzAccent"
                 android:text="关闭闹钟"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="?attr/zzDanger" />
+                android:textColor="#FFFFFF" />
 
             <Button
                 android:id="@+id/btn_alarm_snooze"
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:layout_height="52dp"
                 android:layout_weight="1"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="12dp"
+                android:background="@drawable/bg_zz_pill"
+                android:backgroundTint="?attr/zzSurfaceStrong"
                 android:text="稍后再响"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="?attr/zzText"
-                android:backgroundTint="?attr/zzSurfaceStrong" />
+                android:textColor="?attr/zzText" />
         </LinearLayout>
     </LinearLayout>
 
