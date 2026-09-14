@@ -59,7 +59,11 @@ object StatisticsRepository {
 
     private const val TAG = "StatisticsRepository"
     private const val MAX_USAGE_SESSION_MILLIS = 3 * 60 * 60 * 1000L
-    private val zoneId = ZoneId.systemDefault()
+    @androidx.annotation.VisibleForTesting
+    var zoneIdOverride: ZoneId? = null
+
+    internal val zoneId: ZoneId
+        get() = zoneIdOverride ?: ZoneId.systemDefault()
     private val shortDateFormatter = DateTimeFormatter.ofPattern("MM/dd")
 
     const val PREFS_NAME = "statistics_prefs"

@@ -46,7 +46,7 @@ jobs:
         run: ./gradlew --version
 
       - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace -Duser.timezone=Asia/Shanghai
 
       - name: Upload test reports on failure
         if: failure()
@@ -57,7 +57,7 @@ jobs:
           retention-days: 7
 
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace -Duser.timezone=Asia/Shanghai
 
       - name: Upload debug APK artifact
         if: success()
