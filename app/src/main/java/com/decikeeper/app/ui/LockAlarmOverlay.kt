@@ -329,9 +329,12 @@ internal object LockAlarmOverlayController {
             syncChallengeUiByStage()
 
             // TYPE_ACCESSIBILITY_OVERLAY requires explicit focus to receive touch events
-            LockWindowManager.getAlarmView()?.isFocusable = true
-            LockWindowManager.getAlarmView()?.isFocusableInTouchMode = true
-            LockWindowManager.getAlarmView()?.requestFocus()
+            LockWindowManager.getAlarmView()?.let { alarmView ->
+                installHardwareSnoozeHandler(alarmView)
+                alarmView.isFocusable = true
+                alarmView.isFocusableInTouchMode = true
+                alarmView.requestFocus()
+            }
 
             // [锁屏适配] 当调用方（如 AlarmActivity）标记 useInline=true 时，
             // 将挑战界面直接内嵌到 Activity 中（setContentView），
@@ -3167,6 +3170,23 @@ internal object LockAlarmOverlayController {
     }
 
     private var alarmPassthroughRestoreRunnable: Runnable? = null
+
+    internal fun isSnoozeHardwareKey(keyCode: Int): Boolean =
+        keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP ||
+            keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN ||
+            keyCode == android.view.KeyEvent.KEYCODE_POWER
+
+    private fun installHardwareSnoozeHandler(view: View) {
+        view.setOnKeyListener { _, keyCode, event ->
+            if (!isSnoozeHardwareKey(keyCode)) return@setOnKeyListener false
+            if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                requestSnoozeFromHardware(
+                    if (keyCode == android.view.KeyEvent.KEYCODE_POWER) "POWER_KEY" else "VOLUME_KEY"
+                )
+            }
+            true
+        }
+    }
 
     internal fun requestSnoozeFromHardware(source: String = "HARDWARE"): Boolean = requestSnooze(source)
 
