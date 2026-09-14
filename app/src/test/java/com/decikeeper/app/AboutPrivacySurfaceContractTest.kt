@@ -31,6 +31,8 @@ class AboutPrivacySurfaceContractTest {
         assertFalse("About 页面不得将应用狭隘定义为闹钟应用", layout.contains("闹钟应用"))
         assertTrue(activity.contains("内容来源"))
         assertTrue(activity.contains("KaoYan-English"))
+        assertTrue("About 页面应用信息卡片必须展示 QQ 反馈群", layout.contains("交流反馈群") && layout.contains("980203768"))
+        assertTrue("About 页面必须具备 QQ 群点击复制逻辑", activity.contains("setupQqGroupEntry") && activity.contains("copyToClipboard"))
         assertTrue(legalActivity.contains("Markwon.builder"))
         assertTrue(legalActivity.contains(".setMarkdown"))
         assertFalse("About 页面不得展示旧的技术合规入口", layout.contains("第三方 SDK") || activity.contains("第三方 SDK"))

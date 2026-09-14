@@ -160,8 +160,7 @@ About 页实际展示的入口与 `SPEC.md` §8.1 是否完全一致——只确
 
 ## 4. 关键环境事实与踩过的坑
 
-1. **构建**：worktree 里没有 `local.properties`，需从主仓库复制：
-   `cp ../IronWill-OpenSource/local.properties .`，然后 `./gradlew.bat --console=plain :app:testDebugUnitTest :app:assembleDebug`
+1. **构建**：独立工作目录需确保配置好 Android SDK 环境（如配置 `local.properties` 中的 `sdk.dir`），然后执行 `./gradlew.bat --console=plain :app:testDebugUnitTest :app:assembleDebug`
    （当前基线 **1201 例 / 0 失败 / 11 跳过**）
 2. **无线 adb 安装**：`adb install` 走无线会**永久挂起且装不上**，改用 `adb push` + `pm install -r -d`；
    **必须核对 `lastUpdateTime`**，否则不知道装没装上
