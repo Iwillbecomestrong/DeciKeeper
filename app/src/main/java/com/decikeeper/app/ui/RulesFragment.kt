@@ -338,9 +338,8 @@ class RulesFragment : Fragment() {
             androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("隐藏决定守护在多任务界面")
                 .setMessage(
-                    "防止用户划掉多进程时不小心误划决定守护。\n\n" +
-                    "开关开启后,只要你不打开决定守护软件本身," +
-                    "在其它软件打开任务界面时决定守护就不会出现在最近任务列表里。"
+                    "• 开启：离开或切多任务时自动抹除卡片，多任务列表物理隐藏，彻底避免误划杀后台；\n\n" +
+                    "• 关闭：多任务列表正常显示卡片，方便您在多任务界面下拉或在菜单中给卡片【加锁】。"
                 )
                 .setPositiveButton("知道了", null)
                 .show()
@@ -2183,8 +2182,8 @@ class RulesFragment : Fragment() {
         switchView.setOnCheckedChangeListener { _, isChecked ->
             if (switchHideInRecentTasksUiUpdating) return@setOnCheckedChangeListener
             RecentTasksHideManager.setHideEnabled(context, isChecked)
-            val msg = if (isChecked) "已开启。下次不在决定守护内打开多任务时生效"
-            else "已关闭。下次启动决定守护后会在多任务界面显示"
+            val msg = if (isChecked) "已开启多任务卡片隐身。离开或切多任务时自动抹除卡片，彻底避免被划掉！"
+            else "已关闭多任务卡片隐身。多任务界面将正常显示卡片，方便您下拉加锁。"
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
         }
     }

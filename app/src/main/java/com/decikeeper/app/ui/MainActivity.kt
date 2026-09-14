@@ -16,6 +16,7 @@ import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.PrivacyConsentManager
 import com.decikeeper.app.manager.PermissionManager
 import com.decikeeper.app.manager.TimeRulesAccessGate
+import com.decikeeper.app.manager.RecentTasksHideManager
 import com.decikeeper.app.service.A11yGuardService
 import com.decikeeper.app.service.MonitorService
 
@@ -190,5 +191,13 @@ class MainActivity : AppCompatActivity() {
         startService(serviceIntent)
         ChangeLogManager.syncLogStatusWithPendingState(this)
         ChangeLogManager.applyStuckPendingRules(this)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        super.onBackPressed()
+        if (RecentTasksHideManager.isHideEnabled(this)) {
+            finishAndRemoveTask()
+        }
     }
 }

@@ -136,6 +136,8 @@
         <activity
             android:name=".ui.PrivacyConsentActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
+            android:autoRemoveFromRecents="true"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.DeciKeeper">
             <intent-filter>
@@ -147,6 +149,8 @@
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
+            android:autoRemoveFromRecents="true"
             android:windowSoftInputMode="adjustResize" />
 
         <!-- REQ-5: "设置 → 关于我们" 主入口 -->
@@ -218,6 +222,8 @@
         <activity
             android:name=".ui.AlarmActivity"
             android:exported="false"
+            android:excludeFromRecents="true"
+            android:autoRemoveFromRecents="true"
             android:theme="@style/Theme.DeciKeeper.Alarm"
             android:showWhenLocked="true"
             android:turnScreenOn="true"

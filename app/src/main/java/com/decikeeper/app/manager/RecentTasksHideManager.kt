@@ -4,11 +4,14 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
+import android.os.Build
+import android.util.Log
 import java.util.concurrent.atomic.AtomicReference
 
 object RecentTasksHideManager {
     private const val PREFS_NAME = "recent_tasks_hide_prefs"
     private const val KEY_HIDE_ENABLED = "hide_in_recent_tasks_enabled"
+    private const val TAG = "RecentTasksHideManager"
 
     private val isHideEnabledCached = AtomicReference<Boolean?>(null)
     private var registeredApplication: Application? = null
@@ -30,22 +33,25 @@ object RecentTasksHideManager {
      * 把当前 Activity 所在 task 按 hide boolean 排出/放回最近任务列表。
      * `Activity` 无 `setExcludeFromRecents`；正确路径是 `ActivityManager.AppTask.setExcludeFromRecents`。
      * 必须双向设置:`hide=true` → setExcludeFromRecents(true); `hide=false` → setExcludeFromRecents(false)。
-     * 漏掉 false 路径会导致已 hide 的 task 永远不回显(toggle 关不掉)。
+     * 兼容 Android 10+ 的 taskId 与旧版 id。
      */
     private fun applyExcludeFromRecents(activity: Activity, hide: Boolean) {
         try {
             val am = activity.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return
-            val taskId = activity.taskId
+            val currentTaskId = activity.taskId
             for (task in am.appTasks) {
-                if (task.taskInfo.id == taskId) {
+                val info = task.taskInfo
+                val id = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) info.taskId else info.id
+                if (id == currentTaskId) {
                     task.setExcludeFromRecents(hide)
                     break
                 }
             }
-        } catch (_: Exception) {
-            // 隐藏/恢复失败不影响正常运行
+        } catch (e: Exception) {
+            Log.w(TAG, "applyExcludeFromRecents failed", e)
         }
     }
+
 
     fun isHideEnabled(context: Context): Boolean {
         isHideEnabledCached.get()?.let { return it }
@@ -74,8 +80,8 @@ object RecentTasksHideManager {
             for (task in am.appTasks) {
                 task.setExcludeFromRecents(hide)
             }
-        } catch (_: Exception) {
-            // sweep 失败不阻塞 toggle 持久化(下次 onActivityResumed 会兜底)
+        } catch (e: Exception) {
+            Log.w(TAG, "applyToAllRunningTasks failed", e)
         }
     }
 
