@@ -1239,7 +1239,7 @@ class HomeFragment : Fragment() {
         val sb = StringBuilder()
         
         val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
-        sb.append(if (hasOverlay) "✅ 悬浮窗权限：已开启\n" else "❌ 悬浮窗权限：未开启\n")
+        sb.append(if (hasOverlay) "✅ 悬浮窗权限：已开启\n" else "⚠️ 悬浮窗权限：未开启\n")
 
         val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         val hasBgBattery = !isChineseRomDevice() || isBgBatteryPermissionSatisfied(ctx)
@@ -1255,13 +1255,13 @@ class HomeFragment : Fragment() {
             // 权限全了，整个状态卡片都不需要展示，保持主页极致简洁
             cardPermissionStatus?.visibility = View.GONE
             tvStatus?.text = "状态：权限已就绪 (全面防护中)"
-            tvStatus?.setTextColor(ctx.getColor(android.R.color.holo_green_dark))
+            tvStatus?.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzSuccess))
             tvProtectionStatus?.visibility = View.GONE
             btnPermission?.visibility = View.GONE
         } else {
             cardPermissionStatus?.visibility = View.VISIBLE
             tvStatus?.text = "状态：需设置权限 ⚠️"
-            tvStatus?.setTextColor(ctx.getColor(android.R.color.holo_red_dark))
+            tvStatus?.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
             tvProtectionStatus?.visibility = View.VISIBLE
             btnPermission?.visibility = View.VISIBLE
             btnPermission?.text = "去设置权限"
@@ -1734,7 +1734,14 @@ class HomeFragment : Fragment() {
                         text = "👉 去设置：$name"
                         textSize = 14f
                         setTextColor(android.graphics.Color.WHITE)
-                        setBackgroundColor(android.graphics.Color.parseColor("#1976D2"))
+                        setBackgroundResource(R.drawable.bg_zz_pill)
+                        backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(currentCtx, R.attr.zzAccent))
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            (44 * currentCtx.resources.displayMetrics.density).toInt()
+                        ).apply {
+                            setMargins(0, (6 * currentCtx.resources.displayMetrics.density).toInt(), 0, (6 * currentCtx.resources.displayMetrics.density).toInt())
+                        }
                         setOnClickListener { action() }
                     }
                     layout.addView(btn)
@@ -1764,12 +1771,15 @@ class HomeFragment : Fragment() {
                     text = "👉 去设置：$name"
                     textSize = 13f
                     setTextColor(android.graphics.Color.WHITE)
-                    setBackgroundColor(android.graphics.Color.parseColor("#1976D2"))
+                    setBackgroundResource(R.drawable.bg_zz_pill)
+                    backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(currentCtx, R.attr.zzAccent))
                     layoutParams = android.widget.LinearLayout.LayoutParams(
                         0,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        (44 * currentCtx.resources.displayMetrics.density).toInt(),
                         1f
-                    )
+                    ).apply {
+                        setMargins(0, 0, (8 * currentCtx.resources.displayMetrics.density).toInt(), 0)
+                    }
                     setOnClickListener {
                         launchManualPermissionSettings(key)
                         Toast.makeText(currentCtx, hint, Toast.LENGTH_LONG).show()
@@ -1872,6 +1882,7 @@ class HomeFragment : Fragment() {
             .setView(layout)
             .setPositiveButton("完成", null)
             .create()
+        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_zz_card)
 
         dialog.setOnDismissListener {
             if (activeProtectionDialog == dialog) {
@@ -1895,7 +1906,15 @@ class HomeFragment : Fragment() {
         val permState = getHomePermissionState(ctx)
         val permsDone = permState.allGranted
         
-        tvIconPerm?.text = if (permsDone) "✅" else "⭕"
+        fun updateStepBadge(tv: TextView?, isDone: Boolean, stepNum: String) {
+            tv?.text = if (isDone) "✓" else stepNum
+            val bgAttr = if (isDone) R.attr.zzAccentSoft else R.attr.zzSurface2
+            val textAttr = if (isDone) R.attr.zzAccentStrong else R.attr.zzMuted
+            tv?.backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, bgAttr))
+            tv?.setTextColor(ThemeManager.getColorAttr(ctx, textAttr))
+        }
+
+        updateStepBadge(tvIconPerm, permsDone, "1")
         btnGoPerm?.visibility = View.VISIBLE
         btnGoPerm?.isEnabled = !permsDone
         btnGoPerm?.alpha = if (permsDone) 0.4f else 1.0f
@@ -1903,17 +1922,17 @@ class HomeFragment : Fragment() {
 
         // 2. Check Blacklist
         val blacklistDone = CreditManager.getBlacklistApps(ctx).isNotEmpty()
-        tvIconBlacklist?.text = if (blacklistDone) "✅" else "⭕"
+        updateStepBadge(tvIconBlacklist, blacklistDone, "2")
         btnGoBlacklist?.visibility = if (blacklistDone) View.GONE else View.VISIBLE
 
         // 3. Check DND
         val dndDone = TimeRuleManager.getTimeSegments(ctx).isNotEmpty()
-        tvIconDnd?.text = if (dndDone) "✅" else "⭕"
+        updateStepBadge(tvIconDnd, dndDone, "3")
         btnGoDnd?.visibility = if (dndDone) View.GONE else View.VISIBLE
 
         // 4. Check Alarm
         val alarmDone = AlarmScheduler.getAlarms(ctx).isNotEmpty()
-        tvIconAlarm?.text = if (alarmDone) "✅" else "⭕"
+        updateStepBadge(tvIconAlarm, alarmDone, "4")
         btnGoAlarm?.visibility = if (alarmDone) View.GONE else View.VISIBLE
 
         // Show/Hide Card: Hide if dismissed or if (permsDone && ((blacklistDone && dndDone) || alarmDone))

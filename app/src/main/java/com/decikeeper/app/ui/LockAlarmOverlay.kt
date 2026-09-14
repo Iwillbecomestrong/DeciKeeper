@@ -949,7 +949,7 @@ internal object LockAlarmOverlayController {
 
         // 10. 底部关闭与稍后再响按钮
         view.findViewById<Button>(R.id.btn_alarm_close)?.apply {
-            backgroundTintList = android.content.res.ColorStateList.valueOf(dangerColor)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
             setTextColor(Color.WHITE)
         }
         view.findViewById<Button>(R.id.btn_alarm_snooze)?.apply {
@@ -960,6 +960,10 @@ internal object LockAlarmOverlayController {
         // 11. 复习回顾标题与指示器
         view.findViewById<TextView>(R.id.tv_review_title)?.setTextColor(textColor)
         view.findViewById<TextView>(R.id.tv_review_cloze_indicator)?.setTextColor(textColor)
+
+        // 12. 居中空态状态提示
+        view.findViewById<TextView>(R.id.tv_alarm_center_status)?.setTextColor(textColor)
+        view.findViewById<TextView>(R.id.tv_alarm_center_desc)?.setTextColor(mutedColor)
     }
 
     private fun initAlarmUI() {
@@ -1690,12 +1694,17 @@ internal object LockAlarmOverlayController {
             LockWindowManager.getSessionWords().isNotEmpty() ||
             LockWindowManager.getSessionClozes().isNotEmpty() ||
             LockWindowManager.getSessionCustomQuestions().isNotEmpty()
+        val emptyCenter = view.findViewById<View>(R.id.layout_alarm_empty_center)
         if (hasReview) {
             val reviewLayout = view.findViewById<View>(R.id.layout_alarm_review)
             if (reviewLayout?.visibility != View.VISIBLE) {
                 buildReviewCards(view)
             }
             reviewLayout?.visibility = View.VISIBLE
+            emptyCenter?.visibility = View.GONE
+        } else {
+            view.findViewById<View>(R.id.layout_alarm_review)?.visibility = View.GONE
+            emptyCenter?.visibility = View.VISIBLE
         }
 
         showAlarmActionPanel(
@@ -2726,6 +2735,9 @@ internal object LockAlarmOverlayController {
             showCompletedChallengeState(view)
             return
         }
+
+        view.findViewById<View>(R.id.sv_alarm_challenges)?.visibility = View.VISIBLE
+        view.findViewById<View>(R.id.layout_alarm_empty_center)?.visibility = View.GONE
 
         if (!isAlarmFirstStagePassed) {
             // ── Stage 1: show challenges assigned to stage 1 ──
