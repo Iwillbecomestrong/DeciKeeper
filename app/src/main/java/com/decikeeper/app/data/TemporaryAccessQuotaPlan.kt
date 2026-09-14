@@ -14,7 +14,7 @@ internal data class TemporaryAccessQuotaPlan(
     val nextCountCapacityHalfUnits: Int
 ) {
     val needsNextStage: Boolean
-        get() = nextTimeCostSec > 0 || nextCountCostHalfUnits > 0
+        get() = nextTimeCostSec >= 6 || nextCountCostHalfUnits > 0
 
     val isNextStageAffordable: Boolean
         get() = nextTimeCostSec <= nextTimeCapacitySec && nextCountCostHalfUnits <= nextCountCapacityHalfUnits
@@ -37,8 +37,11 @@ internal fun calculateTemporaryAccessQuotaPlan(
     val safeTotalTime = totalTimeCostSec.coerceAtLeast(0)
     val safeCurrentSec = currentAvailableSec.coerceAtLeast(0)
     val currentTimeCost = minOf(safeTotalTime, safeCurrentSec)
-    val borrowedTimePrincipal = (safeTotalTime - currentTimeCost).coerceAtLeast(0)
+    val rawBorrowedTime = (safeTotalTime - currentTimeCost).coerceAtLeast(0)
+    // 最小法定借贷门槛为 6 秒（0.1 分钟）。不足 6 秒的微小碎屑由当前阶段吸收，不立案跨阶段借贷
+    val borrowedTimePrincipal = if (rawBorrowedTime < 6) 0 else rawBorrowedTime
     val nextTimeCost = borrowedTimePrincipal * 2
+    val effectiveCurrentTimeCost = if (rawBorrowedTime < 6) safeTotalTime else currentTimeCost
 
     val safeTotalCount = totalCountCostHalfUnits.coerceAtLeast(0)
     val safeCurrentCount = currentAvailableCountHalfUnits.coerceAtLeast(0)
@@ -49,7 +52,7 @@ internal fun calculateTemporaryAccessQuotaPlan(
     return TemporaryAccessQuotaPlan(
         totalTimeCostSec = safeTotalTime,
         currentAvailableSec = safeCurrentSec,
-        currentTimeCostSec = currentTimeCost,
+        currentTimeCostSec = effectiveCurrentTimeCost,
         borrowedTimePrincipalSec = borrowedTimePrincipal,
         nextTimeCostSec = nextTimeCost,
         nextTimeCapacitySec = nextAvailableSec.coerceAtLeast(0),
