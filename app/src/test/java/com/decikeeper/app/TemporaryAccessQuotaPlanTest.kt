@@ -206,4 +206,45 @@ class TemporaryAccessQuotaPlanTest {
         assertTrue(plan.hasInsufficientTime)
         assertTrue(plan.hasInsufficientCount)
     }
+
+    @Test
+    fun subSixSecondDeficitDoesNotTriggerNextStageBorrow() {
+        // 用户申请 2.4min (144s)，当前可用仅 143s (缺 1s < 6s / 0.1min)
+        // 从第一性原理：不足法定货币单位的碎屑由当前阶段完全吸收，不立案借贷，杜绝"借入 0.0 分钟"
+        val plan = calculateTemporaryAccessQuotaPlan(
+            totalTimeCostSec = 144,
+            currentAvailableSec = 143,
+            nextAvailableSec = 600,
+            totalCountCostHalfUnits = 1,
+            currentAvailableCountHalfUnits = 2,
+            nextAvailableCountHalfUnits = 2
+        )
+
+        assertEquals(144, plan.totalTimeCostSec)
+        assertEquals(144, plan.currentTimeCostSec)
+        assertEquals(0, plan.borrowedTimePrincipalSec)
+        assertEquals(0, plan.nextTimeCostSec)
+        assertFalse(plan.needsNextStage)
+        assertTrue(plan.isNextStageAffordable)
+    }
+
+    @Test
+    fun sixSecondOrMoreDeficitTriggersNextStageBorrow() {
+        // 缺口 >= 6s (0.1min)，正常立案借贷
+        val plan = calculateTemporaryAccessQuotaPlan(
+            totalTimeCostSec = 150,
+            currentAvailableSec = 144,
+            nextAvailableSec = 600,
+            totalCountCostHalfUnits = 1,
+            currentAvailableCountHalfUnits = 2,
+            nextAvailableCountHalfUnits = 2
+        )
+
+        assertEquals(150, plan.totalTimeCostSec)
+        assertEquals(144, plan.currentTimeCostSec)
+        assertEquals(6, plan.borrowedTimePrincipalSec)
+        assertEquals(12, plan.nextTimeCostSec)
+        assertTrue(plan.needsNextStage)
+        assertTrue(plan.isNextStageAffordable)
+    }
 }

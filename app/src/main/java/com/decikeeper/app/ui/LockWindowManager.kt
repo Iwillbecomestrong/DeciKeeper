@@ -37,6 +37,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.provider.Settings
+import android.text.InputFilter
 import android.text.TextUtils
 import android.util.Log
 import android.view.Gravity
@@ -3114,14 +3115,7 @@ object LockWindowManager {
         return false
     }
 
-    private fun formatMinutesForLock(minutes: Double): String {
-        val rounded = kotlin.math.round(minutes * 10.0) / 10.0
-        return if (kotlin.math.abs(rounded - rounded.toInt()) < 0.0001) {
-            rounded.toInt().toString()
-        } else {
-            String.format(Locale.US, "%.1f", rounded)
-        }
-    }
+    internal fun formatMinutesForLock(minutes: Double): String = formatAvailableMinutesForLockImpl(minutes)
 
     // Updates UI elements based on current state (Basic)
     private fun updateLockViewUI() {
@@ -3700,6 +3694,7 @@ object LockWindowManager {
             val btnCancel = mRestWindow?.findViewById<Button>(R.id.btn_cancel_emergency)
             val btnConfirm = mRestWindow?.findViewById<Button>(R.id.btn_confirm_calm)
             val etInput = mRestWindow?.findViewById<EditText>(R.id.tv_calm_minutes) // Note: ID is tv_calm_minutes in XML
+            etInput?.filters = arrayOf(createOneDecimalInputFilter())
             val btnStopFreeTime = mRestWindow?.findViewById<Button>(R.id.btn_stop_free_time)
 
             // Calculate Logic
@@ -4131,6 +4126,7 @@ object LockWindowManager {
             val maxMinutesText = formatTemporaryAccessSecondsAsMinutes(maxSeconds)
             etInput?.hint = "输入分钟(0.1-$maxMinutesText)"
             etInput?.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            etInput?.filters = arrayOf(createOneDecimalInputFilter())
 
             val tilInput = mRestWindow?.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.til_input)
             tilInput?.hint = "输入分钟(0.1-$maxMinutesText)"
@@ -6247,7 +6243,7 @@ object LockWindowManager {
         }
 
         view.findViewById<TextView>(R.id.tv_quota_source_header).text =
-            "扣费来源    当前可用 ${formatQuotaMinutes(plan.currentAvailableSec)}分钟 · ${formatUsableCountHalfUnits(plan.currentAvailableCountHalfUnits)}次"
+            "扣费来源    当前可用 ${formatQuotaAvailableMinutes(plan.currentAvailableSec)}分钟 · ${formatUsableCountHalfUnits(plan.currentAvailableCountHalfUnits)}次"
         val afterCurrentSec = (plan.currentAvailableSec - plan.currentTimeCostSec).coerceAtLeast(0)
         val afterCurrentCount = (plan.currentAvailableCountHalfUnits - plan.currentCountCostHalfUnits).coerceAtLeast(0)
         val paymentText = "${formatQuotaMinutes(plan.currentTimeCostSec)}分钟 · ${formatUsableCountHalfUnits(plan.currentCountCostHalfUnits)}次"
@@ -6656,6 +6652,63 @@ internal fun calculateWeightedRestCountImpl(
     // 未触及冷却：仍按勿扰占比较计（空档 ×0、勿扰 ×1），保持既有行为
     val rounded = kotlin.math.floor(safeDnd / totalSec.toDouble() + 0.5).toInt()
     return rounded.coerceIn(0, 2)
+}
+
+/**
+ * 纯 Kotlin 1位小数过滤器判定 Seam，供 JVM 单元测试与 InputFilter 共享。
+ */
+internal fun filterOneDecimal(
+    source: CharSequence?,
+    start: Int,
+    end: Int,
+    dest: CharSequence?,
+    dstart: Int,
+    dend: Int
+): CharSequence? {
+    val replacement = source?.subSequence(start, end)?.toString() ?: ""
+    val destStr = dest?.toString() ?: ""
+    val safeDstart = dstart.coerceIn(0, destStr.length)
+    val safeDend = dend.coerceIn(safeDstart, destStr.length)
+    val newText = destStr.substring(0, safeDstart) + replacement + destStr.substring(safeDend)
+    if (newText.isEmpty()) return null
+    val dotIndex = newText.indexOf('.')
+    if (dotIndex >= 0) {
+        val decimals = newText.length - 1 - dotIndex
+        if (decimals > 1) return ""
+        if (newText.indexOf('.', dotIndex + 1) >= 0) return ""
+    }
+    return null
+}
+
+/**
+ * 限制仅允许输入非负数且小数点后最多 1 位数字（0.1分钟步进）的 InputFilter。
+ */
+internal fun createOneDecimalInputFilter(): InputFilter {
+    return InputFilter { source, start, end, dest, dstart, dend ->
+        filterOneDecimal(source, start, end, dest, dstart, dend)
+    }
+}
+
+/**
+ * 可用额度的保守截断格式化（秒 -> 保留 1 位小数的分钟），
+ * 杜绝将 143 秒等带零头的物理时间四舍五入虚标成无法兑现的 2.4 分钟。
+ */
+internal fun formatQuotaAvailableMinutes(seconds: Int): String {
+    val mins = kotlin.math.floor(seconds.coerceAtLeast(0) / 6.0) / 10.0
+    return String.format(Locale.US, "%.1f", mins)
+}
+
+/**
+ * 锁屏及弹窗可用额度的保守截断格式化（分钟浮点 -> 字符串），
+ * 采用向下截断（Floor to 0.1min），杜绝将 2.383 分钟虚标为 2.4 分钟给用户开具无法足额兑现的空头支票。
+ */
+internal fun formatAvailableMinutesForLockImpl(minutes: Double): String {
+    val floored = kotlin.math.floor(minutes.coerceAtLeast(0.0) * 10.0 + 1e-6) / 10.0
+    return if (kotlin.math.abs(floored - floored.toInt()) < 0.0001) {
+        floored.toInt().toString()
+    } else {
+        String.format(Locale.US, "%.1f", floored)
+    }
 }
 
 internal fun quantizeQuotaSecondsToTenthMinute(seconds: Int): Int {
