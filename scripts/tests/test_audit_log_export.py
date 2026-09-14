@@ -2,7 +2,6 @@
 """Tests for scripts/audit_log_export.py — Boundary 0 GREEN gate + Round 3 audit.
 
 Run with:
-    cd G:\\IronWIl0329\\IronWill\\.claude\\worktrees\\agent-ad1f5c7db01030ea9
     python -m unittest scripts.tests.test_audit_log_export
 """
 

@@ -63,9 +63,13 @@ android {
     signingConfigs {
         create("release") {
             val keyStorePath = localProperties.getProperty("RELEASE_KEYSTORE_PATH")
+                ?: System.getenv("RELEASE_KEYSTORE_PATH")
             val storePass = localProperties.getProperty("RELEASE_KEYSTORE_PASSWORD")
-            val keyAliasName = localProperties.getProperty("RELEASE_KEY_ALIAS") ?: "decikeeper"
-            val keyPass = localProperties.getProperty("RELEASE_KEY_PASSWORD") ?: storePass
+                ?: System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            val keyAliasName = localProperties.getProperty("RELEASE_KEY_ALIAS")
+                ?: System.getenv("RELEASE_KEY_ALIAS") ?: "decikeeper"
+            val keyPass = localProperties.getProperty("RELEASE_KEY_PASSWORD")
+                ?: System.getenv("RELEASE_KEY_PASSWORD") ?: storePass
 
             if (!keyStorePath.isNullOrBlank() && !storePass.isNullOrBlank()) {
                 val candidate = file(keyStorePath)
@@ -86,7 +90,7 @@ android {
             signingConfig = if (releaseSigning.storeFile != null) {
                 releaseSigning
             } else {
-                signingConfigs.getByName("debug")
+                null
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

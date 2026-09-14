@@ -91,7 +91,7 @@
   ],
   "duplicateKeys": [],
   "round3Audit": {
-    "sourceFile": "G:\\IronWIl0329\\IronWill\\.claude\\worktrees\\agent-ad1f5c7db01030ea9\\scripts\\tests\\..\\..\\docs\\superpowers\\specs\\2026-07-15-ironwill-penalty-reclock-logfix-references\\2026-07-15-device-log.txt",
+    "sourceFile": "docs/superpowers/specs/2026-07-15-ironwill-penalty-reclock-logfix-references/2026-07-15-device-log.txt",
     "totalLines": 594,
     "dispositionCounts": {
       "NORMAL_EVENT": 545,

@@ -14,8 +14,8 @@
 
 | 项 | 值 |
 | --- | --- |
-| 主仓库 | `G:/IronWIl0329/IronWill-OpenSource`（分支 `dev`，有 64 个未提交改动，**不要动**） |
-| **本次工作 worktree** | `G:/IronWIl0329/IronWill-alarm-overlay` |
+| 主仓库 | `<main-repo>`（分支 `dev`，有 64 个未提交改动，**不要动**） |
+| **本次工作 worktree** | `<worktree-alarm-overlay>` |
 | 分支 | `fix/alarm-overlay-detach`（基线 `dev` = `f8a1ae0`） |
 | 已有提交 | `212c467` → `fbce174` → `3e9ad33` → `ef04182` |
 | 真机 | vivo V2425A (PD2425)，Android 13+，**无线 adb** |
@@ -213,6 +213,6 @@ fun ensureAlarmOverlayInWindowMode(): Boolean {
 
 | 文件 | 内容 |
 | --- | --- |
-| `G:/IronWIl0329/.alarm-repro.log` | 最早一次复现（2.5 MB） |
-| `G:/IronWIl0329/.alarm-verify.log` | 第二次复现（装 A+C+B' 后，2.7 MB） |
-| `G:/IronWIl0329/.alarm-verify2.log` | 第三次复现（装 `ef04182` 后，2.3 MB）——**最新，优先看这个** |
+| `~/.alarm-repro.log` | 最早一次复现（2.5 MB） |
+| `~/.alarm-verify.log` | 第二次复现（装 A+C+B' 后，2.7 MB） |
+| `~/.alarm-verify2.log` | 第三次复现（装 `ef04182` 后，2.3 MB）——**最新，优先看这个** |
