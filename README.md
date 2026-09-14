@@ -12,12 +12,12 @@
 [![Android](https://img.shields.io/badge/Android-8.0%2B-green.svg)](app/build.gradle.kts)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
 
+[📥 下载体验](#下载) ·
 [🚀 快速上手](docs/user/getting-started.md) ·
 [📖 功能指南](docs/user/guide.md) ·
-[🔐 权限与隐私](docs/user/permissions.md) ·
-[🧭 产品总览](docs/product/system-overview.md) ·
-[📐 SPEC](SPEC.md) ·
-[📜 HISTORY](HISTORY.md)
+[🔐 权限与保活说明](docs/user/permissions.md) ·
+[💬 交流与反馈](#交流与反馈) ·
+[🛠️ 开发者指南](.github/CONTRIBUTING.md)
 
 <br/><br/>
 
@@ -176,76 +176,40 @@
 
 ---
 
-## 软件界面与文档源码对应表（在哪里看 / 在哪里改）
+---
 
-为了避免“看到 App 里的文案，但不知道在仓库哪里维护”的困惑，以下是软件界面与源码的精准映射：
+## 用户指南与文档
 
-| 软件界面入口 | 驱动组件 | 对应文档 / 资源源码 | 打包与生效机制 |
-| :--- | :--- | :--- | :--- |
-| **设置 → 使用说明** | `HelpActivity.kt` | 1. [快速上手](docs/user/getting-started.md)<br/>2. [功能指南](docs/user/guide.md)<br/>3. [权限与隐私说明](docs/user/permissions.md) | 构建时 Gradle 任务 `syncUserGuideAsset` 将这 3 份 Markdown 自动同步进 APK assets，App 内通过 Markwon 原生渲染（支持内部平滑定位）。修改需重新构建 APK。 |
-| **设置 → 关于我们** | `AboutActivity.kt`<br/>`LegalDocumentRepository.kt` | 1. 隐私及权限：`app/src/main/res/raw/privacy_notice.txt`<br/>2. 开源许可：`app/src/main/res/raw/open_source_licenses.txt`<br/>3. 反馈邮箱：`app/src/main/res/raw/feedback_email.txt`<br/>4. 题库来源：硬编码在 `AboutActivity.kt` | 编译期打包至 `res/raw`，点击列表项进入 `LegalDocumentActivity` 显示。 |
-| **首屏隐私协议弹窗** | `PrivacyConsentActivity.kt` | 1. 用户协议：`app/src/main/res/raw/user_agreement.txt`<br/>2. 隐私政策：`app/src/main/res/raw/privacy_policy.txt` | 仅首屏/重置同意时弹出，不作为内测 About 页直接入口。 |
-| **系统规则与技术契约** | 系统底层引擎 | 1. 总契约：[SPEC.md](SPEC.md)<br/>2. 详细模块规格：[docs/specs/](docs/specs/) | 面向开发者的架构、契约与红线规范。 |
+为了帮助你更好地用好「决定守护」，我们准备了详尽的用户指南（同时也是 App 内【设置 → 使用说明】的原生内置内容）：
+
+- [🚀 快速上手指南](docs/user/getting-started.md)：5 分钟走通勿扰规则与起床挑战；
+- [📖 核心功能完全指南](docs/user/guide.md)：勿扰时段、应用时间窗、分级自由出口与挑战模式详解；
+- [🔐 权限与全机型保活指南](docs/user/permissions.md)：各大品牌手机（vivo、小米、华为、OPPO 等）后台防冻结与睡眠优化配置。
 
 ---
 
-## 开发与构建
+## 🛠️ 代码贡献与开发者指南
 
-环境以仓库当前 Gradle 配置为准。常用命令：
+决定守护（DeciKeeper）完全开源。如果你是代码贡献者或开发者，希望在本地编译调试代码、了解底层规格或为本项目提交 Pull Request，请移步阅读专属的：
 
-```bash
-# Windows
-gradlew.bat :app:testDebugUnitTest
-gradlew.bat :app:assembleDebug
+👉 **[【代码贡献与开发者指南 (.github/CONTRIBUTING.md)】](.github/CONTRIBUTING.md)**
 
-# Linux / macOS
-./gradlew :app:testDebugUnitTest
-./gradlew :app:assembleDebug
-```
-
-Debug APK：
-
-```text
-app/build/outputs/apk/debug/app-debug.apk
-```
-
-覆盖安装真实测试数据时优先使用：
-
-```bash
-adb install -r -d app/build/outputs/apk/debug/app-debug.apk
-```
-
-不要为了普通调试随意 `adb uninstall`，否则会清空本地规则和数据。
+开发者指南包含：
+- **软件界面与文档源码对应表**（在哪里看 / 在哪里改）；
+- **本地环境与构建命令**（Gradle 编译、1300+ 单元测试运行、真机覆盖安装红线）；
+- **系统核心架构契约**（[SPEC.md](SPEC.md) 与各模块规格定义）；
+- **代码分层与命名规范**；
+- **10 条系统业务红线**与关键文件地图。
 
 ---
 
-## 文档地图
+## 开源与数据许可
 
-| 文档 | 用途 | 读者 |
-| --- | --- | --- |
-| [产品总览](docs/product/system-overview.md) | 这是什么、为什么这样设计、模块之间什么关系 | 贡献者 / AI |
-| [SPEC.md](SPEC.md) | 当前产品总规格与跨模块契约 | 开发 |
-| [docs/specs/](docs/specs/) | 各模块的具体规则怎么实现 | 实现者 |
-| [docs/user/](docs/user/) | 快速上手、完整功能、权限与隐私（驱动 App 使用说明） | 最终用户 |
-| [docs/plans/](docs/plans/) | 当前分任务计划 | 当前开发者 |
-| [HISTORY.md](HISTORY.md) | 关键历史决策与防回归经验 | 排查问题的人 |
-| [docs/archive/](docs/archive/) | 已退役方案、旧命名与历史工作稿 | 溯源 |
-| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | 开发与 PR 规范 | 贡献者 |
-
----
-
-## 开源与数据
-
-- 源代码按 [GPL-3.0](LICENSE) 发布。
-- 数据来源与版权边界见 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)。
+- 源代码按 [GPL-3.0](LICENSE) 协议发布；
+- 题库数据来源与版权边界见 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)；
 - 第三方组件许可证见 [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md)。
-- 请不要向仓库提交未经授权的商业题库、出版物解析或付费翻译内容。
 
 ---
-
-## 贡献
-
-欢迎提交 Bug、兼容性问题、ROM 绕过路径、测试和代码改进。提交前请阅读 [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)。
 
 决定守护会继续围绕一个简单方向迭代：
 
