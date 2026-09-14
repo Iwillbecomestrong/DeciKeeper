@@ -56,7 +56,7 @@ object SettingsBackupManager {
         APP_WINDOWS("app_windows", "应用时间窗"),
         BLACKLIST("blacklist", "黑名单"),
         ALARM("alarm", "闹钟"),
-        GLOBAL_PARAMS("global_params", "全局参数"),
+        GLOBAL_PARAMS("global_params", "规则参数"),
         LEDGER("ledger", "统计数据");
 
         companion object {
@@ -85,10 +85,15 @@ object SettingsBackupManager {
         BackupCategory.LEDGER to listOf(
             "rule_protection_ledger",
             "alarm_stats_ledger",
+            "rest_stats_ledger",
             "statistics_prefs",
             "statistics_retention_prefs"
         )
     )
+
+    @androidx.annotation.VisibleForTesting
+    internal fun getExclusiveFilesForCategory(category: BackupCategory): List<String> =
+        CATEGORY_EXCLUSIVE_FILES[category].orEmpty()
 
     // ── 共享文件中的按分类 key 过滤 ──────────────────────────
     // key 如果以 * 结尾，按前缀匹配；否则精确匹配
@@ -198,6 +203,28 @@ object SettingsBackupManager {
         "app_window_pending",
         "app_window_baseline"
     )
+
+    private fun getDeviceProtectedPrefs(context: Context, name: String): SharedPreferences? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                context.createDeviceProtectedStorageContext()?.getSharedPreferences(name, Context.MODE_PRIVATE)
+            } else null
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun writeDeviceProtectedMirror(context: Context, targetName: String, values: Map<String, Any?>) {
+        if (!deviceProtectedMirrorNames.contains(targetName)) return
+        getDeviceProtectedPrefs(context, targetName)?.let { dpPrefs ->
+            writePrefs(dpPrefs, values)
+        }
+    }
+
+    private fun clearDeviceProtectedMirror(context: Context, targetName: String) {
+        if (!deviceProtectedMirrorNames.contains(targetName)) return
+        getDeviceProtectedPrefs(context, targetName)?.edit()?.clear()?.apply()
+    }
 
     data class OperationResult(
         val fileCount: Int,
@@ -429,11 +456,20 @@ object SettingsBackupManager {
         var fileCount = 0
         var entryCount = 0
 
-        // 收集选定分类涉及的 pref 文件名
-        val allowedFiles = mutableSetOf<String>()
+        // 收集选定分类涉及的 pref 文件名及其允许的 keys（null 代表该文件为独占，允许全部 key）
+        val allowedFileKeys = mutableMapOf<String, Set<String>?>()
+        val allSelected = categories.size == BackupCategory.entries.size
+
         categories.forEach { cat ->
-            CATEGORY_EXCLUSIVE_FILES[cat].orEmpty().forEach { allowedFiles.add(it) }
-            CATEGORY_SHARED_FILE_KEYS[cat].orEmpty().keys.forEach { allowedFiles.add(it) }
+            CATEGORY_EXCLUSIVE_FILES[cat].orEmpty().forEach { allowedFileKeys[it] = null }
+            CATEGORY_SHARED_FILE_KEYS[cat].orEmpty().forEach { (name, keys) ->
+                if (allowedFileKeys[name] == null && allowedFileKeys.containsKey(name)) {
+                    // 已经是独占文件，保持 null
+                } else {
+                    val existing = allowedFileKeys[name] ?: emptySet()
+                    allowedFileKeys[name] = existing + keys.toSet()
+                }
+            }
         }
 
         // 构建备份中所有文件条目的索引（用于 active-pending 配对检测）
@@ -460,25 +496,34 @@ object SettingsBackupManager {
         for ((activeName, pendingName) in activePendingPairs) {
             val activeFile = fileEntryMap[activeName] ?: continue
             val pendingFile = fileEntryMap[pendingName]
-            if (!allowedFiles.contains(activeName) && !allowedFiles.contains(pendingName)) continue
+            if (!allowedFileKeys.containsKey(activeName) && !allowedFileKeys.containsKey(pendingName)) continue
 
             processedNames.add(activeName)
             processedNames.add(pendingName)
 
             if (isAdaptation) {
                 // 适应期：直接写入 active，不处理延迟
-                val values = try { decodeEntries(activeFile.getJSONObject("entries")) } catch (_: Exception) { continue }
+                val rawValues = try { decodeEntries(activeFile.getJSONObject("entries")) } catch (_: Exception) { continue }
+                val values = if (!allSelected && allowedFileKeys[activeName] != null) {
+                    filterKeys(rawValues, allowedFileKeys[activeName]!!)
+                } else {
+                    rawValues
+                }
+                if (values.isEmpty()) continue
                 if (writtenTargets.add(activeName)) {
                     writePrefs(context.getSharedPreferences(activeName, Context.MODE_PRIVATE), values)
-                    if (deviceProtectedMirrorNames.contains(activeName)) {
-                        writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(activeName, Context.MODE_PRIVATE), values)
-                    }
+                    writeDeviceProtectedMirror(context, activeName, values)
                     fileCount++; entryCount += values.size
                 }
                 continue
             }
 
-            val activeValues = try { decodeEntries(activeFile.getJSONObject("entries")) } catch (_: Exception) { continue }
+            val rawActiveValues = try { decodeEntries(activeFile.getJSONObject("entries")) } catch (_: Exception) { continue }
+            val activeValues = if (!allSelected && allowedFileKeys[activeName] != null) {
+                filterKeys(rawActiveValues, allowedFileKeys[activeName]!!)
+            } else {
+                rawActiveValues
+            }
 
             if (pendingFile != null) {
                 // 备份中同时有 active 和 pending → 时间感知导入
@@ -495,17 +540,13 @@ object SettingsBackupManager {
                     if (writtenTargets.add(activeName)) {
                         val normalizedValues = normalizeEntryKeysForTarget(activeName, targetValues)
                         writePrefs(context.getSharedPreferences(activeName, Context.MODE_PRIVATE), normalizedValues)
-                        if (deviceProtectedMirrorNames.contains(activeName)) {
-                            writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(activeName, Context.MODE_PRIVATE), normalizedValues)
-                        }
+                        writeDeviceProtectedMirror(context, activeName, normalizedValues)
                         fileCount++; entryCount += normalizedValues.size
                     }
                     // 清除 pending 文件（已生效）
                     if (writtenTargets.add(pendingName)) {
                         context.getSharedPreferences(pendingName, Context.MODE_PRIVATE).edit().clear().apply()
-                        if (deviceProtectedMirrorNames.contains(pendingName)) {
-                            context.createDeviceProtectedStorageContext().getSharedPreferences(pendingName, Context.MODE_PRIVATE).edit().clear().apply()
-                        }
+                        clearDeviceProtectedMirror(context, pendingName)
                     }
                     LogExporter.logEvent("Import", "[PAIR] $activeName: pending applied as active (effectiveTs=$effectiveTs <= now=$importTime)")
                 } else if (hasPendingFlag && !isStaleBeforeExport) {
@@ -513,17 +554,13 @@ object SettingsBackupManager {
                     if (writtenTargets.add(activeName)) {
                         val normalizedActive = normalizeEntryKeysForTarget(activeName, activeValues)
                         writePrefs(context.getSharedPreferences(activeName, Context.MODE_PRIVATE), normalizedActive)
-                        if (deviceProtectedMirrorNames.contains(activeName)) {
-                            writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(activeName, Context.MODE_PRIVATE), normalizedActive)
-                        }
+                        writeDeviceProtectedMirror(context, activeName, normalizedActive)
                         fileCount++; entryCount += normalizedActive.size
                     }
                     if (writtenTargets.add(pendingName)) {
                         val normalizedPending = normalizeEntryKeysForTarget(pendingName, pendingValues!!)
                         writePrefs(context.getSharedPreferences(pendingName, Context.MODE_PRIVATE), normalizedPending)
-                        if (deviceProtectedMirrorNames.contains(pendingName)) {
-                            writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(pendingName, Context.MODE_PRIVATE), normalizedPending)
-                        }
+                        writeDeviceProtectedMirror(context, pendingName, normalizedPending)
                         fileCount++; entryCount += normalizedPending.size
                     }
                     LogExporter.logEvent("Import", "[PAIR] $activeName: pending preserved (effectiveTs=$effectiveTs > now=$importTime)")
@@ -544,7 +581,7 @@ object SettingsBackupManager {
         // ── 处理剩余文件（非 active-pending 配对）──
         for (name in fileEntryMap.keys) {
             if (name in processedNames) continue
-            if (!allowedFiles.contains(name)) continue
+            if (!allowedFileKeys.containsKey(name)) continue
 
             val file = fileEntryMap[name]!!
             val targetName = if (isAdaptation) name
@@ -552,7 +589,13 @@ object SettingsBackupManager {
 
             if (!writtenTargets.add(targetName)) continue
 
-            val rawValues = try { decodeEntries(file.getJSONObject("entries")) } catch (_: Exception) { continue }
+            val rawDecoded = try { decodeEntries(file.getJSONObject("entries")) } catch (_: Exception) { continue }
+            val rawValues = if (!allSelected && allowedFileKeys[name] != null) {
+                filterKeys(rawDecoded, allowedFileKeys[name]!!)
+            } else {
+                rawDecoded
+            }
+            if (rawValues.isEmpty()) continue
             val values = if (targetName == "decikeeper_ledger") {
                 val effectiveTime = (rawValues["weekly_privilege_limit_effective_time"] as? Long) ?: 0L
                 val isStale = isAdaptation || (exportedAt > 0L && effectiveTime in 1..exportedAt)
@@ -589,13 +632,7 @@ object SettingsBackupManager {
 
             val normalizedValues = normalizeEntryKeysForTarget(targetName, values)
             writePrefs(context.getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
-            if (deviceProtectedMirrorNames.contains(targetName)) {
-                writePrefs(
-                    context.createDeviceProtectedStorageContext()
-                        .getSharedPreferences(targetName, Context.MODE_PRIVATE),
-                    normalizedValues
-                )
-            }
+            writeDeviceProtectedMirror(context, targetName, normalizedValues)
 
             if (!isAdaptation) {
                 setPendingActivationFlags(context, targetName)
@@ -809,16 +846,12 @@ object SettingsBackupManager {
             }
             val normalizedValues = normalizeEntryKeysForTarget(activeName, cleanValues)
             writePrefs(context.getSharedPreferences(activeName, Context.MODE_PRIVATE), normalizedValues)
-            if (deviceProtectedMirrorNames.contains(activeName)) {
-                writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(activeName, Context.MODE_PRIVATE), normalizedValues)
-            }
+            writeDeviceProtectedMirror(context, activeName, normalizedValues)
 
             // 清理并标记 pendingName，防止幽灵 pending
             if (writtenTargets.add(pendingName)) {
                 context.getSharedPreferences(pendingName, Context.MODE_PRIVATE).edit().clear().apply()
-                if (deviceProtectedMirrorNames.contains(pendingName)) {
-                    context.createDeviceProtectedStorageContext().getSharedPreferences(pendingName, Context.MODE_PRIVATE).edit().clear().apply()
-                }
+                clearDeviceProtectedMirror(context, pendingName)
             }
 
             when (activeName) {
@@ -845,9 +878,7 @@ object SettingsBackupManager {
 
             val normalizedValues = normalizeEntryKeysForTarget(targetName, activeValues)
             writePrefs(context.getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
-            if (deviceProtectedMirrorNames.contains(targetName)) {
-                writePrefs(context.createDeviceProtectedStorageContext().getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
-            }
+            writeDeviceProtectedMirror(context, targetName, normalizedValues)
             setPendingActivationFlags(context, targetName)
             LogExporter.logEvent("Import", "[PAIR] $activeName: imported to $targetName (delayed)")
             return OperationResult(1, normalizedValues.size)
@@ -1015,11 +1046,7 @@ object SettingsBackupManager {
 
     private fun readMergedPreferenceValues(context: Context, name: String): Map<String, *> {
         val merged = linkedMapOf<String, Any?>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val deviceProtectedPrefs = context.createDeviceProtectedStorageContext()
-                .getSharedPreferences(name, Context.MODE_PRIVATE)
-            merged.putAll(deviceProtectedPrefs.all)
-        }
+        getDeviceProtectedPrefs(context, name)?.let { merged.putAll(it.all) }
         merged.putAll(context.getSharedPreferences(name, Context.MODE_PRIVATE).all)
         return merged
     }

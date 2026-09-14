@@ -137,7 +137,7 @@ object StatsDateRangeResolver {
             is StatsDateRange.Custom -> {
                 when {
                     resolvedRange.dayCount <= 1 -> StatsGranularity.HOURLY
-                    resolvedRange.dayCount <= 45 -> StatsGranularity.DAILY
+                    resolvedRange.dayCount <= 92 -> StatsGranularity.DAILY
                     resolvedRange.dayCount <= 180 -> StatsGranularity.WEEKLY
                     else -> StatsGranularity.MONTHLY
                 }
