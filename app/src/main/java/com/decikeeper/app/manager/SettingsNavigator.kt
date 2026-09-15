@@ -177,9 +177,9 @@ object SettingsNavigator {
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startupInit.StartupNormalAppListActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.oplus.safecenter", "com.oplus.safecenter.permission.startup.StartupAppListActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.AutoBootActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.coloros.startupdetails.StartupCombineActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.startupdetails.StartupCombineActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.startupdetails.StartupCombineActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")))
                 // OPPO 单独应用信息页没有自启动开关，因此优先进入「设置 → 应用」总菜单
                 candidates.add(Intent(Settings.ACTION_APPLICATION_SETTINGS))
