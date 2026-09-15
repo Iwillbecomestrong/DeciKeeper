@@ -63,7 +63,7 @@ object SettingsNavigator {
             isXiaomiOrRedmi() -> "请将「省电策略」设为「无限制」，并开启「自启动」"
             isVivoOrIqoo() -> "请允许「后台高耗电」，并关闭电池设置中的「睡眠待机优化」"
             isHuaweiOrHonor() -> "请将应用启动管理设为「手动管理」（允许自启动、关联启动与后台活动）"
-            isOppoOrOnePlusOrRealme() -> "请将耗电行为设为「完全允许后台行为」，开启「开机/自启动」，并关闭「睡眠待机优化」"
+            isOppoOrOnePlusOrRealme() -> "请前往「设置 → 应用」开启「自启动」与「关联启动」（不在单独应用信息内），并将耗电行为设为「完全允许后台行为」，关闭「睡眠待机优化」"
             isMeizu() -> "请将待机耗电管理设为「保持运行」，并开启「自启动」"
             isSamsung() -> "请将本应用加入「未休眠应用程序」白名单"
             else -> "请允许后台高耗电/完全后台行为并忽略电池优化；若系统有夜间睡眠待机优化请将其关闭"
@@ -97,14 +97,20 @@ object SettingsNavigator {
     }
 
     /**
-     * 获取当前机型对应的自启动权限友好展示文案（含开机启动别名）
+     * 获取当前机型对应的自启动权限友好展示文案（含开机启动与关联启动别名）
      */
     fun getAutostartLabel(): String {
         return when {
-            isOppoOrOnePlusOrRealme() -> "自启动 / 开机启动"
+            isOppoOrOnePlusOrRealme() -> "自启动与关联启动"
             else -> "自启动权限"
         }
     }
+
+    /**
+     * 获取针对 OPPO/ColorOS 闪达小窗保活建议文案
+     */
+    fun getOppoWindowTips(): String =
+        "提示：ColorOS 支持将决定守护设为「小窗/闪达窗口」常驻，小窗模式下可有效免疫多任务一键清理误杀。"
 
     private fun startActivitySafely(context: Context, intent: Intent): Boolean {
         return try {
@@ -166,11 +172,21 @@ object SettingsNavigator {
                 candidates.add(Intent().setComponent(ComponentName("com.honor.systemmanager", "com.honor.systemmanager.appcontrol.activity.StartupAppListActivity")))
             }
             isOppoOrOnePlusOrRealme() -> {
+                // ColorOS / Oplus 专属自启动列表组件
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.StartupAppListActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startupInit.StartupNormalAppListActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.StartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.safecenter", "com.oplus.safecenter.permission.startup.StartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.AutoBootActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.startupdetails.StartupCombineActivity")))
                 candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")))
+                // OPPO 单独应用信息页没有自启动开关，因此优先进入「设置 → 应用」总菜单
+                candidates.add(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+                candidates.add(Intent("android.settings.APPLICATION_SETTINGS"))
+                candidates.add(Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.Settings\$ManageApplicationsActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.Settings\$AppAndNotificationDashboardActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.settings", "com.oplus.settings.Settings\$AppAndNotificationDashboardActivity")))
             }
             isVivoOrIqoo() -> {
                 candidates.add(Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")))
@@ -192,8 +208,74 @@ object SettingsNavigator {
             if (startActivitySafely(context, intent)) return true
         }
 
-        // 兜底：回退到应用详情页
+        // 兜底：OPPO 优先跳「设置 → 应用」；其他机型回退到应用详情页
+        if (isOppoOrOnePlusOrRealme()) {
+            if (openApplicationSettings(context)) return true
+        }
         return openAppDetails(context)
+    }
+
+    // ─── 4.1 全品牌关联启动智能直跳 ───
+    fun openAssociateStartSettings(context: Context): Boolean {
+        val candidates = mutableListOf<Intent>()
+
+        when {
+            isOppoOrOnePlusOrRealme() -> {
+                // ColorOS / Oplus 专属关联启动组件
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.AssociateStartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.AssociateStartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.AssociateStartupActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.AssociateStartupActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.AssociateStartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.safecenter", "com.oplus.safecenter.permission.startup.AssociateStartupAppListActivity")))
+                // ColorOS 自启动与关联启动同在「设置 → 应用」
+                candidates.add(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+                candidates.add(Intent("android.settings.APPLICATION_SETTINGS"))
+                candidates.add(Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.Settings\$ManageApplicationsActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.Settings\$AppAndNotificationDashboardActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.settings", "com.oplus.settings.Settings\$AppAndNotificationDashboardActivity")))
+            }
+            isHuaweiOrHonor() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppListActivity")))
+                candidates.add(Intent().setComponent(ComponentName("com.honor.systemmanager", "com.honor.systemmanager.startupmgr.ui.StartupNormalAppListActivity")))
+            }
+            isVivoOrIqoo() -> {
+                candidates.add(Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.SoftPermissionDetailActivity")).apply {
+                    putExtra("packagename", context.packageName)
+                    putExtra("packageName", context.packageName)
+                    putExtra("pkg", context.packageName)
+                })
+                candidates.add(Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")))
+            }
+        }
+
+        for (intent in candidates) {
+            if (startActivitySafely(context, intent)) return true
+        }
+
+        if (isOppoOrOnePlusOrRealme()) {
+            if (openApplicationSettings(context)) return true
+        }
+        return openAppDetails(context)
+    }
+
+    // ─── 4.2 系统「设置 → 应用」总入口直跳 ───
+    fun openApplicationSettings(context: Context): Boolean {
+        val candidates = mutableListOf<Intent>()
+        candidates.add(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+        candidates.add(Intent("android.settings.APPLICATION_SETTINGS"))
+        candidates.add(Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.Settings\$ManageApplicationsActivity")))
+        candidates.add(Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.Settings\$AppAndNotificationDashboardActivity")))
+        candidates.add(Intent().setComponent(ComponentName("com.oplus.settings", "com.oplus.settings.Settings\$AppAndNotificationDashboardActivity")))
+        candidates.add(Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.applications.ManageApplications")))
+        candidates.add(Intent(Settings.ACTION_MANAGE_ALL_APPLICATIONS_SETTINGS))
+        candidates.add(Intent(Settings.ACTION_SETTINGS))
+
+        for (intent in candidates) {
+            if (startActivitySafely(context, intent)) return true
+        }
+        return false
     }
 
     // 兼容旧接口命名

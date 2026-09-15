@@ -62,11 +62,11 @@ class OppoColorOsPermissionAndSleepOptimizationTest {
 
     @Test
     fun `settingsNavigator provides dedicated OPPO hints and labels`() {
-        val oppoHint = "请将耗电行为设为「完全允许后台行为」，开启「开机/自启动」，并关闭「睡眠待机优化」"
+        val oppoHint = "请前往「设置 → 应用」开启「自启动」与「关联启动」（不在单独应用信息内），并将耗电行为设为「完全允许后台行为」，关闭「睡眠待机优化」"
         val navigatorSource = source("src/main/java/com/decikeeper/app/manager/SettingsNavigator.kt")
 
         assertTrue(
-            "SettingsNavigator must include OPPO specific hint with complete background behavior and sleep standby optimization",
+            "SettingsNavigator must include OPPO specific hint directing to Settings -> App -> Autostart / AssociateStart",
             navigatorSource.contains(oppoHint)
         )
         assertTrue(
@@ -76,6 +76,18 @@ class OppoColorOsPermissionAndSleepOptimizationTest {
         assertTrue(
             "SettingsNavigator must define getAutostartLabel",
             navigatorSource.contains("fun getAutostartLabel(): String")
+        )
+        assertTrue(
+            "SettingsNavigator must define openAssociateStartSettings",
+            navigatorSource.contains("fun openAssociateStartSettings(context: Context): Boolean")
+        )
+        assertTrue(
+            "SettingsNavigator must define openApplicationSettings",
+            navigatorSource.contains("fun openApplicationSettings(context: Context): Boolean")
+        )
+        assertTrue(
+            "SettingsNavigator must define getOppoWindowTips for floating window keepalive",
+            navigatorSource.contains("fun getOppoWindowTips(): String")
         )
     }
 }

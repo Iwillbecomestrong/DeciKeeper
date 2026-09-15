@@ -1526,10 +1526,15 @@ class HomeFragment : Fragment() {
         val manufacturer = Build.MANUFACTURER.lowercase()
 
         if (manufacturer.contains("oppo") || manufacturer.contains("realme") || manufacturer.contains("oneplus")) {
+            intents.add(Intent().setComponent(android.content.ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.StartupAppListActivity")))
             intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")))
             intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
             intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startupInit.StartupNormalAppListActivity")))
-            intents.add(Intent().setComponent(android.content.ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.StartupAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.AssociateStartupAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.AssociateStartupAppListActivity")))
+            // OPPO 单应用详情页没有自启动/关联启动开关，因此优先进入「设置 → 应用」
+            intents.add(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+            intents.add(Intent("android.settings.APPLICATION_SETTINGS"))
         } else if (manufacturer.contains("vivo") || manufacturer.contains("iqoo")) {
             intents.add(
                 Intent().setComponent(
@@ -1566,6 +1571,10 @@ class HomeFragment : Fragment() {
         val ctx = context ?: return
         if (permissionKey == "auto_start_confirmed") {
             if (SettingsNavigator.openAutostartSettings(ctx)) {
+                return
+            }
+        } else if (permissionKey == "assoc_start_confirmed") {
+            if (SettingsNavigator.openAssociateStartSettings(ctx)) {
                 return
             }
         }
@@ -1976,6 +1985,11 @@ class HomeFragment : Fragment() {
     }
 
     private fun showRecentsLockGuideDialog(ctx: Context) {
+        val extraWindowTip = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
+            "\n\n• OPPO 强效保活妙招：\n  ColorOS 支持将决定守护设为「闪达小窗/迷你浮窗」常驻桌面或侧边栏，小窗模式下可完全免疫多任务一键划杀！"
+        } else {
+            ""
+        }
         androidx.appcompat.app.AlertDialog.Builder(ctx)
             .setTitle("🔒 多任务卡片加锁指引")
             .setMessage(
@@ -1984,8 +1998,9 @@ class HomeFragment : Fragment() {
                 "  1. 呼出手机的多任务（最近任务）界面；\n" +
                 "  2. 找到「决定守护」卡片；\n" +
                 "  3. 下拉卡片，或长按/点击卡片右上角菜单；\n" +
-                "  4. 点击【加锁】（卡片上出现 🔒 小锁图标）；\n\n" +
-                "• 设置完成后，回到这里勾选「已开启」即可。"
+                "  4. 点击【加锁】（卡片上出现 🔒 小锁图标）；" +
+                extraWindowTip +
+                "\n\n• 设置完成后，回到这里勾选「已开启」即可。"
             )
             .setPositiveButton("知道了", null)
             .show()
@@ -2058,7 +2073,7 @@ class HomeFragment : Fragment() {
         if (!hasOverlay) missing.add("悬浮窗")
         if (!hasNotification) missing.add("通知权限")
         val bgBatteryMissingLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) "完全后台行为" else "后台耗电管理"
-        val autostartMissingLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) "自启动/开机启动" else "自启动"
+        val autostartMissingLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) SettingsNavigator.getAutostartLabel() else "自启动"
         if (!hasBgBattery) missing.add(bgBatteryMissingLabel)
         if (!hasAutoStart) missing.add(autostartMissingLabel)
 

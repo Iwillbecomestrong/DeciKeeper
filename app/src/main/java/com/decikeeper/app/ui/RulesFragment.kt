@@ -43,6 +43,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.decikeeper.app.R
 import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.manager.AccessibilityControlManager
+import com.decikeeper.app.manager.SettingsNavigator
 import com.decikeeper.app.manager.AccessibilityDependencyManager
 import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
 import com.decikeeper.app.manager.AntiUninstallManager
@@ -1796,12 +1797,19 @@ class RulesFragment : Fragment() {
 
         btnAssocStart.setOnClickListener {
             ManualPermissionRecoveryManager.recordSettingsVisit(ctx, ASSOC_START_CONFIRMED_KEY)
-            try {
-                RecentTasksHideManager.markNavigating()
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}")))
-            } catch (_: Exception) {
+            if (!SettingsNavigator.openAssociateStartSettings(ctx)) {
+                try {
+                    RecentTasksHideManager.markNavigating()
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}")))
+                } catch (_: Exception) {
+                }
             }
-            Toast.makeText(ctx, "请在系统设置中开启关联启动；返回后会优先自动识别，若机型仍误判可手动确认一次", Toast.LENGTH_LONG).show()
+            val tip = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
+                "请前往「设置 → 应用 → 关联启动」开启「决定守护」"
+            } else {
+                "请在系统设置中开启关联启动；返回后会优先自动识别，若机型仍误判可手动确认一次"
+            }
+            Toast.makeText(ctx, tip, Toast.LENGTH_LONG).show()
             dialog?.dismiss()
         }
 
