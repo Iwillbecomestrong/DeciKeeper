@@ -189,7 +189,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        com.decikeeper.app.protection.AntiUninstallProtection.recordDeciKeeperActive()
         RecentTasksHideManager.clearNavigating()
         val serviceIntent = Intent(this, MonitorService::class.java).apply { action = MonitorService.ACTION_REFRESH_RULES }
         startService(serviceIntent)
@@ -199,13 +198,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        com.decikeeper.app.protection.AntiUninstallProtection.recordDeciKeeperActive()
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (RecentTasksHideManager.shouldDismissOnUserLeave(this)) {
-            Log.d("MainActivity", "User leaving task with recents hide enabled, finishing and removing task")
             finishAndRemoveTask()
         }
     }

@@ -44,17 +44,10 @@ object ProtectionManager {
         permissionProtection = PermissionProtection(context)
     }
 
-    /**
-     * 🚀 [Recents Block Priority] 早期阻断多任务呼出，无需等待完整 root 树生成
-     */
-    fun checkAndBlockRecentsTransition(service: AccessibilityService, event: AccessibilityEvent): Boolean {
-        return antiUninstallProtection?.checkAndBlockRecentsTransition(service, event) ?: false
-    }
 
     fun onAccessibilityEvent(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo?) {
         // 🚀 [Identity Check] Explicitly ignore self-events to prevent "Self-Locking"
         if (event.packageName == "com.decikeeper.app") {
-            AntiUninstallProtection.recordDeciKeeperActive()
             return
         }
 

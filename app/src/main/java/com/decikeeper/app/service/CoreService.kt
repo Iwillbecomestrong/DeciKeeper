@@ -871,18 +871,12 @@ class CoreService : AccessibilityService() {
              Log.v("DeciKeeper", "A11y Event: Type=${event.eventType}, Pkg=${event.packageName}, Class=${event.className}")
         }
         
-        // 🚀 [Self-Exclusion & Active Tracking]
+        // 🚀 [Self-Exclusion]
         // If we monitor our own UI events (especially EditText), it causes severe keyboard lag.
         if (event.packageName == CoreService.instance?.packageName) {
-            AntiUninstallProtection.recordDeciKeeperActive()
             return
         }
 
-        // 🚀 [Recents Block Priority] 优先阻断从决定守护呼出多任务划杀
-        // 毫秒级检测并发送撤回（BACK），不需要等待后续锁屏、黑名单或全树遍历
-        if (ProtectionManager.checkAndBlockRecentsTransition(this, event)) {
-            return
-        }
 
         // 🚀 [IME Exclusion] Ignore events from Keyboard/Input Method
         // Monitoring IME events (key presses/candidates) causes extreme lag during typing.
