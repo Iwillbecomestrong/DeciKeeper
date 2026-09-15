@@ -43,6 +43,7 @@ class PermissionProtection(private val context: Context) {
             "com.google.android.permissioncontroller",
             "com.vivo.permissionmanager",
             "com.vivo.imanager",
+            "com.vivo.abe",
             "com.iqoo.secure",
             "com.miui.securitycenter",
             "com.huawei.systemmanager",
@@ -63,17 +64,17 @@ class PermissionProtection(private val context: Context) {
         val PERMISSION_KEYWORDS = setOf(
             // SC - 悬浮窗/Overlay
             "悬浮窗", "悬浮窗权限", "悬浮窗管理", "允许悬浮窗", "显示在其他应用上层", "在其他应用上层显示",
-            // SC - 其他权限
-            "应用使用情况", "使用情况访问", "自启动", "后台启动", "电池优化", "省电策略",
+            // SC - 其他权限（含 vivo/oppo 专属）
+            "应用使用情况", "使用情况访问", "自启动", "后台启动", "关联启动", "关联唤醒", "后台高耗电", "允许后台高耗电", "电池优化", "省电策略", "单项权限", "应用权限",
             // TC - 悬浮窗/Overlay
             "懸浮視窗", "懸浮窗權限", "懸浮窗管理", "允許懸浮窗", "顯示在其他應用上層", "顯示在其他應用程式上層",
             // TC - 其他权限
-            "應用程式使用情況", "使用狀況存取權", "自動啟動", "背景啟動", "電池優化", "省電策略",
+            "應用程式使用情況", "使用狀況存取權", "自動啟動", "背景啟動", "關聯啟動", "關聯喚醒", "背景高耗電", "允許背景高耗電", "電池優化", "省電策略", "單項權限", "應用程式權限",
             // EN - Overlay
             "Display over other apps", "Appear on top", "Draw over", "Overlay",
             // EN - Other permissions
             "Usage access", "Usage data access",
-            "Autostart", "Auto-start", "Background start", "Start in background", "Battery optimization", "Battery saver",
+            "Autostart", "Auto-start", "Background start", "Start in background", "Associated start", "Associated startup", "Battery optimization", "Battery saver",
             // JP (Partial)
             "他のアプリの上に重ねて表示", "使用状況へのアクセス", "自動起動", "バックグラウンド起動", "電池の最適化", "バッテリーセーバー"
         )
@@ -110,11 +111,14 @@ class PermissionProtection(private val context: Context) {
         val eventClassName = event.className?.toString() ?: ""
 
         // 🚀 [Class-Based Detection] Check FIRST — known permission page classes like
-        // FloatWindowManagerActivity always manage permissions regardless of current content
+        // FloatWindowManagerActivity, PurviewActivity (vivo), SoftPermissionDetailActivity always manage permissions
         val isPermissionPageClass = eventClassName.contains("FloatWindow", ignoreCase = true) ||
                                     eventClassName.contains("SoftPermission", ignoreCase = true) ||
                                     eventClassName.contains("Permission", ignoreCase = true) ||
-                                    eventClassName.contains("Overlay", ignoreCase = true)
+                                    eventClassName.contains("Overlay", ignoreCase = true) ||
+                                    eventClassName.contains("Purview", ignoreCase = true) ||
+                                    eventClassName.contains("BgStartUp", ignoreCase = true) ||
+                                    eventClassName.contains("SoftList", ignoreCase = true)
 
         // 🚀 [Quick Path] Check event.text for app identity first — skip full tree scan if found
         val hasAppNameInEvent = com.decikeeper.app.protection.AntiUninstallProtection.PROTECTED_APP_NAMES.any {
@@ -215,22 +219,21 @@ class PermissionProtection(private val context: Context) {
 
     private fun collectAllText(node: AccessibilityNodeInfo?, sb: StringBuilder, depth: Int = 0) {
         if (node == null) return
-        // Performance limits: don't traverse too deep or collect too much text
-        // depth=10, content=5000, children=30 covers RecyclerView lists (e.g. FloatWindowManagerActivity)
-        if (depth > 10) return
-        if (sb.length > 5000) return
+        // Performance limits: depth=20, content=8000, children=50 covers deep OEM lists (e.g. vivo PurviewActivity at depth 15)
+        if (depth > 20) return
+        if (sb.length > 8000) return
         if (node.isEditable || node.className == "android.widget.EditText") return
 
         if (!node.text.isNullOrEmpty()) sb.append(node.text).append(" ")
         if (!node.contentDescription.isNullOrEmpty()) sb.append(node.contentDescription).append(" ")
 
-        val count = kotlin.math.min(node.childCount, 30)
+        val count = kotlin.math.min(node.childCount, 50)
         for (i in 0 until count) {
             val child = node.getChild(i)
             if (child != null) {
                 collectAllText(child, sb, depth + 1)
                 child.recycle()
-                if (sb.length > 5000) break
+                if (sb.length > 8000) break
             }
         }
     }
