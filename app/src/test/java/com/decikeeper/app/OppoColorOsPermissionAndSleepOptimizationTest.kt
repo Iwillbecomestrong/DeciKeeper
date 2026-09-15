@@ -62,7 +62,7 @@ class OppoColorOsPermissionAndSleepOptimizationTest {
 
     @Test
     fun `settingsNavigator provides dedicated OPPO hints and labels`() {
-        val oppoHint = "请在「应用详情」中点击「耗电管理」，勾选「完全允许后台行为」"
+        val oppoHint = "请在「应用详情」中找到「耗电管理/电池」，并勾选「完全允许后台行为」"
         val navigatorSource = source("src/main/java/com/decikeeper/app/manager/SettingsNavigator.kt")
 
         assertTrue(

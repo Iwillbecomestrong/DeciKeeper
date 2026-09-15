@@ -60,13 +60,13 @@ object SettingsNavigator {
      */
     fun getBrandKeepAliveTips(): String {
         return when {
-            isXiaomiOrRedmi() -> "请将「省电策略」设为「无限制」，并开启「自启动」"
-            isVivoOrIqoo() -> "请允许「后台高耗电」，并关闭电池设置中的「睡眠待机优化」"
-            isHuaweiOrHonor() -> "请将应用启动管理设为「手动管理」（允许自启动、关联启动与后台活动）"
-            isOppoOrOnePlusOrRealme() -> "请在「应用详情」中点击「耗电管理」，勾选「完全允许后台行为」"
-            isMeizu() -> "请将待机耗电管理设为「保持运行」，并开启「自启动」"
+            isOppoOrOnePlusOrRealme() -> "请在「应用详情」中找到「耗电管理/电池」，并勾选「完全允许后台行为」"
+            isXiaomiOrRedmi() -> "请在系统设置中找到「省电策略」，设为「无限制」，并开启「自启动」"
+            isVivoOrIqoo() -> "请在系统设置中允许「后台高耗电」，并关闭电池设置中的「睡眠待机优化」"
+            isHuaweiOrHonor() -> "请在「应用启动管理」设为「手动管理」（允许自启动、关联启动与后台活动）"
+            isMeizu() -> "请在系统设置中将待机耗电管理设为「保持运行」，并开启「自启动」"
             isSamsung() -> "请将本应用加入「未休眠应用程序」白名单"
-            else -> "请允许后台高耗电/完全后台行为并忽略电池优化；若系统有夜间睡眠待机优化请将其关闭"
+            else -> "请在系统设置中找到「耗电管理」「电池优化」或类似选项，并允许应用后台运行"
         }
     }
 
@@ -301,30 +301,9 @@ object SettingsNavigator {
                 candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.power.ui.HwPowerManagerActivity")))
             }
             isOppoOrOnePlusOrRealme() -> {
-                // 用户实测证实：ColorOS 的「耗电行为控制」在「决定守护应用详情 → 耗电管理」内。
-                // 优先尝试直跳该应用的耗电管理页面；无法直达时必须直接跳决定守护应用详情页，绝不跳错到系统通用电池大厅。
-                candidates.add(Intent("com.oplus.battery.action.POWER_CONSUMPTION_DETAILS").apply {
-                    putExtra("pkg_name", context.packageName)
-                    putExtra("package_name", context.packageName)
-                    data = Uri.parse("package:${context.packageName}")
-                })
-                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")).apply {
-                    putExtra("pkg_name", context.packageName)
-                    putExtra("package_name", context.packageName)
-                    data = Uri.parse("package:${context.packageName}")
-                })
-                candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerConsumptionActivity")).apply {
-                    putExtra("pkg_name", context.packageName)
-                    putExtra("package_name", context.packageName)
-                    data = Uri.parse("package:${context.packageName}")
-                })
-                candidates.add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                })
-
-                for (intent in candidates) {
-                    if (startActivitySafely(context, intent)) return true
-                }
+                // 核心铁律：宁愿多点两下，也不要跳错页面！
+                // OPPO ColorOS 的「耗电行为控制」位于「应用详情 → 耗电管理」内。
+                // 绝对不硬猜私有 Activity，100% 稳妥直达「应用详情页」，用户点击「耗电管理」即可勾选「完全允许后台行为」。
                 return openAppDetails(context)
             }
             isVivoOrIqoo() -> {
@@ -419,12 +398,16 @@ object SettingsNavigator {
         return openAppDetails(context)
     }
 
-    // ─── 7. 兜底:App 详情页(用户可手动找) ───
+    // ─── 7. 兜底:App 详情页(100% 稳妥的核心入口) ───
     fun openAppDetails(context: Context): Boolean {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.parse("package:${context.packageName}")
         }
-        return startActivitySafely(context, intent)
+        if (startActivitySafely(context, intent)) return true
+
+        // 终极降级：若极少数特殊系统阻断应用详情，打开系统设置主页
+        val fallback = Intent(Settings.ACTION_SETTINGS)
+        return startActivitySafely(context, fallback)
     }
 
     /**
