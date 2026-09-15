@@ -248,10 +248,27 @@
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="隐藏决定守护在多任务界面" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="减少误划掉多进程的风险" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="阻止应用内呼出多任务，切离自动抹除防划杀" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                 </LinearLayout>
                 <TextView android:id="@+id/btn_hide_in_recent_tasks_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="隐藏多任务界面说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                 <Switch android:id="@+id/switch_hide_in_recent_tasks" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="?attr/zzSurface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="桌面守护小浮窗（强力防杀盾）" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tv_floating_guard_desc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="常驻贴边自律微盾，利用系统窗口机制彻底免疫多任务误划强杀" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                </LinearLayout>
+                <TextView android:id="@+id/btn_floating_guard_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="桌面守护小浮窗说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
+                <Switch android:id="@+id/switch_floating_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

@@ -96,4 +96,64 @@ class AntiUninstallOppoProtectionTest {
         assertTrue("必须识别出一键卸载确认按钮", hasConfirm)
         assertTrue("必须识别出取消按钮", hasCancel)
     }
+
+    @Test
+    fun recentsInterfaceMustBeAccuratelyIdentified() {
+        assertTrue("ColorOS Recents 必须精准识别", AntiUninstallProtection.isRecentsInterface("com.android.launcher", "com.android.quickstep.RecentsActivity"))
+        assertTrue("Oplus QuickstepLauncher 必须识别", AntiUninstallProtection.isRecentsInterface("com.oplus.launcher", "com.android.launcher3.uioverrides.QuickstepLauncher"))
+        assertTrue("OPPO 专用多任务界面必须识别", AntiUninstallProtection.isRecentsInterface("com.coloros.recents", "com.coloros.recents.RecentsActivity"))
+        assertTrue("MIUI 多任务必须识别", AntiUninstallProtection.isRecentsInterface("com.miui.home", "com.miui.home.recents.RecentsActivity"))
+        assertTrue("多任务特征文案（清除全部）必须识别", AntiUninstallProtection.isRecentsInterface("com.android.launcher", "com.android.launcher.Launcher", "清除全部 决定守护"))
+
+        assertFalse("普通微信界面不能误判为多任务", AntiUninstallProtection.isRecentsInterface("com.tencent.mm", "com.tencent.mm.ui.LauncherUI"))
+        assertFalse("桌面普通主页不能误判为多任务", AntiUninstallProtection.isRecentsInterface("com.android.launcher", "com.android.launcher.Workspace"))
+    }
+
+    @Test
+    fun transitionFromDeciKeeperToRecentsMustBeBlocked() {
+        val now = 10000L
+        // 场景 1：用户在决定守护内，500ms 前还在决定守护，此时切多任务 -> 必须阻断！
+        assertTrue(
+            "刚离开决定守护切多任务必须阻断",
+            AntiUninstallProtection.shouldBlockTransitionToRecents(
+                lastDeciKeeperActiveTimeMs = now - 500L,
+                nowMs = now,
+                isRecents = true,
+                isNavigating = false
+            )
+        )
+
+        // 场景 2：用户在决定守护内，点击导出配置或跳系统设置（处于主动导航中） -> 绝对不能阻断！
+        assertFalse(
+            "处于主动外部导航时严禁阻断",
+            AntiUninstallProtection.shouldBlockTransitionToRecents(
+                lastDeciKeeperActiveTimeMs = now - 500L,
+                nowMs = now,
+                isRecents = true,
+                isNavigating = true
+            )
+        )
+
+        // 场景 3：用户离开决定守护已经很久（如 10 秒前），在其他应用切多任务 -> 严禁阻断！
+        assertFalse(
+            "离开决定守护已久切多任务不予阻断",
+            AntiUninstallProtection.shouldBlockTransitionToRecents(
+                lastDeciKeeperActiveTimeMs = now - 10000L,
+                nowMs = now,
+                isRecents = true,
+                isNavigating = false
+            )
+        )
+
+        // 场景 4：目标窗口不是多任务（如正常切回桌面） -> 严禁阻断！
+        assertFalse(
+            "目标窗口非多任务不予阻断",
+            AntiUninstallProtection.shouldBlockTransitionToRecents(
+                lastDeciKeeperActiveTimeMs = now - 500L,
+                nowMs = now,
+                isRecents = false,
+                isNavigating = false
+            )
+        )
+    }
 }

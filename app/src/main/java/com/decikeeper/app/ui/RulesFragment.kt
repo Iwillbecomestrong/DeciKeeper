@@ -49,6 +49,7 @@ import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.ConfigPendingManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.FloatingWindowProtectionManager
+import com.decikeeper.app.manager.GuardFloatingWindowManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
 import com.decikeeper.app.manager.PrivacyProtectionManager
 import com.decikeeper.app.manager.RecentTasksHideManager
@@ -219,6 +220,8 @@ class RulesFragment : Fragment() {
     private var tvAlarmPowerOffProtectionStatus: TextView? = null
     private var switchHideInRecentTasks: Switch? = null
     private var switchHideInRecentTasksUiUpdating = false
+    private var switchFloatingGuard: Switch? = null
+    private var switchFloatingGuardUiUpdating = false
     private var switchPrivacySpaceGuard: Switch? = null
     private var tvPrivacySpaceGuardStatus: TextView? = null
     private var rgSettingsEditWindowPolicy: RadioGroup? = null
@@ -290,6 +293,7 @@ class RulesFragment : Fragment() {
         updateUninstallAndPermProtectionUI()
         alarmPrerequisiteDialogRefresh?.invoke()
         updateHideInRecentTasksUI()
+        updateFloatingGuardUI()
 
         // Loop check for anti-uninstall status
         view?.let { triggerAntiUninstallStatusLoop(it) }
@@ -319,6 +323,7 @@ class RulesFragment : Fragment() {
         tvAccessibilityStatus = view.findViewById(R.id.tv_accessibility_status_main)
         switchAccessibilityService = view.findViewById(R.id.switch_accessibility_service)
         switchHideInRecentTasks = view.findViewById(R.id.switch_hide_in_recent_tasks)
+        switchFloatingGuard = view.findViewById(R.id.switch_floating_guard)
         btnQuickSendLogs = view.findViewById(R.id.btn_quick_send_logs)
         btnExportSettings = view.findViewById(R.id.btn_export_settings)
         btnImportSettings = view.findViewById(R.id.btn_import_settings)
@@ -333,13 +338,31 @@ class RulesFragment : Fragment() {
         switchUninstallAndPermProtection?.let { setupUninstallAndPermProtectionSwitch(it) }
 
         switchHideInRecentTasks?.let { setupHideInRecentTasksSwitch(it) }
+        switchFloatingGuard?.let { setupFloatingGuardSwitch(it) }
 
         view.findViewById<View>(R.id.btn_hide_in_recent_tasks_help)?.setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("隐藏决定守护在多任务界面")
                 .setMessage(
-                    "• 开启：离开或切多任务时自动抹除卡片，多任务列表物理隐藏，彻底避免误划杀后台；\n\n" +
+                    "• 开启：应用内切多任务自动阻断，切离自动抹除卡片，多任务列表物理隐藏，彻底避免误划杀后台；\n\n" +
                     "• 关闭：多任务列表正常显示卡片，方便您在多任务界面下拉或在菜单中给卡片【加锁】。"
+                )
+                .setPositiveButton("知道了", null)
+                .show()
+        }
+
+        view.findViewById<View>(R.id.btn_floating_guard_help)?.setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("桌面守护小浮窗（强力防杀盾）")
+                .setMessage(
+                    "【原理与效果】\n" +
+                    "利用 Android 系统的顶层窗口机制（TYPE_APPLICATION_OVERLAY），在屏幕边缘挂载一个极微型的自律守护盾。\n\n" +
+                    "只要该浮窗挂载在屏幕上，系统底层（AMS / OomAdjuster）会将「决定守护」评定为最高优先级的 VISIBLE_APP 可见应用，彻底免疫多任务误划/清理强杀！\n\n" +
+                    "【交互设计】\n" +
+                    "• 贴边微缩：随意拖动，松手自动吸附两侧边缘，静止时半透明微光，绝不遮挡视线；\n" +
+                    "• 轻触查看：轻触可展开查看守护坚持状态，再次轻触收起；\n\n" +
+                    "【OPPO / ColorOS 专属建议】\n" +
+                    "在系统【设置】顶部搜索框输入「自启动」，开启自启动与关联启动权限，配合此浮窗将达成 100% 坚不可摧的保活闭环！"
                 )
                 .setPositiveButton("知道了", null)
                 .show()
@@ -2241,6 +2264,46 @@ class RulesFragment : Fragment() {
             switchHideInRecentTasks?.isChecked = RecentTasksHideManager.isHideEnabled(requireContext())
         } finally {
             switchHideInRecentTasksUiUpdating = false
+        }
+    }
+
+    private fun setupFloatingGuardSwitch(switchView: Switch) {
+        val context = requireContext()
+        switchFloatingGuardUiUpdating = true
+        switchView.isChecked = GuardFloatingWindowManager.isFloatingGuardEnabled(context)
+        switchFloatingGuardUiUpdating = false
+
+        switchView.setOnCheckedChangeListener { _, isChecked ->
+            if (switchFloatingGuardUiUpdating) return@setOnCheckedChangeListener
+            if (isChecked) {
+                if (!GuardFloatingWindowManager.canDrawOverlays(context)) {
+                    switchView.isChecked = false
+                    AlertDialog.Builder(context)
+                        .setTitle("需要开启悬浮窗权限")
+                        .setMessage("常驻守护小浮窗需要【显示在其他应用上层】权限。开启后即可在屏幕边缘挂载自律微盾，利用系统窗口机制彻底免疫多任务划卡片强杀。")
+                        .setPositiveButton("前往开启") { _, _ ->
+                            GuardFloatingWindowManager.requestOverlayPermission(context)
+                        }
+                        .setNegativeButton("取消", null)
+                        .show()
+                    return@setOnCheckedChangeListener
+                }
+                GuardFloatingWindowManager.setFloatingGuardEnabled(context, true)
+                Toast.makeText(context, "已开启桌面守护小浮窗，强力防杀盾已生效！", Toast.LENGTH_SHORT).show()
+            } else {
+                GuardFloatingWindowManager.setFloatingGuardEnabled(context, false)
+                Toast.makeText(context, "已关闭桌面守护小浮窗", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun updateFloatingGuardUI() {
+        if (!isAdded) return
+        switchFloatingGuardUiUpdating = true
+        try {
+            switchFloatingGuard?.isChecked = GuardFloatingWindowManager.isFloatingGuardEnabled(requireContext())
+        } finally {
+            switchFloatingGuardUiUpdating = false
         }
     }
 

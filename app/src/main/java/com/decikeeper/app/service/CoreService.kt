@@ -613,6 +613,11 @@ class CoreService : AccessibilityService() {
 
             // Start Reminder Loop
             mHandler.post(mReminderRunnable)
+
+            // 🚀 常驻守护小浮窗（自律小盾牌）启动检查
+            if (com.decikeeper.app.manager.GuardFloatingWindowManager.isFloatingGuardEnabled(this)) {
+                com.decikeeper.app.manager.GuardFloatingWindowManager.show(this)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "onServiceConnected: init failed but service stays alive", e)
         }

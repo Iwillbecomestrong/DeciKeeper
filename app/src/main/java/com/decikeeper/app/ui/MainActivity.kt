@@ -189,11 +189,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        com.decikeeper.app.protection.AntiUninstallProtection.recordDeciKeeperActive()
         RecentTasksHideManager.clearNavigating()
         val serviceIntent = Intent(this, MonitorService::class.java).apply { action = MonitorService.ACTION_REFRESH_RULES }
         startService(serviceIntent)
         ChangeLogManager.syncLogStatusWithPendingState(this)
         ChangeLogManager.applyStuckPendingRules(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        com.decikeeper.app.protection.AntiUninstallProtection.recordDeciKeeperActive()
     }
 
     override fun onUserLeaveHint() {

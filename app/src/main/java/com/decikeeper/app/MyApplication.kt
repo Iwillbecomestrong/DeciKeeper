@@ -242,6 +242,11 @@ class MyApplication : Application() {
         // 🚀 用户可控"最近任务隐藏"生命周期注册(默认 OFF,幂等)
         RecentTasksHideManager.register(this)
 
+        // 🚀 常驻守护小浮窗（自律小盾牌）启动检查（若用户已开启且具备权限则自动恢复挂载）
+        if (com.decikeeper.app.manager.GuardFloatingWindowManager.isFloatingGuardEnabled(this)) {
+            com.decikeeper.app.manager.GuardFloatingWindowManager.show(this)
+        }
+
         // 🚀 [Log] Initialize LogExporter with app context for disk-persistent logging
         LogExporter.init(this)
 
