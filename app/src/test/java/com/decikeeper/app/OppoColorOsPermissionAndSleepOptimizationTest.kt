@@ -62,11 +62,11 @@ class OppoColorOsPermissionAndSleepOptimizationTest {
 
     @Test
     fun `settingsNavigator provides dedicated OPPO hints and labels`() {
-        val oppoHint = "请前往「设置 → 应用」开启「自启动」与「关联启动」（不在单独应用信息内），并将耗电行为设为「完全允许后台行为」，关闭「睡眠待机优化」"
+        val oppoHint = "请在「应用详情」中点击「耗电管理」，勾选「完全允许后台行为」"
         val navigatorSource = source("src/main/java/com/decikeeper/app/manager/SettingsNavigator.kt")
 
         assertTrue(
-            "SettingsNavigator must include OPPO specific hint directing to Settings -> App -> Autostart / AssociateStart",
+            "SettingsNavigator must include OPPO specific hint directing to AppDetails -> Battery Management",
             navigatorSource.contains(oppoHint)
         )
         assertTrue(

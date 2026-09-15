@@ -63,7 +63,7 @@ object SettingsNavigator {
             isXiaomiOrRedmi() -> "请将「省电策略」设为「无限制」，并开启「自启动」"
             isVivoOrIqoo() -> "请允许「后台高耗电」，并关闭电池设置中的「睡眠待机优化」"
             isHuaweiOrHonor() -> "请将应用启动管理设为「手动管理」（允许自启动、关联启动与后台活动）"
-            isOppoOrOnePlusOrRealme() -> "请前往「设置 → 应用」开启「自启动」与「关联启动」（不在单独应用信息内），并将耗电行为设为「完全允许后台行为」，关闭「睡眠待机优化」"
+            isOppoOrOnePlusOrRealme() -> "请在「应用详情」中点击「耗电管理」，勾选「完全允许后台行为」"
             isMeizu() -> "请将待机耗电管理设为「保持运行」，并开启「自启动」"
             isSamsung() -> "请将本应用加入「未休眠应用程序」白名单"
             else -> "请允许后台高耗电/完全后台行为并忽略电池优化；若系统有夜间睡眠待机优化请将其关闭"
@@ -301,12 +301,31 @@ object SettingsNavigator {
                 candidates.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.power.ui.HwPowerManagerActivity")))
             }
             isOppoOrOnePlusOrRealme() -> {
-                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.BatteryMainActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerConsumptionActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerSaverModeActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.coloros.powermanager", "com.coloros.powermanager.fuelgaard.PowerConsumptionActivity")))
-                candidates.add(Intent().setComponent(ComponentName("com.coloros.powermanager", "com.coloros.powermanager.fuelgaard.PowerSaverModeActivity")))
+                // 用户实测证实：ColorOS 的「耗电行为控制」在「决定守护应用详情 → 耗电管理」内。
+                // 优先尝试直跳该应用的耗电管理页面；无法直达时必须直接跳决定守护应用详情页，绝不跳错到系统通用电池大厅。
+                candidates.add(Intent("com.oplus.battery.action.POWER_CONSUMPTION_DETAILS").apply {
+                    putExtra("pkg_name", context.packageName)
+                    putExtra("package_name", context.packageName)
+                    data = Uri.parse("package:${context.packageName}")
+                })
+                candidates.add(Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.batteryoptimization.BatteryOptimizationActivity")).apply {
+                    putExtra("pkg_name", context.packageName)
+                    putExtra("package_name", context.packageName)
+                    data = Uri.parse("package:${context.packageName}")
+                })
+                candidates.add(Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaard.PowerConsumptionActivity")).apply {
+                    putExtra("pkg_name", context.packageName)
+                    putExtra("package_name", context.packageName)
+                    data = Uri.parse("package:${context.packageName}")
+                })
+                candidates.add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                })
+
+                for (intent in candidates) {
+                    if (startActivitySafely(context, intent)) return true
+                }
+                return openAppDetails(context)
             }
             isVivoOrIqoo() -> {
                 candidates.add(Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.HighPowerConsumptionActivity")))
