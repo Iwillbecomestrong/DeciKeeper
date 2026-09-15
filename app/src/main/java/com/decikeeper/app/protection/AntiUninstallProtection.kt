@@ -398,32 +398,71 @@ class AntiUninstallProtection(private val context: Context) {
         /**
          * 判断当前窗口事件是否属于系统的多任务列表（Recents / Overview / Quickstep）
          */
-        internal fun isRecentsInterface(packageName: String, className: String, contentText: String? = null): Boolean {
-            if (packageName.isBlank()) return false
+        internal fun isRecentsInterface(
+            packageName: String,
+            className: String,
+            contentText: String? = null,
+            viewIds: List<String> = emptyList()
+        ): Boolean {
+            if (packageName.isBlank() && viewIds.isEmpty()) return false
             // 常见 OEM 多任务包名或桌面包名
             val isLauncherOrSysUi = isLauncherPackage(packageName) ||
                 packageName == "com.android.systemui" ||
                 packageName == "com.coloros.recents" ||
-                packageName.contains("recents", ignoreCase = true)
+                packageName == "com.vivo.upslide" ||
+                packageName.contains("recents", ignoreCase = true) ||
+                viewIds.any { it.contains("recents", ignoreCase = true) || it.contains("overview", ignoreCase = true) }
             if (!isLauncherOrSysUi) return false
 
-            // 类名特征
             val lowerClass = className.lowercase()
+
+            // 明确的桌面主页网格（Workspace）特征 -> 排除，避免误伤桌面日常滑动
+            if (lowerClass.contains("workspace") || lowerClass.endsWith(".workspace")) {
+                return false
+            }
+
+            // 类名特征 (Quickstep / Recents / Overview / Upslide)
             if (lowerClass.contains("recents") ||
                 lowerClass.contains("quickstep") ||
                 lowerClass.contains("overview") ||
                 lowerClass.contains("taskswitcher") ||
-                lowerClass.contains("recenttask")) {
+                lowerClass.contains("recenttask") ||
+                lowerClass.contains("upslide")) {
                 return true
             }
 
-            // 节点内容特征 (如果类名 generic 为 Launcher，但含有多任务专属特征)
-            if (!contentText.isNullOrBlank()) {
-                val recentsKeywords = listOf("清除全部", "全部清除", "没有最近任务", "无最近任务", "Clear all", "No recent items")
-                if (recentsKeywords.any { contentText.contains(it, ignoreCase = true) }) {
+            // 专有多任务系统包名（Vivo 上滑多任务与 OPPO 多任务）
+            if (packageName == "com.vivo.upslide" || packageName == "com.coloros.recents") {
+                return true
+            }
+
+            // 资源 ID 特征（Vivo/OPPO/Xiaomi/Pixel 等）
+            if (viewIds.isNotEmpty()) {
+                val recentsViewIdKeywords = listOf(
+                    "com.vivo.recents", "com.coloros.recents",
+                    "overview_panel", "recents_view", "task_description",
+                    "action_clean", "action_change_layout", "clear_all", "task_view"
+                )
+                if (recentsViewIdKeywords.any { kw -> viewIds.any { id -> id.contains(kw, ignoreCase = true) } }) {
                     return true
                 }
             }
+
+            // 节点内容特征 (清除、没有最近任务、卡片等多任务专有词)
+            if (!contentText.isNullOrBlank()) {
+                val recentsKeywords = listOf(
+                    "清除全部", "全部清除", "没有最近任务", "无最近任务",
+                    "Clear all", "No recent items", "清除全部-按钮", "下拉菜单", "已锁定"
+                )
+                if (recentsKeywords.any { contentText.contains(it, ignoreCase = true) }) {
+                    return true
+                }
+                // 如果是 Launcher 单 Activity 界面且检测到决定守护任务卡片
+                if (containsProtectedAppToken(contentText, "com.decikeeper.app")) {
+                    return true
+                }
+            }
+
             return false
         }
 
@@ -435,13 +474,32 @@ class AntiUninstallProtection(private val context: Context) {
             nowMs: Long,
             isRecents: Boolean,
             isNavigating: Boolean,
-            windowMs: Long = 1500L
+            windowMs: Long = 2500L
         ): Boolean {
             if (isNavigating) return false
             if (!isRecents) return false
             if (lastDeciKeeperActiveTimeMs <= 0L) return false
             val elapsed = nowMs - lastDeciKeeperActiveTimeMs
             return elapsed in 0..windowMs
+        }
+
+        private fun scanRecentsNodeFeatures(
+            node: AccessibilityNodeInfo,
+            viewIds: MutableList<String>,
+            contentTextBuilder: StringBuilder,
+            depth: Int,
+            maxDepth: Int
+        ) {
+            if (depth > maxDepth) return
+            node.viewIdResourceName?.let { viewIds.add(it) }
+            node.text?.let { contentTextBuilder.append(it).append(" ") }
+            node.contentDescription?.let { contentTextBuilder.append(it).append(" ") }
+            val count = node.childCount
+            for (i in 0 until minOf(count, 12)) {
+                val child = try { node.getChild(i) } catch (_: Exception) { null } ?: continue
+                scanRecentsNodeFeatures(child, viewIds, contentTextBuilder, depth + 1, maxDepth)
+                try { child.recycle() } catch (_: Exception) {}
+            }
         }
     }
 
@@ -472,20 +530,27 @@ class AntiUninstallProtection(private val context: Context) {
     private val PRIVATE_SPACE_SESSION_TTL_MS = 15000L
     private val PRIVATE_SPACE_ADD_APP_PAGE_TTL_MS = 6000L
     private var lastRecentsBlockAt: Long = 0L
-    private val RECENTS_BLOCK_DEBOUNCE_MS = 600L
+    private val RECENTS_BLOCK_DEBOUNCE_MS = 500L
 
-    internal fun checkAndBlockRecentsTransition(
+    fun checkAndBlockRecentsTransition(
         service: AccessibilityService,
         event: AccessibilityEvent,
-        currentPackage: String,
-        eventClassName: String,
-        root: AccessibilityNodeInfo?
+        currentPackage: String? = null,
+        eventClassName: String? = null,
+        root: AccessibilityNodeInfo? = null
     ): Boolean {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED &&
+            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
             return false
         }
-        if (!com.decikeeper.app.manager.RecentTasksHideManager.isHideEnabled(context)) {
+        val isHideEnabled = com.decikeeper.app.manager.RecentTasksHideManager.isHideEnabled(context)
+        val antiUninstallState = com.decikeeper.app.manager.AntiUninstallManager.getProtectionState(context)
+        val isAntiUninstallActive = antiUninstallState == com.decikeeper.app.manager.AntiUninstallManager.State.ACTIVE ||
+            antiUninstallState == com.decikeeper.app.manager.AntiUninstallManager.State.PENDING
+        
+        // 门禁：开启多任务卡片隐藏 或 防卸载保护处于生效期
+        if (!isHideEnabled && !isAntiUninstallActive) {
             return false
         }
         if (com.decikeeper.app.manager.RecentTasksHideManager.isNavigating()) {
@@ -495,33 +560,73 @@ class AntiUninstallProtection(private val context: Context) {
         if (now - lastRecentsBlockAt < RECENTS_BLOCK_DEBOUNCE_MS) {
             return false
         }
-        val contentText = buildString {
-            event.text?.forEach { append(it).append(" ") }
+
+        val elapsedFromDeciKeeper = now - lastDeciKeeperActiveUptimeMs
+        if (lastDeciKeeperActiveUptimeMs <= 0L || elapsedFromDeciKeeper !in 0..2500L) {
+            return false
         }
-        val isRecents = isRecentsInterface(currentPackage, eventClassName, contentText)
+
+        var pkg = currentPackage ?: event.packageName?.toString().orEmpty()
+        var cls = eventClassName ?: event.className?.toString().orEmpty()
+
+        val viewIds = mutableListOf<String>()
+        val contentTextBuilder = StringBuilder()
+
+        event.text?.forEach { contentTextBuilder.append(it).append(" ") }
+        event.contentDescription?.let { contentTextBuilder.append(it).append(" ") }
+
+        // 轻量扫描节点信息（深度 <= 3，避免卡顿）
+        val nodeToScan = root ?: try { service.rootInActiveWindow } catch (_: Exception) { null }
+        if (nodeToScan != null) {
+            if (pkg.isBlank()) {
+                pkg = nodeToScan.packageName?.toString().orEmpty()
+            }
+            if (cls.isBlank()) {
+                cls = nodeToScan.className?.toString().orEmpty()
+            }
+            scanRecentsNodeFeatures(nodeToScan, viewIds, contentTextBuilder, depth = 0, maxDepth = 3)
+            if (nodeToScan !== root) {
+                try { nodeToScan.recycle() } catch (_: Exception) {}
+            }
+        }
+
+        val contentText = contentTextBuilder.toString()
+        val isRecents = isRecentsInterface(pkg, cls, contentText, viewIds)
         if (!isRecents) return false
 
-        val shouldBlock = shouldBlockTransitionToRecents(
-            lastDeciKeeperActiveTimeMs = lastDeciKeeperActiveUptimeMs,
-            nowMs = now,
-            isRecents = true,
-            isNavigating = false
-        )
-        if (shouldBlock) {
-            lastRecentsBlockAt = now
-            Log.w(TAG, "[RecentsBlock] Blocked transition from DeciKeeper to Recents ($currentPackage/$eventClassName). Dispatching GLOBAL_ACTION_BACK!")
-            LogExporter.logEvent(TAG, "[RecentsBlock] Blocked Recents from DeciKeeper")
-            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Secondary BACK failed", e)
+        lastRecentsBlockAt = now
+        Log.w(TAG, "🚀 [RecentsBlock] Blocked transition from DeciKeeper to Recents ($pkg/$cls). Dispatching GLOBAL_ACTION_BACK!")
+        LogExporter.logEvent(TAG, "[RecentsBlock] Blocked Recents from DeciKeeper ($pkg/$cls)")
+
+        // 1. 毫秒级触发撤回（BACK）
+        service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+
+        // 2. 延时 150ms 再次发送 BACK（避免全面屏手势动画过渡期间输入丢失）
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+            } catch (e: Exception) {
+                Log.w(TAG, "Secondary BACK failed", e)
+            }
+        }, 150L)
+
+        // 3. 延时 300ms 兜底：若仍在多任务/桌面，将 MainActivity 重新带回前台
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                val intent = android.content.Intent(context, com.decikeeper.app.ui.MainActivity::class.java).apply {
+                    addFlags(
+                        android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                        android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                        android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    )
                 }
-            }, 200L)
-            return true
-        }
-        return false
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                Log.w(TAG, "Reorder MainActivity to front fallback failed", e)
+            }
+        }, 300L)
+
+        return true
     }
 
     fun check(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo) {

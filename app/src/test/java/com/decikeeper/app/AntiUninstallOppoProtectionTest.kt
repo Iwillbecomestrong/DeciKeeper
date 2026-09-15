@@ -104,6 +104,8 @@ class AntiUninstallOppoProtectionTest {
         assertTrue("OPPO 专用多任务界面必须识别", AntiUninstallProtection.isRecentsInterface("com.coloros.recents", "com.coloros.recents.RecentsActivity"))
         assertTrue("MIUI 多任务必须识别", AntiUninstallProtection.isRecentsInterface("com.miui.home", "com.miui.home.recents.RecentsActivity"))
         assertTrue("多任务特征文案（清除全部）必须识别", AntiUninstallProtection.isRecentsInterface("com.android.launcher", "com.android.launcher.Launcher", "清除全部 决定守护"))
+        assertTrue("Vivo OriginOS 多任务特征资源ID必须识别", AntiUninstallProtection.isRecentsInterface("com.bbk.launcher2", "com.bbk.launcher2.Launcher", viewIds = listOf("com.vivo.recents:id/overview_panel2")))
+        assertTrue("Vivo 单 Activity 多任务描述必须识别", AntiUninstallProtection.isRecentsInterface("com.bbk.launcher2", "com.bbk.launcher2.Launcher", "决定守护已锁定-下拉菜单 清除全部-按钮"))
 
         assertFalse("普通微信界面不能误判为多任务", AntiUninstallProtection.isRecentsInterface("com.tencent.mm", "com.tencent.mm.ui.LauncherUI"))
         assertFalse("桌面普通主页不能误判为多任务", AntiUninstallProtection.isRecentsInterface("com.android.launcher", "com.android.launcher.Workspace"))
