@@ -30,21 +30,11 @@ class RecentTasksHideManagerTest {
         RecentTasksHideManager.unregister()
     }
 
-    @Test fun 默认false() {
-        // prefs 刚清空后 isHideEnabled 必须 false
+    @Test fun 隐藏功能已下线始终为false() {
         assertFalse(RecentTasksHideManager.isHideEnabled(context))
-    }
-
-    @Test fun setHideEnabledTrue可读出() {
         RecentTasksHideManager.setHideEnabled(context, true)
-        val prefs = context.getSharedPreferences("recent_tasks_hide_prefs", Context.MODE_PRIVATE)
-        assertTrue(prefs.getBoolean("hide_in_recent_tasks_enabled", false))
-        assertTrue(RecentTasksHideManager.isHideEnabled(context))
-    }
-
-    @Test fun setHideEnabledFalse可读出() {
-        RecentTasksHideManager.setHideEnabled(context, true)  // 先 true
-        RecentTasksHideManager.setHideEnabled(context, false) // 后 false
+        assertFalse(RecentTasksHideManager.isHideEnabled(context))
+        RecentTasksHideManager.setHideEnabled(context, false)
         assertFalse(RecentTasksHideManager.isHideEnabled(context))
     }
 
@@ -60,31 +50,16 @@ class RecentTasksHideManagerTest {
         RecentTasksHideManager.register(context)  // 再挂不应抛
     }
 
-    @Test fun 默认开关关闭且非导航时不应抹除() {
-        RecentTasksHideManager.setHideEnabled(context, false)
+    @Test fun 用户切离恒定不应抹除() {
+        RecentTasksHideManager.setHideEnabled(context, true)
         RecentTasksHideManager.clearNavigating()
         assertFalse(RecentTasksHideManager.shouldDismissOnUserLeave(context))
     }
 
-    @Test fun 开关开启且非导航时应当抹除() {
-        RecentTasksHideManager.setHideEnabled(context, true)
-        RecentTasksHideManager.clearNavigating()
-        assertTrue(RecentTasksHideManager.shouldDismissOnUserLeave(context))
-    }
-
-    @Test fun 开关开启但处于导航状态时受到保护不抹除() {
-        RecentTasksHideManager.setHideEnabled(context, true)
-        RecentTasksHideManager.markNavigating()
-        assertTrue(RecentTasksHideManager.isNavigating())
-        assertFalse(RecentTasksHideManager.shouldDismissOnUserLeave(context))
-    }
-
-    @Test fun clearNavigating后恢复允许抹除() {
-        RecentTasksHideManager.setHideEnabled(context, true)
+    @Test fun 导航状态跟踪正常() {
         RecentTasksHideManager.markNavigating()
         assertTrue(RecentTasksHideManager.isNavigating())
         RecentTasksHideManager.clearNavigating()
         assertFalse(RecentTasksHideManager.isNavigating())
-        assertTrue(RecentTasksHideManager.shouldDismissOnUserLeave(context))
     }
 }

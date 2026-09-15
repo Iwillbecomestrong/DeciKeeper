@@ -199,20 +199,4 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
     }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (RecentTasksHideManager.shouldDismissOnUserLeave(this)) {
-            finishAndRemoveTask()
-        }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        RecentTasksHideManager.markNavigating()
-        super.onBackPressed()
-        if (RecentTasksHideManager.isHideEnabled(this)) {
-            finishAndRemoveTask()
-        }
-    }
 }

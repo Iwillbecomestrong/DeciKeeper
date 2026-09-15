@@ -91,19 +91,15 @@ class RulesSettingsUiContractTest {
     }
 
     @Test
-    fun recentTaskAndExportLogAreSeparateCards() {
+    fun recentTasksHideCardIsRemovedAndExportLogRemains() {
         val xml = source("app/src/main/res/layout/fragment_rules.xml")
-        val recentIndex = xml.indexOf("btn_hide_in_recent_tasks_help")
-        val logIndex = xml.indexOf("btn_quick_send_logs")
-        assertTrue(recentIndex >= 0 && logIndex >= 0)
-        val recentCardStart = xml.lastIndexOf("<androidx.cardview.widget.CardView", recentIndex)
-        val recentCardEnd = xml.indexOf("</androidx.cardview.widget.CardView>", recentIndex)
-        assertTrue(logIndex > recentCardEnd)
-        assertTrue(xml.lastIndexOf("<androidx.cardview.widget.CardView", logIndex) > recentCardStart)
+        assertFalse(xml.contains("btn_hide_in_recent_tasks_help"))
+        assertFalse(xml.contains("switch_hide_in_recent_tasks"))
+        assertTrue(xml.contains("btn_quick_send_logs"))
     }
 
     @Test
-    fun accessibilityGuideDoesNotOwnBackgroundBatteryRow() {
+    fun accessibilityGuideDoesNotOwnBackgroundBatteryRowNorRecentTasksHide() {
         val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
         val start = source.indexOf("private fun showAccessibilityServiceGuideDialog()")
         val end = source.indexOf("private fun setupAlarmPowerOffProtectionSwitch", start)
@@ -111,6 +107,9 @@ class RulesSettingsUiContractTest {
 
         assertFalse(guide.contains("btnBgBattery"))
         assertFalse(guide.contains("后台耗电"))
+        assertFalse(guide.contains("hideRecentsOk"))
+        assertFalse(guide.contains("rowHideRecents"))
+        assertFalse(guide.contains("隐藏多任务卡片"))
         assertTrue(guide.contains("ASSOC_START_CONFIRMED_KEY"))
     }
 

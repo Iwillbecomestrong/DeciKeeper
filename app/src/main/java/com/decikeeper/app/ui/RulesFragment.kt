@@ -219,8 +219,6 @@ class RulesFragment : Fragment() {
     private var switchAccessibilityService: Switch? = null
     private var switchAlarmPowerOffProtection: Switch? = null
     private var tvAlarmPowerOffProtectionStatus: TextView? = null
-    private var switchHideInRecentTasks: Switch? = null
-    private var switchHideInRecentTasksUiUpdating = false
     private var switchFloatingGuard: Switch? = null
     private var switchFloatingGuardUiUpdating = false
     private var switchPrivacySpaceGuard: Switch? = null
@@ -293,7 +291,6 @@ class RulesFragment : Fragment() {
         updatePrivacySpaceGuardUI()
         updateUninstallAndPermProtectionUI()
         alarmPrerequisiteDialogRefresh?.invoke()
-        updateHideInRecentTasksUI()
         updateFloatingGuardUI()
 
         // Loop check for anti-uninstall status
@@ -323,7 +320,6 @@ class RulesFragment : Fragment() {
 
         tvAccessibilityStatus = view.findViewById(R.id.tv_accessibility_status_main)
         switchAccessibilityService = view.findViewById(R.id.switch_accessibility_service)
-        switchHideInRecentTasks = view.findViewById(R.id.switch_hide_in_recent_tasks)
         switchFloatingGuard = view.findViewById(R.id.switch_floating_guard)
         btnQuickSendLogs = view.findViewById(R.id.btn_quick_send_logs)
         btnExportSettings = view.findViewById(R.id.btn_export_settings)
@@ -338,19 +334,7 @@ class RulesFragment : Fragment() {
         switchPrivacySpaceGuard?.let { setupPrivacySpaceGuardSwitch(it) }
         switchUninstallAndPermProtection?.let { setupUninstallAndPermProtectionSwitch(it) }
 
-        switchHideInRecentTasks?.let { setupHideInRecentTasksSwitch(it) }
         switchFloatingGuard?.let { setupFloatingGuardSwitch(it) }
-
-        view.findViewById<View>(R.id.btn_hide_in_recent_tasks_help)?.setOnClickListener {
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("隐藏决定守护在多任务界面")
-                .setMessage(
-                    "• 开启：应用内切多任务自动阻断，切离自动抹除卡片，多任务列表物理隐藏，彻底避免误划杀后台；\n\n" +
-                    "• 关闭：多任务列表正常显示卡片，方便您在多任务界面下拉或在菜单中给卡片【加锁】。"
-                )
-                .setPositiveButton("知道了", null)
-                .show()
-        }
 
         view.findViewById<View>(R.id.btn_floating_guard_help)?.setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(requireContext())
@@ -1152,7 +1136,6 @@ class RulesFragment : Fragment() {
             val assocStartReady = !isChineseRom || isAssocStartPermissionSatisfied(ctx)
             val baseOk = permState.allGranted
             val assocStartConfirmed = prefs.getBoolean(ASSOC_START_CONFIRMED_KEY, false)
-            val hideRecentsOk = RecentTasksHideManager.isHideEnabled(ctx)
 
             tvMessage.text = buildString {
                 append("开启无障碍服务后，可启用以下保护功能：\n")
@@ -1166,10 +1149,7 @@ class RulesFragment : Fragment() {
                 if (!assocStartReady && !assocStartConfirmed) {
                     append("关联启动未开启（非国产ROM可忽略）\n")
                 }
-                if (!hideRecentsOk) {
-                    append("隐藏多任务卡片未开启（防划杀推荐，避免无障碍掉线）\n")
-                }
-                if (baseOk && (assocStartReady || assocStartConfirmed) && hideRecentsOk) {
+                if (baseOk && (assocStartReady || assocStartConfirmed)) {
                     append("\n所有前置条件已齐全，可开启无障碍。")
                 }
             }
@@ -1191,12 +1171,11 @@ class RulesFragment : Fragment() {
                 btnAssocStart.alpha = if (assocStartReady) 0.6f else 1.0f
             }
 
-            val allReady = baseOk && (assocStartReady || assocStartConfirmed) && hideRecentsOk
+            val allReady = baseOk && (assocStartReady || assocStartConfirmed)
             btnEnable.isEnabled = allReady
             btnEnable.text = when {
                 !baseOk -> "请先补齐基础权限"
                 !assocStartReady && !assocStartConfirmed -> "请先开启关联启动"
-                !hideRecentsOk -> "请开启隐藏多任务卡片"
                 else -> "开启无障碍"
             }
         }
@@ -1274,37 +1253,12 @@ class RulesFragment : Fragment() {
         rowAssocStart.addView(btnAssocStart, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         rowAssocStart.addView(cbAssocStart!!)
 
-        // 隐藏多任务卡片（防划杀保活 Switch 开关）
-        val rowHideRecents = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, (6 * density).toInt(), 0, (10 * density).toInt())
-        }
-        val tvHideRecents = TextView(ctx).apply {
-            text = "隐藏多任务卡片\n(防划杀推荐，开启后多任务界面隐身)"
-            textSize = 13f
-            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
-        }
-        val switchHideRecents = androidx.appcompat.widget.SwitchCompat(ctx).apply {
-            isChecked = RecentTasksHideManager.isHideEnabled(ctx)
-            setOnCheckedChangeListener { _, isChecked ->
-                RecentTasksHideManager.setHideEnabled(ctx, isChecked)
-                switchHideInRecentTasksUiUpdating = true
-                switchHideInRecentTasks?.isChecked = isChecked
-                switchHideInRecentTasksUiUpdating = false
-                updateDialogUi()
-            }
-        }
-        rowHideRecents.addView(tvHideRecents, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        rowHideRecents.addView(switchHideRecents)
-
         dialog = AlertDialog.Builder(ctx)
             .setView(container)
             .create()
 
         buttonContainer.addView(btnBase)
         buttonContainer.addView(rowAssocStart)
-        buttonContainer.addView(rowHideRecents)
         buttonContainer.addView(btnEnable)
 
         container.addView(buttonContainer)
@@ -2244,35 +2198,6 @@ class RulesFragment : Fragment() {
         tvAlarmPowerOffProtectionStatus?.setTextColor(
             ThemeManager.getColorAttr(context, if (enabled) R.attr.zzSuccess else R.attr.zzMuted)
         )
-    }
-
-    /**
-     * 最近任务隐藏 (TASK-04): 仅写 RecentTasksHideManager,不直读 prefs;
-     * listener guard 防初始化时同步触发写回 prefs 死循环.
-     */
-    private fun setupHideInRecentTasksSwitch(switchView: Switch) {
-        val context = requireContext()
-        switchHideInRecentTasksUiUpdating = true
-        switchView.isChecked = RecentTasksHideManager.isHideEnabled(context)
-        switchHideInRecentTasksUiUpdating = false
-
-        switchView.setOnCheckedChangeListener { _, isChecked ->
-            if (switchHideInRecentTasksUiUpdating) return@setOnCheckedChangeListener
-            RecentTasksHideManager.setHideEnabled(context, isChecked)
-            val msg = if (isChecked) "已开启多任务卡片隐身。离开或切多任务时自动抹除卡片，彻底避免被划掉！"
-            else "已关闭多任务卡片隐身。多任务界面将正常显示卡片，方便您下拉加锁。"
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun updateHideInRecentTasksUI() {
-        if (!isAdded) return
-        switchHideInRecentTasksUiUpdating = true
-        try {
-            switchHideInRecentTasks?.isChecked = RecentTasksHideManager.isHideEnabled(requireContext())
-        } finally {
-            switchHideInRecentTasksUiUpdating = false
-        }
     }
 
     private fun setupFloatingGuardSwitch(switchView: Switch) {
