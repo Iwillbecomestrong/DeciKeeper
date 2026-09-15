@@ -40,6 +40,8 @@
     <string name="settings_help_privacy_message">部分设备存在独立空间（如原子隐私系统、隐私空间）的添加应用入口，可能让保护链失效。此项针对已适配机型提供兼容性拦截。关闭需次日生效。</string>
     <string name="settings_help_uninstall_and_perm_title">防卸载与防关权限保护说明</string>
     <string name="settings_help_uninstall_and_perm_message">用于降低冲动状态下从系统设置中直接卸载决定守护、强行停止服务或关闭关键权限的可能。开启后将拦截进入系统应用管理与权限管理页面。关闭需次日生效。</string>
+    <string name="settings_help_device_admin_title">设备管理器防卸载锁说明</string>
+    <string name="settings_help_device_admin_message">适用 OPPO (ColorOS) 等原生支持设备管理器的机型。激活后系统桌面将从内核层屏蔽长按卸载选项，彻底防止在桌面被拖动卸载。（在 Vivo 机型上本功能会自动隐去，以无障碍防卸载代替）。</string>
 
     <!-- Lock Penalty Dialog -->
     <string name="penalty_dialog_title">决定守护强制干预</string>

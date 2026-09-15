@@ -101,7 +101,7 @@ object SettingsNavigator {
      */
     fun getAutostartLabel(): String {
         return when {
-            isOppoOrOnePlusOrRealme() -> "自启动与关联启动"
+            isOppoOrOnePlusOrRealme() -> "自启动"
             else -> "自启动权限"
         }
     }

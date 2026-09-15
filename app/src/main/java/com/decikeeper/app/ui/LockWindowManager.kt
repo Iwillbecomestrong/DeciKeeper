@@ -6493,6 +6493,7 @@ object LockWindowManager {
      * 调用时机：必须在 dialog.show() 之后
      */
     private fun AlertDialog.applyEscapeDisciplineColors() {
+        window?.setBackgroundDrawableResource(R.drawable.bg_zz_card)
         getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(0xFF1976D2.toInt())
         getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(0xFFFF7043.toInt())
     }

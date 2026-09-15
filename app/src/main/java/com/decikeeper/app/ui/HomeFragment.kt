@@ -313,6 +313,7 @@ class HomeFragment : Fragment() {
     private var tvProtectionStatus: TextView? = null
     
     // Dashboard Controls
+    private var tvHomeRefreshTimeBadge: TextView? = null
     private var tvCurrentSegmentRange: TextView? = null
     private var tvStatTimeBig: TextView? = null
     private var tvStatTimeDetail: TextView? = null
@@ -427,16 +428,23 @@ class HomeFragment : Fragment() {
         syncDetectedManualPermissionsOnResume()
         updateQuotaDisplay()
         updateProtectionStatus()
+        updateRefreshTimeBadge()
         startUiCountdown()
         updateAdaptationCardVisibility()
         updateSetupGuide() // 🚀 [NEW]
         // 🚀 [优化] 用户从设置页返回后自动识别并标记已处理权限
         processPendingPermissionAutoMark()
 
-        // 🚀 [实时刷新] 若当前正在展示权限设置弹窗，立即刷新弹窗内的各项权限开启状态
+        // 🚀 [实时刷新] 若当前正在展示权限设置弹窗，控制弹窗内的各项权限开启状态
         if (activeProtectionDialog?.isShowing == true) {
             refreshProtectionDialogContent?.invoke()
         }
+    }
+
+    private fun updateRefreshTimeBadge() {
+        val context = context ?: return
+        val refreshTime = TimeRuleManager.getRefreshTime(context)
+        tvHomeRefreshTimeBadge?.text = "🕒 每日生效时刻: $refreshTime"
     }
 
     override fun onPause() {
@@ -483,6 +491,7 @@ class HomeFragment : Fragment() {
         tvProtectionStatus = view.findViewById(R.id.tv_protection_status)
         
         // Dashboard Views
+        tvHomeRefreshTimeBadge = view.findViewById(R.id.tv_home_refresh_time_badge)
         tvCurrentSegmentRange = view.findViewById(R.id.tv_current_segment_range)
         tvStatTimeBig = view.findViewById(R.id.tv_stat_time_big)
         tvStatTimeDetail = view.findViewById(R.id.tv_stat_time_detail)
@@ -887,6 +896,7 @@ class HomeFragment : Fragment() {
         val currentSeg = TimeRuleManager.getCurrentSegment(ctx)
         val now = System.currentTimeMillis()
 
+        updateRefreshTimeBadge()
         updateWeeklyPrivilegeEntryDisplay()
         updateTodayAlarmDisplay()
 
@@ -1918,7 +1928,7 @@ class HomeFragment : Fragment() {
                 name = autostartLabel,
                 key = "auto_start_confirmed",
                 hint = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
-                    "请在设置中开启「自启动 / 开机启动」"
+                    "请在系统「设置 ➔ 应用 ➔ 自启动」中开启"
                 } else {
                     "请在设置中开启「自启动」开关"
                 },

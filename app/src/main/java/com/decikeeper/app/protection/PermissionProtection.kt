@@ -20,6 +20,8 @@ package com.decikeeper.app.protection
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -43,36 +45,46 @@ class PermissionProtection(private val context: Context) {
             "com.google.android.permissioncontroller",
             "com.vivo.permissionmanager",
             "com.vivo.imanager",
+            "com.vivo.safecenter",
             "com.vivo.abe",
             "com.iqoo.secure",
             "com.miui.securitycenter",
             "com.huawei.systemmanager",
+            "com.hihonor.systemmanager",
             "com.coloros.safecenter",
             "com.oplus.safecenter",
+            "com.coloros.phonemanager",
+            "com.oplus.phonemanager",
+            "com.coloros.securitypermission",
+            "com.oplus.securitypermission",
+            "com.coloros.appmanager",
+            "com.oplus.appdetail",
             "com.samsung.android.sm",
+            "com.samsung.android.sm_cn",
             "com.oneplus.security"
         )
 
         // Safe context keywords — skip if page is search history, not permission management
         private val SAFE_SEARCH_KEYWORDS = listOf(
-            "最近搜索", "搜索历史", "历史记录", "清除历史", "Search history", "清除",
-            "最近搜尋", "搜尋紀錄", "歷史記錄", "清除紀錄",
-            "搜索", "Search", "搜尋"
+            "最近搜索", "搜索历史", "历史记录", "清除历史", "Search history", "清除历史记录",
+            "最近搜尋", "搜尋紀錄", "歷史記錄", "清除紀錄"
         )
         
-        // 🌐 [Multi-Language] Combined Permission Keywords
+        // 🌐 [Multi-Language] Combined Permission Keywords (Overlay, Autostart, Associated Launch, Usage Access etc.)
         val PERMISSION_KEYWORDS = setOf(
             // SC - 悬浮窗/Overlay
             "悬浮窗", "悬浮窗权限", "悬浮窗管理", "允许悬浮窗", "显示在其他应用上层", "在其他应用上层显示",
-            // SC - 其他权限（含 vivo/oppo 专属）
-            "应用使用情况", "使用情况访问", "自启动", "后台启动", "关联启动", "关联唤醒", "后台高耗电", "允许后台高耗电", "电池优化", "省电策略", "单项权限", "应用权限",
+            // SC - 自启动/关联启动/其他权限（含 vivo/oppo/xiaomi 专属）
+            "应用使用情况", "使用情况访问", "自启动", "自动启动", "后台自启", "后台启动", "关联启动", "应用关联启动", "关联唤醒", "后台高耗电", "允许后台高耗电", "电池优化", "省电策略", "单项权限", "应用权限",
+            "后台弹窗", "累计后台弹窗", "近7日后台弹窗记录", "管控",
             // TC - 悬浮窗/Overlay
             "懸浮視窗", "懸浮窗權限", "懸浮窗管理", "允許懸浮窗", "顯示在其他應用上層", "顯示在其他應用程式上層",
-            // TC - 其他权限
+            // TC - 自启动/关联启动/其他权限
             "應用程式使用情況", "使用狀況存取權", "自動啟動", "背景啟動", "關聯啟動", "關聯喚醒", "背景高耗電", "允許背景高耗電", "電池優化", "省電策略", "單項權限", "應用程式權限",
+            "背景彈窗", "累計背景彈窗", "近7日背景彈窗記錄", "管控",
             // EN - Overlay
             "Display over other apps", "Appear on top", "Draw over", "Overlay",
-            // EN - Other permissions
+            // EN - Autostart & Permissions
             "Usage access", "Usage data access",
             "Autostart", "Auto-start", "Background start", "Start in background", "Associated start", "Associated startup", "Battery optimization", "Battery saver",
             // JP (Partial)
@@ -111,13 +123,24 @@ class PermissionProtection(private val context: Context) {
         val eventClassName = event.className?.toString() ?: ""
 
         // 🚀 [Class-Based Detection] Check FIRST — known permission page classes like
-        // FloatWindowManagerActivity, PurviewActivity (vivo), SoftPermissionDetailActivity always manage permissions
+        // FloatWindowManagerActivity, PurviewActivity (vivo), SoftPermissionDetailActivity, AutoStartManagementActivity always manage permissions
         val isPermissionPageClass = eventClassName.contains("FloatWindow", ignoreCase = true) ||
                                     eventClassName.contains("SoftPermission", ignoreCase = true) ||
                                     eventClassName.contains("Permission", ignoreCase = true) ||
                                     eventClassName.contains("Overlay", ignoreCase = true) ||
                                     eventClassName.contains("Purview", ignoreCase = true) ||
                                     eventClassName.contains("BgStartUp", ignoreCase = true) ||
+                                    eventClassName.contains("AutoStart", ignoreCase = true) ||
+                                    eventClassName.contains("AutoRun", ignoreCase = true) ||
+                                    eventClassName.contains("AssociatedStart", ignoreCase = true) ||
+                                    eventClassName.contains("Startup", ignoreCase = true) ||
+                                    eventClassName.contains("PopUp", ignoreCase = true) ||
+                                    eventClassName.contains("PopWindow", ignoreCase = true) ||
+                                    eventClassName.contains("BackgroundPop", ignoreCase = true) ||
+                                    eventClassName.contains("BackgroundRecord", ignoreCase = true) ||
+                                    eventClassName.contains("AppForbidden", ignoreCase = true) ||
+                                    eventClassName.contains("Forbidden", ignoreCase = true) ||
+                                    eventClassName.contains("SafeCenter", ignoreCase = true) ||
                                     eventClassName.contains("SoftList", ignoreCase = true)
 
         // 🚀 [Quick Path] Check event.text for app identity first — skip full tree scan if found
@@ -161,9 +184,9 @@ class PermissionProtection(private val context: Context) {
         val hasPermissionKeyword = PERMISSION_KEYWORDS.any { content.contains(it, ignoreCase = true) }
 
         if (hasPermissionKeyword || isPermissionPageClass) {
-            // 🚫 [Safe Context] Only skip for unknown page types — known permission page
-            // classes (FloatWindow/SoftPermission/Permission/Overlay) are NEVER safe to skip
-            if (!isPermissionPageClass && SAFE_SEARCH_KEYWORDS.any { content.contains(it, ignoreCase = true) }) {
+            // 🚫 [Safe Context] Only skip for search history pages — explicit permission keyword matches
+            // or permission page classes are NEVER safe to skip for a generic "search" string in top search bar
+            if (!hasPermissionKeyword && !isPermissionPageClass && SAFE_SEARCH_KEYWORDS.any { content.contains(it, ignoreCase = true) }) {
                 Log.v(TAG, "[Skip] Search history context detected, not a permission page")
                 return
             }
@@ -179,6 +202,11 @@ class PermissionProtection(private val context: Context) {
 
         service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
         service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+            } catch (_: Exception) {}
+        }, 100L)
         if (!WARNING_DIALOG_ENABLED) {
             com.decikeeper.app.data.LogExporter.logEvent(TAG, "[Dialog] Suppressed: permission warning popup disabled")
         }

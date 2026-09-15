@@ -21,8 +21,10 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.content.res.ColorStateList
 import androidx.core.app.NotificationCompat
 import com.decikeeper.app.R
+import com.decikeeper.app.ui.ThemeManager
 import com.decikeeper.app.manager.AlarmChallengeEmergencyWhitelist
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmWindowManager
@@ -252,16 +254,20 @@ class AlarmChallengeEmergencyGuardService : Service() {
                 row.addView(Button(uiContext).apply {
                     text = label
                     isAllCaps = false
+                    setBackgroundResource(R.drawable.bg_zz_pill)
+                    backgroundTintList = ColorStateList.valueOf(ThemeManager.getColorAttr(uiContext, R.attr.zzSurfaceStrong))
+                    setTextColor(ThemeManager.getColorAttr(uiContext, R.attr.zzText))
+                    textSize = 13f
                     try {
                         val icon = packageManager.getApplicationIcon(pkg)
-                        val size = (22 * density).toInt()
+                        val size = (20 * density).toInt()
                         icon.setBounds(0, 0, size, size)
                         setCompoundDrawables(icon, null, null, null)
                         compoundDrawablePadding = (6 * density).toInt()
                     } catch (_: Exception) {
                     }
                     setOnClickListener { beginEmergencyAccess(pkg) }
-                }, LinearLayout.LayoutParams(0, (48 * density).toInt(), 1f).apply {
+                }, LinearLayout.LayoutParams(0, (46 * density).toInt(), 1f).apply {
                     marginStart = (4 * density).toInt()
                     marginEnd = (4 * density).toInt()
                 })

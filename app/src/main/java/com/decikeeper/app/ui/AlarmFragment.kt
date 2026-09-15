@@ -27,6 +27,7 @@ import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.graphics.Typeface
 import android.media.RingtoneManager
+import com.decikeeper.app.manager.AlarmRingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -90,6 +91,19 @@ class AlarmFragment : Fragment() {
         override fun run() {
             refreshChallengeButtonsIfNeeded()
             activeAlarmRefreshHandler.postDelayed(this, 1000L)
+        }
+    }
+
+    private var onRingtonePickedCallback: ((uri: String?, title: String) -> Unit)? = null
+    private val ringtonePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val uri = result.data?.getStringExtra(AlarmRingtonePickerActivity.EXTRA_SELECTED_RINGTONE_URI)
+            val title = result.data?.getStringExtra(AlarmRingtonePickerActivity.EXTRA_SELECTED_RINGTONE_TITLE)
+                ?: AlarmRingtoneManager.getRingtoneTitle(requireContext(), uri)
+            pendingRingtoneUri = uri
+            onRingtonePickedCallback?.invoke(uri, title)
         }
     }
 
@@ -968,6 +982,23 @@ class AlarmFragment : Fragment() {
         editRgRingMode.addView(editRbVibRing); editRgRingMode.addView(editRbVibOnly); editRgRingMode.addView(editRbRingOnly)
         editRingtoneContainer.addView(editRgRingMode)
 
+        var editAlarmRingtoneUri = existing?.ringtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(requireContext())
+        val btnEditPickRingtone = Button(requireContext()).apply {
+            val title = AlarmRingtoneManager.getRingtoneTitle(requireContext(), editAlarmRingtoneUri)
+            text = "提示音: $title"
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
+            setOnClickListener {
+                onRingtonePickedCallback = { uri, newTitle ->
+                    editAlarmRingtoneUri = uri
+                    text = "提示音: $newTitle"
+                }
+                val intent = AlarmRingtonePickerActivity.createIntent(requireContext(), editAlarmRingtoneUri)
+                ringtonePickerLauncher.launch(intent)
+            }
+        }
+        editRingtoneContainer.addView(btnEditPickRingtone)
+
         // 模式（渐进/固定）
         val editRgVibMode = RadioGroup(requireContext()).apply { orientation = RadioGroup.HORIZONTAL }
         val editRbVibProg = RadioButton(requireContext()).apply { text = "渐进"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
@@ -1216,6 +1247,7 @@ class AlarmFragment : Fragment() {
             .setNegativeButton("取消", null)
             .create()
 
+        editDialog.window?.setBackgroundDrawableResource(R.drawable.bg_zz_card)
         editDialog.show()
 
         editDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -1324,7 +1356,7 @@ class AlarmFragment : Fragment() {
                     vibrationIntensity, vibrationMode, unlockMode,
                     s1Types, s2Types,
                     stageCooldownSeconds = stageCooldownSec,
-                    ringtoneUri = AlarmScheduler.getDefaultRingtoneUri(requireContext()),
+                    ringtoneUri = editAlarmRingtoneUri,
                     alarmMode = editAlarmModeVal,
                     ringVolume = ringVolume,
                     progressiveMaxIntensity = 10,
@@ -1348,6 +1380,7 @@ class AlarmFragment : Fragment() {
                     unlockMode = unlockMode,
                     stage1Types = s1Types, stage2Types = s2Types,
                     stageCooldownSeconds = stageCooldownSec,
+                    ringtoneUri = editAlarmRingtoneUri,
                     alarmMode = editAlarmModeVal,
                     ringVolume = ringVolume,
                     progressiveMaxIntensity = 10,
@@ -1470,17 +1503,18 @@ class AlarmFragment : Fragment() {
 
         val btnPickRingtone = Button(ctx).apply {
             var curUri = AlarmScheduler.getDefaultRingtoneUri(ctx)
-            text = if (curUri != null) "已选自定义铃声" else "选择铃声（默认系统闹钟）"
+            val initialTitle = AlarmRingtoneManager.getRingtoneTitle(ctx, curUri)
+            text = "提示音: $initialTitle"
             textSize = 12f
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
             setOnClickListener {
-                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                    curUri?.let { putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it)) }
+                onRingtonePickedCallback = { uri, newTitle ->
+                    curUri = uri
+                    pendingRingtoneUri = uri
+                    text = "提示音: $newTitle"
                 }
-                startActivityForResult(intent, REQUEST_PICK_RINGTONE)
+                val intent = AlarmRingtonePickerActivity.createIntent(ctx, curUri)
+                ringtonePickerLauncher.launch(intent)
             }
         }
         testRingtoneContainer.addView(btnPickRingtone)
@@ -1575,17 +1609,13 @@ class AlarmFragment : Fragment() {
         updateStage2Visibility()
 
         val testDialog = AlertDialog.Builder(ctx)
-            .setTitle("默认闹钟配置与测试")
             .setView(dialogView)
-            .setPositiveButton("开始测试", null)
-            .setNeutralButton("保存为默认设置", null)
-            .setNegativeButton("退出", null)
             .create()
 
+        testDialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         testDialog.show()
 
-        // 点击「保存为默认设置」
-        testDialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+        fun doSaveDefaultSettings() {
             val snoozeMin = etSnoozeMinutes?.text.toString().toIntOrNull() ?: 10
             if (snoozeMin > 0) AlarmScheduler.setSnoozeMinutes(ctx, snoozeMin)
             val snoozeMax = etSnoozeMaxCount?.text.toString().toIntOrNull() ?: 2
@@ -1665,24 +1695,29 @@ class AlarmFragment : Fragment() {
             AlarmScheduler.setDefaultVibrationMode(ctx, defVibMode)
 
             refreshSettingsSummaries()
+        }
+
+        // 绑定底部三按钮：从左到右依次为 退出、保存、保存并测试
+        dialogView.findViewById<Button>(R.id.btn_test_dialog_exit)?.setOnClickListener {
+            testDialog.dismiss()
+        }
+
+        dialogView.findViewById<Button>(R.id.btn_test_dialog_save)?.setOnClickListener {
+            doSaveDefaultSettings()
             Toast.makeText(ctx, "默认设置已保存", Toast.LENGTH_SHORT).show()
             testDialog.dismiss()
         }
 
-        // 点击「开始测试」
-        testDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+        dialogView.findViewById<Button>(R.id.btn_test_dialog_save_and_test)?.setOnClickListener {
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
 
             val hasCameraNow = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
             val bankCounts = getTestCustomBankCounts()
-            for ((bId, count) in bankCounts) {
-                AlarmScheduler.setBankDefaultCount(ctx, bId, count)
-            }
-            val testCustomPerBank = (bankCounts.values).maxOrNull() ?: 3
+            val defCustomCount = (bankCounts.values).maxOrNull() ?: 3
             val testS1BankIds = testS1Result.getSelectedBankIds()
             val testS2BankIds = if (isTwoStage) testS2Result.getSelectedBankIds() else testS1BankIds
-            val testS1Banks = testS1BankIds.associateWith { bankCounts[it] ?: testCustomPerBank }
-            val testS2Banks = testS2BankIds.associateWith { bankCounts[it] ?: testCustomPerBank }
+            val testS1Banks = testS1BankIds.associateWith { bankCounts[it] ?: defCustomCount }
+            val testS2Banks = testS2BankIds.associateWith { bankCounts[it] ?: defCustomCount }
 
             val s1Types = mutableSetOf<String>()
             if (cbS1Qr.isChecked && hasCameraNow) s1Types.add("qr")
@@ -1721,6 +1756,9 @@ class AlarmFragment : Fragment() {
                 }
             }
 
+            // 保存并测试：首先保存默认设置
+            doSaveDefaultSettings()
+
             val useQr = "qr" in s1Types
             val useMath = "math" in s1Types
             val usePoem = "poem" in s1Types
@@ -1733,7 +1771,7 @@ class AlarmFragment : Fragment() {
             val wordCount = etWordCount.text.toString().toIntOrNull() ?: 1
             val clozeCount = etClozeCount?.text.toString().toIntOrNull() ?: 3
             val testCustomSum = testS1Banks.values.sum() + testS2Banks.values.sum()
-            val customCount = if (testCustomSum > 0) testCustomSum else testCustomPerBank
+            val customCount = if (testCustomSum > 0) testCustomSum else defCustomCount
             val isProgressive = testRgVibMode.checkedRadioButtonId != testRbVibFixed.id
             val intensity = if (isProgressive) 1 else testSbVib.progress + 1
             val vibrationMode = if (testRgVibMode.checkedRadioButtonId == testRbVibFixed.id)

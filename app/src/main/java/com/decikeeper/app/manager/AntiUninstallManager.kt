@@ -127,4 +127,24 @@ object AntiUninstallManager {
     fun getExpirationTime(context: Context): Long {
             return 0L
     }
+
+    /**
+     * 检查当前应用是否已激活设备管理器权限
+     */
+    fun isDeviceAdminActive(context: Context): Boolean {
+        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? android.app.admin.DevicePolicyManager
+        val componentName = android.content.ComponentName(context, com.decikeeper.app.receiver.AdminReceiver::class.java)
+        return dpm?.isAdminActive(componentName) == true
+    }
+
+    /**
+     * 获取请求激活设备管理器的 Intent
+     */
+    fun getDeviceAdminIntent(context: Context): android.content.Intent {
+        val componentName = android.content.ComponentName(context, com.decikeeper.app.receiver.AdminReceiver::class.java)
+        val intent = android.content.Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+        intent.putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
+        intent.putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION, "激活设备管理器以防止应用在桌面和系统中被轻易卸载。")
+        return intent
+    }
 }

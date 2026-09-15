@@ -56,6 +56,7 @@ class AccessibilityProtection(private val context: Context) {
             "com.vivo.privacylauncher",
             "com.vivo.permissionmanager",
             "com.vivo.imanager",
+            "com.vivo.safecenter",
             "com.iqoo.secure",
             "com.miui.securitycenter",
             "com.huawei.systemmanager",

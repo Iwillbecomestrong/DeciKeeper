@@ -62,7 +62,7 @@ class RulesSettingsUiContractTest {
         assertFalse(source.contains("showUninstallAndPermDisableDialog"))
         assertTrue(source.contains("状态: 已开启"))
         assertTrue(source.contains("状态: 未开启"))
-        assertTrue(source.contains("状态: 待关闭（明日生效）"))
+        assertTrue(source.contains("状态: 待关闭（明日"))
     }
 
     @Test

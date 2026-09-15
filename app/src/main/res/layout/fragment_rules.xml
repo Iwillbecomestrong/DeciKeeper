@@ -57,6 +57,106 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <!-- 每日生效时间 (刷新时间) -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_refresh_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="?attr/zzSurface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="每日生效时间"
+                            android:textColor="?attr/zzText"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="规则额度重置与生效结算时刻 (04:00 - 12:00)"
+                            android:textColor="?attr/zzMuted"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tv_refresh_time_value_rules"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_zz_pill"
+                        android:backgroundTint="?attr/zzAccentSoft"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:text="08:00"
+                        android:textColor="?attr/zzAccentStrong"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="自动同步勿扰结束时间"
+                            android:textColor="?attr/zzText"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tv_refresh_sync_hint_rules"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="跟随 04:00~12:00 内最早结束的勿扰时段"
+                            android:textColor="?attr/zzMuted"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <Switch
+                        android:id="@+id/switch_refresh_sync_rules"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="?attr/zzAccent" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
         <!-- 可修改时段（除闹钟） -->
         <androidx.cardview.widget.CardView
             android:id="@+id/card_edit_window_policy"
@@ -235,24 +335,28 @@
                     <TextView android:id="@+id/btn_uninstall_and_perm_protection_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="防卸载与防关权限保护说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_uninstall_and_perm_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
 
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="?attr/zzSurface"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="0dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:padding="16dp">
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="桌面守护小浮窗（强力防杀盾）" android:textColor="?attr/zzText" android:textSize="14sp" android:textStyle="bold" />
-                    <TextView android:id="@+id/tv_floating_guard_desc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="常驻贴边自律微盾，利用系统窗口机制彻底免疫多任务误划强杀" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                <!-- 5. 桌面守护小浮窗 -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="桌面守护小浮窗（强力防杀盾）" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_floating_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/btn_floating_guard_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="桌面守护小浮窗说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
+                    <Switch android:id="@+id/switch_floating_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
-                <TextView android:id="@+id/btn_floating_guard_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="桌面守护小浮窗说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
-                <Switch android:id="@+id/switch_floating_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                <View android:id="@+id/divider_device_admin" android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
+
+                <!-- 6. 设备管理器防卸载锁 (OPPO / 适配机型专享硬核防卸) -->
+                <LinearLayout android:id="@+id/layout_device_admin_protection" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="设备管理器防卸载锁" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_device_admin_protection_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/btn_device_admin_protection_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="设备管理器防卸载说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
+                    <Switch android:id="@+id/switch_device_admin_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

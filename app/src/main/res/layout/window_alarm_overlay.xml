@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.decikeeper.app.ui.AlarmOverlayRootView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/root_container"
     android:layout_width="match_parent"
@@ -751,6 +751,7 @@
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="#FFFFFF"
+                            android:background="@drawable/bg_zz_pill"
                             android:backgroundTint="?attr/zzAccent" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -1174,6 +1175,7 @@
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="?attr/zzText"
+            android:background="@drawable/bg_zz_pill"
             android:backgroundTint="?attr/zzSurfaceStrong" />
     </FrameLayout>
-</FrameLayout>
+</com.decikeeper.app.ui.AlarmOverlayRootView>

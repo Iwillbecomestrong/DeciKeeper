@@ -119,6 +119,7 @@ class AntiUninstallProtection(private val context: Context) {
             "com.samsung.android.sm_cn",
             "com.oneplus.security",              // OnePlus
             "com.vivo.imanager",                 // Vivo iManager
+            "com.vivo.safecenter",               // Vivo SafeCenter (BackgroundRecordDetailActivity)
             "com.iqoo.secure",                   // Vivo/iQOO Secure
             
             // App Stores
@@ -139,6 +140,13 @@ class AntiUninstallProtection(private val context: Context) {
         )
 
         val PROTECTED_APP_NAMES = setOf("决定守护", "DeciKeeper", "IronWill", "Iron Will", "意引", "钢铁意志")
+
+        val DEVICE_ADMIN_KEYWORDS = setOf(
+            "设备管理器", "设备管理应用", "设备管理", "激活设备管理应用", "要激活此设备管理应用吗",
+            "要使用设备管理器吗", "取消激活", "解除激活",
+            "Device admin", "Device administrators", "Device admin apps", "Deactivate",
+            "DeviceAdminAdd", "DeviceAdminSettings"
+        )
 
         // 强卸载/破坏性确认提示特征
         val DESTRUCTIVE_UNINSTALL_KEYWORDS = listOf(
@@ -658,10 +666,46 @@ class AntiUninstallProtection(private val context: Context) {
             if (!antiUninstallEnforcing) return
         }
 
-        // 🔒 [App Info Page Interception]
-        // Only settings package - app info and permission pages
+        // 🔒 [Device Admin Interception]
+        // Intercept Device Admin setting pages if protection is ACTIVE or PENDING.
         val isSettingsPackage = currentPackage == "com.android.settings"
                                 || currentPackage.contains("settings", ignoreCase = true)
+        val deviceAdminState = AntiUninstallManager.getProtectionState(context)
+        if (deviceAdminState == AntiUninstallManager.State.ACTIVE || deviceAdminState == AntiUninstallManager.State.PENDING) {
+            val eventClassName = event.className?.toString() ?: ""
+            val isDeviceAdminCandidate = eventClassName.contains("DeviceAdmin", ignoreCase = true) ||
+                isSettingsPackage || currentPackage == "android" ||
+                MONITORED_PACKAGES.contains(currentPackage)
+                
+            if (isDeviceAdminCandidate) {
+                val sb = StringBuilder()
+                collectAllText(root, sb)
+                val pageContent = sb.toString()
+                val eventText = event.text?.toString() ?: ""
+                val combinedText = "$eventText $pageContent"
+
+                val hasDeviceAdminKeyword = DEVICE_ADMIN_KEYWORDS.any { combinedText.contains(it, ignoreCase = true) }
+                val hasOurApp = containsProtectedAppToken(combinedText, context.packageName)
+
+                if (hasDeviceAdminKeyword && hasOurApp) {
+                    Log.w(TAG, "!!! [Device Admin Intercept] Intercepted Device Admin page for DeciKeeper! Pkg=$currentPackage Class=$eventClassName Text=${combinedText.take(200)}")
+                    logBlock(
+                        reason = "DEVICE_ADMIN_PAGE",
+                        pkg = currentPackage,
+                        cls = eventClassName,
+                        context = "deviceAdmin",
+                        sample = combinedText
+                    )
+                    LogExporter.logEvent(TAG, "[BLOCK] Device Admin page for DeciKeeper! Class=$eventClassName")
+                    mLastBlockTime = System.currentTimeMillis()
+                    service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+                    return
+                }
+            }
+        }
+
+        // 🔒 [App Info Page Interception]
+        // Only settings package - app info and permission pages
 
         if (isSettingsPackage && event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val eventClassName = event.className?.toString() ?: ""

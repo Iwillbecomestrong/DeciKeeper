@@ -49,12 +49,19 @@ class SegmentCreationSurplusProratingTest {
         assertEquals(originalTimestamp, restored.lastModified)
     }
 
+    private fun todayCal(): Calendar = Calendar.getInstance()
+
     @Test
     fun pastSegmentsCreatedLateDoNotGenerateSurplusCarry() {
         val ctx = newContext()
-        // 假定当天 2026-09-14，刷新时间 08:00
+        val cal = todayCal()
+        val y = cal.get(Calendar.YEAR)
+        val m = cal.get(Calendar.MONTH) + 1
+        val d = cal.get(Calendar.DAY_OF_MONTH)
+
+        // 假定当天，刷新时间 08:00
         TimeRuleManager.saveRefreshTime(ctx, "08:00")
-        val createTime = tsAt(2026, 9, 14, 18, 0) // 18:00 一键设置
+        val createTime = tsAt(y, m, d, 18, 0) // 18:00 一键设置
 
         // 上午: 08:15 - 12:00 (休息 30min, 7次)
         val morningSeg = TimeSegment(
@@ -108,9 +115,14 @@ class SegmentCreationSurplusProratingTest {
         val ctx = newContext()
         TimeRuleManager.saveRefreshTime(ctx, "08:00")
 
+        val cal = todayCal()
+        val y = cal.get(Calendar.YEAR)
+        val m = cal.get(Calendar.MONTH) + 1
+        val d = cal.get(Calendar.DAY_OF_MONTH)
+
         // 晚上: 17:30 - 22:00 (总长 270 分钟，额度 35min, 7次)
         // 用户在 18:00 创建 (走过 30 分钟，剩余 240 分钟，比例 240/270 = 8/9)
-        val createTime = tsAt(2026, 9, 14, 18, 0)
+        val createTime = tsAt(y, m, d, 18, 0)
         val eveningSeg = TimeSegment(
             name = "晚上",
             startHour = 17, startMinute = 30,
@@ -134,9 +146,14 @@ class SegmentCreationSurplusProratingTest {
         val ctx = newContext()
         TimeRuleManager.saveRefreshTime(ctx, "08:00")
 
+        val cal = todayCal()
+        val y = cal.get(Calendar.YEAR)
+        val m = cal.get(Calendar.MONTH) + 1
+        val d = cal.get(Calendar.DAY_OF_MONTH)
+
         // 晚上: 17:30 - 22:00
         // 用户在 21:59 创建 (仅剩 1 分钟)
-        val createTime = tsAt(2026, 9, 14, 21, 59)
+        val createTime = tsAt(y, m, d, 21, 59)
         val eveningSeg = TimeSegment(
             name = "晚上",
             startHour = 17, startMinute = 30,
@@ -157,8 +174,13 @@ class SegmentCreationSurplusProratingTest {
         val ctx = newContext()
         TimeRuleManager.saveRefreshTime(ctx, "08:00")
 
-        // 昨天 18:00 创建的时段
-        val createTime = tsAt(2026, 9, 14, 18, 0)
+        val calToday = todayCal()
+        val nextDayTime = calToday.timeInMillis
+
+        val calYesterday = todayCal()
+        calYesterday.add(Calendar.DAY_OF_MONTH, -1)
+        val createTime = calYesterday.timeInMillis
+
         val morningSeg = TimeSegment(
             name = "上午",
             startHour = 8, startMinute = 15,
@@ -167,8 +189,6 @@ class SegmentCreationSurplusProratingTest {
             lastModified = createTime
         )
 
-        // 今天 2026-09-15 09:00 进行检查
-        val nextDayTime = tsAt(2026, 9, 15, 9, 0)
         val proration = CreditManager.getSegmentProration(ctx, morningSeg, nextDayTime)
 
         // 次日已是完整经历日：恢复 100% 额度与结余资格

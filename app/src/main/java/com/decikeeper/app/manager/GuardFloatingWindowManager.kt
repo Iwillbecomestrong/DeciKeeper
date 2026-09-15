@@ -38,9 +38,17 @@ import android.widget.TextView
 
 object GuardFloatingWindowManager {
 
+    enum class State {
+        ACTIVE,
+        PENDING,
+        DISABLED
+    }
+
     private const val TAG = "GuardFloatingWindow"
     private const val PREFS_NAME = "guard_floating_window_prefs"
     private const val KEY_ENABLED = "floating_guard_enabled"
+    private const val KEY_DESIRED_ENABLED = "floating_guard_desired_enabled"
+    private const val KEY_PENDING_DISABLE = "floating_guard_pending_disable"
     private const val KEY_LAST_X = "floating_last_x"
     private const val KEY_LAST_Y = "floating_last_y"
 
@@ -50,29 +58,80 @@ object GuardFloatingWindowManager {
     private var layoutParams: WindowManager.LayoutParams? = null
     private var isShowing = false
 
+    private fun getDesiredEnabled(context: Context): Boolean {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_DESIRED_ENABLED, prefs.getBoolean(KEY_ENABLED, false))
+    }
+
+    private fun setDesiredEnabled(context: Context, enabled: Boolean) {
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_DESIRED_ENABLED, enabled)
+            .putBoolean(KEY_ENABLED, enabled)
+            .apply()
+    }
+
+    fun getProtectionState(context: Context): State {
+        val desired = getDesiredEnabled(context)
+        if (!desired) return State.DISABLED
+
+        val effectiveTime = ConfigPendingManager.getEffectiveTime(context, KEY_PENDING_DISABLE)
+        if (effectiveTime == 0L) return State.ACTIVE
+
+        val now = System.currentTimeMillis()
+        if (now < effectiveTime) {
+            return State.PENDING
+        }
+
+        setDesiredEnabled(context, false)
+        ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+        hide(context)
+        return State.DISABLED
+    }
+
+    fun isEnforcing(context: Context): Boolean {
+        val state = getProtectionState(context)
+        return state == State.ACTIVE || state == State.PENDING
+    }
+
     /**
-     * 判断当前是否已开启常驻守护小浮窗功能（默认推荐开启以实现保活防护）。
+     * 判断当前 Switch 视觉状态：仅 ACTIVE 时显示 checked。
      */
     fun isFloatingGuardEnabled(context: Context): Boolean {
-        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_ENABLED, false)
+        return getProtectionState(context) == State.ACTIVE
     }
 
     /**
      * 设置常驻守护小浮窗开启/关闭状态。
+     * 遵守产品原则「严立宽延」：
+     * - 开启：立即生效 (ACTIVE) 并挂载小浮窗；
+     * - 关闭（正常保护期）：提交 strictNextDay 次日生效延迟 (PENDING)，等待期内浮窗继续挂载；
+     * - 关闭（适应期）：立即关闭 (DISABLED) 并卸载浮窗。
      */
     fun setFloatingGuardEnabled(context: Context, enabled: Boolean) {
         val appContext = context.applicationContext
-        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_ENABLED, enabled)
-            .apply()
-
         if (enabled) {
+            setDesiredEnabled(appContext, true)
+            ConfigPendingManager.clearPending(appContext, KEY_PENDING_DISABLE)
             show(appContext)
-        } else {
-            hide(appContext)
+            return
         }
+
+        if (TimeRuleManager.isInAdaptationPeriod(appContext)) {
+            setDesiredEnabled(appContext, false)
+            ConfigPendingManager.clearPending(appContext, KEY_PENDING_DISABLE)
+            hide(appContext)
+            return
+        }
+
+        ConfigPendingManager.submitChange(
+            context = appContext,
+            key = KEY_PENDING_DISABLE,
+            value = "false",
+            strictNextDay = true
+        )
+        // PENDING 期间浮窗继续挂载防护
+        show(appContext)
     }
 
     /**
@@ -112,6 +171,10 @@ object GuardFloatingWindowManager {
      */
     fun show(context: Context) {
         val appContext = context.applicationContext
+        if (!isEnforcing(appContext)) {
+            hide(appContext)
+            return
+        }
         if (!canDrawOverlays(appContext)) {
             Log.w(TAG, "SYSTEM_ALERT_WINDOW permission not granted, skipping show")
             return
