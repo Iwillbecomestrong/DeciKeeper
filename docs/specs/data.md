@@ -131,14 +131,13 @@
 - **当前 schema version**：`2`；
 - **兼容历史类型标识**：`zhizhi_settings_backup`、`ironwill_settings_backup`（全面受理并自动平滑迁移）。
 
-### 6.2 自动备份通道 (AutoBackupManager)
+### 6.2 内部隐藏快照与容灾 (AutoBackupManager)
 
-系统通过 `AutoBackupManager` 提供本地自动容灾双写：
-- 写入公共存储（`Documents/DeciKeeper/`）与应用私有目录（`files/auto_backup/`）；
-- 具备历史 `ZhiZhi` 目录的回退与自动平滑收敛能力；
-- 规则变动或关键时间节点自动创建快照，防范误操作与极端异常丢失。
-
-**实现与验证边界（2026-09-16）**：以上描述的是源码中的备份路径，不保证公共目录在所有 Android / ROM / 存储授权条件下均能成功写入。当前 `MyApplication` 调用 `checkAndRestoreIfNeeded()`：符合 `isFreshInstall()` 的空白数据条件时，尝试读取当前及历史目录中的备份，并在成功解析后恢复。源码存在此路径不等于已验证重装自动恢复可用；用户反馈实际使用中仍需手动导入，具体原因尚未确认。手动导入与历史备份兼容继续保留。后续核验与调整见 [备份与恢复专项计划](../plans/2026-09-16-backup-recovery-verification.md)。
+系统通过 `AutoBackupManager` 提供本地运行期异常防损机制：
+- 仅写入应用私有安全沙箱（`files/auto_backup/`），维护当前版与上一版两代内部快照，避免写入中断破坏；
+- 内部快照是隐藏容灾机制，不作为用户备份展示，也不向公共目录（`Documents/`）自动写入；
+- 启动时不进行静默自动恢复；卸载重装或换机迁移时，用户先前通过【设置 → 数据备份与恢复】导出的文件，由用户在需要时手动选择导入；
+- 规则变动或关键时间节点自动防抖更新内部快照，仅防范运行期数据损坏。
 
 ### 6.3 隐私与排除红线
 
