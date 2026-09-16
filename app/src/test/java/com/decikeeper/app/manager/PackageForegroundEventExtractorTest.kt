@@ -1,4 +1,4 @@
-package com.decikeeper.app.service
+package com.decikeeper.app.manager
 
 import com.decikeeper.app.manager.PackageForegroundEventExtractor
 import com.decikeeper.app.manager.RawUsageEvent

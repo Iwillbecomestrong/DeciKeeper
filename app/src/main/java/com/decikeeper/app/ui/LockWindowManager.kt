@@ -2445,6 +2445,16 @@ object LockWindowManager {
         penaltyMessage = mLockView?.findViewById(R.id.tv_penalty_message)
         penaltyOk = mLockView?.findViewById(R.id.btn_penalty_ok)
 
+        val layoutBgText = mLockView?.findViewById<View>(R.id.layout_background_text)
+        val layoutBottomBtns = mLockView?.findViewById<View>(R.id.layout_bottom_buttons)
+        if (mLockView != null && layoutBgText != null && layoutBottomBtns != null) {
+            installOverlaySafeInsets(
+                mLockView!!,
+                InsetPaddingTarget(layoutBgText, applyLeft = true, applyTop = true, applyRight = true),
+                InsetPaddingTarget(layoutBottomBtns, applyLeft = true, applyRight = true, applyBottom = true)
+            )
+        }
+
         tvUsableCountBig = mLockView?.findViewById(R.id.tv_usable_count_big)
         tvSurplusBorrowLine = mLockView?.findViewById(R.id.tv_surplus_borrow_line)
         tvRestCountdownInCard = mLockView?.findViewById(R.id.tv_rest_countdown_in_card)

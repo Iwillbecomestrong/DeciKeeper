@@ -60,15 +60,12 @@ object RestStatsRecorder {
         )
 
         try {
-            val database = database(context)
-            try {
+            withDatabase(context) { database ->
                 database.migrateIfNeeded { readLegacyRecords(context) }
                 check(database.insert(record)) { "failed to insert rest statistic" }
-            } finally {
-                database.close()
+                // 清理失败不能触发 SharedPreferences 兜底写入，否则会造成重复流水。
+                runCatching { purgeExpired(database, context) }
             }
-            // 清理失败不能触发 SharedPreferences 兜底写入，否则会造成重复流水。
-            runCatching { purgeExpired(context) }
         } catch (_: Exception) {
             // A storage failure must not break the user-facing rest session.
             val records = readLegacyRecords(context).toMutableList()
@@ -81,13 +78,10 @@ object RestStatsRecorder {
     @Synchronized
     fun getAllRecords(context: Context): List<RestUsageRecord> {
         return try {
-            val database = database(context)
-            try {
+            withDatabase(context) { database ->
                 database.migrateIfNeeded { readLegacyRecords(context) }
-                runCatching { purgeExpired(context) }
+                runCatching { purgeExpired(database, context) }
                 database.readAll()
-            } finally {
-                database.close()
             }
         } catch (_: Exception) {
             readLegacyRecords(context)
@@ -132,8 +126,10 @@ object RestStatsRecorder {
     @Synchronized
     fun deleteRecord(context: Context, id: String): Boolean {
         return try {
-            database(context).migrateIfNeeded { readLegacyRecords(context) }
-            database(context).delete(id)
+            withDatabase(context) { database ->
+                database.migrateIfNeeded { readLegacyRecords(context) }
+                database.delete(id)
+            }
         } catch (_: Exception) {
             val records = readLegacyRecords(context).toMutableList()
             val removed = records.removeAll { it.id == id }
@@ -145,8 +141,10 @@ object RestStatsRecorder {
     @Synchronized
     fun updateRecord(context: Context, updated: RestUsageRecord): Boolean {
         return try {
-            database(context).migrateIfNeeded { readLegacyRecords(context) }
-            database(context).update(updated)
+            withDatabase(context) { database ->
+                database.migrateIfNeeded { readLegacyRecords(context) }
+                database.update(updated)
+            }
         } catch (_: Exception) {
             val records = readLegacyRecords(context).toMutableList()
             val idx = records.indexOfFirst { it.id == updated.id }
@@ -158,29 +156,41 @@ object RestStatsRecorder {
         }
     }
 
+    @Synchronized
     fun replaceAllRecords(context: Context, records: List<RestUsageRecord>) {
-        database(context).replaceAll(records)
-        runCatching { purgeExpired(context) }
+        withDatabase(context) { database ->
+            database.replaceAll(records)
+            runCatching { purgeExpired(database, context) }
+        }
+    }
+
+    private fun purgeExpired(
+        database: RestStatsDatabase,
+        context: Context,
+        nowMillis: Long = System.currentTimeMillis()
+    ) {
+        database.migrateIfNeeded { readLegacyRecords(context) }
+        HistoryRetentionPolicy.cutoffMillis(
+            HistoryRetentionPolicy.get(context, HistoryRecordKind.QUOTA),
+            nowMillis
+        )?.let(database::deleteBefore)
     }
 
     fun purgeExpired(context: Context) {
         runCatching {
-            val database = database(context)
-            try {
-                database.migrateIfNeeded { readLegacyRecords(context) }
-                HistoryRetentionPolicy.cutoffMillis(
-                    HistoryRetentionPolicy.get(context, HistoryRecordKind.QUOTA),
-                    System.currentTimeMillis()
-                )?.let(database::deleteBefore)
-            } finally {
-                database.close()
+            withDatabase(context) { database ->
+                purgeExpired(database, context)
             }
         }
     }
 
     @Synchronized
     fun clearAll(context: Context) {
-        try { database(context).clear() } catch (_: Exception) { }
+        try {
+            withDatabase(context) { database ->
+                database.clear()
+            }
+        } catch (_: Exception) { }
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().remove(KEY_RECORDS_JSON).apply()
     }
 
@@ -206,6 +216,18 @@ object RestStatsRecorder {
             .edit()
             .putString(KEY_RECORDS_JSON, array.toString())
             .apply()
+    }
+
+    private inline fun <T> withDatabase(
+        context: Context,
+        block: (RestStatsDatabase) -> T
+    ): T {
+        val database = database(context)
+        return try {
+            block(database)
+        } finally {
+            database.close()
+        }
     }
 
     private fun database(context: Context): RestStatsDatabase = RestStatsDatabase(context)

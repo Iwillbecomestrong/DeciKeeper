@@ -132,13 +132,14 @@ class RestStatsDatabase(context: Context) : SQLiteOpenHelper(
     }
 
     fun clear() {
-        writableDatabase.beginTransaction()
+        val db = writableDatabase
+        db.beginTransaction()
         try {
-            writableDatabase.delete(TABLE_RECORDS, null, null)
-            writableDatabase.delete(TABLE_META, null, null)
-            writableDatabase.setTransactionSuccessful()
+            db.delete(TABLE_RECORDS, null, null)
+            db.delete(TABLE_META, null, null)
+            db.setTransactionSuccessful()
         } finally {
-            writableDatabase.endTransaction()
+            db.endTransaction()
         }
     }
 
