@@ -87,6 +87,35 @@ class AutoBackupManagerTest {
     }
 
     @Test
+    fun corruptCurrentSnapshot_fallsBackToPreviousSnapshot() {
+        val backupDir = tempFolder.newFolder("fallback_restore")
+        val validJson = SettingsBackupManager.buildBackupJson(
+            context,
+            SettingsBackupManager.BackupCategory.ALL
+        )
+        File(backupDir, AutoBackupManager.BACKUP_FILE_NAME).writeText("{not-json")
+        File(backupDir, AutoBackupManager.BACKUP_PREV_FILE_NAME).writeText(validJson)
+
+        assertTrue(AutoBackupManager.restoreFromDirectory(context, backupDir))
+    }
+
+    @Test
+    fun malformedPreferenceEntry_isRejectedBeforeAnyPreferenceWrite() {
+        val target = context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)
+        target.edit().putString("sentinel", "keep").commit()
+        val malformed = """
+            {"type":"decikeeper_settings_backup","schemaVersion":2,
+             "preferenceFiles":[{"name":"decikeeper_rules","entries":
+             {"broken":{"type":"Unknown","value":"x"}}}]}
+        """.trimIndent()
+
+        assertThrows(Exception::class.java) {
+            SettingsBackupManager.applyBackupJson(context, malformed)
+        }
+        assertEquals("keep", target.getString("sentinel", null))
+    }
+
+    @Test
     fun testBackupCategoriesIncludeCountAndLedgers() {
         val dateStr = "20260907"
         val ledgerPrefs = context.getSharedPreferences("decikeeper_ledger", Context.MODE_PRIVATE)

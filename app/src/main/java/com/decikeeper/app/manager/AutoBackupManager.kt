@@ -34,6 +34,15 @@ object AutoBackupManager {
     const val INTERNAL_BACKUP_DIR = "auto_backup"
     const val DEFAULT_DEBOUNCE_DELAY_MS = 30_000L
 
+    data class BackupResult(
+        val publicWritten: Boolean,
+        val internalWritten: Boolean,
+        val errorCount: Int
+    ) {
+        val anyWritten: Boolean get() = publicWritten || internalWritten
+        val fullyWritten: Boolean get() = publicWritten && internalWritten
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private val backupExecutor = Executors.newSingleThreadExecutor()
 
@@ -70,10 +79,16 @@ object AutoBackupManager {
     /**
      * 同步或异步执行备份写入（公共目录 + 内部私有备份目录双写）。
      */
-    fun performBackup(context: Context) {
+    fun performBackup(context: Context): BackupResult {
+        var publicWritten = false
+        var internalWritten = false
+        var errorCount = 0
         try {
             val json = SettingsBackupManager.buildBackupJson(context, SettingsBackupManager.BackupCategory.ALL)
-            if (json.isBlank()) return
+            if (json.isBlank()) {
+                LogExporter.w(TAG, "[BACKUP] Snapshot was empty; no destination was written")
+                return BackupResult(false, false, 1)
+            }
 
             // 1. 公共文档目录 (Documents/DeciKeeper/)
             try {
@@ -82,7 +97,9 @@ object AutoBackupManager {
                     BACKUP_DIR_NAME
                 )
                 writeSnapshotToDir(publicDocDir, json)
+                publicWritten = true
             } catch (e: Exception) {
+                errorCount++
                 LogExporter.w(TAG, "[BACKUP] Failed writing to public documents: ${e.message}")
             }
 
@@ -90,14 +107,26 @@ object AutoBackupManager {
             try {
                 val internalDir = File(context.filesDir, INTERNAL_BACKUP_DIR)
                 writeSnapshotToDir(internalDir, json)
+                internalWritten = true
             } catch (e: Exception) {
+                errorCount++
                 LogExporter.w(TAG, "[BACKUP] Failed writing to internal backup: ${e.message}")
             }
 
-            LogExporter.i(TAG, "[BACKUP] Auto backup snapshot completed successfully")
+            if (publicWritten || internalWritten) {
+                val destinations = buildList {
+                    if (publicWritten) add("public")
+                    if (internalWritten) add("internal")
+                }.joinToString("+")
+                LogExporter.i(TAG, "[BACKUP] Auto backup snapshot written to $destinations")
+            } else {
+                LogExporter.w(TAG, "[BACKUP] Auto backup failed: no destination was written")
+            }
         } catch (e: Exception) {
+            errorCount++
             LogExporter.w(TAG, "[BACKUP] Unexpected failure during auto backup: ${e.message}")
         }
+        return BackupResult(publicWritten, internalWritten, errorCount)
     }
 
     /**
