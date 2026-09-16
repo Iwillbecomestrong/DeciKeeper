@@ -1,0 +1,51 @@
+name: Release Verification
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Run tests, lint, and unsigned Release build
+        run: ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease --no-daemon --stacktrace -Duser.timezone=Asia/Shanghai
+
+      - name: Verify Release artifact
+        shell: pwsh
+        run: |
+          $args = @(
+            '-ApkPath', 'app/build/outputs/apk/release/app-release.apk',
+            '-OutputDirectory', 'app/build/release-verification',
+            '-TestStatus', 'passed'
+          )
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $args += @('-ExpectedVersionName', ($env:GITHUB_REF_NAME -replace '^v', ''), '-ExpectedTag', $env:GITHUB_REF_NAME)
+          }
+          & ./scripts/verify_release_artifact.ps1 @args
+
+      - name: Upload verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeciKeeper-release-verification
+          path: |
+            app/build/release-verification/release-manifest.json
+            app/build/release-verification/*.sha256
+          if-no-files-found: error

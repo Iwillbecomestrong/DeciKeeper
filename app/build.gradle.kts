@@ -1,4 +1,6 @@
 import java.util.Properties
+import java.nio.file.Path
+import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -48,8 +50,8 @@ android {
 
     lint {
         baseline = file("lint-baseline.xml")
-        abortOnError = false
-        checkReleaseBuilds = false
+        abortOnError = true
+        checkReleaseBuilds = true
     }
 
     val localProperties = Properties()
@@ -143,7 +145,17 @@ tasks.withType<Test>().configureEach {
         dependsOn("bundle${mainVariantCap}ClassesToRuntimeJar")
 
         doFirst {
-            val asciiRoot = file("C:/GradleAsciiTestClasspath/${project.name}/$variant")
+            val asciiBase = file("C:/GradleAsciiTestClasspath").toPath().toAbsolutePath().normalize()
+            val workspacePath = rootProject.projectDir.toPath().toAbsolutePath().normalize().toString()
+            val workspaceHash = MessageDigest.getInstance("SHA-256")
+                .digest(workspacePath.lowercase().toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+                .take(16)
+            val asciiRoot = file("C:/GradleAsciiTestClasspath/${project.name}/$workspaceHash/$variant")
+            val asciiRootPath: Path = asciiRoot.toPath().toAbsolutePath().normalize()
+            check(asciiRootPath.startsWith(asciiBase)) {
+                "Refusing to clean test classpath outside dedicated ASCII root: $asciiRootPath"
+            }
             val asciiTestDir = file("${asciiRoot.absolutePath}/tests")
             val asciiMainJar = file("${asciiRoot.absolutePath}/main/classes.jar")
             // [Fix: 幽灵测试] 复制前清空目标目录。旧实现只增不删:

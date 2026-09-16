@@ -47,6 +47,7 @@ import com.decikeeper.app.manager.RecentTasksHideManager
 import com.decikeeper.app.manager.AppVisibilityTracker
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
+import com.decikeeper.app.manager.PermissionManager
 import com.decikeeper.app.manager.RomPermissionDetector
 import com.decikeeper.app.manager.SettingsNavigator
 import com.decikeeper.app.manager.TimeRuleManager
@@ -402,11 +403,12 @@ class HomeFragment : Fragment() {
             addAction(MonitorService.ACTION_REFRESH_RULES)
             addAction(MonitorService.ACTION_END_FREE_TIME)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requireContext().registerReceiver(updateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            requireContext().registerReceiver(updateReceiver, filter)
-        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            requireContext(),
+            updateReceiver,
+            filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onResume() {
@@ -1250,7 +1252,7 @@ class HomeFragment : Fragment() {
         val ctx = context ?: return
         val sb = StringBuilder()
         
-        val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
+        val hasOverlay = PermissionManager.hasOverlayPermission(ctx)
         sb.append(if (hasOverlay) "✅ 悬浮窗权限：已开启\n" else "⚠️ 悬浮窗权限：未开启\n")
 
         val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
@@ -1284,7 +1286,7 @@ class HomeFragment : Fragment() {
 
     private fun checkOverlayPermission() {
         val ctx = context ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(ctx)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !PermissionManager.hasOverlayPermission(ctx)) {
             val prefs = ctx.getSharedPreferences(PERMISSION_PREFS_NAME, Context.MODE_PRIVATE)
             val hasBeenPrimed = prefs.getBoolean(KEY_OVERLAY_PROMPT_PRIMED, false)
             if (shouldSuppressFirstMissingPermissionPrompt(true, hasBeenPrimed)) {
@@ -1890,7 +1892,7 @@ class HomeFragment : Fragment() {
                 layout.addView(row)
             }
 
-            val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(currentCtx) else true
+            val hasOverlay = PermissionManager.hasOverlayPermission(currentCtx)
             addItem("悬浮窗权限", hasOverlay) {
                 try {
                     RecentTasksHideManager.markNavigating()
@@ -2071,7 +2073,7 @@ class HomeFragment : Fragment() {
     )
 
     private fun getHomePermissionState(ctx: Context): HomePermissionState {
-        val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
+        val hasOverlay = PermissionManager.hasOverlayPermission(ctx)
         val hasNotification = if (Build.VERSION.SDK_INT >= 33) {
             ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else true

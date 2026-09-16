@@ -48,6 +48,13 @@ jobs:
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace -Duser.timezone=Asia/Shanghai
 
+      - name: Check Markdown links
+        shell: pwsh
+        run: python scripts/verify_markdown_links.py
+
+      - name: Run release lint
+        run: ./gradlew :app:lintRelease --no-daemon --stacktrace -Duser.timezone=Asia/Shanghai
+
       - name: Upload test reports on failure
         if: failure()
         uses: actions/upload-artifact@v4

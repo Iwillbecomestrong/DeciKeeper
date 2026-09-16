@@ -27,7 +27,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 
-    <!-- 强行封杀所有网络权限：确保任何第三方依赖库均无法引入网络能力，彻底保证单机物理零联网 -->
+    <!-- 单机红线：最终 APK 不声明普通网络权限；应用不提供网络业务、不上传用户数据。 -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
 
