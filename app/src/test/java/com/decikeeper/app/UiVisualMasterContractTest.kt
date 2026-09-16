@@ -106,6 +106,21 @@ class UiVisualMasterContractTest {
         assertFalse(menu.contains("@android:drawable"))
     }
 
+    @Test fun bottomNavigationItemOrderMatchesProductContract() {
+        val menu = source("src/main/res/menu/bottom_nav_menu.xml")
+        val homeIdx = menu.indexOf("@+id/nav_home")
+        val timeIdx = menu.indexOf("@+id/nav_time_config")
+        val alarmIdx = menu.indexOf("@+id/nav_alarm")
+        val statsIdx = menu.indexOf("@+id/nav_statistics")
+        val rulesIdx = menu.indexOf("@+id/nav_rules")
+
+        assertTrue("nav_home is first", homeIdx in 0 until timeIdx)
+        assertTrue("nav_time_config is second", timeIdx < alarmIdx)
+        assertTrue("nav_alarm is centered third", alarmIdx < statsIdx)
+        assertTrue("nav_statistics is fourth", statsIdx < rulesIdx)
+        assertTrue("nav_rules is fifth", rulesIdx > statsIdx)
+    }
+
     @Test fun lockScreenRemainsCompleteAndLight() {
         val xml = layout("window_lock_screen.xml")
         val home = xml.indexOf("@+id/btn_back_to_home"); val action = xml.indexOf("@+id/btn_emergency"); val privilege = xml.indexOf("@+id/btn_weekly_privilege")
