@@ -124,6 +124,8 @@ tasks.register("testClasses") {
 }
 
 tasks.withType<Test>().configureEach {
+    systemProperty("user.timezone", "Asia/Shanghai")
+
     val isWindows = System.getProperty("os.name").lowercase().contains("windows")
     if (isWindows) {
         notCompatibleWithConfigurationCache("Custom ASCII classpath rewrite mutates test classpath at execution time")
