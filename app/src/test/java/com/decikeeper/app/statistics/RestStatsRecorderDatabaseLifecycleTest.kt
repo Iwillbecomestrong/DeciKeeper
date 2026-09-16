@@ -1,6 +1,7 @@
-package com.decikeeper.app.manager.statistics
+package com.decikeeper.app.statistics
 
 import android.content.Context
+import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
