@@ -3,20 +3,18 @@
  * [Context Header]
  * * @file: AutoBackupManager.kt
  * * @role: Domain Skill
- * * @description: 自动外部与内部双写备份管理器，在重装后提供静默自动恢复功能。
+ * * @description: 应用内部私有隐藏快照容灾管理器，仅用于防范运行期数据损坏。
  * * @responsibilities:
- * 1. 30秒防抖或定时全量导出系统配置与统计账本（最新 + 上一版双快照）。
- * 2. 公共文档目录 (Documents/DeciKeeper/) 与内部私有目录双写保存，避免卸载被抹除。
- * 3. 新装/重装首次启动时，静默检测外部备份并自动恢复，提示轻量 Toast。
+ * 1. 30秒防抖或主动触发全量导出系统配置与统计账本（最新 + 上一版双快照）。
+ * 2. 仅写入应用私有内部目录 (files/auto_backup/)，不向公共目录自动写入。
+ * 3. 内部自动快照不作为用户备份展示，新装或重装不进行静默自动恢复。
  * =================================================================================
  */
 package com.decikeeper.app.manager
 
 import android.content.Context
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.widget.Toast
 import com.decikeeper.app.data.LogExporter
 import java.io.File
 import java.util.concurrent.Executors
@@ -24,23 +22,19 @@ import java.util.concurrent.Executors
 object AutoBackupManager {
 
     private const val TAG = "AutoBackupManager"
-    const val BACKUP_DIR_NAME = "DeciKeeper"
     const val BACKUP_FILE_NAME = "decikeeper_auto_backup.json"
     const val BACKUP_PREV_FILE_NAME = "decikeeper_auto_backup_prev.json"
-    // 旧版（知止 ZhiZhi）外部备份目录/文件名，用于重装后自动恢复回退查找
-    const val LEGACY_BACKUP_DIR_NAME = "ZhiZhi"
+    // 旧版（知止 ZhiZhi）快照文件名，仅用于内部快照回退解析兼容
     const val LEGACY_BACKUP_FILE_NAME = "zhizhi_auto_backup.json"
     const val LEGACY_BACKUP_PREV_FILE_NAME = "zhizhi_auto_backup_prev.json"
     const val INTERNAL_BACKUP_DIR = "auto_backup"
     const val DEFAULT_DEBOUNCE_DELAY_MS = 30_000L
 
     data class BackupResult(
-        val publicWritten: Boolean,
         val internalWritten: Boolean,
         val errorCount: Int
     ) {
-        val anyWritten: Boolean get() = publicWritten || internalWritten
-        val fullyWritten: Boolean get() = publicWritten && internalWritten
+        val success: Boolean get() = internalWritten && errorCount == 0
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -77,56 +71,32 @@ object AutoBackupManager {
     }
 
     /**
-     * 同步或异步执行备份写入（公共目录 + 内部私有备份目录双写）。
+     * 执行内部隐藏快照写入（仅写入内部私有目录 files/auto_backup/）。
      */
     fun performBackup(context: Context): BackupResult {
-        var publicWritten = false
         var internalWritten = false
         var errorCount = 0
         try {
             val json = SettingsBackupManager.buildBackupJson(context, SettingsBackupManager.BackupCategory.ALL)
             if (json.isBlank()) {
-                LogExporter.w(TAG, "[BACKUP] Snapshot was empty; no destination was written")
-                return BackupResult(false, false, 1)
+                LogExporter.w(TAG, "[BACKUP] Snapshot was empty; internal backup skipped")
+                return BackupResult(internalWritten = false, errorCount = 1)
             }
 
-            // 1. 公共文档目录 (Documents/DeciKeeper/)
-            try {
-                val publicDocDir = File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                    BACKUP_DIR_NAME
-                )
-                writeSnapshotToDir(publicDocDir, json)
-                publicWritten = true
-            } catch (e: Exception) {
-                errorCount++
-                LogExporter.w(TAG, "[BACKUP] Failed writing to public documents: ${e.message}")
-            }
-
-            // 2. 应用内部私有备份目录 (files/auto_backup/)
             try {
                 val internalDir = File(context.filesDir, INTERNAL_BACKUP_DIR)
                 writeSnapshotToDir(internalDir, json)
                 internalWritten = true
+                LogExporter.i(TAG, "[BACKUP] Internal auto backup snapshot written successfully")
             } catch (e: Exception) {
                 errorCount++
                 LogExporter.w(TAG, "[BACKUP] Failed writing to internal backup: ${e.message}")
-            }
-
-            if (publicWritten || internalWritten) {
-                val destinations = buildList {
-                    if (publicWritten) add("public")
-                    if (internalWritten) add("internal")
-                }.joinToString("+")
-                LogExporter.i(TAG, "[BACKUP] Auto backup snapshot written to $destinations")
-            } else {
-                LogExporter.w(TAG, "[BACKUP] Auto backup failed: no destination was written")
             }
         } catch (e: Exception) {
             errorCount++
             LogExporter.w(TAG, "[BACKUP] Unexpected failure during auto backup: ${e.message}")
         }
-        return BackupResult(publicWritten, internalWritten, errorCount)
+        return BackupResult(internalWritten, errorCount)
     }
 
     /**
@@ -159,7 +129,7 @@ object AutoBackupManager {
     }
 
     /**
-     * 判断当前应用是否属于空白全新安装或卸载后重装。
+     * 判断当前应用是否属于空白全新安装。
      */
     fun isFreshInstall(context: Context): Boolean {
         val rulesPrefs = context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)
@@ -172,42 +142,15 @@ object AutoBackupManager {
     }
 
     /**
-     * 重装首次启动时检测外部备份并静默自动恢复。
-     * @return 是否成功恢复
+     * 从内部快照目录恢复（仅用于主数据损坏故障回退，不向用户弹 Toast）。
      */
-    fun checkAndRestoreIfNeeded(context: Context): Boolean {
-        if (!isFreshInstall(context)) {
-            return false
-        }
-
-        val candidateDirs = listOfNotNull(
-            try {
-                File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                    BACKUP_DIR_NAME
-                )
-            } catch (_: Exception) { null },
-            try {
-                File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                    LEGACY_BACKUP_DIR_NAME
-                )
-            } catch (_: Exception) { null },
-            File(context.filesDir, INTERNAL_BACKUP_DIR)
-        )
-
-        for (dir in candidateDirs) {
-            val restored = restoreFromDirectory(context, dir)
-            if (restored) {
-                return true
-            }
-        }
-
-        return false
+    fun restoreInternalSnapshot(context: Context): Boolean {
+        val internalDir = File(context.filesDir, INTERNAL_BACKUP_DIR)
+        return restoreFromDirectory(context, internalDir)
     }
 
     /**
-     * 从指定目录寻找最新备份或上一版备份并恢复。
+     * 从指定目录寻找最新快照或上一版快照并恢复（仅供内部故障回退与测试使用）。
      */
     fun restoreFromDirectory(context: Context, dir: File): Boolean {
         if (!dir.exists() || !dir.isDirectory) return false
@@ -231,13 +174,8 @@ object AutoBackupManager {
                         )
                         LogExporter.i(
                             TAG,
-                            "[RESTORE] Silently restored from ${file.absolutePath} (${result.fileCount} files, ${result.entryCount} entries)"
+                            "[RESTORE] Internal snapshot restored from ${file.absolutePath} (${result.fileCount} files, ${result.entryCount} entries)"
                         )
-                        mainHandler.post {
-                            try {
-                                Toast.makeText(context, "已自动恢复历史统计与自控配置", Toast.LENGTH_LONG).show()
-                            } catch (_: Exception) {}
-                        }
                         return true
                     }
                 } catch (e: Exception) {

@@ -28,8 +28,8 @@ class AutoBackupManagerTest {
     }
 
     @Test
-    fun testSnapshotDualWriteAndRotation() {
-        val backupDir = tempFolder.newFolder("DeciKeeper")
+    fun testSnapshotDualGenerationRotation() {
+        val backupDir = tempFolder.newFolder("auto_backup")
         val snapshot1 = """{"type":"decikeeper_settings_backup","schemaVersion":2,"test":1}"""
         val snapshot2 = """{"type":"decikeeper_settings_backup","schemaVersion":2,"test":2}"""
 
@@ -48,6 +48,25 @@ class AutoBackupManagerTest {
         assertTrue(prevFile.exists())
         assertEquals(snapshot2, currentFile.readText())
         assertEquals(snapshot1, prevFile.readText())
+    }
+
+    @Test
+    fun testPerformBackup_onlyWritesInternalDir_noPublicWrite() {
+        val result = AutoBackupManager.performBackup(context)
+        assertTrue("Internal snapshot should be written", result.internalWritten)
+        assertEquals("No errors during internal backup", 0, result.errorCount)
+        assertTrue(result.success)
+
+        val internalFile = File(File(context.filesDir, AutoBackupManager.INTERNAL_BACKUP_DIR), AutoBackupManager.BACKUP_FILE_NAME)
+        assertTrue("Internal backup file must exist", internalFile.exists())
+        assertTrue("Internal backup file must not be empty", internalFile.length() > 0)
+
+        // 验证公共 Documents 目录不会被自动写入
+        val publicDir = File(
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+            "DeciKeeper"
+        )
+        assertFalse("Public documents directory must NOT be written by auto backup", publicDir.exists())
     }
 
     @Test

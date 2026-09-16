@@ -250,13 +250,6 @@ class MyApplication : Application() {
         // 🚀 [Log] Initialize LogExporter with app context for disk-persistent logging
         LogExporter.init(this)
 
-        // 🚀 [Auto Backup] 新装/重装首次启动静默恢复外部备份快照
-        try {
-            AutoBackupManager.checkAndRestoreIfNeeded(this)
-        } catch (e: Exception) {
-            Log.w("DeciKeeper", "MyApplication: checkAndRestoreIfNeeded failed: ${e.message}")
-        }
-
         // 🚀 启动时清理无障碍保护模块历史脏 key
         // 历史版本曾在 ConfigPendingManager 中写入 "a11y_service_self_pending"
         // 作为永久生效的"自关授权"标记。新版本改为纯内存短期授权，旧 key 必须清理。
