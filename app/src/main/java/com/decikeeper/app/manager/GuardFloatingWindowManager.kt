@@ -277,6 +277,7 @@ object GuardFloatingWindowManager {
 
         val dp8 = dpToPx(context, 8f)
         val dp6 = dpToPx(context, 6f)
+        val dp4 = dpToPx(context, 4f)
 
         // 无倒计时时保留原盾牌；有倒计时时完全替换成纯数字。
         val pillContainer = LinearLayout(context).apply {
@@ -310,17 +311,17 @@ object GuardFloatingWindowManager {
         pillContainer.addView(tvCountdown)
 
         val detailsPanel = TextView(context).apply {
-            textSize = 13f
+            textSize = 12.5f
             setTextColor("#ECEFF4".toColorInt())
             setPadding(dp8, dp6, dp8, dp6)
             setLineSpacing(0f, 1.15f)
+            includeFontPadding = false
             background = GradientDrawable().apply {
                 setColor("#F0182230".toColorInt())
-                cornerRadius = dpToPx(context, 14f).toFloat()
+                cornerRadius = dpToPx(context, 12f).toFloat()
                 setStroke(dpToPx(context, 1f), "#4D5E81AC".toColorInt())
             }
             visibility = View.GONE
-            minWidth = dpToPx(context, 200f)
         }
 
         var expanded = false
@@ -343,6 +344,18 @@ object GuardFloatingWindowManager {
         fun rebuild(keepRightSide: Boolean = params.x + root.width / 2 >= screenWidth / 2) {
             root.removeAllViews()
             if (expanded && showingCountdown) {
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    if (keepRightSide) {
+                        marginEnd = dp4
+                    } else {
+                        marginStart = dp4
+                    }
+                }
+                detailsPanel.layoutParams = lp
+
                 if (keepRightSide) {
                     root.addView(detailsPanel)
                     root.addView(pillContainer)
