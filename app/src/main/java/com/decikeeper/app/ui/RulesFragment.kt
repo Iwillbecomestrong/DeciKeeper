@@ -370,11 +370,6 @@ class RulesFragment : Fragment() {
         switchDeviceAdminProtection?.let { setupDeviceAdminProtectionSwitch(it) }
 
         setupProtectionSectionHelp(view.findViewById(R.id.btn_protection_section_help))
-        setupHelpButton(
-            view.findViewById(R.id.btn_accessibility_service_help),
-            R.string.settings_help_accessibility_title,
-            R.string.settings_help_accessibility_message
-        )
 
         switchAccessibilityService?.let { setupAccessibilityServiceSwitch(it) }
     }
@@ -407,29 +402,7 @@ class RulesFragment : Fragment() {
         }
     }
 
-    private fun setupHelpButton(view: View?, titleRes: Int, messageRes: Int) {
-        view?.setOnClickListener {
-            AlertDialog.Builder(requireContext())
-                .setTitle(titleRes)
-                .setMessage(messageRes)
-                .setPositiveButton(R.string.btn_got_it, null)
-                .show()
-        }
-    }
-
     private fun setupEditWindowPolicySection(view: View) {
-        view.findViewById<View>(R.id.btn_edit_window_policy_help)?.setOnClickListener {
-            AlertDialog.Builder(requireContext())
-                .setTitle("可修改时段（除闹钟）说明")
-                .setMessage(
-                    "【全天可修改】（默认）\n全天任意时刻均可新增、编辑与调整规则及系统保护功能。\n\n" +
-                    "【仅生效时间至 24:00 可修改】\n每天 00:00 至设定的生效时间期间，除闹钟外各项规则与系统保护功能锁定为只读，避免夜间或清晨冲动关闭保护。\n\n" +
-                    "注：主 Tab 闹钟界面与闹钟防关机保护随时可改，不受此时段限制；新安装「适应期」内可自由切换且立即生效。"
-                )
-                .setPositiveButton(R.string.btn_got_it, null)
-                .show()
-        }
-
         view.findViewById<View>(R.id.card_edit_window_policy)?.setOnClickListener {
             val currentContext = context ?: return@setOnClickListener
             if (TimeRuleEditWindowPolicyManager.isEditLocked(currentContext)) {

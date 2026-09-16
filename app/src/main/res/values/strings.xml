@@ -38,18 +38,6 @@
     <string name="settings_protection_help_uninstall_perm" translatable="false">【防卸载与防关权限保护】\n拦截进入系统设置的应用管理与权限页面，降低冲动卸载或强停服务的风险（关闭需次日生效）。</string>
     <string name="settings_protection_help_vivo_note" translatable="false">【vivo 专属适配】\n• 隐私空间保护：阻止将决定守护移入原子隐私系统，防止保护链被规避（关闭需次日生效）。</string>
     <string name="settings_protection_help_oppo_note" translatable="false">【OPPO 专属适配】\n• 设备管理器防卸载锁：提供系统级底层防卸载增强，防止直接移除应用（解除需手动取消激活）。</string>
-    <string name="settings_help_accessibility_title" translatable="false">无障碍服务说明</string>
-    <string name="settings_help_accessibility_message" translatable="false">这是下方加强约束功能的前置服务。关闭无障碍服务时，将协同处理各项保护的关闭流程。</string>
-    <string name="settings_help_alarm_power_off_title" translatable="false">闹钟防关机保护说明</string>
-    <string name="settings_help_alarm_power_off_message" translatable="false">在闹钟响铃与挑战期间，防止直接关机或重启以逃避起床流程。开启前需补齐无障碍服务、悬浮窗、通知及锁屏显示等权限。开启与关闭均立即生效。</string>
-    <string name="settings_help_floating_window_title" translatable="false">小窗可见性增强说明</string>
-    <string name="settings_help_floating_window_message" translatable="false">增强系统小窗或悬浮模式下受限应用的可见性识别与约束。不同机型系统小窗呈现方式不同，效果可能存在差异。关闭需次日生效。</string>
-    <string name="settings_help_privacy_title" translatable="false">隐私空间保护说明</string>
-    <string name="settings_help_privacy_message" translatable="false">部分设备存在独立空间（如原子隐私系统、隐私空间）的添加应用入口，可能让保护链失效。此项针对已适配机型提供兼容性拦截。关闭需次日生效。</string>
-    <string name="settings_help_uninstall_and_perm_title" translatable="false">防卸载与防关权限保护说明</string>
-    <string name="settings_help_uninstall_and_perm_message" translatable="false">用于降低冲动状态下从系统设置中直接卸载决定守护、强行停止服务或关闭关键权限的可能。开启后将拦截进入系统应用管理与权限管理页面。关闭需次日生效。</string>
-    <string name="settings_help_device_admin_title" translatable="false">设备管理器防卸载锁说明</string>
-    <string name="settings_help_device_admin_message" translatable="false">设备管理器是防卸载的可选系统级冗余。OPPO (ColorOS) 已有实测环境可推荐；vivo/iQOO 不默认推荐，其他品牌与 ROM 未验证。激活是否成功以系统状态为准；保护关闭或到期后仍需前往系统设置手动取消激活，用户最终可以正常退出和卸载。</string>
 
     <!-- Lock Penalty Dialog -->
     <string name="penalty_dialog_title">决定守护强制干预</string>

@@ -42,21 +42,20 @@ class RulesSettingsUiContractTest {
         assertTrue("fragment_rules.xml must contain btn_protection_section_help", xml.contains("@+id/btn_protection_section_help"))
         assertTrue("RulesFragment must bind setupProtectionSectionHelp", source.contains("setupProtectionSectionHelp"))
 
-        // Child protection rows must NOT have individual help buttons
+        // Individual redundant help buttons must NOT exist
         val droppedHelpButtons = listOf(
             "btn_alarm_power_off_help",
             "btn_floating_window_protection_help",
             "btn_privacy_space_guard_help",
             "btn_uninstall_and_perm_protection_help",
             "btn_floating_guard_help",
-            "btn_device_admin_protection_help"
+            "btn_device_admin_protection_help",
+            "btn_accessibility_service_help",
+            "btn_edit_window_policy_help"
         )
         droppedHelpButtons.forEach { helpId ->
             assertFalse("fragment_rules.xml should not contain $helpId", xml.contains("@+id/$helpId"))
         }
-
-        // Accessibility service still owns its own help pill outside the protection section
-        assertTrue("fragment_rules.xml retains btn_accessibility_service_help", xml.contains("@+id/btn_accessibility_service_help"))
     }
 
     @Test

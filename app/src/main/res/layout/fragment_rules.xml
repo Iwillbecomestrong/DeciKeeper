@@ -176,45 +176,23 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="可修改时段（除闹钟）"
-                            android:textColor="?attr/zzText"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="控制除闹钟外的各项规则与保护功能在一天内的可修改时间范围。"
-                            android:textColor="?attr/zzMuted"
-                            android:textSize="11sp" />
-                    </LinearLayout>
+                    android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/btn_edit_window_policy_help"
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="@drawable/bg_zz_help_pill"
-                        android:backgroundTint="?attr/zzSurface2"
-                        android:clickable="true"
-                        android:contentDescription="可修改时段说明"
-                        android:focusable="true"
-                        android:gravity="center"
-                        android:text="?"
-                        android:textColor="?attr/zzMuted"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="可修改时段（除闹钟）"
+                        android:textColor="?attr/zzText"
+                        android:textSize="15sp"
                         android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="控制除闹钟外的各项规则与保护功能在一天内的可修改时间范围。"
+                        android:textColor="?attr/zzMuted"
+                        android:textSize="11sp" />
                 </LinearLayout>
 
                 <RadioGroup
@@ -277,7 +255,6 @@
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="无障碍服务" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                     <TextView android:id="@+id/tv_accessibility_status_main" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                 </LinearLayout>
-                <TextView android:id="@+id/btn_accessibility_service_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="无障碍服务说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                 <Switch android:id="@+id/switch_accessibility_service" android:layout_width="wrap_content" android:layout_height="wrap_content" android:buttonTint="?attr/zzAccent" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
