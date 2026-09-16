@@ -7,6 +7,15 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-32] 大型测试套件模块化分包、全屏安全区避让与 SQLite 生命周期收敛
+- **背景**：测试套件包含 167+ 个测试文件，原先扁平堆叠在测试根目录下，缺乏领域分层与架构防腐；全屏悬浮锁屏与闹钟锁屏在刘海屏/挖孔屏设备上存在元素遮挡隐患；统计流水线 `RestStatsRecorder` 与 `RestStatsDatabase.clear()` 存在多次打开数据库且未严格配对关闭导致的 CloseGuard 资源泄漏隐患；CI 依赖的 GitHub Actions 运行在即将废弃的 Node 20 runtime 下且 `main` 分支缺少强制状态检查门禁。
+- **决策**：
+  1. **测试套件领域模块化**：将全部测试重构划分至 10 个顶层领域包（`manager`, `ui`, `protection`, `data`, `service`, `questionbank`, `oem`, `governance`, `testutil`, `statistics`），设立 `app/src/test/README.md` 单真理源；建立 `TestPackageLayoutContractTest` 治理门禁，禁止任何根目录平铺测试，未知目录直接在 CI 中阻断；
+  2. **全屏安全区避让 (WindowInsets & Cutout)**：新建 `OverlaySafeInsets.kt`，实现 `resolveOverlaySafeInsets`（每边取 `max(systemBars, displayCutout)`）与 `installOverlaySafeInsets`（记录初始 padding 防重复累加）；在 `LockWindowManager`（`layout_background_text` 与 `layout_bottom_buttons`）与 `LockAlarmOverlay`（`root_content_layout`）全面装配，配备 Robolectric 挖孔测试与源码静态契约测试；
+  3. **SQLite 资源生命周期收敛**：`RestStatsRecorder.kt` 统一收口至 `withDatabase`，在 `finally` 中严格调用 `database.close()` 释放连接；`RestStatsDatabase.clear()` 保持单次绑定 `val db = writableDatabase` 完成事务，彻底消除孤立 helper 泄漏；增加 100 次闭环高频操作测试与治理契约测试；
+  4. **CI 与依赖现代化**：CI actions 全面升级至 Node 24 兼容版本（`checkout@v7`, `setup-java@v6`, `cache@v6`, `upload-artifact@v7`）；清除 Gradle 8.13 下无效的 9.4 属性 `org.gradle.tooling.parallel`；GitHub 仓库 Ruleset 为 `main` 固化 `Build & Test (Ubuntu)` 必选状态检查；
+  5. **ChatGPT Web 闭环审查**：通过 `/spec-loop-web-tdd` 流程由 ChatGPT Web（High Reasoning + GitHub Connector）进行两轮深度审查与实施计划落地，最终在 commit `fd71a87` 达成 `FINAL VERDICT: APPROVED`，官方 GitHub Actions 流水线（Run ID: 35098789469）全绿通过（1390 个单测全部通过）。
+
 ### [DECISION-31] 产品故事收敛：生效机制与挑战闹钟来源
 - **时间规则**：从系统限额、专注模式、番茄钟及限制工具的实际使用中，确认“修改摩擦高”并不等于“放宽困难”，而缺少正常出口又会降低长期可用性。因此收敛为“编辑方便、保存不等于生效、加严立即、放宽 pending、恢复稳定基准立即”；先有勿扰锁及休息/结余/借用/特权，后因游戏等高风险应用会消耗出口而形成应用时间窗，最终成为两把锁与三个出口。
 - **挑战闹钟**：大学时手机放床下带来的离床效果是个人经验；读研后手机放床边又出现按掉继续睡。通过 GPT 查询现有方案时了解到 QRAlarm，明确参考其扫码离床思路。最小 demo 很快，真正长期投入在扫码鲁棒性、锁屏后台、重启恢复和关机/重启绕过面；随后按自身需求加入多题型、自定义题库、完成后缓冲和可选后续阶段。对外不宣称扫码离床或多阶段挑战原创。
