@@ -336,6 +336,8 @@ class RulesFragment : Fragment() {
         tvAlarmPowerOffProtectionStatus = view.findViewById(R.id.tv_alarm_power_off_status_main)
         switchFloatingWindowProtection = view.findViewById(R.id.switch_floating_window_protection)
         tvFloatingWindowProtectionStatus = view.findViewById(R.id.tv_floating_window_protection_status)
+        layoutPrivacySpaceGuard = view.findViewById(R.id.layout_privacy_space_guard)
+        dividerPrivacySpaceGuard = view.findViewById(R.id.divider_privacy_space_guard)
         switchPrivacySpaceGuard = view.findViewById(R.id.switch_privacy_space_guard)
         tvPrivacySpaceGuardStatus = view.findViewById(R.id.tv_privacy_space_guard_status)
         switchUninstallAndPermProtection = view.findViewById(R.id.switch_uninstall_and_perm_protection)
@@ -359,65 +361,50 @@ class RulesFragment : Fragment() {
         // Setup Edit Window Policy
         setupEditWindowPolicySection(view)
 
-        // Setup 4 protection switches
+        // Setup protection switches
         switchAlarmPowerOffProtection?.let { setupAlarmPowerOffProtectionSwitch(it) }
+        switchFloatingGuard?.let { setupFloatingGuardSwitch(it) }
         switchFloatingWindowProtection?.let { setupFloatingWindowProtectionSwitch(it) }
         switchPrivacySpaceGuard?.let { setupPrivacySpaceGuardSwitch(it) }
         switchUninstallAndPermProtection?.let { setupUninstallAndPermProtectionSwitch(it) }
-
-        switchFloatingGuard?.let { setupFloatingGuardSwitch(it) }
         switchDeviceAdminProtection?.let { setupDeviceAdminProtectionSwitch(it) }
 
-        view.findViewById<View>(R.id.btn_floating_guard_help)?.setOnClickListener {
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("桌面守护小浮窗（强力防杀盾）")
-                .setMessage(
-                    "【原理与效果】\n" +
-                    "利用 Android 系统的顶层窗口机制（TYPE_APPLICATION_OVERLAY），在屏幕边缘挂载一个极微型的自律守护盾。\n\n" +
-                    "只要该浮窗挂载在屏幕上，系统底层（AMS / OomAdjuster）会将「决定守护」评定为最高优先级的 VISIBLE_APP 可见应用，彻底免疫多任务误划/清理强杀！\n\n" +
-                    "【交互设计】\n" +
-                    "• 贴边微缩：随意拖动，松手自动吸附两侧边缘，静止时半透明微光，绝不遮挡视线；\n" +
-                    "• 轻触查看：轻触可展开查看守护坚持状态，再次轻触收起；\n\n" +
-                    "【OPPO / ColorOS 专属建议】\n" +
-                    "在系统【设置】顶部搜索框输入「自启动」，开启自启动与关联启动权限，配合此浮窗将达成 100% 坚不可摧的保活闭环！"
-                )
-                .setPositiveButton("知道了", null)
-                .show()
-        }
-
+        setupProtectionSectionHelp(view.findViewById(R.id.btn_protection_section_help))
         setupHelpButton(
             view.findViewById(R.id.btn_accessibility_service_help),
             R.string.settings_help_accessibility_title,
             R.string.settings_help_accessibility_message
         )
-        setupHelpButton(
-            view.findViewById(R.id.btn_alarm_power_off_help),
-            R.string.settings_help_alarm_power_off_title,
-            R.string.settings_help_alarm_power_off_message
-        )
-        setupHelpButton(
-            view.findViewById(R.id.btn_floating_window_protection_help),
-            R.string.settings_help_floating_window_title,
-            R.string.settings_help_floating_window_message
-        )
-        setupHelpButton(
-            view.findViewById(R.id.btn_privacy_space_guard_help),
-            R.string.settings_help_privacy_title,
-            R.string.settings_help_privacy_message
-        )
-        setupHelpButton(
-            view.findViewById(R.id.btn_uninstall_and_perm_protection_help),
-            R.string.settings_help_uninstall_and_perm_title,
-            R.string.settings_help_uninstall_and_perm_message
-        )
-        setupHelpButton(
-            view.findViewById(R.id.btn_device_admin_protection_help),
-            R.string.settings_help_device_admin_title,
-            R.string.settings_help_device_admin_message
-        )
 
         switchAccessibilityService?.let { setupAccessibilityServiceSwitch(it) }
+    }
 
+    private fun setupProtectionSectionHelp(view: View?) {
+        view?.setOnClickListener {
+            val ctx = context ?: return@setOnClickListener
+            val isVivo = SettingsNavigator.isVivoOrIqoo()
+            val isOppo = SettingsNavigator.isOppoOrOnePlusOrRealme()
+
+            val message = buildString {
+                append(getString(R.string.settings_protection_help_intro)).append("\n\n")
+                append(getString(R.string.settings_protection_help_alarm)).append("\n\n")
+                append(getString(R.string.settings_protection_help_floating_guard)).append("\n\n")
+                append(getString(R.string.settings_protection_help_floating_window)).append("\n\n")
+                append(getString(R.string.settings_protection_help_uninstall_perm))
+
+                if (isVivo) {
+                    append("\n\n").append(getString(R.string.settings_protection_help_vivo_note))
+                } else if (isOppo) {
+                    append("\n\n").append(getString(R.string.settings_protection_help_oppo_note))
+                }
+            }
+
+            AlertDialog.Builder(ctx)
+                .setTitle(R.string.settings_protection_help_title)
+                .setMessage(message)
+                .setPositiveButton(R.string.btn_got_it, null)
+                .show()
+        }
     }
 
     private fun setupHelpButton(view: View?, titleRes: Int, messageRes: Int) {
@@ -2498,7 +2485,7 @@ class RulesFragment : Fragment() {
                     switchFloatingGuardUiUpdating = false
                     AlertDialog.Builder(context)
                         .setTitle("需要开启悬浮窗权限")
-                        .setMessage("常驻守护小浮窗需要【显示在其他应用上层】权限。开启后即可在屏幕边缘挂载自律微盾，利用系统窗口机制彻底免疫多任务划卡片强杀。")
+                        .setMessage("桌面守护小浮窗需要【显示在其他应用上层】权限。开启后将在屏幕边缘显示微型图标，防止后台多任务清理时服务被误杀。")
                         .setPositiveButton("前往开启") { _, _ ->
                             GuardFloatingWindowManager.requestOverlayPermission(context)
                         }
@@ -2511,7 +2498,7 @@ class RulesFragment : Fragment() {
                 if (prevState == GuardFloatingWindowManager.State.PENDING) {
                     Toast.makeText(context, "已取消关闭申请，桌面守护小浮窗保持开启", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "已开启桌面守护小浮窗，强力防杀盾已生效！", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "已开启桌面守护小浮窗，防杀守护已生效", Toast.LENGTH_SHORT).show()
                 }
                 updateFloatingGuardUI()
             } else {
@@ -2644,6 +2631,12 @@ class RulesFragment : Fragment() {
         // 全程经 Manager
         val state = PrivacyProtectionManager.getProtectionState(context)
         val enforcing = PrivacyProtectionManager.isEnforcing(context)
+
+        val isVivo = SettingsNavigator.isVivoOrIqoo()
+        val visible = PrivacyProtectionManager.resolvePrivacySpaceUiVisibility(isVivo, state, enforcing)
+        layoutPrivacySpaceGuard?.visibility = if (visible) View.VISIBLE else View.GONE
+        dividerPrivacySpaceGuard?.visibility = if (visible) View.VISIBLE else View.GONE
+        if (!visible) return
 
         switchPrivacySpaceGuardUiUpdating = true
         switchPrivacySpaceGuard?.isChecked = computePrivacySpaceGuardSwitchChecked(state, enforcing)
@@ -2799,11 +2792,11 @@ class RulesFragment : Fragment() {
 
     private fun updateDeviceAdminProtectionUI() {
         val ctx = context ?: return
-        val isVivo = SettingsNavigator.isVivoOrIqoo()
+        val isDeviceAdminRecommended = com.decikeeper.app.oem.OemManager.current.isDeviceAdminRecommended()
         val state = AntiUninstallManager.getProtectionState(ctx)
         val isSystemAdminActive = AntiUninstallManager.isDeviceAdminActive(ctx)
         val uiState = AntiUninstallManager.resolveDeviceAdminUiState(
-            isVivoOrIqoo = isVivo,
+            isSupportedBrand = isDeviceAdminRecommended,
             protectionState = state,
             isSystemAdminActive = isSystemAdminActive
         )

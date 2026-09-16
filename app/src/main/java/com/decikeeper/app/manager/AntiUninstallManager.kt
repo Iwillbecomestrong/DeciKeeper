@@ -67,7 +67,7 @@ object AntiUninstallManager {
         protectionState: State,
         isSystemAdminActive: Boolean
     ): DeviceAdminUiState {
-        val visible = isSupportedBrand || protectionState != State.DISABLED || isSystemAdminActive
+        val visible = isSupportedBrand || isSystemAdminActive
         if (!visible) {
             return DeviceAdminUiState(false, false, DeviceAdminUiStatus.HIDDEN)
         }
