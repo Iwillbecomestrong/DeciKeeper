@@ -387,6 +387,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         finishAndRemoveTask()
     }
 
+    @Suppress("MissingSuperCall", "GestureBackNavigation")
     override fun onBackPressed() {
     }
 

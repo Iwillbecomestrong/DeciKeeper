@@ -22,6 +22,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import android.content.res.ColorStateList
 import com.decikeeper.app.R
 import com.decikeeper.app.manager.AlarmRingtoneManager
 import com.decikeeper.app.manager.AlarmScheduler
@@ -48,6 +49,8 @@ class AlarmRingtonePickerActivity : AppCompatActivity() {
     private lateinit var tvCurrentSelectedHint: TextView
     private lateinit var tvSystemTitle: TextView
     private lateinit var tvCustomTitle: TextView
+    private lateinit var layoutSystemPage: View
+    private lateinit var layoutCustomPage: View
     private lateinit var etSearchSystem: EditText
     private lateinit var listSystemRingtones: ListView
     private lateinit var listCustomRingtones: ListView
@@ -56,6 +59,7 @@ class AlarmRingtonePickerActivity : AppCompatActivity() {
     private lateinit var btnStopPreview: Button
     private lateinit var btnSaveRingtone: Button
     private lateinit var btnBack: TextView
+    private var activeTab: Int = 0
 
     private var allSystemItems = listOf<RingtoneItem>()
     private var filteredSystemItems = listOf<RingtoneItem>()
@@ -81,6 +85,7 @@ class AlarmRingtonePickerActivity : AppCompatActivity() {
                 selectedUri = newItem.uri
                 updateSelectedHint()
                 loadCustomRingtones()
+                switchTab(1)
                 startAudition(newItem.uri)
             } else {
                 Toast.makeText(this, "音频导入失败，请检查文件格式", Toast.LENGTH_SHORT).show()
@@ -104,6 +109,32 @@ class AlarmRingtonePickerActivity : AppCompatActivity() {
         loadSystemRingtones()
         loadCustomRingtones()
         updateSelectedHint()
+
+        val isCustomSelected = selectedUri?.let {
+            it.startsWith("content://") || it.startsWith("file://") || customItems.any { c -> c.uri == it || c.id == it }
+        } ?: false
+        switchTab(if (isCustomSelected) 1 else 0)
+    }
+
+    private fun switchTab(tabIndex: Int) {
+        activeTab = tabIndex
+        val accentColor = com.decikeeper.app.ui.ThemeManager.getColorAttr(this, R.attr.zzAccent)
+        val mutedColor = com.decikeeper.app.ui.ThemeManager.getColorAttr(this, R.attr.zzMuted)
+        if (tabIndex == 0) {
+            layoutSystemPage.visibility = View.VISIBLE
+            layoutCustomPage.visibility = View.GONE
+            tvSystemTitle.backgroundTintList = ColorStateList.valueOf(accentColor)
+            tvSystemTitle.setTextColor(android.graphics.Color.WHITE)
+            tvCustomTitle.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+            tvCustomTitle.setTextColor(mutedColor)
+        } else {
+            layoutSystemPage.visibility = View.GONE
+            layoutCustomPage.visibility = View.VISIBLE
+            tvCustomTitle.backgroundTintList = ColorStateList.valueOf(accentColor)
+            tvCustomTitle.setTextColor(android.graphics.Color.WHITE)
+            tvSystemTitle.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+            tvSystemTitle.setTextColor(mutedColor)
+        }
     }
 
     private fun initViews() {
@@ -111,6 +142,8 @@ class AlarmRingtonePickerActivity : AppCompatActivity() {
         tvCurrentSelectedHint = findViewById(R.id.tv_current_selected_hint)
         tvSystemTitle = findViewById(R.id.tv_system_title)
         tvCustomTitle = findViewById(R.id.tv_custom_title)
+        layoutSystemPage = findViewById(R.id.layout_system_page)
+        layoutCustomPage = findViewById(R.id.layout_custom_page)
         etSearchSystem = findViewById(R.id.et_search_system)
         listSystemRingtones = findViewById(R.id.list_system_ringtones)
         listCustomRingtones = findViewById(R.id.list_custom_ringtones)
@@ -120,6 +153,8 @@ class AlarmRingtonePickerActivity : AppCompatActivity() {
         btnSaveRingtone = findViewById(R.id.btn_save_ringtone)
 
         btnBack.setOnClickListener { finish() }
+        tvSystemTitle.setOnClickListener { switchTab(0) }
+        tvCustomTitle.setOnClickListener { switchTab(1) }
 
         systemAdapter = RingtoneListAdapter(isCustom = false)
         listSystemRingtones.adapter = systemAdapter
