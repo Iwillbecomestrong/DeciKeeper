@@ -15,6 +15,10 @@ class RulesSettingsUiContractTest {
         assertTrue(xml.indexOf("android:text=\"无障碍服务\"") < xml.indexOf("@string/settings_protection_section_title"))
         assertTrue(
             xml.indexOf("@string/settings_protection_alarm_title") <
+                xml.indexOf("android:text=\"桌面守护小浮窗\"")
+        )
+        assertTrue(
+            xml.indexOf("android:text=\"桌面守护小浮窗\"") <
                 xml.indexOf("@string/settings_protection_floating_title")
         )
         assertTrue(
@@ -30,23 +34,29 @@ class RulesSettingsUiContractTest {
     }
 
     @Test
-    fun eachProtectionSwitchHasHelpControlImmediatelyBeforeIt() {
+    fun protectionSectionUsesUnifiedHelpAndDropsChildHelpButtons() {
         val xml = source("app/src/main/res/layout/fragment_rules.xml")
-        val rows = listOf(
-            "switch_accessibility_service",
-            "switch_alarm_power_off_protection",
-            "switch_floating_window_protection",
-            "switch_privacy_space_guard",
-            "switch_uninstall_and_perm_protection"
-        )
+        val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
 
-        rows.forEach { switchId ->
-            val switchIndex = xml.indexOf("android:id=\"@+id/$switchId\"")
-            assertTrue("missing $switchId", switchIndex >= 0)
-            val rowStart = xml.lastIndexOf("<LinearLayout", switchIndex)
-            val helpIndex = xml.lastIndexOf("?", switchIndex)
-            assertTrue("$switchId needs a help control before its switch", helpIndex > rowStart)
+        // Section title header owns unified help button
+        assertTrue("fragment_rules.xml must contain btn_protection_section_help", xml.contains("@+id/btn_protection_section_help"))
+        assertTrue("RulesFragment must bind setupProtectionSectionHelp", source.contains("setupProtectionSectionHelp"))
+
+        // Child protection rows must NOT have individual help buttons
+        val droppedHelpButtons = listOf(
+            "btn_alarm_power_off_help",
+            "btn_floating_window_protection_help",
+            "btn_privacy_space_guard_help",
+            "btn_uninstall_and_perm_protection_help",
+            "btn_floating_guard_help",
+            "btn_device_admin_protection_help"
+        )
+        droppedHelpButtons.forEach { helpId ->
+            assertFalse("fragment_rules.xml should not contain $helpId", xml.contains("@+id/$helpId"))
         }
+
+        // Accessibility service still owns its own help pill outside the protection section
+        assertTrue("fragment_rules.xml retains btn_accessibility_service_help", xml.contains("@+id/btn_accessibility_service_help"))
     }
 
     @Test
