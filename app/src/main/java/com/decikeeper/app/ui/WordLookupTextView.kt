@@ -3,7 +3,7 @@ package com.decikeeper.app.ui
 import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
-import android.widget.TextView
+import androidx.appcompat.widget.AppCompatTextView
 import com.decikeeper.app.R
 
 /**
@@ -20,7 +20,7 @@ open class WordLookupTextView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : TextView(context, attrs, defStyleAttr) {
+) : AppCompatTextView(context, attrs, defStyleAttr) {
 
     /** 长按命中某个英文单词时回调。 */
     var onWordPressed: ((word: String) -> Unit)? = null

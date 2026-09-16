@@ -1,9 +1,7 @@
 # 决定守护 (DeciKeeper) 分发与双推指南 (PUBLISHING)
 
-> **定位**：本文档是 Gitee / GitHub 双仓库初始化、构建产物分发与 Release 发布的
-> **唯一可执行清单**。
-> **不上架任何应用商店**，只走自建发行渠道。
-> 最后核验：2026-09-04（下表状态与远端地址需要重新核对后再依赖；仓库名与产品名目前并不一致）
+> **定位**：本文档是 Gitee / GitHub 双仓库、构建产物和 Release 证据的可执行清单。
+> **不上架任何应用商店**，只走自建发行渠道。文档中的“已验证”仅指本机命令实际输出；远端可达性、双端 Release 上传和题库授权不能由本地构建替代。
 
 ---
 
@@ -11,13 +9,11 @@
 
 | 项目 | 状态 | 证据 |
 |:---|:---|:---|
-| GitHub 仓库 | ✅ 已建立并推送 | `git@github.com:Iwillbecomestrong/DeciKeeper.git` |
-| Gitee 账号 | ✅ SSH 已验证可用 | `Hi 陈永争(@my_room_welcome_you)! You've successfully authenticated` |
-| Gitee 仓库 | ✅ 已建立并推送 | `git@gitee.com:my_room_welcome_you/zhizhi.git`（包含 `main` / `dev` 分支） |
-| 本地分支 | ✅ 与远端连通 | `github` 与 `gitee` 双远端分别跟踪管理 |
-| debug APK | ✅ 构建成功且校验通过 | `app/build/outputs/apk/debug/app-debug.apk` |
-| 单元测试 | ✅ 全量通过 | 1200+ 例单元测试全绿基线 |
-| GitHub Actions | ✅ 已配置 | `.github/workflows/` 包含构建与 CI 自动化流水线 |
+| GitHub remote | ⚠️ 配置存在，当前会话未证明可达 | `git@github.com:Iwillbecomestrong/DeciKeeper.git` |
+| Gitee remote | ⚠️ 配置存在，当前会话未证明可达 | `git@gitee.com:my_room_welcome_you/DeciKeeper.git` |
+| 本地 Release | ⏳ 以本次构建与 verifier 输出为准 | `app/build/outputs/apk/release/app-release.apk` |
+| Release 证据 | ✅ 已提供脚本 | `scripts/verify_release_artifact.ps1` 生成 manifest、SHA-256 和签名检查结果 |
+| GitHub Actions | ✅ 已配置 | `.github/workflows/` 含质量门禁与 tag Release 验证流水线 |
 
 ---
 
@@ -30,7 +26,7 @@
 ```bash
 git remote -v
 # 应看到：
-# gitee   git@gitee.com:my_room_welcome_you/zhizhi.git (fetch/push)
+# gitee   git@gitee.com:my_room_welcome_you/DeciKeeper.git (fetch/push)
 # github  git@github.com:Iwillbecomestrong/DeciKeeper.git (fetch/push)
 ```
 
@@ -40,11 +36,11 @@ git remote -v
 ### 第 2 步 · 双端推送
 
 ```bash
-# 推送至 GitHub 主力仓
+# 推送至 GitHub 主力仓（本任务不自动执行）
 git push github dev
 git push github main
 
-# 推送至 Gitee 国内镜像仓
+# 推送至 Gitee 国内镜像仓（本任务不自动执行）
 git push gitee dev
 git push gitee main
 ```
@@ -65,9 +61,10 @@ git ls-remote gitee          # 均应能列出 main / dev 等分支
 # 正式发版必须使用官方 keystore 签名的 Release APK（严禁在正式 Release 中分发 debug APK）
 APK=app/build/outputs/apk/release/app-release.apk
 
-# 校验签名合法性并生成 SHA-256 校验文件
-apksigner verify --verbose $APK
-sha256sum $APK > $APK.sha256
+# 构建后由脚本同时核对包名、版本、权限、签名和 SHA-256
+pwsh -File scripts/verify_release_artifact.ps1 `
+  -ApkPath $APK -ExpectedPackage com.decikeeper.app -ExpectedVersionName 0.3.0 `
+  -TestStatus passed -RequireSigned
 
 # GitHub：在仓库 Releases 页点「Draft a new release」，tag 如 v0.3.0，上传 app-release.apk 与 sha256 文件
 # Gitee ：仓库「发行版」页点「创建发行版」，tag 保持一致，上传同名同版本 Release APK
@@ -197,16 +194,12 @@ Gitee 需实名认证 + 开源审核，**无障碍服务属敏感权限**，审�
 - **方案 B（彻底，破坏性）**：用 `git filter-repo` 重写全部历史统一邮箱。
   会改变所有 commit SHA，**所有协作者必须重新 clone**。开源前做代价最小。
 
-### 5.3 CI 当前不产出 Release
+### 5.3 CI 只验证，不替代正式签名发布
 
-`.github/workflows/android-build.yml` 触发条件为：
+`.github/workflows/android-build.yml` 负责主分支/PR 的测试、链接检查、Release lint 和 Debug 构建；`.github/workflows/release-verify.yml` 在手动触发或 `v*.*.*` tag 时运行测试、lint、unsigned Release 构建和产物校验。
 
-- `pull_request` → `dev`
-- `workflow_dispatch`（手动）
-
-即：**push 到 main 不会构建，也不创建 Release**。
-若希望每次发版自动出包，需补充 `release` 触发与 `softprops/action-gh-release` 步骤。
-当前手动发版流程：本地 `assembleDebug` → 在 GitHub Releases 页面手动上传 APK。
+- CI 不接触本地正式签名私钥，也不自动创建 GitHub/Gitee Release；tag workflow 的 unsigned APK 只用于结构与权限校验。
+- 当前正式发版流程：本地 `assembleRelease` → `verify_release_artifact.ps1 -RequireSigned` → 人工上传同一 APK 与 `.sha256`/`release-manifest.json`。本任务不自动创建 tag、推送或上传。
 
 ### 5.4 SSH config 未声明 Gitee 专用密钥（低优先级）
 
@@ -226,10 +219,11 @@ Host gitee.com
 
 ## 6. 发版检查清单
 
-- [ ] Gitee 空仓库已创建并通过开源审核
-- [ ] `git remote add gitee` 已配置，双端均可 `git ls-remote`
+- [ ] Gitee 仓库已创建并通过开源审核
+- [ ] `git remote -v` 与实际目标一致，双端均可 `git ls-remote`
 - [ ] 提交邮箱已统一（方案 A 或 B）
-- [ ] `./gradlew assembleDebug` 通过，`python -m unittest discover -s scripts/tests` 通过
+- [ ] `:app:testDebugUnitTest`、`:app:lintRelease`、`:app:assembleRelease` 和 Markdown 链接检查通过
+- [ ] `scripts/verify_release_artifact.ps1 -RequireSigned` 通过，且保存 `release-manifest.json` 与 SHA-256
 - [ ] 真机 `adb install -r -d` 安装验证，无障碍服务开启后核心三项功能实测
 - [ ] Release Notes 写明：无障碍权限用途、卸载退出机制（今天关→明天生效）
 - [ ] README 提供普通用户安装指引（**必须包含 Android 13+ 受限设置解除步骤**）

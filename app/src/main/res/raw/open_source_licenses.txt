@@ -2,15 +2,15 @@
 
 本应用使用部分开源组件。
 
-具体许可信息请查看：
+具体许可信息请查看仓库中的 `docs/THIRD_PARTY_NOTICES.md`，其中登记了版本、许可证和官方来源。
 
 开源许可列表
 
-AndroidX 基础组件：Apache License 2.0
-Material Components：Apache License 2.0
-MPAndroidChart：Apache License 2.0
-AndroidX CameraX：Apache License 2.0
-Google ML Kit Barcode Scanning：Apache License 2.0
-Markwon：Apache License 2.0
+AndroidX Core KTX 1.10.1 / AppCompat 1.6.1 / Activity 1.8.0：Apache License 2.0
+Material Components 1.10.0：Apache License 2.0
+MPAndroidChart 3.1.0：Apache License 2.0
+AndroidX CameraX 1.3.4：Apache License 2.0
+Google ML Kit Barcode Scanning 17.3.0：Apache License 2.0
+Markwon Core / Tables 4.6.2：Apache License 2.0
 
-组件版本和完整版权声明随项目一并发布。
+本页面是 App 内摘要，不替代仓库中的完整声明；最终发布前仍需核对 Release 依赖解析和各组件 NOTICE。

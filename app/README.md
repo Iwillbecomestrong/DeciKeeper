@@ -37,7 +37,7 @@ com.decikeeper.app
 │   └── statistics/ # 统计图表渲染与筛选弹窗（StatisticsChartRenderer, StatisticsFilterBottomSheet）
 ├── protection/  # 系统级防护（无障碍拦截、防卸载、防强行停止、权限守护）
 ├── service/     # 核心服务（CoreService 无障碍通道、MonitorService 前台监控）
-├── receiver/    # 广播接收器（BootReceiver 开机自启、DeviceAdmin 历史兼容待清理/不作为防卸载依赖）
+├── receiver/    # 广播接收器（BootReceiver 开机自启、AdminReceiver 设备管理器冗余入口）
 ├── data/        # 持久化存储与数据模型
 │   ├── questionbank/ # 自定义题库与题目模型（CustomQuestionModels）
 │   └── statistics/ # 统计数据模型（StatisticsModels）
@@ -82,6 +82,8 @@ com.decikeeper.app
 4. 资源命名沿用现有约定：
    - 布局：`activity_*` / `fragment_*` / `dialog_*` / `item_*`
    - 控件：`tv_*` / `btn_*` / `et_*` / `switch_*` / `card_*`
+
+5. Release 证据由 `scripts/verify_release_artifact.ps1` 生成；它检查包名、版本、签名状态、最终权限和 SHA-256，不自动推送或发布。
 
 ### 时间规则页面
 

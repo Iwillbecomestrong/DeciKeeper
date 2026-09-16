@@ -30,6 +30,8 @@
 gradlew.bat :app:compileDebugKotlin
 gradlew.bat :app:testDebugUnitTest
 gradlew.bat :app:assembleDebug
+gradlew.bat :app:lintRelease
+python scripts/verify_markdown_links.py
 
 # Linux / macOS
 ./gradlew :app:compileDebugKotlin
@@ -42,7 +44,8 @@ Debug APK 生成路径：
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-- **单测红线**：提交前必须确保全量单元测试（1300+）全部通过，不得新增单元测试失败或编译告警。
+- **单测红线**：提交前必须确保当前工程的全量单元测试全部通过；PR 记录实际测试任务和结果，不使用会随代码漂移的固定数量。
+- **质量门禁**：提交前运行 `:app:lintRelease` 与 `python scripts/verify_markdown_links.py`；不得通过扩大 baseline 隐藏新 error。
 - **真机验证要求**：涉及锁机、闹钟唤醒、前台包名识别、无障碍、系统设置页拦截、OEM 保活行为的改动，必须在真机上验证，并在 PR 描述中记录设备型号（如 vivo OriginOS、小米 HyperOS 等）与复现步骤。
 - **OEM / 系统级 PR**：还要列出测试方式（真机 / 云测）、品牌、型号、Android、ROM，以及勿扰拦截、应用时间窗、休息、临时解锁、防卸载、防关关键权限、锁屏显示、短时闹钟、跨夜闹钟、重启恢复、闹钟防关机的逐项结果和未验证项目。
 - **覆盖安装红线**：真机安装验证优先使用：

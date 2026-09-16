@@ -36,6 +36,7 @@ import android.view.ViewParent
 import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.LinkResolver
@@ -221,7 +222,7 @@ class HelpActivity : AppCompatActivity() {
             textSize = 24f
             setTextColor(Color.parseColor("#00838F"))
             setPadding(dp(12), dp(8), dp(12), dp(8))
-            setOnClickListener { dl.openDrawer(Gravity.START) }
+            setOnClickListener { dl.openDrawer(GravityCompat.START) }
         }
         topBar.addView(btnToc)
 
@@ -303,7 +304,7 @@ class HelpActivity : AppCompatActivity() {
                 dp(280),
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            (layoutParams as DrawerLayout.LayoutParams).gravity = Gravity.START
+            (layoutParams as DrawerLayout.LayoutParams).gravity = GravityCompat.START
             setBackgroundColor(Color.parseColor("#FAFAFA"))
             setPadding(dp(24), sbh + dp(24), dp(24), dp(24))
         }
@@ -345,7 +346,7 @@ class HelpActivity : AppCompatActivity() {
                 setTextColor(Color.parseColor(if (isMajor) "#006064" else "#00838F"))
                 setPadding(dp(indent), dp(10), dp(16), dp(10))
                 setOnClickListener {
-                    dl.closeDrawer(Gravity.START)
+                    dl.closeDrawer(GravityCompat.START)
                     searchQuery = ""
                     filterAndRender()
                     // 滚动到该章节（延迟等渲染完成）
