@@ -86,13 +86,13 @@ object ProbationManager {
         
         var targetEditor: SharedPreferences.Editor? = null
 
-           if (key in listOf("strict_penalty_duration", "config_refresh_time", "weekly_privilege_limit")) {
-               targetEditor = ledgerPrefs.edit()
-           } else if (key == PrivacyProtectionManager.KEY_IS_ENABLED) {
-               targetEditor = privacyPrefs.edit()
-           } else {
-               targetEditor = mainPrefs.edit()
-           }
+        if (key in listOf("strict_penalty_duration", "config_refresh_time", "weekly_privilege_limit")) {
+            targetEditor = ledgerPrefs.edit()
+        } else if (key == PrivacyProtectionManager.KEY_IS_ENABLED) {
+            targetEditor = privacyPrefs.edit()
+        } else {
+            targetEditor = mainPrefs.edit()
+        }
 
         when (item.type) {
             "int" -> targetEditor.putInt(key, item.originalValue as Int)

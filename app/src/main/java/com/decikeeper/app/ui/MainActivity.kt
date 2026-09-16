@@ -131,7 +131,7 @@ class MainActivity : AppCompatActivity() {
     private fun showUsageAccessRequiredDialog() {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("需要使用情况访问")
-            .setMessage("时间规则需要使用情况访问来识别当前前台应用并执行黑名单、勿扰时段规则。请先在系统设置中开启，返回后再次进入时间规则。")
+            .setMessage("时间规则需要使用情况访问来识别当前前台应用并执行黑名单、勿扰时段规则。请先在系统设置中开启（若系统显示已开启仍提示未开，请尝试关闭后重新打开一次），返回后生效。")
             .setPositiveButton("去开启") { _, _ ->
                 try {
                     RecentTasksHideManager.markNavigating()

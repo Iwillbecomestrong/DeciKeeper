@@ -43,6 +43,7 @@ import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SegmentBlacklist
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.A11ySelfDisableAuthorization
+import com.decikeeper.app.manager.PermissionManager
 import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AntiUninstallManager
@@ -799,11 +800,7 @@ class CoreService : AccessibilityService() {
 
         // 🚀 [Config Change] 监听到系统配置变化（如语言切换），使用“系统初始化锁”
         // 1. Start FastLockService (System Initialization Style Lock)
-        val canDrawOverlays = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Settings.canDrawOverlays(this)
-        } else {
-            true
-        }
+        val canDrawOverlays = PermissionManager.hasOverlayPermission(this)
 
         if (!canDrawOverlays) {
             Log.w(TAG, "ConfigChange: overlay permission unavailable, fallback to accessibility lock")

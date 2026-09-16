@@ -290,8 +290,42 @@
             app:cardCornerRadius="20dp"
             app:cardElevation="0dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_section_title" android:textColor="?attr/zzText" android:textSize="18sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:layout_marginBottom="8dp" android:text="@string/settings_protection_section_summary" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/settings_protection_section_title"
+                        android:textColor="?attr/zzText"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/btn_protection_section_help"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/bg_zz_help_pill"
+                        android:backgroundTint="?attr/zzSurface2"
+                        android:clickable="true"
+                        android:contentDescription="加强约束功能说明"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:text="?"
+                        android:textColor="?attr/zzMuted"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/settings_protection_section_summary"
+                    android:textColor="?attr/zzMuted"
+                    android:textSize="11sp" />
 
                 <!-- 1. 闹钟防关机保护 -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
@@ -299,62 +333,56 @@
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_alarm_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                         <TextView android:id="@+id/tv_alarm_power_off_status_main" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
-                    <TextView android:id="@+id/btn_alarm_power_off_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="闹钟防关机保护说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_alarm_power_off_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
 
-                <!-- 2. 小窗可见性增强 -->
+                <!-- 2. 桌面守护小浮窗 -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="桌面守护小浮窗" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_floating_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
+                    <Switch android:id="@+id/switch_floating_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
+
+                <!-- 3. 小窗可见性增强 -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_floating_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                         <TextView android:id="@+id/tv_floating_window_protection_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
-                    <TextView android:id="@+id/btn_floating_window_protection_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="小窗可见性增强说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_floating_window_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
+                <View android:id="@+id/divider_privacy_space_guard" android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
 
-                <!-- 3. 隐私空间保护 -->
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                <!-- 4. 隐私空间保护 (vivo / iQOO 专享) -->
+                <LinearLayout android:id="@+id/layout_privacy_space_guard" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_privacy_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                         <TextView android:id="@+id/tv_privacy_space_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
-                    <TextView android:id="@+id/btn_privacy_space_guard_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="隐私空间保护说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_privacy_space_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
 
-                <!-- 4. 防卸载与防关权限保护 -->
+                <!-- 5. 防卸载与防关权限保护 -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_uninstall_perm_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                         <TextView android:id="@+id/tv_uninstall_and_perm_protection_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
-                    <TextView android:id="@+id/btn_uninstall_and_perm_protection_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="防卸载与防关权限保护说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_uninstall_and_perm_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                </LinearLayout>
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
-
-                <!-- 5. 桌面守护小浮窗 -->
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="桌面守护小浮窗（强力防杀盾）" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                        <TextView android:id="@+id/tv_floating_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
-                    </LinearLayout>
-                    <TextView android:id="@+id/btn_floating_guard_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="桌面守护小浮窗说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
-                    <Switch android:id="@+id/switch_floating_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
                 <View android:id="@+id/divider_device_admin" android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
 
-                <!-- 6. 设备管理器防卸载锁 (OPPO / 适配机型专享硬核防卸) -->
+                <!-- 6. 设备管理器防卸载锁 (OPPO / ColorOS 专享) -->
                 <LinearLayout android:id="@+id/layout_device_admin_protection" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="设备管理器防卸载锁" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
                         <TextView android:id="@+id/tv_device_admin_protection_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
-                    <TextView android:id="@+id/btn_device_admin_protection_help" android:layout_width="44dp" android:layout_height="44dp" android:gravity="center" android:background="@drawable/bg_zz_help_pill" android:backgroundTint="?attr/zzSurface2" android:clickable="true" android:contentDescription="设备管理器防卸载说明" android:focusable="true" android:text="?" android:textColor="?attr/zzMuted" android:textStyle="bold" />
                     <Switch android:id="@+id/switch_device_admin_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
             </LinearLayout>

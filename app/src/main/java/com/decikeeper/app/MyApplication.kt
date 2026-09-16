@@ -385,9 +385,7 @@ class MyApplication : Application() {
                 val isAdaptation = CreditManager.isInAdaptationPeriod(this)
                 val isA11yEnabled = StartupA11yCache.isA11yWasEnabledForStartup(this)
                 val isA11yActive = CoreService.isServiceActive
-                val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    android.provider.Settings.canDrawOverlays(this)
-                } else true
+                val hasOverlay = com.decikeeper.app.manager.PermissionManager.hasOverlayPermission(this)
 
                 if (shouldStartFastLock(shouldLock, isAdaptation, hasOverlay, isA11yEnabled, isA11yActive)) {
                     Log.d("DeciKeeper", "MyApplication: LOCKED! Starting FastLockService (fallback).")

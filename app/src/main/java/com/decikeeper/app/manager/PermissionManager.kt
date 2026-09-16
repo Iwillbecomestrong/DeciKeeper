@@ -132,13 +132,32 @@ object PermissionManager {
     }
     
     /**
-     * 悬浮窗权限
+     * 悬浮窗权限（防止在国产系统如 Vivo/小米/OPPO 刚安装时因 Manifest 声明导致的 MODE_DEFAULT 假阳性误报）
      */
     fun hasOverlayPermission(context: Context): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        if (!Settings.canDrawOverlays(context)) return false
+
+        return try {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+                ?: return Settings.canDrawOverlays(context)
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(
+                    AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,
+                    Process.myUid(),
+                    context.packageName
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                appOps.checkOpNoThrow(
+                    AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,
+                    Process.myUid(),
+                    context.packageName
+                )
+            }
+            mode == AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
             Settings.canDrawOverlays(context)
-        } else {
-            true
         }
     }
     
@@ -162,7 +181,18 @@ object PermissionManager {
                     context.packageName
                 )
             }
-            mode == AppOpsManager.MODE_ALLOWED
+            if (mode == AppOpsManager.MODE_ALLOWED) {
+                return true
+            }
+            // 兜底：处理部分厂商 ROM 上 checkOp 报告迟缓或处于 MODE_DEFAULT 但实际已授权的情况
+            val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? android.app.usage.UsageStatsManager
+            val now = System.currentTimeMillis()
+            val stats = usageStatsManager?.queryUsageStats(
+                android.app.usage.UsageStatsManager.INTERVAL_DAILY,
+                now - 60 * 1000,
+                now
+            )
+            !stats.isNullOrEmpty()
         } catch (e: Exception) {
             Log.e(TAG, "Error checking usage stats permission", e)
             false

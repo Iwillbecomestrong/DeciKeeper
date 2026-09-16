@@ -52,6 +52,7 @@ import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.FloatingWindowProtectionManager
 import com.decikeeper.app.manager.GuardFloatingWindowManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
+import com.decikeeper.app.manager.PermissionManager
 import com.decikeeper.app.manager.PrivacyProtectionManager
 import com.decikeeper.app.manager.RecentTasksHideManager
 import com.decikeeper.app.manager.RomPermissionDetector
@@ -228,6 +229,8 @@ class RulesFragment : Fragment() {
     private var switchDeviceAdminProtection: Switch? = null
     private var switchDeviceAdminProtectionUiUpdating = false
     private var lastDeviceAdminSwitchClickTime = 0L
+    private var layoutPrivacySpaceGuard: View? = null
+    private var dividerPrivacySpaceGuard: View? = null
     private var switchPrivacySpaceGuard: Switch? = null
     private var tvPrivacySpaceGuardStatus: TextView? = null
     private var switchRefreshSyncRules: Switch? = null
@@ -1620,7 +1623,7 @@ class RulesFragment : Fragment() {
     }
 
     /**
-     * 防关权限保护引导弹窗 — 检查基础权限+使用情况访问+锁屏显示+无障碍，然后开启保护
+     * 防卸载与防关权限保护引导弹窗 — 检查基础权限+使用情况访问+无障碍+锁屏显示，然后开启保护
      */
     private fun showPermProtectionGuideDialog() {
         val ctx = requireContext()
@@ -1628,7 +1631,7 @@ class RulesFragment : Fragment() {
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(42, 30, 42, 36)
-            setBackgroundResource(R.drawable.bg_sea_depths)
+            setBackgroundResource(R.drawable.bg_zz_card)
         }
 
         val topRow = LinearLayout(ctx).apply {
@@ -1637,16 +1640,17 @@ class RulesFragment : Fragment() {
         }
 
         val tvTitle = TextView(ctx).apply {
-            text = "🛡️ 开启防关权限保护"
+            text = "🛡️ 开启防卸载与防关权限保护"
             textSize = 20f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.WHITE)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val btnClose = TextView(ctx).apply {
             text = "❌"
             textSize = 16f
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             setPadding(20, 6, 0, 6)
         }
 
@@ -1657,68 +1661,90 @@ class RulesFragment : Fragment() {
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
             setPadding(0, 20, 0, 0)
-            setTextColor(android.graphics.Color.WHITE)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
         container.addView(tvMessage)
 
         val density = ctx.resources.displayMetrics.density
-        val gap = (8 * density).toInt()
-
-        val firstRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 24, 0, (6 * density).toInt())
-            gravity = Gravity.CENTER_VERTICAL
-            isBaselineAligned = false
-        }
-
-        val secondRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 0, 0, (10 * density).toInt())
-            gravity = Gravity.CENTER_VERTICAL
-            isBaselineAligned = false
-        }
 
         fun buildButton(label: String): Button {
             return Button(ctx).apply {
                 text = label
                 setAllCaps(false)
-                setTextColor(android.graphics.Color.WHITE)
-                setBackgroundResource(R.drawable.bg_dialog_button_outline)
-                minHeight = (48 * density).toInt()
-                setPadding((6 * density).toInt(), (10 * density).toInt(), (6 * density).toInt(), (10 * density).toInt())
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                textSize = 13f
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+                setBackgroundResource(R.drawable.bg_zz_pill)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+                minHeight = (44 * density).toInt()
+                setPadding((12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt())
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, (8 * density).toInt(), 0, 0)
+                }
             }
         }
 
-        val btnBase = buildButton("基础权限").apply {
-            (layoutParams as LinearLayout.LayoutParams).setMargins(0, 0, gap, 0)
+        val btnBase = buildButton("基础权限")
+        val btnUsageAccess = buildButton("使用情况访问")
+        val btnA11y = buildButton("开启无障碍")
+
+        val lockScreenRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, (8 * density).toInt(), 0, 0)
+            }
         }
-        val btnUsageAccess = buildButton("使用情况访问").apply {
-            (layoutParams as LinearLayout.LayoutParams).setMargins(0, 0, 0, 0)
+
+        val btnLockScreen = Button(ctx).apply {
+            text = "锁屏显示"
+            setAllCaps(false)
+            textSize = 13f
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            setBackgroundResource(R.drawable.bg_zz_pill)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            minHeight = (44 * density).toInt()
+            setPadding((12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = (8 * density).toInt()
+            }
         }
-        val btnLockScreen = buildButton("锁屏显示").apply {
-            (layoutParams as LinearLayout.LayoutParams).setMargins(0, 0, gap, 0)
+
+        val cbLockScreen = android.widget.CheckBox(ctx).apply {
+            text = "已开启"
+            textSize = 14f
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
-        val btnA11y = buildButton("开启无障碍").apply {
-            (layoutParams as LinearLayout.LayoutParams).setMargins(0, 0, 0, 0)
-        }
+
+        lockScreenRow.addView(btnLockScreen)
+        lockScreenRow.addView(cbLockScreen)
 
         // 当基础权限+使用情况访问+无障碍齐全时，显示"开启保护"按钮
         val btnEnable = Button(ctx).apply {
             text = "开启保护"
             setAllCaps(false)
+            textSize = 14f
             setTextColor(android.graphics.Color.WHITE)
-            setBackgroundResource(R.drawable.bg_dialog_button_outline)
-            minHeight = (48 * density).toInt()
-            setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+            setBackgroundResource(R.drawable.bg_zz_pill)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccentStrong))
+            minHeight = (46 * density).toInt()
+            setPadding((10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                setMargins(0, (14 * density).toInt(), 0, 0)
+            }
             visibility = View.GONE
         }
 
         var dialog: AlertDialog? = null
+        var lockScreenUiUpdating = false
 
         fun updateDialogUi() {
             val permState = getHomePermissionState(ctx)
@@ -1728,7 +1754,7 @@ class RulesFragment : Fragment() {
             val baseOk = permState.allGranted
 
             tvMessage.text = buildString {
-                append("「防关权限保护」通过无障碍服务监控关键权限状态，防止悬浮窗、通知等权限被系统意外关闭。\n\n")
+                append("「防卸载与防关权限保护」通过无障碍服务监控关键权限状态，防止卸载以及悬浮窗、通知等关键权限被系统或意外关闭。\n\n")
                 append("请补齐以下关键权限。其中「使用情况访问」为时间规则运行所需，「锁屏显示」用于闹钟防关机保护：\n\n")
                 if (!baseOk) {
                     append("⚠️ 基础权限未齐全：${permState.missingLabels.joinToString("、")}\n")
@@ -1740,15 +1766,15 @@ class RulesFragment : Fragment() {
                 } else {
                     append("✅ 使用情况访问已开启\n")
                 }
-                if (!lockScreenOk) {
-                    append("⚠️ 锁屏显示未开启（闹钟防关机保护需要）\n")
-                } else {
-                    append("✅ 锁屏显示已开启\n")
-                }
                 if (!a11yOk) {
                     append("⚠️ 无障碍服务未开启或处于待关闭状态\n")
                 } else {
                     append("✅ 无障碍已开启\n")
+                }
+                if (!lockScreenOk) {
+                    append("⚠️ 锁屏显示未开启（闹钟防关机保护需要）\n")
+                } else {
+                    append("✅ 锁屏显示已开启\n")
                 }
                 if (baseOk && usageStatsOk && a11yOk) {
                     append("\n✅ 基础权限、使用情况访问和无障碍已齐全，可开启保护。")
@@ -1766,13 +1792,17 @@ class RulesFragment : Fragment() {
             btnUsageAccess.isEnabled = !usageStatsOk
             btnUsageAccess.alpha = if (btnUsageAccess.isEnabled) 1.0f else 0.45f
 
+            btnA11y.text = if (a11yOk) "无障碍已开启" else "去开启无障碍"
+            btnA11y.isEnabled = !a11yOk
+            btnA11y.alpha = if (btnA11y.isEnabled) 1.0f else 0.45f
+
             btnLockScreen.text = if (lockScreenOk) "锁屏显示已开启" else "去开启锁屏显示"
             btnLockScreen.isEnabled = !lockScreenOk
             btnLockScreen.alpha = if (btnLockScreen.isEnabled) 1.0f else 0.45f
 
-            btnA11y.text = if (a11yOk) "无障碍已开启" else "去开启无障碍"
-            btnA11y.isEnabled = !a11yOk
-            btnA11y.alpha = if (btnA11y.isEnabled) 1.0f else 0.45f
+            lockScreenUiUpdating = true
+            cbLockScreen.isChecked = lockScreenOk
+            lockScreenUiUpdating = false
 
             // 基础权限 + 使用情况访问 + 无障碍齐全时才显示"开启保护"按钮
             btnEnable.visibility = if (baseOk && usageStatsOk && a11yOk) View.VISIBLE else View.GONE
@@ -1793,17 +1823,11 @@ class RulesFragment : Fragment() {
             try {
                 RecentTasksHideManager.markNavigating()
                 startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                Toast.makeText(ctx, "请在系统设置中找到决定守护并开启「使用情况访问」权限", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "请开启「使用情况访问」权限（若系统已显示开启仍提示未开，请关闭后重新打开一次）", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 RecentTasksHideManager.clearNavigating()
                 Toast.makeText(ctx, "无法跳转至使用情况访问设置页", Toast.LENGTH_SHORT).show()
             }
-        }
-
-        btnLockScreen.setOnClickListener {
-            openAppDetailsSettings()
-            Toast.makeText(ctx, "请在应用权限管理中开启「锁屏显示」", Toast.LENGTH_LONG).show()
-            dialog?.dismiss()
         }
 
         btnA11y.setOnClickListener {
@@ -1813,14 +1837,31 @@ class RulesFragment : Fragment() {
             }
         }
 
+        btnLockScreen.setOnClickListener {
+            openAppDetailsSettings()
+            Toast.makeText(ctx, "请在应用权限管理中开启「锁屏显示」，返回后勾选「已开启」", Toast.LENGTH_LONG).show()
+        }
+
+        cbLockScreen.setOnCheckedChangeListener { _, checked ->
+            if (lockScreenUiUpdating) return@setOnCheckedChangeListener
+            AlarmPowerOffProtectionManager.setLockScreenDisplayConfirmed(ctx, checked)
+            updateDialogUi()
+        }
+
         btnEnable.setOnClickListener {
-            enableUninstallAndPermProtection(ctx)
-            dialog?.dismiss()
+            if (!AlarmPowerOffProtectionManager.isLockScreenDisplayReady(ctx)) {
+                dialog?.dismiss()
+                showLockScreenMissingWarningDialog()
+            } else {
+                enableUninstallAndPermProtection(ctx)
+                dialog?.dismiss()
+            }
         }
 
         dialog = AlertDialog.Builder(ctx)
             .setView(container)
             .create()
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
 
         dialog.setOnDismissListener {
             permProtectionGuideDialogRefresh = null
@@ -1828,14 +1869,10 @@ class RulesFragment : Fragment() {
 
         btnClose.setOnClickListener { dialog?.dismiss() }
 
-        firstRow.addView(btnBase)
-        firstRow.addView(btnUsageAccess)
-
-        secondRow.addView(btnLockScreen)
-        secondRow.addView(btnA11y)
-
-        container.addView(firstRow)
-        container.addView(secondRow)
+        container.addView(btnBase)
+        container.addView(btnUsageAccess)
+        container.addView(btnA11y)
+        container.addView(lockScreenRow)
         container.addView(btnEnable)
 
         permProtectionGuideDialogRefresh = { updateDialogUi() }
@@ -1849,7 +1886,7 @@ class RulesFragment : Fragment() {
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(42, 30, 42, 36)
-            setBackgroundResource(R.drawable.bg_sea_depths)
+            setBackgroundResource(R.drawable.bg_zz_card)
         }
 
         val topRow = LinearLayout(ctx).apply {
@@ -1861,13 +1898,14 @@ class RulesFragment : Fragment() {
             text = "🛡️ 开启防卸载保护"
             textSize = 20f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.WHITE)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val btnClose = TextView(ctx).apply {
             text = "❌"
             textSize = 16f
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             setPadding(20, 6, 0, 6)
         }
 
@@ -1878,7 +1916,7 @@ class RulesFragment : Fragment() {
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
             setPadding(0, 20, 0, 0)
-            setTextColor(android.graphics.Color.WHITE)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
         }
         container.addView(tvMessage)
 
@@ -1889,10 +1927,12 @@ class RulesFragment : Fragment() {
             return Button(ctx).apply {
                 text = label
                 setAllCaps(false)
-                setTextColor(android.graphics.Color.WHITE)
-                setBackgroundResource(R.drawable.bg_dialog_button_outline)
-                minHeight = (48 * density).toInt()
-                setPadding((10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt())
+                textSize = 13f
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+                setBackgroundResource(R.drawable.bg_zz_pill)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+                minHeight = (44 * density).toInt()
+                setPadding((10 * density).toInt(), (8 * density).toInt(), (10 * density).toInt(), (8 * density).toInt())
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1996,6 +2036,7 @@ class RulesFragment : Fragment() {
         dialog = AlertDialog.Builder(ctx)
             .setView(container)
             .create()
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
 
         btnClose.setOnClickListener { dialog?.dismiss() }
 
@@ -2267,7 +2308,7 @@ class RulesFragment : Fragment() {
     }
 
     private fun getHomePermissionState(ctx: Context): HomePermissionState {
-        val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
+        val hasOverlay = PermissionManager.hasOverlayPermission(ctx)
         val hasBgBattery = !isChineseRomDevice() || isBgBatteryPermissionSatisfied(ctx)
         val hasAutoStart = isManualPermissionShortTimeSatisfied(
             ctx = ctx,
@@ -2759,7 +2800,14 @@ class RulesFragment : Fragment() {
     private fun updateDeviceAdminProtectionUI() {
         val ctx = context ?: return
         val isVivo = SettingsNavigator.isVivoOrIqoo()
-        if (isVivo) {
+        val state = AntiUninstallManager.getProtectionState(ctx)
+        val isSystemAdminActive = AntiUninstallManager.isDeviceAdminActive(ctx)
+        val uiState = AntiUninstallManager.resolveDeviceAdminUiState(
+            isVivoOrIqoo = isVivo,
+            protectionState = state,
+            isSystemAdminActive = isSystemAdminActive
+        )
+        if (!uiState.visible) {
             layoutDeviceAdminProtection?.visibility = View.GONE
             dividerDeviceAdmin?.visibility = View.GONE
             return
@@ -2769,35 +2817,39 @@ class RulesFragment : Fragment() {
         dividerDeviceAdmin?.visibility = View.VISIBLE
 
         val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
-        val state = AntiUninstallManager.getProtectionState(ctx)
-        val isSystemAdminActive = AntiUninstallManager.isDeviceAdminActive(ctx)
 
         switchDeviceAdminProtectionUiUpdating = true
-        switchDeviceAdminProtection?.isChecked = (state == AntiUninstallManager.State.ACTIVE && isSystemAdminActive)
+        switchDeviceAdminProtection?.isChecked = uiState.checked
         switchDeviceAdminProtection?.isEnabled = !locked
         switchDeviceAdminProtection?.isClickable = !locked
         switchDeviceAdminProtection?.alpha = if (locked) 0.5f else 1.0f
         switchDeviceAdminProtectionUiUpdating = false
 
         tvDeviceAdminProtectionStatus?.let {
-            val statusText = when (state) {
-                AntiUninstallManager.State.PENDING -> "状态: 待关闭（明日生效）"
-                AntiUninstallManager.State.ACTIVE -> if (isSystemAdminActive) {
+            val statusText = when (uiState.status) {
+                AntiUninstallManager.DeviceAdminUiStatus.PENDING -> "状态: 待关闭（明日生效）"
+                AntiUninstallManager.DeviceAdminUiStatus.ACTIVE -> {
                     "状态: 已激活且受保护（OPPO/适配机型已底层防卸载）"
-                } else {
+                }
+                AntiUninstallManager.DeviceAdminUiStatus.NEEDS_ACTIVATION -> {
                     "状态: 已开启保护（系统未激活，点击开启）"
                 }
-                AntiUninstallManager.State.DISABLED -> if (isSystemAdminActive) {
+                AntiUninstallManager.DeviceAdminUiStatus.NEEDS_DEACTIVATION -> {
                     "状态: 已到期可解除（点击前往系统界面取消激活）"
-                } else {
+                }
+                AntiUninstallManager.DeviceAdminUiStatus.DISABLED -> {
                     "状态: 未激活（点击跳转系统界面完成激活）"
                 }
+                AntiUninstallManager.DeviceAdminUiStatus.HIDDEN -> return@let
             }
             it.text = statusText
-            val color = when (state) {
-                AntiUninstallManager.State.PENDING -> ThemeManager.getColorAttr(ctx, R.attr.zzWarning)
-                AntiUninstallManager.State.ACTIVE -> ThemeManager.getColorAttr(ctx, R.attr.zzSuccess)
-                AntiUninstallManager.State.DISABLED -> ThemeManager.getColorAttr(ctx, R.attr.zzMuted)
+            val color = when (uiState.status) {
+                AntiUninstallManager.DeviceAdminUiStatus.PENDING -> ThemeManager.getColorAttr(ctx, R.attr.zzWarning)
+                AntiUninstallManager.DeviceAdminUiStatus.ACTIVE -> ThemeManager.getColorAttr(ctx, R.attr.zzSuccess)
+                AntiUninstallManager.DeviceAdminUiStatus.NEEDS_ACTIVATION -> ThemeManager.getColorAttr(ctx, R.attr.zzWarning)
+                AntiUninstallManager.DeviceAdminUiStatus.NEEDS_DEACTIVATION,
+                AntiUninstallManager.DeviceAdminUiStatus.DISABLED,
+                AntiUninstallManager.DeviceAdminUiStatus.HIDDEN -> ThemeManager.getColorAttr(ctx, R.attr.zzMuted)
             }
             it.setTextColor(color)
         }
@@ -2880,6 +2932,10 @@ class RulesFragment : Fragment() {
                         Toast.makeText(ctx, "已申请关闭设备管理器防卸载锁（明日生效）", Toast.LENGTH_LONG).show()
                     }
                     updateDeviceAdminProtectionUI()
+                } else if (state == AntiUninstallManager.State.PENDING) {
+                    // PENDING 仍然是保护态；取消申请必须通过重新勾选恢复 ACTIVE。
+                    updateDeviceAdminProtectionUI()
+                    Toast.makeText(ctx, "设备管理器防卸载锁仍在保护中，关闭申请将在明日生效", Toast.LENGTH_LONG).show()
                 } else if (state == AntiUninstallManager.State.DISABLED && isSystemAdminActive) {
                     updateDeviceAdminProtectionUI()
                     AlertDialog.Builder(ctx)

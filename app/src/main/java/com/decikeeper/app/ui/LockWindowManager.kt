@@ -3990,7 +3990,7 @@ object LockWindowManager {
                         val ok = CreditManager.startWeeklyPrivilege(context, finalMins)
                         if (ok) {
                             val intent = Intent(MonitorService.ACTION_REFRESH_RULES)
-                            context.sendBroadcast(intent)
+                            context.sendBroadcast(intent.setPackage(context.packageName))
                             val msg = if (truncated) {
                                 "已开启特权：$finalMins 分钟（原申请${totalMins}分钟，已自动截断到窗口结束）"
                             } else {

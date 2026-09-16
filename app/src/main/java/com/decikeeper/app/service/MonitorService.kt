@@ -877,11 +877,12 @@ class MonitorService : Service() {
                 addAction(ACTION_END_FREE_TIME)
                 addAction(ACTION_REFRESH_RULES)
             }
-             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                 registerReceiver(endFreeTimeReceiver, customFilter, Context.RECEIVER_NOT_EXPORTED)
-             } else {
-                 registerReceiver(endFreeTimeReceiver, customFilter)
-             }
+            androidx.core.content.ContextCompat.registerReceiver(
+                this,
+                endFreeTimeReceiver,
+                customFilter,
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+            )
              
              // Register Screen Action
              val screenFilter = android.content.IntentFilter().apply {

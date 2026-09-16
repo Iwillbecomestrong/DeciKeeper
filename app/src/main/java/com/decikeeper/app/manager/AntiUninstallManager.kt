@@ -41,6 +41,57 @@ object AntiUninstallManager {
         PENDING    // Protection is ON. Waiting for Tomorrow 06:00.
     }
 
+    /** 设备管理器行的纯状态映射，UI 不自行复制保护状态判断。 */
+    enum class DeviceAdminUiStatus {
+        HIDDEN,
+        DISABLED,
+        NEEDS_ACTIVATION,
+        ACTIVE,
+        PENDING,
+        NEEDS_DEACTIVATION
+    }
+
+    data class DeviceAdminUiState(
+        val visible: Boolean,
+        val checked: Boolean,
+        val status: DeviceAdminUiStatus
+    )
+
+    /**
+     * 仅在 OPPO/一加/真我等已实测适配机型默认推荐并展示设备管理器；
+     * vivo/iQOO 及其他品牌默认隐藏，避免干扰用户。若用户已经激活或保护仍在运行，则全机型保持可见以便退出。
+     * 该函数不读取设备、不写持久化，仅描述 UI 对当前真实状态的映射。
+     */
+    internal fun resolveDeviceAdminUiState(
+        isSupportedBrand: Boolean,
+        protectionState: State,
+        isSystemAdminActive: Boolean
+    ): DeviceAdminUiState {
+        val visible = isSupportedBrand || protectionState != State.DISABLED || isSystemAdminActive
+        if (!visible) {
+            return DeviceAdminUiState(false, false, DeviceAdminUiStatus.HIDDEN)
+        }
+
+        val status = when (protectionState) {
+            State.PENDING -> DeviceAdminUiStatus.PENDING
+            State.ACTIVE -> if (isSystemAdminActive) {
+                DeviceAdminUiStatus.ACTIVE
+            } else {
+                DeviceAdminUiStatus.NEEDS_ACTIVATION
+            }
+            State.DISABLED -> if (isSystemAdminActive) {
+                DeviceAdminUiStatus.NEEDS_DEACTIVATION
+            } else {
+                DeviceAdminUiStatus.DISABLED
+            }
+        }
+        return DeviceAdminUiState(
+            visible = true,
+            checked = isSystemAdminActive && protectionState != State.DISABLED,
+            status = status
+        )
+    }
+
     internal fun shouldShowInitialization(state: State): Boolean {
         return state == State.ACTIVE || state == State.PENDING
     }
