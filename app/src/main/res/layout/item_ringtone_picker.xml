@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="14dp"
+    android:paddingVertical="12dp">
+
+    <RadioButton
+        android:id="@+id/rb_selected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:buttonTint="?attr/zzAccent"
+        android:clickable="false"
+        android:focusable="false"
+        android:layout_marginEnd="6dp" />
+
+    <TextView
+        android:id="@+id/tv_ringtone_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:lineSpacingExtra="2dp"
+        android:text="铃声名称"
+        android:textColor="?attr/zzText"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/btn_preview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_zz_pill"
+        android:backgroundTint="?attr/zzSurface2"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:text="▶ 试听"
+        android:textColor="?attr/zzAccentStrong"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/btn_delete"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_zz_pill"
+        android:backgroundTint="?attr/zzWarningSoft"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="6dp"
+        android:text="删除"
+        android:textColor="?attr/zzWarning"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+</LinearLayout>

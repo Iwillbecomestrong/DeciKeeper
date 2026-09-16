@@ -5,42 +5,46 @@
     android:background="?attr/zzPageBg"
     android:fitsSystemWindows="true"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="16dp"
+    android:paddingBottom="16dp">
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:fillViewport="true"
-        android:scrollbars="vertical">
+        android:scrollbars="none">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:orientation="vertical">
 
+            <!-- 顶部标题 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
                 android:text="决定守护"
                 android:textColor="?attr/zzAccentStrong"
-                android:textSize="30sp"
+                android:textSize="26sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="欢迎使用决定守护"
-                android:textColor="?attr/zzText"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+                android:layout_marginTop="4dp"
+                android:text="欢迎使用决定守护 · 纯单机决定保护软件"
+                android:textColor="?attr/zzMuted"
+                android:textSize="13sp" />
 
+            <!-- 核心服务说明与隐私承诺卡片（精简有力，一目了然） -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_zz_card"
                 android:backgroundTint="?attr/zzSurface"
                 android:orientation="vertical"
@@ -49,53 +53,143 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="决定守护是一款纯单机决定保护软件，不收集任何个人数据。"
+                    android:text="决定守护是一款纯单机决定保护软件"
                     android:textColor="?attr/zzText"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
-                <TextView
+                <!-- 要点 1：单机无网 -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:lineSpacingExtra="5dp"
-                    android:text="它不替用户决定什么事情值得做；它保护的是：用户清醒时，为未来做出的决定。\n\n很多时候，人并不是不知道正确方向。问题在于：当决定真正需要执行的时候，状态已经发生变化。晚上认真做出的「今天早点睡」，常常败给下一刻的「再刷一个视频」。决定守护关注的，就是这种已经做出决定、但执行时容易被当前状态改变的时刻。\n\n决定守护不做包罗万象的泛自律，守护范围严格局限在两处最容易被冲动和生理状态击穿的现实边界：\n1. 受手机影响的使用边界（该停的时候停下来）：防范短视频、游戏、聊天和信息流对学习、工作与睡眠的无节制侵占；\n2. 早晨起床的行动边界（该起的时候起来）：击破清晨半梦半醒时的赖床惯性，推动真正离开床铺并完成清醒过渡。\n\n应用纯单机运行，不申请联网权限，所有规则均保存在本地。基础使用仅需通知与悬浮窗等基础权限，高级保护可按需开启。"
-                    android:textColor="?attr/zzMuted"
-                    android:textSize="13sp" />
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="●"
+                        android:textColor="?attr/zzAccent"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="纯单机离线运行：未申请网络权限，物理断网，绝不收集、不出境、不上报任何个人隐私数据。"
+                        android:textColor="?attr/zzText"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- 要点 2：本地沙箱 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="●"
+                        android:textColor="?attr/zzAccent"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="数据完全归你所有：所有时间规则、闹钟设置与诊断日志均保存在本机沙箱，支持自由导入导出。"
+                        android:textColor="?attr/zzText"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- 要点 3：权限克制 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="●"
+                        android:textColor="?attr/zzAccent"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="权限透明最小化：基础功能仅需通知与悬浮窗，高级保护按需开启，无第三方广告与追踪SDK。"
+                        android:textColor="?attr/zzText"
+                        android:textSize="12sp" />
+                </LinearLayout>
             </LinearLayout>
 
+            <!-- 协议与隐私政策入口区域（卡片化，带书名号，清晰完整） -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:orientation="horizontal">
+                android:background="@drawable/bg_zz_card_soft"
+                android:orientation="vertical"
+                android:padding="12dp">
 
                 <TextView
-                    android:id="@+id/tv_open_user_agreement"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:padding="8dp"
-                    android:text="用户协议"
-                    android:textColor="?attr/zzAccentStrong"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:text="请在使用前仔细阅读并充分理解："
+                    android:textColor="?attr/zzMuted"
+                    android:textSize="12sp" />
 
-                <TextView
-                    android:id="@+id/tv_open_privacy_policy"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:padding="8dp"
-                    android:text="隐私政策"
-                    android:textColor="?attr/zzAccentStrong"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_open_user_agreement"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_zz_card"
+                        android:gravity="center"
+                        android:text="《用户协议》 ↗"
+                        android:textColor="?attr/zzAccentStrong"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <View
+                        android:layout_width="10dp"
+                        android:layout_height="1dp" />
+
+                    <TextView
+                        android:id="@+id/tv_open_privacy_policy"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_zz_card"
+                        android:gravity="center"
+                        android:text="《隐私政策》 ↗"
+                        android:textColor="?attr/zzAccentStrong"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
+
         </LinearLayout>
     </ScrollView>
 
+    <!-- 底部操作按钮区域 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -105,18 +199,18 @@
         <Button
             android:id="@+id/btn_consent_accept"
             android:layout_width="match_parent"
-            android:layout_height="54dp"
+            android:layout_height="50dp"
             android:backgroundTint="?attr/zzAccent"
             android:text="同意并进入决定守护"
             android:textAllCaps="false"
             android:textColor="@android:color/white"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <Button
             android:id="@+id/btn_consent_decline"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="44dp"
             android:layout_marginTop="6dp"
             android:backgroundTint="?attr/zzSurface2"
             android:text="暂不同意并退出"
@@ -128,8 +222,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:text="权限说明可在进入决定守护后逐项查看。"
+            android:layout_marginTop="6dp"
+            android:text="纯单机守护 · 保护清醒时的每一次决定"
             android:textColor="?attr/zzSubtle"
             android:textSize="10sp" />
     </LinearLayout>

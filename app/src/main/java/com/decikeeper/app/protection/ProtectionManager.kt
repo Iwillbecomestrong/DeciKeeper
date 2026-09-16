@@ -44,9 +44,12 @@ object ProtectionManager {
         permissionProtection = PermissionProtection(context)
     }
 
+
     fun onAccessibilityEvent(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo?) {
         // 🚀 [Identity Check] Explicitly ignore self-events to prevent "Self-Locking"
-        if (event.packageName == "com.decikeeper.app") return
+        if (event.packageName == "com.decikeeper.app") {
+            return
+        }
 
         if (root == null) {
             // Downgrade to VERBOSE to avoid spam during window transitions

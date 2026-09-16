@@ -104,4 +104,17 @@ object PrivacyProtectionManager {
     fun getPendingDisableTime(context: Context): Long {
         return ConfigPendingManager.getEffectiveTime(context, KEY_PENDING_DISABLE)
     }
+
+    /**
+     * 隐私空间拦截 UI 显隐决策纯函数：
+     * 仅在 vivo/iQOO 机型默认展示；OPPO 及其他机型默认隐藏。
+     * 若历史已开启或仍在强制执行期（如用户曾开启过），则必须全机型可见以保留关闭入口。
+     */
+    internal fun resolvePrivacySpaceUiVisibility(
+        isVivoOrIqoo: Boolean,
+        protectionState: State,
+        isEnforcing: Boolean
+    ): Boolean {
+        return isVivoOrIqoo || protectionState != State.DISABLED || isEnforcing
+    }
 }

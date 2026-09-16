@@ -300,7 +300,13 @@ internal object LockAlarmOverlayController {
         val themedContext = ContextThemeWrapper(ctx, ThemeManager.themeRes(ctx))
         try {
             if (LockWindowManager.getAlarmView() == null) {
-                LockWindowManager.setAlarmView(android.view.LayoutInflater.from(themedContext).inflate(R.layout.window_alarm_overlay, null))
+                val alarmView = android.view.LayoutInflater.from(themedContext).inflate(R.layout.window_alarm_overlay, null)
+                val contentLayout = alarmView.findViewById<android.view.View>(R.id.root_content_layout) ?: alarmView
+                installOverlaySafeInsets(
+                    alarmView,
+                    InsetPaddingTarget(contentLayout, applyLeft = true, applyTop = true, applyRight = true, applyBottom = true)
+                )
+                LockWindowManager.setAlarmView(alarmView)
             }
             if (mAlarmActiveWindowManager == null) {
                 // Use CoreService's WindowManager when A11y is active — TYPE_ACCESSIBILITY_OVERLAY

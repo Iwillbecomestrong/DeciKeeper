@@ -242,15 +242,13 @@ class MyApplication : Application() {
         // 🚀 用户可控"最近任务隐藏"生命周期注册(默认 OFF,幂等)
         RecentTasksHideManager.register(this)
 
+        // 🚀 常驻守护小浮窗（自律小盾牌）启动检查（若用户已开启且具备权限则自动恢复挂载）
+        if (com.decikeeper.app.manager.GuardFloatingWindowManager.isFloatingGuardEnabled(this)) {
+            com.decikeeper.app.manager.GuardFloatingWindowManager.show(this)
+        }
+
         // 🚀 [Log] Initialize LogExporter with app context for disk-persistent logging
         LogExporter.init(this)
-
-        // 🚀 [Auto Backup] 新装/重装首次启动静默恢复外部备份快照
-        try {
-            AutoBackupManager.checkAndRestoreIfNeeded(this)
-        } catch (e: Exception) {
-            Log.w("DeciKeeper", "MyApplication: checkAndRestoreIfNeeded failed: ${e.message}")
-        }
 
         // 🚀 启动时清理无障碍保护模块历史脏 key
         // 历史版本曾在 ConfigPendingManager 中写入 "a11y_service_self_pending"
@@ -380,9 +378,7 @@ class MyApplication : Application() {
                 val isAdaptation = CreditManager.isInAdaptationPeriod(this)
                 val isA11yEnabled = StartupA11yCache.isA11yWasEnabledForStartup(this)
                 val isA11yActive = CoreService.isServiceActive
-                val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    android.provider.Settings.canDrawOverlays(this)
-                } else true
+                val hasOverlay = com.decikeeper.app.manager.PermissionManager.hasOverlayPermission(this)
 
                 if (shouldStartFastLock(shouldLock, isAdaptation, hasOverlay, isA11yEnabled, isA11yActive)) {
                     Log.d("DeciKeeper", "MyApplication: LOCKED! Starting FastLockService (fallback).")

@@ -27,7 +27,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 
-    <!-- 强行封杀所有网络权限：确保任何第三方依赖库均无法引入网络能力，彻底保证单机物理零联网 -->
+    <!-- 单机红线：最终 APK 不声明普通网络权限；应用不提供网络业务、不上传用户数据。 -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
 
@@ -45,6 +45,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:requestLegacyExternalStorage="true"
+        android:resizeableActivity="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.DeciKeeper"
@@ -166,6 +167,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.AlarmRingtonePickerActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.SchedulePreviewActivity"
             android:exported="false"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
@@ -218,6 +224,8 @@
         <activity
             android:name=".ui.AlarmActivity"
             android:exported="false"
+            android:excludeFromRecents="true"
+            android:autoRemoveFromRecents="true"
             android:theme="@style/Theme.DeciKeeper.Alarm"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
@@ -248,6 +256,21 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 🛡️ 设备管理器接收器 (Device Admin) -->
+        <receiver
+            android:name=".receiver.AdminReceiver"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_config" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_DISABLED" />
             </intent-filter>
         </receiver>
 

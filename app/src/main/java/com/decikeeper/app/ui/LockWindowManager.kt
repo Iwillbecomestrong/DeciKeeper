@@ -2445,6 +2445,16 @@ object LockWindowManager {
         penaltyMessage = mLockView?.findViewById(R.id.tv_penalty_message)
         penaltyOk = mLockView?.findViewById(R.id.btn_penalty_ok)
 
+        val layoutBgText = mLockView?.findViewById<View>(R.id.layout_background_text)
+        val layoutBottomBtns = mLockView?.findViewById<View>(R.id.layout_bottom_buttons)
+        if (mLockView != null && layoutBgText != null && layoutBottomBtns != null) {
+            installOverlaySafeInsets(
+                mLockView!!,
+                InsetPaddingTarget(layoutBgText, applyLeft = true, applyTop = true, applyRight = true),
+                InsetPaddingTarget(layoutBottomBtns, applyLeft = true, applyRight = true, applyBottom = true)
+            )
+        }
+
         tvUsableCountBig = mLockView?.findViewById(R.id.tv_usable_count_big)
         tvSurplusBorrowLine = mLockView?.findViewById(R.id.tv_surplus_borrow_line)
         tvRestCountdownInCard = mLockView?.findViewById(R.id.tv_rest_countdown_in_card)
@@ -3990,7 +4000,7 @@ object LockWindowManager {
                         val ok = CreditManager.startWeeklyPrivilege(context, finalMins)
                         if (ok) {
                             val intent = Intent(MonitorService.ACTION_REFRESH_RULES)
-                            context.sendBroadcast(intent)
+                            context.sendBroadcast(intent.setPackage(context.packageName))
                             val msg = if (truncated) {
                                 "已开启特权：$finalMins 分钟（原申请${totalMins}分钟，已自动截断到窗口结束）"
                             } else {
@@ -6493,6 +6503,7 @@ object LockWindowManager {
      * 调用时机：必须在 dialog.show() 之后
      */
     private fun AlertDialog.applyEscapeDisciplineColors() {
+        window?.setBackgroundDrawableResource(R.drawable.bg_zz_card)
         getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(0xFF1976D2.toInt())
         getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(0xFFFF7043.toInt())
     }

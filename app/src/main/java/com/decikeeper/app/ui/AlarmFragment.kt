@@ -20,11 +20,14 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import com.decikeeper.app.manager.SettingsNavigator
 import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.graphics.Typeface
 import android.media.RingtoneManager
+import com.decikeeper.app.manager.AlarmRingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -91,6 +94,19 @@ class AlarmFragment : Fragment() {
         }
     }
 
+    private var onRingtonePickedCallback: ((uri: String?, title: String) -> Unit)? = null
+    private val ringtonePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val uri = result.data?.getStringExtra(AlarmRingtonePickerActivity.EXTRA_SELECTED_RINGTONE_URI)
+            val title = result.data?.getStringExtra(AlarmRingtonePickerActivity.EXTRA_SELECTED_RINGTONE_TITLE)
+                ?: AlarmRingtoneManager.getRingtoneTitle(requireContext(), uri)
+            pendingRingtoneUri = uri
+            onRingtonePickedCallback?.invoke(uri, title)
+        }
+    }
+
     private var pendingCameraPermissionCheckbox: CheckBox? = null
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -126,17 +142,27 @@ class AlarmFragment : Fragment() {
         return mf.contains("vivo") || mf.contains("iqoo")
     }
 
+    private fun isOppoOrOnePlusOrRealmeDevice(): Boolean {
+        return SettingsNavigator.isOppoOrOnePlusOrRealme()
+    }
+
+    private fun isSleepStandbyConfirmed(prefs: SharedPreferences): Boolean {
+        return prefs.getBoolean("sleep_standby_confirmed", false) ||
+            prefs.getBoolean("vivo_sleep_standby_confirmed", false)
+    }
+
     private fun isAlarmKeepaliveSatisfied(ctx: Context): Boolean {
         val isBgBatteryOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val powerManager = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
             powerManager?.isIgnoringBatteryOptimizations(ctx.packageName) == true
         } else true
 
-        val isVivo = isVivoOrIqoo()
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
-        val isSleepConfirmed = prefs.getBoolean("vivo_sleep_standby_confirmed", false)
+        val isSleepConfirmed = isSleepStandbyConfirmed(prefs)
 
-        return isBgBatteryOk && (!isVivo || isSleepConfirmed)
+        // 对 Vivo 和 OPPO 等国内典型机型强化睡眠优化确认，其他机型后台耗电满足即可
+        val isStrictOem = isVivoOrIqoo() || isOppoOrOnePlusOrRealmeDevice()
+        return isBgBatteryOk && (!isStrictOem || isSleepConfirmed)
     }
 
     private var hasPromptedKeepaliveInSession = false
@@ -153,7 +179,6 @@ class AlarmFragment : Fragment() {
     private fun showAlarmKeepAliveGuideDialog() {
         val ctx = context ?: return
         val density = ctx.resources.displayMetrics.density
-        val isVivo = isVivoOrIqoo()
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
 
         val container = LinearLayout(ctx).apply {
@@ -190,13 +215,15 @@ class AlarmFragment : Fragment() {
             }
         }
 
-        // 行 1：后台高耗电
+        val batteryLabel = SettingsNavigator.getBatteryOptimizationLabel()
+
+        // 行 1：后台耗电/完全允许后台行为
         val rowBgBattery = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, (10 * density).toInt())
         }
-        val btnBgBattery = buildButton("后台高耗电")
+        val btnBgBattery = buildButton("去设置「$batteryLabel」")
         val cbBgBattery = CheckBox(ctx).apply {
             text = "已开启"
             setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
@@ -205,32 +232,32 @@ class AlarmFragment : Fragment() {
         rowBgBattery.addView(cbBgBattery)
         container.addView(rowBgBattery)
 
-        // 行 2：睡眠待机优化 (仅 Vivo/OriginOS)
-        var btnSleep: com.google.android.material.button.MaterialButton? = null
-        var cbSleep: CheckBox? = null
-        if (isVivo) {
-            val rowSleep = LinearLayout(ctx).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 0, 0, (10 * density).toInt())
-            }
-            btnSleep = buildButton("去关闭「睡眠待机优化」")
-            cbSleep = CheckBox(ctx).apply {
-                text = "已关闭"
-                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
-            }
-            rowSleep.addView(btnSleep)
-            rowSleep.addView(cbSleep)
-            container.addView(rowSleep)
-
-            val tvTip = TextView(ctx).apply {
-                text = "* 注：系统无法自动读取「睡眠待机优化」开关状态，请在系统设置关闭后勾选“已关闭”。"
-                textSize = 11f
-                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
-                setPadding(0, 0, 0, (10 * density).toInt())
-            }
-            container.addView(tvTip)
+        // 行 2：睡眠待机优化（全机型开放引导，支持一键勾选）
+        val rowSleep = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, (10 * density).toInt())
         }
+        val btnSleep = buildButton("去关闭「睡眠待机优化」")
+        val cbSleep = CheckBox(ctx).apply {
+            text = "已关闭"
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        rowSleep.addView(btnSleep)
+        rowSleep.addView(cbSleep)
+        container.addView(rowSleep)
+
+        val tvTip = TextView(ctx).apply {
+            text = if (com.decikeeper.app.manager.SettingsNavigator.isVivoOrIqoo()) {
+                "* 注：vivo/iQOO 在夜间待机会深度冻结应用，请在系统「电池 → 省电模式 → 省电管理」中关闭「睡眠待机优化」，确认后勾选“已关闭”（若系统无此项可直接勾选）。"
+            } else {
+                "* 注：部分机型（如 OPPO、Vivo）在夜间待机会深度冻结应用，请在系统「省电设置」中关闭「睡眠待机优化」，确认后勾选“已关闭”（若系统无此项可直接勾选）。"
+            }
+            textSize = 11f
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setPadding(0, 0, 0, (10 * density).toInt())
+        }
+        container.addView(tvTip)
 
         var dialog: AlertDialog? = null
         var uiUpdating = false
@@ -242,18 +269,17 @@ class AlarmFragment : Fragment() {
                 powerManager?.isIgnoringBatteryOptimizations(ctx.packageName) == true
             } else true
 
-            btnBgBattery.text = if (isBgBatteryOk) "后台高耗电已开启" else "去设置后台高耗电"
+            btnBgBattery.text = if (isBgBatteryOk) "${batteryLabel}已开启" else "去设置「$batteryLabel」"
             btnBgBattery.isEnabled = !isBgBatteryOk
             btnBgBattery.alpha = if (isBgBatteryOk) 0.5f else 1.0f
             cbBgBattery.isChecked = isBgBatteryOk
             cbBgBattery.isEnabled = !isBgBatteryOk
 
-            if (isVivo && cbSleep != null && btnSleep != null) {
-                val isSleepConfirmed = prefs.getBoolean("vivo_sleep_standby_confirmed", false)
-                cbSleep.isChecked = isSleepConfirmed
-                btnSleep.text = if (isSleepConfirmed) "睡眠待机优化已关闭" else "去关闭「睡眠待机优化」"
-                btnSleep.alpha = if (isSleepConfirmed) 0.5f else 1.0f
-            }
+            val isSleepConfirmed = isSleepStandbyConfirmed(prefs)
+            cbSleep.isChecked = isSleepConfirmed
+            btnSleep.text = if (isSleepConfirmed) "睡眠待机优化已关闭" else "去关闭「睡眠待机优化」"
+            btnSleep.alpha = if (isSleepConfirmed) 0.5f else 1.0f
+
             uiUpdating = false
             refreshSettingsSummaries()
         }
@@ -266,12 +292,15 @@ class AlarmFragment : Fragment() {
             updateDialogUi()
         }
 
-        btnSleep?.setOnClickListener {
-            openVivoBatterySettings(ctx)
+        btnSleep.setOnClickListener {
+            openSleepOptimizationSettings(ctx)
         }
-        cbSleep?.setOnCheckedChangeListener { _, checked ->
+        cbSleep.setOnCheckedChangeListener { _, checked ->
             if (uiUpdating) return@setOnCheckedChangeListener
-            prefs.edit().putBoolean("vivo_sleep_standby_confirmed", checked).apply()
+            prefs.edit()
+                .putBoolean("sleep_standby_confirmed", checked)
+                .putBoolean("vivo_sleep_standby_confirmed", checked)
+                .apply()
             updateDialogUi()
         }
 
@@ -290,10 +319,12 @@ class AlarmFragment : Fragment() {
         Toast.makeText(ctx, com.decikeeper.app.manager.SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
     }
 
-    private fun openVivoBatterySettings(ctx: Context) {
-        com.decikeeper.app.manager.SettingsNavigator.openBatteryKeepAliveSettings(ctx)
-        Toast.makeText(ctx, com.decikeeper.app.manager.SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
+    private fun openSleepOptimizationSettings(ctx: Context) {
+        com.decikeeper.app.manager.SettingsNavigator.openSleepOptimizationSettings(ctx)
+        Toast.makeText(ctx, com.decikeeper.app.manager.SettingsNavigator.getSleepOptimizationTips(), Toast.LENGTH_LONG).show()
     }
+
+    private fun openVivoBatterySettings(ctx: Context) = openSleepOptimizationSettings(ctx)
 
     /** 闹钟挑战只能承载在悬浮窗中；没有权限时不进入页面版挑战。 */
     private fun ensureAlarmOverlayPermission(ctx: Context = requireContext()): Boolean {
@@ -325,6 +356,7 @@ class AlarmFragment : Fragment() {
         val ctx = context ?: return
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
         val shown = prefs.getBoolean("alarm_keepalive_guide_shown", false) ||
+            prefs.getBoolean("sleep_standby_guide_shown", false) ||
             prefs.getBoolean("vivo_sleep_standby_guide_shown", false)
         if (!shown) {
             prefs.edit().putBoolean("alarm_keepalive_guide_shown", true).apply()
@@ -605,10 +637,10 @@ class AlarmFragment : Fragment() {
 
         val allBanks = com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.getBanks(context)
 
-        // 第一项：选词（统一为 2 字，与 扫码/数学/诗词/单词 保持整齐一致）
+        // 第一项：选词填空
         val clozeCb = CheckBox(context).apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            text = "选词"
+            text = "选词填空"
             textSize = 12f
             includeFontPadding = false
             setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
@@ -619,7 +651,7 @@ class AlarmFragment : Fragment() {
         val allItems = mutableListOf<View>()
         allItems.add(clozeCb)
 
-        // 后续项：自定义题库（如考公、考研），紧随选词排布在同一流式网格中
+        // 后续项：自定义题库（如考公、考研），紧随选词填空排布在同一流式网格中
         for (bank in allBanks) {
             val bankCb = CheckBox(context).apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -634,8 +666,8 @@ class AlarmFragment : Fragment() {
             allItems.add(bankCb)
         }
 
-        // 自适应列数：若题库名称均为短名称（<=3字），统一采用标准 4 列与上一行（扫码/数学/诗词/单词）对齐；若在 4-5 字自适应为 2 列；若 >5 字长名称自适应为 1 列整行展开
-        val maxTitleLen = (listOf("选词") + allBanks.map { it.title }).maxOfOrNull { it.length } ?: 2
+        // 自适应列数：若题库名称均为短名称（<=3字），采用标准 4 列；若在 4-5 字（包括选词填空）自适应为 2 列；若 >5 字长名称自适应为 1 列整行展开
+        val maxTitleLen = (listOf("选词填空") + allBanks.map { it.title }).maxOfOrNull { it.length } ?: 4
         val numCols = when {
             maxTitleLen <= 3 -> 4
             maxTitleLen <= 5 -> 2
@@ -950,6 +982,23 @@ class AlarmFragment : Fragment() {
         editRgRingMode.addView(editRbVibRing); editRgRingMode.addView(editRbVibOnly); editRgRingMode.addView(editRbRingOnly)
         editRingtoneContainer.addView(editRgRingMode)
 
+        var editAlarmRingtoneUri = existing?.ringtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(requireContext())
+        val btnEditPickRingtone = Button(requireContext()).apply {
+            val title = AlarmRingtoneManager.getRingtoneTitle(requireContext(), editAlarmRingtoneUri)
+            text = "提示音: $title"
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
+            setOnClickListener {
+                onRingtonePickedCallback = { uri, newTitle ->
+                    editAlarmRingtoneUri = uri
+                    text = "提示音: $newTitle"
+                }
+                val intent = AlarmRingtonePickerActivity.createIntent(requireContext(), editAlarmRingtoneUri)
+                ringtonePickerLauncher.launch(intent)
+            }
+        }
+        editRingtoneContainer.addView(btnEditPickRingtone)
+
         // 模式（渐进/固定）
         val editRgVibMode = RadioGroup(requireContext()).apply { orientation = RadioGroup.HORIZONTAL }
         val editRbVibProg = RadioButton(requireContext()).apply { text = "渐进"; id = View.generateViewId(); setTextColor(ThemeManager.getColorAttr(requireContext(), R.attr.zzText)) }
@@ -1198,6 +1247,7 @@ class AlarmFragment : Fragment() {
             .setNegativeButton("取消", null)
             .create()
 
+        editDialog.window?.setBackgroundDrawableResource(R.drawable.bg_zz_card)
         editDialog.show()
 
         editDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -1306,7 +1356,7 @@ class AlarmFragment : Fragment() {
                     vibrationIntensity, vibrationMode, unlockMode,
                     s1Types, s2Types,
                     stageCooldownSeconds = stageCooldownSec,
-                    ringtoneUri = AlarmScheduler.getDefaultRingtoneUri(requireContext()),
+                    ringtoneUri = editAlarmRingtoneUri,
                     alarmMode = editAlarmModeVal,
                     ringVolume = ringVolume,
                     progressiveMaxIntensity = 10,
@@ -1330,6 +1380,7 @@ class AlarmFragment : Fragment() {
                     unlockMode = unlockMode,
                     stage1Types = s1Types, stage2Types = s2Types,
                     stageCooldownSeconds = stageCooldownSec,
+                    ringtoneUri = editAlarmRingtoneUri,
                     alarmMode = editAlarmModeVal,
                     ringVolume = ringVolume,
                     progressiveMaxIntensity = 10,
@@ -1409,9 +1460,16 @@ class AlarmFragment : Fragment() {
         etSnoozeMinutes?.setText(AlarmScheduler.getSnoozeMinutes(ctx).toString())
         etSnoozeMaxCount?.setText(AlarmScheduler.getMaxSnoozeCount(ctx).toString())
 
-        val testInnerLayout = (dialogView as? android.view.ViewGroup)?.let { root ->
-            (root.getChildAt(0) as? ScrollView)?.getChildAt(0) as? LinearLayout
-        }
+        val testInnerLayout = dialogView.findViewById<LinearLayout>(R.id.layout_test_ringtone_slot)
+            ?: dialogView.findViewById<LinearLayout>(R.id.layout_test_alarm_content)
+            ?: (dialogView.findViewById<ScrollView>(R.id.scroll_test_alarm)?.getChildAt(0) as? LinearLayout)
+            ?: ((dialogView as? android.view.ViewGroup)?.let { root ->
+                for (i in 0 until root.childCount) {
+                    val sv = root.getChildAt(i) as? ScrollView
+                    if (sv != null) return@let sv.getChildAt(0) as? LinearLayout
+                }
+                null
+            })
         val layoutTestStage1Cooldown = dialogView.findViewById<View>(R.id.layout_stage1_cooldown)
         val etTestCooldown = dialogView.findViewById<EditText>(R.id.et_stage_cooldown) ?: EditText(ctx)
         etTestCooldown.setText(AlarmScheduler.getDefaultStageCooldownSeconds(ctx).toString())
@@ -1452,17 +1510,18 @@ class AlarmFragment : Fragment() {
 
         val btnPickRingtone = Button(ctx).apply {
             var curUri = AlarmScheduler.getDefaultRingtoneUri(ctx)
-            text = if (curUri != null) "已选自定义铃声" else "选择铃声（默认系统闹钟）"
+            val initialTitle = AlarmRingtoneManager.getRingtoneTitle(ctx, curUri)
+            text = "提示音: $initialTitle"
             textSize = 12f
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }
             setOnClickListener {
-                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                    curUri?.let { putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it)) }
+                onRingtonePickedCallback = { uri, newTitle ->
+                    curUri = uri
+                    pendingRingtoneUri = uri
+                    text = "提示音: $newTitle"
                 }
-                startActivityForResult(intent, REQUEST_PICK_RINGTONE)
+                val intent = AlarmRingtonePickerActivity.createIntent(ctx, curUri)
+                ringtonePickerLauncher.launch(intent)
             }
         }
         testRingtoneContainer.addView(btnPickRingtone)
@@ -1557,17 +1616,13 @@ class AlarmFragment : Fragment() {
         updateStage2Visibility()
 
         val testDialog = AlertDialog.Builder(ctx)
-            .setTitle("默认闹钟配置与测试")
             .setView(dialogView)
-            .setPositiveButton("开始测试", null)
-            .setNeutralButton("保存为默认设置", null)
-            .setNegativeButton("退出", null)
             .create()
 
+        testDialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         testDialog.show()
 
-        // 点击「保存为默认设置」
-        testDialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+        fun doSaveDefaultSettings() {
             val snoozeMin = etSnoozeMinutes?.text.toString().toIntOrNull() ?: 10
             if (snoozeMin > 0) AlarmScheduler.setSnoozeMinutes(ctx, snoozeMin)
             val snoozeMax = etSnoozeMaxCount?.text.toString().toIntOrNull() ?: 2
@@ -1647,24 +1702,29 @@ class AlarmFragment : Fragment() {
             AlarmScheduler.setDefaultVibrationMode(ctx, defVibMode)
 
             refreshSettingsSummaries()
+        }
+
+        // 绑定底部三按钮：从左到右依次为 退出、保存、保存并测试
+        dialogView.findViewById<Button>(R.id.btn_test_dialog_exit)?.setOnClickListener {
+            testDialog.dismiss()
+        }
+
+        dialogView.findViewById<Button>(R.id.btn_test_dialog_save)?.setOnClickListener {
+            doSaveDefaultSettings()
             Toast.makeText(ctx, "默认设置已保存", Toast.LENGTH_SHORT).show()
             testDialog.dismiss()
         }
 
-        // 点击「开始测试」
-        testDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+        dialogView.findViewById<Button>(R.id.btn_test_dialog_save_and_test)?.setOnClickListener {
             val isTwoStage = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
 
             val hasCameraNow = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
             val bankCounts = getTestCustomBankCounts()
-            for ((bId, count) in bankCounts) {
-                AlarmScheduler.setBankDefaultCount(ctx, bId, count)
-            }
-            val testCustomPerBank = (bankCounts.values).maxOrNull() ?: 3
+            val defCustomCount = (bankCounts.values).maxOrNull() ?: 3
             val testS1BankIds = testS1Result.getSelectedBankIds()
             val testS2BankIds = if (isTwoStage) testS2Result.getSelectedBankIds() else testS1BankIds
-            val testS1Banks = testS1BankIds.associateWith { bankCounts[it] ?: testCustomPerBank }
-            val testS2Banks = testS2BankIds.associateWith { bankCounts[it] ?: testCustomPerBank }
+            val testS1Banks = testS1BankIds.associateWith { bankCounts[it] ?: defCustomCount }
+            val testS2Banks = testS2BankIds.associateWith { bankCounts[it] ?: defCustomCount }
 
             val s1Types = mutableSetOf<String>()
             if (cbS1Qr.isChecked && hasCameraNow) s1Types.add("qr")
@@ -1703,6 +1763,9 @@ class AlarmFragment : Fragment() {
                 }
             }
 
+            // 保存并测试：首先保存默认设置
+            doSaveDefaultSettings()
+
             val useQr = "qr" in s1Types
             val useMath = "math" in s1Types
             val usePoem = "poem" in s1Types
@@ -1715,7 +1778,7 @@ class AlarmFragment : Fragment() {
             val wordCount = etWordCount.text.toString().toIntOrNull() ?: 1
             val clozeCount = etClozeCount?.text.toString().toIntOrNull() ?: 3
             val testCustomSum = testS1Banks.values.sum() + testS2Banks.values.sum()
-            val customCount = if (testCustomSum > 0) testCustomSum else testCustomPerBank
+            val customCount = if (testCustomSum > 0) testCustomSum else defCustomCount
             val isProgressive = testRgVibMode.checkedRadioButtonId != testRbVibFixed.id
             val intensity = if (isProgressive) 1 else testSbVib.progress + 1
             val vibrationMode = if (testRgVibMode.checkedRadioButtonId == testRbVibFixed.id)

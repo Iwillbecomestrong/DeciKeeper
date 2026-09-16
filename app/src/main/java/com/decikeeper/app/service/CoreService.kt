@@ -43,6 +43,7 @@ import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SegmentBlacklist
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.A11ySelfDisableAuthorization
+import com.decikeeper.app.manager.PermissionManager
 import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AntiUninstallManager
@@ -613,6 +614,11 @@ class CoreService : AccessibilityService() {
 
             // Start Reminder Loop
             mHandler.post(mReminderRunnable)
+
+            // 🚀 常驻守护小浮窗（自律小盾牌）启动检查
+            if (com.decikeeper.app.manager.GuardFloatingWindowManager.isFloatingGuardEnabled(this)) {
+                com.decikeeper.app.manager.GuardFloatingWindowManager.show(this)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "onServiceConnected: init failed but service stays alive", e)
         }
@@ -794,11 +800,7 @@ class CoreService : AccessibilityService() {
 
         // 🚀 [Config Change] 监听到系统配置变化（如语言切换），使用“系统初始化锁”
         // 1. Start FastLockService (System Initialization Style Lock)
-        val canDrawOverlays = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Settings.canDrawOverlays(this)
-        } else {
-            true
-        }
+        val canDrawOverlays = PermissionManager.hasOverlayPermission(this)
 
         if (!canDrawOverlays) {
             Log.w(TAG, "ConfigChange: overlay permission unavailable, fallback to accessibility lock")
@@ -866,9 +868,12 @@ class CoreService : AccessibilityService() {
              Log.v("DeciKeeper", "A11y Event: Type=${event.eventType}, Pkg=${event.packageName}, Class=${event.className}")
         }
         
-        // 🚀 [Self-Exclusion] Prevent recursive monitoring/lag
+        // 🚀 [Self-Exclusion]
         // If we monitor our own UI events (especially EditText), it causes severe keyboard lag.
-        if (event.packageName == CoreService.instance?.packageName) return
+        if (event.packageName == CoreService.instance?.packageName) {
+            return
+        }
+
 
         // 🚀 [IME Exclusion] Ignore events from Keyboard/Input Method
         // Monitoring IME events (key presses/candidates) causes extreme lag during typing.

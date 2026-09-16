@@ -451,6 +451,8 @@ object SettingsBackupManager {
         val root = parseAndValidateRoot(json)
         val exportedAt = root.optLong("exportedAt", 0L)
         val files = root.getJSONArray("preferenceFiles")
+        // 先完整校验文件名和每个编码值，再开始写入，避免损坏备份只恢复一半。
+        validatePreferenceEntries(files)
         val isAdaptation = TimeRuleManager.isInAdaptationPeriod(context)
         val writtenTargets = mutableSetOf<String>()
         var fileCount = 0
@@ -669,6 +671,14 @@ object SettingsBackupManager {
             )
         }
         return OperationResult(fileCount, entryCount)
+    }
+
+    private fun validatePreferenceEntries(files: JSONArray) {
+        for (i in 0 until files.length()) {
+            val file = files.getJSONObject(i)
+            validatePreferenceName(file.getString("name"))
+            decodeEntries(file.getJSONObject("entries"))
+        }
     }
 
     private fun AlarmWakeRecord.toBackupJson(): JSONObject = JSONObject().apply {

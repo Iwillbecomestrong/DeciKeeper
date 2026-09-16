@@ -119,6 +119,7 @@ class AntiUninstallProtection(private val context: Context) {
             "com.samsung.android.sm_cn",
             "com.oneplus.security",              // OnePlus
             "com.vivo.imanager",                 // Vivo iManager
+            "com.vivo.safecenter",               // Vivo SafeCenter (BackgroundRecordDetailActivity)
             "com.iqoo.secure",                   // Vivo/iQOO Secure
             
             // App Stores
@@ -139,6 +140,13 @@ class AntiUninstallProtection(private val context: Context) {
         )
 
         val PROTECTED_APP_NAMES = setOf("决定守护", "DeciKeeper", "IronWill", "Iron Will", "意引", "钢铁意志")
+
+        val DEVICE_ADMIN_KEYWORDS = setOf(
+            "设备管理器", "设备管理应用", "设备管理", "激活设备管理应用", "要激活此设备管理应用吗",
+            "要使用设备管理器吗", "取消激活", "解除激活",
+            "Device admin", "Device administrators", "Device admin apps", "Deactivate",
+            "DeviceAdminAdd", "DeviceAdminSettings"
+        )
 
         // 强卸载/破坏性确认提示特征
         val DESTRUCTIVE_UNINSTALL_KEYWORDS = listOf(
@@ -387,6 +395,97 @@ class AntiUninstallProtection(private val context: Context) {
                 content.contains(it, ignoreCase = true)
             }
         }
+
+
+        /**
+         * 判断当前窗口事件是否属于系统的多任务列表（Recents / Overview / Quickstep）
+         */
+        internal fun isRecentsInterface(
+            packageName: String,
+            className: String,
+            contentText: String? = null,
+            viewIds: List<String> = emptyList()
+        ): Boolean {
+            val isLauncherOrSysUi = isLauncherPackage(packageName) ||
+                packageName == "com.android.systemui" ||
+                packageName == "com.coloros.recents" ||
+                packageName == "com.vivo.upslide" ||
+                packageName.contains("recents", ignoreCase = true) ||
+                viewIds.any { it.contains("recents", ignoreCase = true) || it.contains("overview", ignoreCase = true) }
+            if (!isLauncherOrSysUi && packageName.isNotBlank()) return false
+
+            val lowerClass = className.lowercase()
+
+            // 明确的桌面主页网格（Workspace）特征 -> 排除，避免误伤桌面日常滑动
+            if (lowerClass.contains("workspace") || lowerClass.endsWith(".workspace")) {
+                return false
+            }
+
+            // 类名特征 (Quickstep / Recents / Overview / Upslide)
+            if (lowerClass.contains("recents") ||
+                lowerClass.contains("quickstep") ||
+                lowerClass.contains("overview") ||
+                lowerClass.contains("taskswitcher") ||
+                lowerClass.contains("recenttask") ||
+                lowerClass.contains("upslide")) {
+                return true
+            }
+
+            // 专有多任务系统包名（Vivo 上滑多任务与 OPPO 多任务）
+            if (packageName == "com.vivo.upslide" || packageName == "com.coloros.recents") {
+                return true
+            }
+
+            // 资源 ID 特征（Vivo/OPPO/Xiaomi/Pixel 等）
+            if (viewIds.isNotEmpty()) {
+                val recentsViewIdKeywords = listOf(
+                    "com.vivo.recents", "com.coloros.recents",
+                    "overview_panel", "recents_view", "task_description",
+                    "action_clean", "action_change_layout", "clear_all", "task_view", "snapshot"
+                )
+                if (recentsViewIdKeywords.any { kw -> viewIds.any { id -> id.contains(kw, ignoreCase = true) } }) {
+                    return true
+                }
+            }
+
+            // 节点内容特征 (清除、没有最近任务、卡片等多任务专有词)
+            if (!contentText.isNullOrBlank()) {
+                val recentsKeywords = listOf(
+                    "清除全部", "全部清除", "没有最近任务", "无最近任务",
+                    "Clear all", "No recent items", "清除全部-按钮", "下拉菜单", "已锁定",
+                    "宫格布局", "堆叠布局"
+                )
+                if (recentsKeywords.any { contentText.contains(it, ignoreCase = true) }) {
+                    return true
+                }
+                // 如果是 Launcher 单 Activity 界面且检测到决定守护任务卡片
+                if (containsProtectedAppToken(contentText, "com.decikeeper.app") &&
+                    (contentText.contains("清除") || contentText.contains("个共") || contentText.contains("已锁定") || contentText.contains("下拉菜单"))) {
+                    return true
+                }
+            }
+
+            return false
+        }
+
+        /**
+         * 判断是否应阻断从决定守护直接呼出多任务界面的行为
+         */
+        internal fun shouldBlockTransitionToRecents(
+            lastDeciKeeperActiveTimeMs: Long,
+            nowMs: Long,
+            isRecents: Boolean,
+            isNavigating: Boolean,
+            windowMs: Long = 15000L
+        ): Boolean {
+            if (isNavigating) return false
+            if (!isRecents) return false
+            if (lastDeciKeeperActiveTimeMs <= 0L) return false
+            val elapsed = nowMs - lastDeciKeeperActiveTimeMs
+            return elapsed in 0..windowMs
+        }
+
+
     }
 
     private var mLastBlockTime: Long = 0
@@ -415,6 +514,7 @@ class AntiUninstallProtection(private val context: Context) {
     private val UNINSTALL_HOT_WINDOW_MS = 5000L
     private val PRIVATE_SPACE_SESSION_TTL_MS = 15000L
     private val PRIVATE_SPACE_ADD_APP_PAGE_TTL_MS = 6000L
+
 
     fun check(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo) {
         scanStartTime = System.currentTimeMillis()
@@ -446,6 +546,7 @@ class AntiUninstallProtection(private val context: Context) {
             Log.d(TAG, "[Skip] Our own AlertDialog, preventing self-harm!")
             return
         }
+
 
         // 0. Force Stop Dialog Detection — 仅由防卸载增强开关控制。
         // 防卸载关闭后不能因为历史状态或仍在运行的服务而继续拦截。
@@ -565,10 +666,46 @@ class AntiUninstallProtection(private val context: Context) {
             if (!antiUninstallEnforcing) return
         }
 
-        // 🔒 [App Info Page Interception]
-        // Only settings package - app info and permission pages
+        // 🔒 [Device Admin Interception]
+        // Intercept Device Admin setting pages if protection is ACTIVE or PENDING.
         val isSettingsPackage = currentPackage == "com.android.settings"
                                 || currentPackage.contains("settings", ignoreCase = true)
+        val deviceAdminState = AntiUninstallManager.getProtectionState(context)
+        if (deviceAdminState == AntiUninstallManager.State.ACTIVE || deviceAdminState == AntiUninstallManager.State.PENDING) {
+            val eventClassName = event.className?.toString() ?: ""
+            val isDeviceAdminCandidate = eventClassName.contains("DeviceAdmin", ignoreCase = true) ||
+                isSettingsPackage || currentPackage == "android" ||
+                MONITORED_PACKAGES.contains(currentPackage)
+                
+            if (isDeviceAdminCandidate) {
+                val sb = StringBuilder()
+                collectAllText(root, sb)
+                val pageContent = sb.toString()
+                val eventText = event.text?.toString() ?: ""
+                val combinedText = "$eventText $pageContent"
+
+                val hasDeviceAdminKeyword = DEVICE_ADMIN_KEYWORDS.any { combinedText.contains(it, ignoreCase = true) }
+                val hasOurApp = containsProtectedAppToken(combinedText, context.packageName)
+
+                if (hasDeviceAdminKeyword && hasOurApp) {
+                    Log.w(TAG, "!!! [Device Admin Intercept] Intercepted Device Admin page for DeciKeeper! Pkg=$currentPackage Class=$eventClassName Text=${combinedText.take(200)}")
+                    logBlock(
+                        reason = "DEVICE_ADMIN_PAGE",
+                        pkg = currentPackage,
+                        cls = eventClassName,
+                        context = "deviceAdmin",
+                        sample = combinedText
+                    )
+                    LogExporter.logEvent(TAG, "[BLOCK] Device Admin page for DeciKeeper! Class=$eventClassName")
+                    mLastBlockTime = System.currentTimeMillis()
+                    service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+                    return
+                }
+            }
+        }
+
+        // 🔒 [App Info Page Interception]
+        // Only settings package - app info and permission pages
 
         if (isSettingsPackage && event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val eventClassName = event.className?.toString() ?: ""

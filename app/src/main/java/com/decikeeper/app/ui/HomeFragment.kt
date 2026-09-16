@@ -43,10 +43,13 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.calculateQuotaDetail
 import com.decikeeper.app.data.formatUsableCountHalfUnits
 import com.decikeeper.app.manager.AlarmScheduler
+import com.decikeeper.app.manager.RecentTasksHideManager
 import com.decikeeper.app.manager.AppVisibilityTracker
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
+import com.decikeeper.app.manager.PermissionManager
 import com.decikeeper.app.manager.RomPermissionDetector
+import com.decikeeper.app.manager.SettingsNavigator
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.manager.getEffectiveUsableCountLimit
 import com.decikeeper.app.service.CoreService
@@ -311,6 +314,7 @@ class HomeFragment : Fragment() {
     private var tvProtectionStatus: TextView? = null
     
     // Dashboard Controls
+    private var tvHomeRefreshTimeBadge: TextView? = null
     private var tvCurrentSegmentRange: TextView? = null
     private var tvStatTimeBig: TextView? = null
     private var tvStatTimeDetail: TextView? = null
@@ -399,11 +403,12 @@ class HomeFragment : Fragment() {
             addAction(MonitorService.ACTION_REFRESH_RULES)
             addAction(MonitorService.ACTION_END_FREE_TIME)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requireContext().registerReceiver(updateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            requireContext().registerReceiver(updateReceiver, filter)
-        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            requireContext(),
+            updateReceiver,
+            filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onResume() {
@@ -425,16 +430,23 @@ class HomeFragment : Fragment() {
         syncDetectedManualPermissionsOnResume()
         updateQuotaDisplay()
         updateProtectionStatus()
+        updateRefreshTimeBadge()
         startUiCountdown()
         updateAdaptationCardVisibility()
         updateSetupGuide() // 🚀 [NEW]
         // 🚀 [优化] 用户从设置页返回后自动识别并标记已处理权限
         processPendingPermissionAutoMark()
 
-        // 🚀 [实时刷新] 若当前正在展示权限设置弹窗，立即刷新弹窗内的各项权限开启状态
+        // 🚀 [实时刷新] 若当前正在展示权限设置弹窗，控制弹窗内的各项权限开启状态
         if (activeProtectionDialog?.isShowing == true) {
             refreshProtectionDialogContent?.invoke()
         }
+    }
+
+    private fun updateRefreshTimeBadge() {
+        val context = context ?: return
+        val refreshTime = TimeRuleManager.getRefreshTime(context)
+        tvHomeRefreshTimeBadge?.text = "🕒 每日生效时刻: $refreshTime"
     }
 
     override fun onPause() {
@@ -481,6 +493,7 @@ class HomeFragment : Fragment() {
         tvProtectionStatus = view.findViewById(R.id.tv_protection_status)
         
         // Dashboard Views
+        tvHomeRefreshTimeBadge = view.findViewById(R.id.tv_home_refresh_time_badge)
         tvCurrentSegmentRange = view.findViewById(R.id.tv_current_segment_range)
         tvStatTimeBig = view.findViewById(R.id.tv_stat_time_big)
         tvStatTimeDetail = view.findViewById(R.id.tv_stat_time_detail)
@@ -885,6 +898,7 @@ class HomeFragment : Fragment() {
         val currentSeg = TimeRuleManager.getCurrentSegment(ctx)
         val now = System.currentTimeMillis()
 
+        updateRefreshTimeBadge()
         updateWeeklyPrivilegeEntryDisplay()
         updateTodayAlarmDisplay()
 
@@ -1238,7 +1252,7 @@ class HomeFragment : Fragment() {
         val ctx = context ?: return
         val sb = StringBuilder()
         
-        val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
+        val hasOverlay = PermissionManager.hasOverlayPermission(ctx)
         sb.append(if (hasOverlay) "✅ 悬浮窗权限：已开启\n" else "⚠️ 悬浮窗权限：未开启\n")
 
         val prefs = ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
@@ -1272,7 +1286,7 @@ class HomeFragment : Fragment() {
 
     private fun checkOverlayPermission() {
         val ctx = context ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(ctx)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !PermissionManager.hasOverlayPermission(ctx)) {
             val prefs = ctx.getSharedPreferences(PERMISSION_PREFS_NAME, Context.MODE_PRIVATE)
             val hasBeenPrimed = prefs.getBoolean(KEY_OVERLAY_PROMPT_PRIMED, false)
             if (shouldSuppressFirstMissingPermissionPrompt(true, hasBeenPrimed)) {
@@ -1289,8 +1303,10 @@ class HomeFragment : Fragment() {
                 .setMessage("决定守护需要「显示在其他应用上层」权限才能显示锁屏界面。")
                 .setPositiveButton("去开启") { _, _ ->
                     try {
+                        RecentTasksHideManager.markNavigating()
                         startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${ctx.packageName}")))
                     } catch (e: Exception) {
+                        RecentTasksHideManager.clearNavigating()
                         Toast.makeText(ctx, "无法打开设置页面", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -1357,8 +1373,10 @@ class HomeFragment : Fragment() {
                     btn.setOnClickListener {
                         try {
                             com.decikeeper.app.protection.AccessibilityProtection.markManualSettingsLaunch()
+                            RecentTasksHideManager.markNavigating()
                             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         } catch (e: Exception) {
+                            RecentTasksHideManager.clearNavigating()
                             Log.w("HomeFragment", "Failed to open accessibility settings", e)
                         }
                     }
@@ -1519,7 +1537,17 @@ class HomeFragment : Fragment() {
         val intents = mutableListOf<Intent>()
         val manufacturer = Build.MANUFACTURER.lowercase()
 
-        if (manufacturer.contains("vivo") || manufacturer.contains("iqoo")) {
+        if (manufacturer.contains("oppo") || manufacturer.contains("realme") || manufacturer.contains("oneplus")) {
+            intents.add(Intent().setComponent(android.content.ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.StartupAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startupInit.StartupNormalAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.oplus.securitypermission", "com.oplus.securitypermission.startup.AssociateStartupAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.AssociateStartupAppListActivity")))
+            // OPPO 单应用详情页没有自启动/关联启动开关，因此优先进入「设置 → 应用」
+            intents.add(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+            intents.add(Intent("android.settings.APPLICATION_SETTINGS"))
+        } else if (manufacturer.contains("vivo") || manufacturer.contains("iqoo")) {
             intents.add(
                 Intent().setComponent(
                     android.content.ComponentName(
@@ -1532,6 +1560,19 @@ class HomeFragment : Fragment() {
                     putExtra("pkg", ctx.packageName)
                 }
             )
+            intents.add(
+                Intent().setComponent(
+                    android.content.ComponentName(
+                        "com.vivo.permissionmanager",
+                        "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
+                    )
+                )
+            )
+        } else if (manufacturer.contains("xiaomi") || manufacturer.contains("redmi")) {
+            intents.add(Intent().setComponent(android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")))
+        } else if (manufacturer.contains("huawei") || manufacturer.contains("honor")) {
+            intents.add(Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")))
+            intents.add(Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppListActivity")))
         }
 
         intents.add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}")))
@@ -1540,6 +1581,15 @@ class HomeFragment : Fragment() {
 
     private fun launchManualPermissionSettings(permissionKey: String) {
         val ctx = context ?: return
+        if (permissionKey == "auto_start_confirmed") {
+            if (SettingsNavigator.openAutostartSettings(ctx)) {
+                return
+            }
+        } else if (permissionKey == "assoc_start_confirmed") {
+            if (SettingsNavigator.openAssociateStartSettings(ctx)) {
+                return
+            }
+        }
         val intents = when (permissionKey) {
             "auto_start_confirmed", "bg_popup_confirmed", "assoc_start_confirmed" -> buildManualPermissionSettingsIntents(ctx)
             else -> emptyList()
@@ -1548,10 +1598,12 @@ class HomeFragment : Fragment() {
         for (intent in intents) {
             try {
                 if (intent.resolveActivity(ctx.packageManager) != null) {
+                    RecentTasksHideManager.markNavigating()
                     startActivity(intent)
                     return
                 }
             } catch (_: Exception) {
+                RecentTasksHideManager.clearNavigating()
             }
         }
     }
@@ -1630,6 +1682,7 @@ class HomeFragment : Fragment() {
             "bg_popup_confirmed" -> "后台弹出界面权限"
             "bg_battery_confirmed" -> "允许后台耗电"
             "assoc_start_confirmed" -> "关联启动权限"
+            "recents_lock_confirmed" -> "多任务卡片加锁"
             else -> key
         }
     }
@@ -1639,6 +1692,7 @@ class HomeFragment : Fragment() {
             "auto_start_confirmed" -> "auto_start_confirmed_at"
             "bg_popup_confirmed" -> "bg_popup_confirmed_at"
             "assoc_start_confirmed" -> "assoc_start_confirmed_at"
+            "recents_lock_confirmed" -> "recents_lock_confirmed_at"
             else -> null
         }
     }
@@ -1730,17 +1784,21 @@ class HomeFragment : Fragment() {
                     row.addView(tv)
                     layout.addView(row)
                 } else {
+                    val density = currentCtx.resources.displayMetrics.density
                     val btn = Button(currentCtx).apply {
                         text = "👉 去设置：$name"
                         textSize = 14f
                         setTextColor(android.graphics.Color.WHITE)
                         setBackgroundResource(R.drawable.bg_zz_pill)
                         backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(currentCtx, R.attr.zzAccent))
+                        minHeight = (44 * density).toInt()
+                        setPadding((12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt())
+                        gravity = android.view.Gravity.CENTER
                         layoutParams = android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            (44 * currentCtx.resources.displayMetrics.density).toInt()
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
                         ).apply {
-                            setMargins(0, (6 * currentCtx.resources.displayMetrics.density).toInt(), 0, (6 * currentCtx.resources.displayMetrics.density).toInt())
+                            setMargins(0, (6 * density).toInt(), 0, (6 * density).toInt())
                         }
                         setOnClickListener { action() }
                     }
@@ -1753,6 +1811,7 @@ class HomeFragment : Fragment() {
                 key: String,
                 hint: String,
                 linkedPendingKeys: List<String> = emptyList(),
+                onAction: (() -> Unit)? = null,
                 onLongClick: (() -> Unit)? = null
             ) {
                 val granted = isShortTimeConfirmed(prefs, key)
@@ -1761,6 +1820,7 @@ class HomeFragment : Fragment() {
                     return
                 }
 
+                val density = currentCtx.resources.displayMetrics.density
                 val row = android.widget.LinearLayout(currentCtx).apply {
                     orientation = android.widget.LinearLayout.HORIZONTAL
                     setPadding(0, 8, 0, 8)
@@ -1773,19 +1833,26 @@ class HomeFragment : Fragment() {
                     setTextColor(android.graphics.Color.WHITE)
                     setBackgroundResource(R.drawable.bg_zz_pill)
                     backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(currentCtx, R.attr.zzAccent))
+                    minHeight = (44 * density).toInt()
+                    setPadding((10 * density).toInt(), (6 * density).toInt(), (10 * density).toInt(), (6 * density).toInt())
+                    gravity = android.view.Gravity.CENTER
                     layoutParams = android.widget.LinearLayout.LayoutParams(
                         0,
-                        (44 * currentCtx.resources.displayMetrics.density).toInt(),
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
                         1f
                     ).apply {
-                        setMargins(0, 0, (8 * currentCtx.resources.displayMetrics.density).toInt(), 0)
+                        setMargins(0, 0, (8 * density).toInt(), 0)
                     }
                     setOnClickListener {
-                        launchManualPermissionSettings(key)
-                        Toast.makeText(currentCtx, hint, Toast.LENGTH_LONG).show()
-                        addPendingPermissionConfirm(key, markSettingsLaunch = true)
-                        linkedPendingKeys.forEach { linkedKey ->
-                            addPendingPermissionConfirm(linkedKey, markSettingsLaunch = true)
+                        if (onAction != null) {
+                            onAction()
+                        } else {
+                            launchManualPermissionSettings(key)
+                            Toast.makeText(currentCtx, hint, Toast.LENGTH_LONG).show()
+                            addPendingPermissionConfirm(key, markSettingsLaunch = true)
+                            linkedPendingKeys.forEach { linkedKey ->
+                                addPendingPermissionConfirm(linkedKey, markSettingsLaunch = true)
+                            }
                         }
                     }
                 }
@@ -1825,11 +1892,13 @@ class HomeFragment : Fragment() {
                 layout.addView(row)
             }
 
-            val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(currentCtx) else true
+            val hasOverlay = PermissionManager.hasOverlayPermission(currentCtx)
             addItem("悬浮窗权限", hasOverlay) {
                 try {
+                    RecentTasksHideManager.markNavigating()
                     startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${currentCtx.packageName}")))
                 } catch (e: Exception) {
+                    RecentTasksHideManager.clearNavigating()
                     Log.w("HomeFragment", "Failed to open overlay settings", e)
                 }
             }
@@ -1838,26 +1907,56 @@ class HomeFragment : Fragment() {
             if (Build.VERSION.SDK_INT >= 33) {
                 val hasNotification = currentCtx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 addItem("通知权限", hasNotification) {
+                    RecentTasksHideManager.markNavigating()
                     notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
 
+            val bgBatteryLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
+                "后台行为控制（完全允许后台行为）"
+            } else if (SettingsNavigator.isVivoOrIqoo()) {
+                "后台耗电管理（允许后台高耗电）"
+            } else {
+                "后台耗电管理（允许后台运行）"
+            }
             val hasBgBattery = !isChineseRomDevice() || isBgBatteryPermissionSatisfied(currentCtx)
-            addItem("后台耗电管理", hasBgBattery) {
+            addItem(bgBatteryLabel, hasBgBattery) {
                 addPendingPermissionConfirm("bg_battery_confirmed", markSettingsLaunch = true)
                 openBgBatterySettings(currentCtx)
             }
 
+            val autostartLabel = SettingsNavigator.getAutostartLabel()
             addUndetectablePermissionItem(
-                name = "自启动权限",
+                name = autostartLabel,
                 key = "auto_start_confirmed",
-                hint = "请在权限详情页开启自启动等开关",
+                hint = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
+                    "请在系统「设置 ➔ 应用 ➔ 自启动」中开启"
+                } else {
+                    "请在设置中开启「自启动」开关"
+                },
                 onLongClick = {
                     prefs.edit().remove("auto_start_confirmed").remove("auto_start_confirmed_at").apply()
                     updateProtectionStatus()
                     updateSetupGuide()
                     populateDialogContent()
                     Toast.makeText(currentCtx, "已清除自启动缓存，请重新检测", Toast.LENGTH_SHORT).show()
+                }
+            )
+
+            // 多任务卡片加锁（防误清理保活推荐项）
+            addUndetectablePermissionItem(
+                name = "多任务卡片加锁（防误清理）",
+                key = "recents_lock_confirmed",
+                hint = "请在多任务界面下拉或长按决定守护卡片进行加锁",
+                onAction = {
+                    showRecentsLockGuideDialog(currentCtx)
+                },
+                onLongClick = {
+                    prefs.edit().remove("recents_lock_confirmed").remove("recents_lock_confirmed_at").apply()
+                    updateProtectionStatus()
+                    updateSetupGuide()
+                    populateDialogContent()
+                    Toast.makeText(currentCtx, "已清除多任务加锁状态", Toast.LENGTH_SHORT).show()
                 }
             )
 
@@ -1895,6 +1994,28 @@ class HomeFragment : Fragment() {
 
         activeProtectionDialog = dialog
         dialog.show()
+    }
+
+    private fun showRecentsLockGuideDialog(ctx: Context) {
+        val extraWindowTip = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
+            "\n\n• OPPO 强效保活妙招：\n  ColorOS 支持将决定守护设为「闪达小窗/迷你浮窗」常驻桌面或侧边栏，小窗模式下可完全免疫多任务一键划杀！"
+        } else {
+            ""
+        }
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle("🔒 多任务卡片加锁指引")
+            .setMessage(
+                "• 作用：防止系统一键清理后台时误杀决定守护；\n\n" +
+                "• 操作步骤：\n" +
+                "  1. 呼出手机的多任务（最近任务）界面；\n" +
+                "  2. 找到「决定守护」卡片；\n" +
+                "  3. 下拉卡片，或长按/点击卡片右上角菜单；\n" +
+                "  4. 点击【加锁】（卡片上出现 🔒 小锁图标）；" +
+                extraWindowTip +
+                "\n\n• 设置完成后，回到这里勾选「已开启」即可。"
+            )
+            .setPositiveButton("知道了", null)
+            .show()
     }
 
     private fun updateSetupGuide() {
@@ -1952,7 +2073,7 @@ class HomeFragment : Fragment() {
     )
 
     private fun getHomePermissionState(ctx: Context): HomePermissionState {
-        val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(ctx) else true
+        val hasOverlay = PermissionManager.hasOverlayPermission(ctx)
         val hasNotification = if (Build.VERSION.SDK_INT >= 33) {
             ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else true
@@ -1963,8 +2084,10 @@ class HomeFragment : Fragment() {
         val missing = mutableListOf<String>()
         if (!hasOverlay) missing.add("悬浮窗")
         if (!hasNotification) missing.add("通知权限")
-        if (!hasBgBattery) missing.add("后台耗电管理")
-        if (!hasAutoStart) missing.add("自启动")
+        val bgBatteryMissingLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) "完全后台行为" else "后台耗电管理"
+        val autostartMissingLabel = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) SettingsNavigator.getAutostartLabel() else "自启动"
+        if (!hasBgBattery) missing.add(bgBatteryMissingLabel)
+        if (!hasAutoStart) missing.add(autostartMissingLabel)
 
         val allGranted = missing.isEmpty()
         return HomePermissionState(allGranted = allGranted, missingLabels = missing)
@@ -1980,15 +2103,22 @@ class HomeFragment : Fragment() {
     }
 
     private fun openBgBatterySettings(ctx: Context) {
+        if (SettingsNavigator.openBatteryKeepAliveSettings(ctx)) {
+            Toast.makeText(ctx, SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
+            return
+        }
         val intents = listOf(
             Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}"))
         )
         for (intent in intents) {
             try {
+                RecentTasksHideManager.markNavigating()
                 startActivity(intent)
+                Toast.makeText(ctx, SettingsNavigator.getBrandKeepAliveTips(), Toast.LENGTH_LONG).show()
                 return
             } catch (e: Exception) {
+                RecentTasksHideManager.clearNavigating()
                 Log.w("HomeFragment", "Failed to open battery settings", e)
             }
         }

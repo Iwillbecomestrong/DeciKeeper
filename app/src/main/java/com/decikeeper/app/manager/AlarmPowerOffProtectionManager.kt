@@ -89,8 +89,7 @@ object AlarmPowerOffProtectionManager {
     fun getPrerequisiteStatus(context: Context): PrerequisiteStatus {
         return PrerequisiteStatus(
             a11yReady = isAccessibilityServiceEnabled(context),
-            overlayReady = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
-                Settings.canDrawOverlays(context),
+            overlayReady = PermissionManager.hasOverlayPermission(context),
             notificationPermissionReady = hasNotificationPermission(context),
             notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled(),
             lockScreenDisplayReady = isLockScreenDisplayReady(context)
