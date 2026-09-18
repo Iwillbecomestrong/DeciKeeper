@@ -22,19 +22,21 @@ class AlarmScreenOffBehaviorContractTest {
     }
 
     @Test
-    fun alarmActivityPausesAndResumesScannerOnPauseAndResume() {
+    fun alarmActivityClosesCutoutAndHardRestartsCameraAfterPauseResume() {
         val activitySource = source("app/src/main/java/com/decikeeper/app/ui/AlarmActivity.kt")
 
         assertTrue(
-            "AlarmActivity onPause 必须在扫码模式下调用 barcodeView?.pause()",
+            "AlarmActivity onPause 必须在扫码模式下关闭透明孔并暂停相机分析",
             activitySource.contains("override fun onPause()") &&
-                activitySource.contains("if (isScanMode)") &&
+                activitySource.contains("scanNeedsCameraRestartOnResume = true") &&
+                activitySource.contains("LockWindowManager.setAlarmOverlayPassthrough(false)") &&
                 activitySource.contains("barcodeView?.pause()")
         )
         assertTrue(
-            "AlarmActivity onResume 必须在扫码模式下调用 barcodeView?.resume()",
+            "AlarmActivity onResume 必须在发生过 pause 后调用 CameraX 硬重绑，而不是只恢复分析标志",
             activitySource.contains("override fun onResume()") &&
-                activitySource.contains("barcodeView?.resume()")
+                activitySource.contains("if (scanNeedsCameraRestartOnResume)") &&
+                activitySource.contains("barcodeView?.restart()")
         )
     }
 
