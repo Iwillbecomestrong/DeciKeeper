@@ -3,8 +3,6 @@ package com.decikeeper.app.protection
 import android.view.accessibility.AccessibilityEvent
 import com.decikeeper.app.manager.isShutdownDialogClass
 import com.decikeeper.app.manager.isSystemDialogPackage
-import com.decikeeper.app.manager.isVoiceAssistantPackage
-import com.decikeeper.app.manager.shouldDismissVoiceAssistantOverAlarm
 import com.decikeeper.app.manager.shouldHandleShutdownDialogEvent
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -85,15 +83,8 @@ class SystemDialogDetectionPolicyTest {
     }
 
     @Test
-    fun voiceAssistantPackageIsRecognized() {
-        assertTrue(isVoiceAssistantPackage("com.vivo.ai.copilot"))
-        assertFalse(isVoiceAssistantPackage("com.vivo.systemuiplugin"))
-        assertFalse(isVoiceAssistantPackage(null))
-    }
-
-    @Test
     fun voiceAssistantIsNotTreatedAsShutdownDialog() {
-        // 记录当前分工：助手走单独的判定分支，因为它的窗口类名无法识别
+        // 语音助手允许正常显示：只有真正的关机/重启菜单才进入拦截分支
         assertFalse(isSystemDialogPackage("com.vivo.ai.copilot"))
         assertFalse(
             shouldHandleShutdownDialogEvent(
@@ -104,38 +95,4 @@ class SystemDialogDetectionPolicyTest {
         )
     }
 
-    @Test
-    fun voiceAssistantEventsAreDismissedOverAlarm() {
-        // 真机日志中助手会连续吐出 WINDOW_STATE_CHANGED 与 WINDOW_CONTENT_CHANGED
-        assertTrue(
-            shouldDismissVoiceAssistantOverAlarm(
-                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, "com.vivo.ai.copilot"
-            )
-        )
-        assertTrue(
-            shouldDismissVoiceAssistantOverAlarm(
-                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED, "com.vivo.ai.copilot"
-            )
-        )
-    }
-
-    @Test
-    fun voiceAssistantDismissalIsScopedToAssistantOnly() {
-        // 关机菜单不走进这个分支（它有自己的判定），其他包更不应该被 BACK
-        assertFalse(
-            shouldDismissVoiceAssistantOverAlarm(
-                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, "com.vivo.systemuiplugin"
-            )
-        )
-        assertFalse(
-            shouldDismissVoiceAssistantOverAlarm(
-                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, "com.tencent.mm"
-            )
-        )
-        assertFalse(
-            shouldDismissVoiceAssistantOverAlarm(
-                AccessibilityEvent.TYPE_VIEW_CLICKED, "com.vivo.ai.copilot"
-            )
-        )
-    }
 }
