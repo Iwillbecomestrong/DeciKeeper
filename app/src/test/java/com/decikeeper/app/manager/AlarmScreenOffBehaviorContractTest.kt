@@ -36,7 +36,7 @@ class AlarmScreenOffBehaviorContractTest {
             "AlarmActivity onResume 必须在发生过 pause 后调用 CameraX 硬重绑，而不是只恢复分析标志",
             activitySource.contains("override fun onResume()") &&
                 activitySource.contains("if (scanNeedsCameraRestartOnResume)") &&
-                activitySource.contains("barcodeView?.restart()")
+                activitySource.contains("manager.restart()")
         )
     }
 
