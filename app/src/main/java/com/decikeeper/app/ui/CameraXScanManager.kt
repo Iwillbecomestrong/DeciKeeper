@@ -23,6 +23,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -54,7 +55,14 @@ class CameraXScanManager(
     private var camera: Camera? = null
     private var analysisExecutor: ExecutorService? = null
     private var barcodeScanner: BarcodeScanner? = null
+    private var currentPreviewView: PreviewView? = null
+    private var previewStreamObserver: Observer<PreviewView.StreamState>? = null
+    private var previewStreamListener: ((Boolean) -> Unit)? = null
+    private var onScanSuccessCallback: ((String) -> Unit)? = null
+    private var bindGeneration = 0L
 
+    @Volatile
+    private var previewStreaming = false
     private val isAnalyzing = AtomicBoolean(true)
     private var isTorchEnabled = false
     private var loggedResolution = false
@@ -69,7 +77,52 @@ class CameraXScanManager(
     /**
      * 绑定相机生命周期并启动二维码实时分析。
      */
+    fun setPreviewStreamListener(listener: ((Boolean) -> Unit)?) {
+        previewStreamListener = listener
+        listener?.invoke(previewStreaming)
+    }
+
+    fun isPreviewStreaming(): Boolean = previewStreaming
+
+    private fun updatePreviewStreaming(streaming: Boolean) {
+        if (previewStreaming == streaming) return
+        previewStreaming = streaming
+        Log.i(TAG, "Preview stream state: ${if (streaming) "STREAMING" else "IDLE"}")
+        previewStreamListener?.invoke(streaming)
+    }
+
+    private fun observePreviewStreamState(previewView: PreviewView) {
+        val oldView = currentPreviewView
+        val oldObserver = previewStreamObserver
+        if (oldView != null && oldObserver != null) {
+            oldView.previewStreamState.removeObserver(oldObserver)
+        }
+        currentPreviewView = previewView
+        val observer = Observer<PreviewView.StreamState> { state ->
+            updatePreviewStreaming(state == PreviewView.StreamState.STREAMING)
+        }
+        previewStreamObserver = observer
+        previewView.previewStreamState.observe(lifecycleOwner, observer)
+    }
+
+    /**
+     * 绑定相机生命周期并启动二维码实时分析。
+     * 可重复调用：每次都会先解绑旧 use case，确保系统窗口/锁屏中断后能真正恢复 Preview，
+     * 而不是只把二维码分析开关重新设为 true。
+     */
     fun start(previewView: PreviewView, onScanSuccess: (String) -> Unit) {
+        val generation = ++bindGeneration
+        onScanSuccessCallback = onScanSuccess
+        updatePreviewStreaming(false)
+        observePreviewStreamState(previewView)
+
+        try {
+            cameraProvider?.unbindAll()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to unbind previous CameraX use cases before restart", e)
+        }
+        analysisExecutor?.shutdownNow()
+
         val executor = Executors.newSingleThreadExecutor()
         analysisExecutor = executor
         isAnalyzing.set(true)
@@ -78,6 +131,11 @@ class CameraXScanManager(
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             try {
+                if (generation != bindGeneration) {
+                    Log.d(TAG, "Ignoring stale CameraX bind callback generation=$generation current=$bindGeneration")
+                    return@addListener
+                }
+
                 val provider = cameraProviderFuture.get()
                 cameraProvider = provider
 
@@ -124,9 +182,25 @@ class CameraXScanManager(
                 setupTouchListeners(previewView)
                 Log.i(TAG, "CameraX successfully bound to lifecycle with 1080P/16:9 strategy")
             } catch (e: Exception) {
+                updatePreviewStreaming(false)
                 Log.e(TAG, "Failed to bind CameraX use cases", e)
             }
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    /**
+     * Activity 因系统窗口、锁屏或短暂抢占离开前台后，强制重新绑定 Preview + Analysis。
+     * 这比 resume() 只恢复 isAnalyzing 更可靠。
+     */
+    fun restart() {
+        val previewView = currentPreviewView
+        val callback = onScanSuccessCallback
+        if (previewView == null || callback == null) {
+            Log.w(TAG, "restart: no active preview/callback to restart")
+            return
+        }
+        Log.i(TAG, "restart: rebinding CameraX preview after lifecycle interruption")
+        start(previewView, callback)
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -230,8 +304,9 @@ class CameraXScanManager(
      * 暂停扫码分析（用于熄屏、退到后台或识别成功后）
      */
     fun pause() {
-        Log.d(TAG, "pause: stopping image analysis")
+        Log.d(TAG, "pause: stopping image analysis and closing preview cutout")
         isAnalyzing.set(false)
+        updatePreviewStreaming(false)
     }
 
     /**
@@ -273,6 +348,17 @@ class CameraXScanManager(
      */
     fun release() {
         Log.d(TAG, "release: tearing down CameraX and ML Kit")
+        bindGeneration++
+        updatePreviewStreaming(false)
+        val observer = previewStreamObserver
+        val preview = currentPreviewView
+        if (observer != null && preview != null) {
+            preview.previewStreamState.removeObserver(observer)
+        }
+        previewStreamObserver = null
+        currentPreviewView = null
+        previewStreamListener = null
+        onScanSuccessCallback = null
         isAnalyzing.set(false)
         try {
             cameraProvider?.unbindAll()
