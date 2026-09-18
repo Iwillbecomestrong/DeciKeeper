@@ -205,7 +205,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     private fun updateScanCutoutForPreview(streaming: Boolean) {
         val activityReady = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
-        if (!isScanMode || !streaming || !activityReady) {
+        if (!isScanMode || !streaming || !activityReady || scanNeedsCameraRestartOnResume) {
             LockWindowManager.setAlarmOverlayPassthrough(false)
             return
         }
@@ -557,9 +557,15 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             // 单纯 resume() 只会恢复二维码分析标志，无法修复失效的 Surface/Preview。
             LockWindowManager.setAlarmOverlayPassthrough(false)
             if (scanNeedsCameraRestartOnResume) {
-                scanNeedsCameraRestartOnResume = false
                 LogExporter.logEvent("AlarmOverlay", "SCAN_CAMERA_RESTART_ON_RESUME")
-                barcodeView?.restart()
+                val manager = barcodeView
+                if (manager != null) {
+                    manager.restart()
+                } else {
+                    startBarcodeScanner()
+                }
+                // restart() 已同步移除旧 Preview observer；此后才允许新一轮 STREAMING 打开透明孔。
+                scanNeedsCameraRestartOnResume = false
             } else {
                 barcodeView?.resume()
                 updateScanCutoutForPreview(barcodeView?.isPreviewStreaming() == true)
