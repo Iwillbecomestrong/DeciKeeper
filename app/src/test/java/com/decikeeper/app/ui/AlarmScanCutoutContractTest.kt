@@ -9,8 +9,7 @@ import java.io.File
  * 扫码取景模式的契约：覆盖层必须保持**不透明且可触摸**，只在中间留取景开孔。
  *
  * 关联真机缺陷：旧实现把整层设为 alpha=0 + FLAG_NOT_TOUCHABLE（"穿透"），
- * 结果扫码期间既盖不住也拦不住系统弹层——长按电源键会露出 vivo 语音助手，
- * 关机菜单还能被直接点击。
+ * 结果扫码期间既盖不住也拦不住真正的关机/重启菜单，用户可以直接操作系统关机界面。
  *
  * 注意：覆盖层窗口渲染不了 SurfaceView，所以开孔里的画面来自下方 AlarmActivity
  * 的相机预览，覆盖层自带的 DecoratedBarcodeView 必须保持不可见。
@@ -40,6 +39,9 @@ class AlarmScanCutoutContractTest {
     }
     private val lockManagerSource by lazy {
         source("src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
+    }
+    private val cameraManagerSource by lazy {
+        source("src/main/java/com/decikeeper/app/ui/CameraXScanManager.kt")
     }
 
     @Test
@@ -71,6 +73,54 @@ class AlarmScanCutoutContractTest {
         // 退出时必须原样还原背景
         assertTrue(overlaySource.contains("savedRootBackground"))
         assertTrue(overlaySource.contains("savedScanBackground"))
+    }
+
+    @Test
+    fun scanCutoutOpensOnlyAfterCameraPreviewIsStreaming() {
+        val start = activitySource.indexOf("private fun startBarcodeScanner()")
+        val end = activitySource.indexOf("private fun updateScanCutoutForPreview", start)
+        assertTrue("找不到 startBarcodeScanner", start >= 0 && end > start)
+        val scannerBody = activitySource.substring(start, end)
+
+        assertTrue(
+            "启动 CameraX 前必须先关闭透明孔，不能提前露出锁屏/系统界面",
+            scannerBody.contains("LockWindowManager.setAlarmOverlayPassthrough(false)")
+        )
+        assertTrue(
+            "扫码页必须监听 PreviewView 的真实流状态",
+            scannerBody.contains("manager.setPreviewStreamListener")
+        )
+
+        val gateStart = activitySource.indexOf("private fun updateScanCutoutForPreview")
+        val gateEnd = activitySource.indexOf("override fun onScanCancel()", gateStart)
+        val gateBody = activitySource.substring(gateStart, gateEnd)
+        assertTrue(
+            "只有 streaming=true 且 Activity 已 RESUMED 时才能打开透明孔",
+            gateBody.contains("!streaming") &&
+                gateBody.contains("Lifecycle.State.RESUMED") &&
+                gateBody.contains("LockWindowManager.setAlarmOverlayPassthrough(true)")
+        )
+        assertTrue(
+            "打开透明孔前还必须确认覆盖层仍处于 attached 状态",
+            gateBody.contains("LockWindowManager.isOverlayAttached")
+        )
+    }
+
+    @Test
+    fun cameraManagerTracksPreviewStreamAndCanHardRestart() {
+        assertTrue(
+            "CameraXScanManager 必须观察 PreviewView.previewStreamState",
+            cameraManagerSource.contains("previewView.previewStreamState.observe")
+        )
+        assertTrue(
+            "只有 PreviewView.StreamState.STREAMING 才能报告真实预览已恢复",
+            cameraManagerSource.contains("PreviewView.StreamState.STREAMING")
+        )
+        assertTrue(
+            "相机管理器必须提供 restart() 重新绑定 Preview + Analysis",
+            cameraManagerSource.contains("fun restart()") &&
+                cameraManagerSource.contains("start(previewView, callback)")
+        )
     }
 
     @Test
