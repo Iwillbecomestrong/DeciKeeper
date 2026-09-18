@@ -91,12 +91,17 @@ class CameraXScanManager(
         previewStreamListener?.invoke(streaming)
     }
 
-    private fun observePreviewStreamState(previewView: PreviewView) {
+    private fun detachPreviewStreamObserver() {
         val oldView = currentPreviewView
         val oldObserver = previewStreamObserver
         if (oldView != null && oldObserver != null) {
             oldView.previewStreamState.removeObserver(oldObserver)
         }
+        previewStreamObserver = null
+    }
+
+    private fun observePreviewStreamState(previewView: PreviewView) {
+        detachPreviewStreamObserver()
         currentPreviewView = previewView
         val observer = Observer<PreviewView.StreamState> { state ->
             updatePreviewStreaming(state == PreviewView.StreamState.STREAMING)
@@ -113,8 +118,12 @@ class CameraXScanManager(
     fun start(previewView: PreviewView, onScanSuccess: (String) -> Unit) {
         val generation = ++bindGeneration
         onScanSuccessCallback = onScanSuccess
+
+        // 先移除旧 Preview 的观察者并解绑旧 use case。否则 Activity 刚恢复到 RESUMED 时，
+        // 旧 LiveData 可能先回放一个 STREAMING，导致透明孔在新相机真正出帧前短暂打开。
+        detachPreviewStreamObserver()
+        currentPreviewView = previewView
         updatePreviewStreaming(false)
-        observePreviewStreamState(previewView)
 
         try {
             cameraProvider?.unbindAll()
@@ -179,6 +188,8 @@ class CameraXScanManager(
                     imageAnalysis
                 )
 
+                // 只有新一轮 bind 完成后才开始监听 PreviewView 的流状态。
+                observePreviewStreamState(previewView)
                 setupTouchListeners(previewView)
                 Log.i(TAG, "CameraX successfully bound to lifecycle with 1080P/16:9 strategy")
             } catch (e: Exception) {
@@ -350,12 +361,7 @@ class CameraXScanManager(
         Log.d(TAG, "release: tearing down CameraX and ML Kit")
         bindGeneration++
         updatePreviewStreaming(false)
-        val observer = previewStreamObserver
-        val preview = currentPreviewView
-        if (observer != null && preview != null) {
-            preview.previewStreamState.removeObserver(observer)
-        }
-        previewStreamObserver = null
+        detachPreviewStreamObserver()
         currentPreviewView = null
         previewStreamListener = null
         onScanSuccessCallback = null
