@@ -849,15 +849,78 @@ object LockWindowManager {
     }
     
     // 🚀 [NEW] Flag to pause monitoring while user is typing
+    const val INPUT_PANEL_MAX_TIMEOUT_MS = 60_000L // 60s 最大超时自愈
+    @Volatile var inputPanelOpenAtMs: Long = 0L
+        private set
+    @Volatile private var mRestWindowGeneration: Int = -1
+
     @Volatile
     var isInputPanelOpen = false
-        private set(value) {
+        internal set(value) {
             field = value
-            Log.d("LockWindow", "isInputPanelOpen set to $value")
+            inputPanelOpenAtMs = if (value) System.currentTimeMillis() else 0L
+            Log.d("LockWindow", "isInputPanelOpen set to $value (at $inputPanelOpenAtMs)")
         }
 
-    internal fun shouldPauseForegroundBlockingChecks(): Boolean {
-        return isInputPanelOpen || isSettingsPassThrough
+    /**
+     * [vivo-fix] 分类 transient overlay（输入面板、休息申请、临时解锁窗口）的代际状态。
+     * JVM-testable: no WindowManager / Context dependency.
+     */
+    internal fun classifyTransientOverlayState(
+        isInputPanelOpen: Boolean,
+        hasRestWindow: Boolean,
+        windowGeneration: Int,
+        currentGeneration: Int,
+        openDurationMs: Long,
+        maxDurationMs: Long = INPUT_PANEL_MAX_TIMEOUT_MS
+    ): String {
+        if (!isInputPanelOpen && !hasRestWindow) return "IDLE"
+        if (openDurationMs > maxDurationMs) return "TIMEOUT_EXPIRED"
+        if (windowGeneration != -1 && currentGeneration != -1 && windowGeneration != currentGeneration) {
+            return "STALE_GENERATION"
+        }
+        return "ACTIVE"
+    }
+
+    internal fun isTransientOverlayStale(
+        isInputPanelOpen: Boolean,
+        windowGeneration: Int,
+        currentGeneration: Int,
+        openDurationMs: Long,
+        maxDurationMs: Long = INPUT_PANEL_MAX_TIMEOUT_MS
+    ): Boolean {
+        val decision = classifyTransientOverlayState(
+            isInputPanelOpen = isInputPanelOpen,
+            hasRestWindow = isInputPanelOpen,
+            windowGeneration = windowGeneration,
+            currentGeneration = currentGeneration,
+            openDurationMs = openDurationMs,
+            maxDurationMs = maxDurationMs
+        )
+        return decision == "STALE_GENERATION" || decision == "TIMEOUT_EXPIRED"
+    }
+
+    internal fun reconcileTransientOverlaysForNewGeneration(newGen: Int) {
+        if (isInputPanelOpen || mRestWindow != null) {
+            if (mRestWindowGeneration != -1 && mRestWindowGeneration != newGen) {
+                Log.w(TAG, "[A11Y_RECONNECT] Cleared stale transient overlay: oldGen=$mRestWindowGeneration, newGen=$newGen")
+                dismissRestWindow("reconcile_new_generation")
+            }
+        }
+    }
+
+    internal fun shouldPauseForegroundBlockingChecks(nowMillis: Long = System.currentTimeMillis()): Boolean {
+        if (isInputPanelOpen) {
+            val duration = if (inputPanelOpenAtMs > 0L) nowMillis - inputPanelOpenAtMs else 0L
+            val currentGen = CoreService.getAccessibilityGeneration()
+            if (isTransientOverlayStale(true, mRestWindowGeneration, currentGen, duration)) {
+                Log.w(TAG, "[AUTO_HEAL] isInputPanelOpen is stale (gen=$mRestWindowGeneration cur=$currentGen dur=${duration}ms), dismissing")
+                dismissRestWindow("auto_heal_stale_or_timeout")
+                return isSettingsPassThrough
+            }
+            return true
+        }
+        return isSettingsPassThrough
     }
     
     // 🚀 [System Dialog Compat] Track whether a system dialog (power menu etc.) is visible
@@ -1350,6 +1413,11 @@ object LockWindowManager {
     fun setCoreService(service: CoreService?) {
         mCoreService = service
         if (service == null) {
+            // [vivo-fix] A11y 服务解绑/断开时，立即清理依赖该服务的 transient 覆盖层与 pause 状态，
+            // 防止残留的 isInputPanelOpen 导致 MonitorService 前台轮询与保护链死锁
+            dismissRestWindow("core_service_detached")
+            exitSettingsPassThrough("core_service_detached")
+
             // CoreService 断开时不能盲目关闭定时器线程，否则会冻结锁屏倒计时。
             if (shouldShutdownTimerThreadOnCoreDetach()) {
                 shutdownTimerThread()
@@ -2209,6 +2277,8 @@ object LockWindowManager {
             stopLockRefreshTimer()
             stopBlacklistMonitor()
             clearSystemDialogCompatState()
+            dismissRestWindow("resetLockState_$reason")
+            exitSettingsPassThrough("resetLockState_$reason")
         }
     }
 
@@ -2306,6 +2376,8 @@ object LockWindowManager {
                 stopLockRefreshTimer()
                 stopBlacklistMonitor()
                 clearSystemDialogCompatState()
+                dismissRestWindow("dismissLockScreen")
+                exitSettingsPassThrough("dismissLockScreen")
             } catch (e: Exception) {
                 Log.e(TAG, "dismissLock internal error", e)
             }
@@ -3696,6 +3768,7 @@ object LockWindowManager {
 
             targetWM.addView(mRestWindow, params)
             mActiveRestWindowManager = targetWM
+            mRestWindowGeneration = CoreService.getAccessibilityGeneration()
             isInputPanelOpen = true
 
             // Bind Views
@@ -4048,15 +4121,21 @@ object LockWindowManager {
         dialog.applyEscapeDisciplineColors()
     }
 
-    private fun dismissRestWindow() {
-        if (mRestWindow == null) return
+    internal fun dismissRestWindow(reason: String = "default") {
         try {
-            mWindowManager?.removeView(mRestWindow)
+            val view = mRestWindow
+            val wm = mActiveRestWindowManager ?: mWindowManager
+            if (view != null && wm != null && view.parent != null) {
+                wm.removeView(view)
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "dismissRestWindow failed", e)
+            Log.e(TAG, "dismissRestWindow failed: $reason", e)
         } finally {
             mRestWindow = null
+            mActiveRestWindowManager = null
+            mRestWindowGeneration = -1
             isInputPanelOpen = false
+            inputPanelOpenAtMs = 0L
             updateLockViewUI() // Restore buttons
         }
     }
@@ -4105,6 +4184,7 @@ object LockWindowManager {
 
             targetWM.addView(mRestWindow, params)
             mActiveRestWindowManager = targetWM
+            mRestWindowGeneration = CoreService.getAccessibilityGeneration()
             isInputPanelOpen = true
 
             // Bind views and customize for temp unlock

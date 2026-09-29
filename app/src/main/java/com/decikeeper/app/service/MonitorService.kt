@@ -144,7 +144,8 @@ class MonitorService : Service() {
         "com.vivo.upslide",
         "com.bbk.launcher2",
         "com.vivo.launcher",
-        "com.android.systemui"
+        "com.android.systemui",
+        "com.vivo.card" // 🚀 [vivo] OriginOS 超级卡包 / 快捷卡片
     )
     
     companion object {
@@ -154,6 +155,20 @@ class MonitorService : Service() {
         private const val NOTIFICATION_ID_WARNING = 2002
         private const val HOME_PENDING_USAGE_STATS_RELEASE_DELAY_MS = 5000L
         private const val USAGE_STATS_FOREGROUND_EVIDENCE_WINDOW_MS = 5000L
+
+        internal fun reconcileStaleLockedPackage(
+            currentLockedPkg: String?,
+            isLockShowing: Boolean
+        ): String? {
+            return if (!isLockShowing) null else currentLockedPkg
+        }
+
+        internal fun isOrphanInputPanelOpen(
+            isLockShowing: Boolean,
+            isInputPanelOpen: Boolean
+        ): Boolean {
+            return !isLockShowing && isInputPanelOpen
+        }
 
         internal fun shouldReleaseHomePendingForSamePackage(
             evidenceSource: String,
@@ -1673,14 +1688,26 @@ class MonitorService : Service() {
     }
 
     private fun checkForegroundApp() {
+        val now = System.currentTimeMillis()
+
+        // 🚀 [Cleanup & Self-Heal] Clear stale lockedPkg early before any pause gate
+        // If the lock screen is not currently showing, currentLockedPkg MUST be cleared
+        // so that heartbeat and subsequent detection never get stranded.
+        currentLockedPkg = reconcileStaleLockedPackage(currentLockedPkg, LockWindowManager.isLocked)
+
+        // 🚀 [Self-Heal] If lock screen is gone, input panel cannot legitimately remain open
+        if (isOrphanInputPanelOpen(LockWindowManager.isLocked, LockWindowManager.isInputPanelOpen)) {
+            Log.w(TAG, "[AUTO_HEAL] Orphan isInputPanelOpen detected while lock is not showing, dismissing")
+            LockWindowManager.dismissRestWindow("stale_unlocked_monitor_heal")
+        }
+
         // 🚀 [NEW] Skip check if user is typing in the input panel
-        if (LockWindowManager.shouldPauseForegroundBlockingChecks()) return
+        if (LockWindowManager.shouldPauseForegroundBlockingChecks(now)) return
 
         // 🚀 [NEW] Force active window tree scan from Accessibility Service
         // This guarantees that we always have 100% fresh window visibility data, 
         // completely bypassing the limitation where Accessibility doesn't receive events 
         // while the user is passively watching a PIP/small window video on the Home screen!
-        val now = System.currentTimeMillis()
         // 🛡️ [Keyguard 与屏幕状态前置反证 (Finding 3)]
         // 在任何前台包名解析与早退分支前优先检测系统锁屏状态，确保锁屏时无条件失效 Session 并重置保底门禁
         val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager

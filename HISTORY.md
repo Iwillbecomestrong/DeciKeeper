@@ -7,6 +7,16 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-33] vivo 快捷支付/超级卡包无障碍重连与 Transient Overlay 代际死锁治理
+- **背景**：在 vivo OriginOS（机型 V2425A 等）上，勿扰时段从屏幕边缘滑出快捷入口/超级卡包（`com.vivo.card`）调起微信支付时，vivo 系统级安全沙盒临时解绑无障碍服务（`onUnbind`，持续约 1.4s）后重新连接。重连后主锁屏虽然重建（generation 从 1 变 2），但因 `LockWindowManager` 中的 transient overlay（`mRestWindow`、`isInputPanelOpen`、`isSettingsPassThrough`）未纳入代际治理且未清理，导致 `isInputPanelOpen` 永久泄露为 true；随后 `MonitorService.checkForegroundApp()` 将 pause 门禁置于最顶部，导致 `currentLockedPkg` 无法重置、前台检测与 `mLastTopResolvedAt` 永久冻结；同时 `CoreService` 在 `isInputPanelOpen` 时 early-return 截断了 `ProtectionManager`，掐死了防卸载与防关权限，但因底层原始 signal 持续更新导致 `PermissionManager` 误判为健康（假健康）。
+- **决策**：
+  1. **Transient Overlay 代际治理与超时自愈**：将 `mRestWindow` 与 `isInputPanelOpen` 纳入 `accessibilityGeneration` 代际治理；在 `setCoreService(null)`、`onUnbind`、`resetLockState`、`dismissLockScreen` 以及重连代际递增时，强制回收 transient 覆盖层；增加 60 秒最大安全超时自愈机制，杜绝 pause 标志永久残留；
+  2. **CoreService 保护链不可剥夺**：建立 `CoreServiceProtectionDispatchPolicy` 纯策略类；`isInputPanelOpen` 仅用于跳过普通应用的黑名单重度扫描以保障打字流畅，**绝对不得截断 `ProtectionManager.onAccessibilityEvent`**，防卸载与防关权限享有最高分发权；
+  3. **MonitorService 门禁与状态自愈前置**：将 stale `currentLockedPkg` 清理与孤立输入面板检测前置于 pause 门禁之前，确保锁屏消失后前台检测绝不卡死；
+  4. **vivo 厂商特征补齐**：将 `com.vivo.card` 纳入 `usageCarrierNoisePackages` 与 `ForegroundSessionTracker` 系统级载体过滤；
+  5. **健康判定多维重构**：接入 `CoreServiceProtectionDispatchPolicy.isAccessibilityPipelineHealthy`，区分底层 raw signal 与保护链真正 dispatch，彻底根除假健康。
+- **防坑警告**：任何 UI 输入面板或 transient 弹窗切勿只管打开不设超时与代际清理，绝不可将打字优化直接作为全局 early-return 杀掉保护链。
+
 ### [DECISION-32] 大型测试套件模块化分包、全屏安全区避让与 SQLite 生命周期收敛
 - **背景**：测试套件包含 167+ 个测试文件，原先扁平堆叠在测试根目录下，缺乏领域分层与架构防腐；全屏悬浮锁屏与闹钟锁屏在刘海屏/挖孔屏设备上存在元素遮挡隐患；统计流水线 `RestStatsRecorder` 与 `RestStatsDatabase.clear()` 存在多次打开数据库且未严格配对关闭导致的 CloseGuard 资源泄漏隐患；CI 依赖的 GitHub Actions 运行在即将废弃的 Node 20 runtime 下且 `main` 分支缺少强制状态检查门禁。
 - **决策**：

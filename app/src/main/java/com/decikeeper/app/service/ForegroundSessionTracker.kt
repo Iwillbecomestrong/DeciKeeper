@@ -34,7 +34,7 @@ class ForegroundSessionTracker(
             val lower = packageName.lowercase()
             // 桌面 Launcher 绝不能作为噪声过滤，它代表用户回到桌面
             if (lower.contains("launcher") || lower.contains("recents")) return false
-            if (lower.contains("systemui") || lower == "com.vivo.upslide") return true
+            if (lower.contains("systemui") || lower == "com.vivo.upslide" || lower == "com.vivo.card") return true
             if (lower.contains(".inputmethod") || lower.contains(".ime") || lower.contains("inputmethod")) return true
             return false
         }

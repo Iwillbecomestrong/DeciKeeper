@@ -158,7 +158,12 @@ class CoreService : AccessibilityService() {
         // 🚀 [NEW] 静态运行标志，用于精准状态同步
         @Volatile var isServiceActive = false
         @Volatile var lastAccessibilitySignalTime = 0L
+        @Volatile var lastAccessibilityDispatchedTime = 0L
         @Volatile var lastVisiblePackagesFromWindows: Set<String> = emptySet()
+
+        fun hasRecentAccessibilityDispatchedSignal(nowMillis: Long, gracePeriodMs: Long): Boolean {
+            return nowMillis - lastAccessibilityDispatchedTime < gracePeriodMs
+        }
 
         // [WP-1] Accessibility generation — monotonic, non-persistent process-local counter.
         // Bumped ONLY in onServiceConnected(). Used by LockWindowManager to detect stale
@@ -536,6 +541,7 @@ class CoreService : AccessibilityService() {
             }
             LockWindowManager.setCoreService(this)
             LockWindowManager.init(this)
+            LockWindowManager.reconcileTransientOverlaysForNewGeneration(newGen)
 
             // A11y reconnect invalidates TYPE_ACCESSIBILITY_OVERLAY ownership. If a
             // blacklist lock was already visible, resubmit the same lock under the new
@@ -881,8 +887,13 @@ class CoreService : AccessibilityService() {
         val srv = CoreService.instance
         if (pkgName != null && srv != null && CreditManager.isInputMethod(srv, pkgName)) return
 
-        // During lock-screen numeric input, pause accessibility heavy-path scanning to keep typing smooth.
-        if (LockWindowManager.isInputPanelOpen) return
+        // During lock-screen numeric input, pause non-critical event dispatching to keep typing smooth,
+        // but NEVER swallow events destined for ProtectionManager on critical system pages.
+        if (LockWindowManager.isInputPanelOpen &&
+            !com.decikeeper.app.protection.CoreServiceProtectionDispatchPolicy.shouldDispatchProtectionEvent(true, pkgName)
+        ) {
+            return
+        }
 
         // [Diagnostics-only] record the latest eligible (non-self, non-IME) event for ForegroundDiagnosticCycle.
         recordDiagnosticsEligibleEvent(pkgName, event.eventType.toString(), System.currentTimeMillis())
@@ -1033,6 +1044,7 @@ class CoreService : AccessibilityService() {
             try {
                 // 2. Anti-Uninstall Protection (Delegated)
                 ProtectionManager.onAccessibilityEvent(this, event, root)
+                lastAccessibilityDispatchedTime = System.currentTimeMillis()
             } catch (e: Exception) {
                 Log.e(TAG, "!!! CoreService: ProtectionManager Crash !!!", e)
             } finally {
