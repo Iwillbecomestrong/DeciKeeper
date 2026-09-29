@@ -3921,10 +3921,11 @@ object LockWindowManager {
         val remainingDur = (limitDur - usedDur).coerceAtLeast(0)
 
         val isA11y = isServiceActive()
-        val dialogContext = if (isA11y) mCoreService!! else themedContext
+        val baseCtx = if (isA11y) mCoreService!! else context
+        val dialogContext = android.view.ContextThemeWrapper(baseCtx, ThemeManager.themeRes(baseCtx))
 
         val dialog = AlertDialog.Builder(dialogContext)
-            .setTitle("决定守护强制干预")
+            .setTitle("使用每周特权")
             .setMessage(
                 "确定要使用每周特权吗？\n\n" +
                     "• 每日仅可启用一次\n" +
@@ -3944,83 +3945,80 @@ object LockWindowManager {
                 val npHour = view.findViewById<android.widget.NumberPicker>(R.id.np_hour)
                 val npMinute = view.findViewById<android.widget.NumberPicker>(R.id.np_minute)
 
-                // 🚀 自动计算当前最多可用分钟（到窗口结束/24:00自动截断）
-                val maxEffective = CreditManager.calculateWeeklyPrivilegeEffectiveMinutes(context, remainingDur)
-                val maxAvailable = minOf(remainingDur, maxEffective).coerceAtLeast(0)
-                val maxHours = (maxAvailable / 60).coerceAtMost(12)
-                val maxMins = maxAvailable % 60
-
                 npHour.minValue = 0
-                npHour.maxValue = maxHours
+                npHour.maxValue = (remainingDur / 60).coerceAtLeast(0)
                 npHour.value = 0
 
                 npMinute.minValue = 0
-                npMinute.maxValue = if (maxHours == 0) maxMins else 59
+                npMinute.maxValue = 59
                 npMinute.value = 0
-                npMinute.setFormatter { i -> String.format("%02d", i) }
-
-                // 当小时选到上限时，分钟自动收窄
-                npHour.setOnValueChangedListener { _, _, newVal ->
-                    if (newVal == maxHours) {
-                        npMinute.maxValue = maxMins
-                        if (npMinute.value > maxMins) npMinute.value = maxMins
-                    } else {
-                        npMinute.maxValue = 59
-                    }
-                }
+                npMinute.setFormatter { i -> String.format(java.util.Locale.US, "%02d", i) }
 
                 val pickerDialog = AlertDialog.Builder(dialogContext)
                     .setTitle("选择特权时长")
-                    .setMessage("当前最多可用：${maxAvailable} 分钟（超过自动截断）")
+                    .setMessage("本周剩余 $remainingDur 分钟。请选择本次要使用的时长（超过可用时段将自动截断），确认后消耗 1 次特权。")
                     .setView(view)
-                    .setPositiveButton("确认") { _, _ ->
+                    .setPositiveButton("确认启动", null)
+                    .setNegativeButton("取消", null)
+                    .create()
+
+                pickerDialog.setOnShowListener {
+                    pickerDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                         val totalMins = npHour.value * 60 + npMinute.value
                         if (totalMins <= 0) {
                             recordPrivilegeRejectedLifecycle("INVALID_DURATION")
-                            Toast.makeText(context, "请选择特权时长", Toast.LENGTH_SHORT).show()
-                            return@setPositiveButton
+                            Toast.makeText(context, "请先选择特权时长", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
+                        }
+
+                        if (!HomeFragment.isWeeklyPrivilegeRequestedDurationInRange(totalMins, remainingDur)) {
+                            Toast.makeText(context, "本周剩余特权时长只有 $remainingDur 分钟", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
                         }
 
                         if (CreditManager.isWeeklyPrivilegeSessionActive(context)) {
                             recordPrivilegeRejectedLifecycle("ALREADY_ACTIVE")
                             Toast.makeText(context, "特权进行中，无法重复启用", Toast.LENGTH_SHORT).show()
-                            return@setPositiveButton
+                            return@setOnClickListener
                         }
 
-                        // 🚀 自动截断到窗口结束/24:00/剩余时长，不用用户算
                         val effective = CreditManager.calculateWeeklyPrivilegeEffectiveMinutes(context, totalMins)
                         if (effective <= 0) {
                             recordPrivilegeRejectedLifecycle("WINDOW_UNAVAILABLE")
-                            Toast.makeText(context, "当前时段无法使用特权（不在可用时间范围内）", Toast.LENGTH_SHORT).show()
-                            return@setPositiveButton
+                            val reason = CreditManager.getWeeklyPrivilegeUnavailableReason(context) ?: "当前时段无法使用特权（不在可用时间范围内）"
+                            Toast.makeText(context, "启用失败：$reason", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
                         }
 
-                        val finalMins = minOf(totalMins, effective)
-                        val truncated = finalMins < totalMins
-                        val ok = CreditManager.startWeeklyPrivilege(context, finalMins)
+                        val clamp = HomeFragment.clampRequestedToEffectiveMinutes(totalMins, effective)
+                        if (clamp.didClamp) {
+                            val windowEnd = TimeRuleManager.getPrivilegeWindowEnd(context)
+                            val boundaryLabel = HomeFragment.buildPrivilegeBoundaryLabel(windowEnd)
+                            Toast.makeText(
+                                context,
+                                HomeFragment.buildPrivilegeAutoClampToast(clamp.actualMinutes, boundaryLabel),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+
+                        val ok = CreditManager.startWeeklyPrivilege(context, clamp.actualMinutes)
                         if (ok) {
                             val intent = Intent(MonitorService.ACTION_REFRESH_RULES)
                             context.sendBroadcast(intent.setPackage(context.packageName))
-                            val msg = if (truncated) {
-                                "已开启特权：$finalMins 分钟（原申请${totalMins}分钟，已自动截断到窗口结束）"
-                            } else {
-                                "已开启特权：$finalMins 分钟"
-                            }
-                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                            
-                            // 🚀 [Fix] Set grace period to prevent immediate re-lock by MonitorService
-                            // MonitorService might still have a cached blocked state or run a check before SP is fully synced
+                            Toast.makeText(context, "每周特权已启用（${clamp.actualMinutes} 分钟）", Toast.LENGTH_SHORT).show()
+
                             mDismissUntil = System.currentTimeMillis() + 3000L
                             resetConsecutiveNormalLockState("weekly_privilege_granted")
                             totalSegmentBlacklistHits = 0
-                            
+
                             dismissLockScreen(LockDismissAuthority.WEEKLY_PRIVILEGE)
+                            pickerDialog.dismiss()
                         } else {
-                            Toast.makeText(context, "无法启用特权（可能不在可用时段或已进行中）", Toast.LENGTH_SHORT).show()
+                            val reason = CreditManager.getWeeklyPrivilegeUnavailableReason(context) ?: "条件不足"
+                            Toast.makeText(context, "启用失败：$reason", Toast.LENGTH_SHORT).show()
                         }
                     }
-                    .setNegativeButton("取消", null)
-                    .create()
+                }
 
                 if (isA11y) {
                     pickerDialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
@@ -4033,7 +4031,7 @@ object LockWindowManager {
                 pickerDialog.show()
                 pickerDialog.applyEscapeDisciplineColors()
             }
-            .setNegativeButton("再坚持一下", null)
+            .setNegativeButton("取消", null)
             .create()
 
         if (isA11y) {
@@ -6503,9 +6501,19 @@ object LockWindowManager {
      * 调用时机：必须在 dialog.show() 之后
      */
     private fun AlertDialog.applyEscapeDisciplineColors() {
-        window?.setBackgroundDrawableResource(R.drawable.bg_zz_card)
-        getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(0xFF1976D2.toInt())
-        getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(0xFFFF7043.toInt())
+        val dialogCtx = context
+        val surfaceColor = ThemeManager.getColorAttr(dialogCtx, R.attr.zzSurface)
+        val lineColor = ThemeManager.getColorAttr(dialogCtx, R.attr.zzLine)
+        val density = dialogCtx.resources.displayMetrics.density
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 20f * density
+            setColor(surfaceColor)
+            setStroke((1f * density).toInt().coerceAtLeast(1), lineColor)
+        }
+        window?.setBackgroundDrawable(bg)
+        getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(0xFF2E7D32.toInt())
+        getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(0xFFC62828.toInt())
     }
     
     // =========================================================
