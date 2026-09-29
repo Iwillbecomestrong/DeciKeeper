@@ -164,6 +164,26 @@ object RestStatsRecorder {
         }
     }
 
+    @Synchronized
+    fun mergeRecords(context: Context, records: List<RestUsageRecord>) {
+        if (records.isEmpty()) return
+        try {
+            withDatabase(context) { database ->
+                database.migrateIfNeeded { readLegacyRecords(context) }
+                database.mergeAll(records)
+                runCatching { purgeExpired(database, context) }
+            }
+        } catch (_: Exception) {
+            val existing = readLegacyRecords(context).toMutableList()
+            val existingIds = existing.map { it.id }.toSet()
+            val toAdd = records.filter { it.id !in existingIds }
+            if (toAdd.isNotEmpty()) {
+                existing.addAll(toAdd)
+                saveLegacyRecords(context, existing.sortedByDescending { it.timestamp })
+            }
+        }
+    }
+
     private fun purgeExpired(
         database: RestStatsDatabase,
         context: Context,

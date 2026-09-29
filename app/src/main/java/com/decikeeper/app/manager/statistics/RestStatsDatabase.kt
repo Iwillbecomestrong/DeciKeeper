@@ -131,6 +131,25 @@ class RestStatsDatabase(context: Context) : SQLiteOpenHelper(
         }
     }
 
+    fun mergeAll(records: List<RestUsageRecord>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            records.forEach { record ->
+                db.insertWithOnConflict(
+                    TABLE_RECORDS,
+                    null,
+                    record.toContentValues(),
+                    SQLiteDatabase.CONFLICT_IGNORE
+                )
+            }
+            markMigrationDone(db)
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     fun clear() {
         val db = writableDatabase
         db.beginTransaction()
