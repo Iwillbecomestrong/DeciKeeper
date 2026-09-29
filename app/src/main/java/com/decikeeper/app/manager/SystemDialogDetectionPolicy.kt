@@ -9,9 +9,11 @@ import android.view.accessibility.AccessibilityEvent
  * 关机绕过。识别逻辑原先埋在 CoreService 的 companion 里、无法单测，这里抽成纯函数。
  *
  * 真机背景（vivo V2425A，2026-09-11）：
- * 长按电源键会**先唤起语音助手**（com.vivo.ai.copilot）再弹出关机菜单
- * （com.vivo.systemuiplugin ... VivoShutdownActionDialog）。助手的窗口类是通用的
- * android.widget.FrameLayout / ImageView，无法按类名识别，只能按包名判定。
+ * 长按电源键可能先唤起语音助手（com.vivo.ai.copilot），随后才弹出真正的关机菜单
+ * （com.vivo.systemuiplugin ... VivoShutdownActionDialog）。
+ *
+ * 这里有意只识别真正的关机/重启菜单。语音助手本身不具备关机能力，也不应该触发
+ * 闹钟覆盖层的跨 WindowManager 重挂载或 GLOBAL_ACTION_BACK。
  */
 
 /** 承载关机菜单 / 音量面板等系统对话框的包。 */
@@ -31,10 +33,6 @@ internal fun isShutdownDialogClass(className: String?): Boolean {
         cls.contains("ShutdownDialog", ignoreCase = true)
 }
 
-/** vivo 语音助手（Jovi / AI Copilot）。 */
-internal fun isVoiceAssistantPackage(pkgName: String?): Boolean =
-    pkgName == "com.vivo.ai.copilot"
-
 internal fun isSupportedDialogEventType(eventType: Int): Boolean {
     return eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
         eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
@@ -49,17 +47,4 @@ internal fun shouldHandleShutdownDialogEvent(
     return isSupportedDialogEventType(eventType) &&
         isSystemDialogPackage(pkgName) &&
         isShutdownDialogClass(className)
-}
-
-/**
- * 闹钟挑战期间是否需要把该事件当作「抢占窗口层级的系统弹层」处理。
- *
- * 调用点位于 LockWindowManager.isAlarmOverlayShowing 块内，因此只作用于闹钟挑战期间，
- * 不影响普通锁机与日常使用（不阻止用户平时语音拨号或求助）。
- */
-internal fun shouldDismissVoiceAssistantOverAlarm(
-    eventType: Int,
-    pkgName: String?
-): Boolean {
-    return isSupportedDialogEventType(eventType) && isVoiceAssistantPackage(pkgName)
 }

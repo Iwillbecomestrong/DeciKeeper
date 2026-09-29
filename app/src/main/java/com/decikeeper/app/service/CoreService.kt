@@ -909,25 +909,18 @@ class CoreService : AccessibilityService() {
         if (LockWindowManager.isAlarmOverlayShowing && AlarmPowerOffProtectionManager.isEnabled(this)) {
             val className = event.className?.toString()
             val shutdownDialog = shouldHandleShutdownDialogEvent(event.eventType, pkgName, className)
-            val voiceAssistant = com.decikeeper.app.manager
-                .shouldDismissVoiceAssistantOverAlarm(event.eventType, pkgName)
-            if (shutdownDialog || voiceAssistant) {
-                val dialogKind = if (shutdownDialog) "shutdown" else "voice_assistant"
+            if (shutdownDialog) {
                 LogExporter.logEvent(
                     "SystemDialog",
-                    "[ALARM_BLOCK] kind=$dialogKind, type=${event.eventType}, pkg=$pkgName, class=$className"
+                    "[ALARM_BLOCK] kind=shutdown, type=${event.eventType}, pkg=$pkgName, class=$className"
                 )
-                // 内嵌模式下先切换到窗口模式，确保覆盖层能升至系统对话框之上
+                // 只处理真正的关机/重启菜单。vivo AI Copilot 等语音助手允许正常显示，
+                // 避免无关窗口事件触发覆盖层跨 WindowManager 重挂载并打断 CameraX 预览。
                 LockWindowManager.ensureAlarmOverlayInWindowMode()
-                LockWindowManager.reassertAlarmOverlayOverSystemDialog(
-                    if (shutdownDialog) "shutdown_dialog" else "voice_assistant"
-                )
-                // 锁屏 + 挑战覆盖层同时激活时，一并降级锁屏让系统对话框能被正确处理，
-                // 否则 isLocked 路径因本块提前 return 永远不会执行 onSystemDialogChanged(true)。
+                LockWindowManager.reassertAlarmOverlayOverSystemDialog("shutdown_dialog")
                 if (LockWindowManager.isLocked) {
                     LockWindowManager.onSystemDialogChanged(true)
                 }
-                // 语音助手会连续吐出大量事件，必须限流，否则 BACK 会被打成连发
                 val nowBlock = System.currentTimeMillis()
                 if (nowBlock - mLastSystemDialogBackAt >= SYSTEM_DIALOG_BACK_MIN_INTERVAL_MS) {
                     mLastSystemDialogBackAt = nowBlock
@@ -936,9 +929,7 @@ class CoreService : AccessibilityService() {
                     } catch (_: Exception) {
                     }
                     mHandler.postDelayed({
-                        LockWindowManager.reassertAlarmOverlayOverSystemDialog(
-                            if (shutdownDialog) "shutdown_dialog_after_back" else "voice_assistant_after_back"
-                        )
+                        LockWindowManager.reassertAlarmOverlayOverSystemDialog("shutdown_dialog_after_back")
                     }, 120L)
                 }
                 return
