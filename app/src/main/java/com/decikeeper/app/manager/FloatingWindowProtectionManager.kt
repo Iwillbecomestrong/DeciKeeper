@@ -75,10 +75,6 @@ object FloatingWindowProtectionManager {
         if (enabled) {
             getPrefs(context).edit().putBoolean(KEY_IS_ENABLED, true).apply()
             ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
-            context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE)
-                .edit()
-                .putBoolean(KEY_IS_ENABLED, true)
-                .apply()
         } else {
             // Adverse: Delay unless adaptation or restoring to baseline disabled
             if (TimeRuleManager.isInAdaptationPeriod(context) || !baselineEnabled) {

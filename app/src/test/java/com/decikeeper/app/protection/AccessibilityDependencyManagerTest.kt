@@ -41,6 +41,7 @@ class AccessibilityDependencyManagerTest {
         AccessibilityControlManager.setEnabled(context, true)
         AntiUninstallManager.setProtectionEnabled(context, true)
         PrivacyProtectionManager.setProtectionEnabled(context, true)
+        com.decikeeper.app.manager.GuardFloatingWindowManager.setFloatingGuardEnabled(context, true)
         AlarmPowerOffProtectionManager.setEnabled(context, true)
 
         AccessibilityDependencyManager.reconcile(context, systemAccessibilityEnabled = false)
@@ -48,6 +49,7 @@ class AccessibilityDependencyManagerTest {
         assertEquals(AccessibilityControlManager.State.DISABLED, AccessibilityControlManager.getState(context))
         assertEquals(AntiUninstallManager.State.DISABLED, AntiUninstallManager.getProtectionState(context))
         assertEquals(PrivacyProtectionManager.State.DISABLED, PrivacyProtectionManager.getProtectionState(context))
+        assertEquals(com.decikeeper.app.manager.GuardFloatingWindowManager.State.DISABLED, com.decikeeper.app.manager.GuardFloatingWindowManager.getProtectionState(context))
         assertFalse(AlarmPowerOffProtectionManager.isEnabled(context))
     }
 

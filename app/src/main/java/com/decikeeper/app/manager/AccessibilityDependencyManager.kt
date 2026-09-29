@@ -15,6 +15,7 @@ object AccessibilityDependencyManager {
         AntiUninstallManager.disableImmediatelyForAccessibilityUnavailable(context)
         PrivacyProtectionManager.disableImmediatelyForAccessibilityUnavailable(context)
         FloatingWindowProtectionManager.disableImmediatelyForAccessibilityUnavailable(context)
+        GuardFloatingWindowManager.disableImmediatelyForAccessibilityUnavailable(context)
         AlarmPowerOffProtectionManager.disableImmediatelyForAccessibilityUnavailable(context)
     }
 }

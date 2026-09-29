@@ -76,7 +76,8 @@ object AccessibilityControlManager {
             return
         }
 
-        if (TimeRuleManager.isInAdaptationPeriod(context)) {
+        val baselineActive = TimeRuleManager.getBaselineA11yServiceState(context)
+        if (TimeRuleManager.isInAdaptationPeriod(context) || !baselineActive) {
             setDesiredEnabled(context, false)
             ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
             return

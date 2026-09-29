@@ -72,6 +72,10 @@ class FloatingWindowProtectionManagerTest {
             .putLong("first_setup_timestamp_v2", System.currentTimeMillis() - 2 * 24 * 60 * 60 * 1000L)
             .putBoolean("has_manually_ended_adaptation", true)
             .commit()
+        context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(FloatingWindowProtectionManager.KEY_IS_ENABLED, true)
+            .commit()
 
         FloatingWindowProtectionManager.setProtectionEnabled(context, true)
         FloatingWindowProtectionManager.setProtectionEnabled(context, false)

@@ -123,7 +123,8 @@ object GuardFloatingWindowManager {
             return
         }
 
-        if (TimeRuleManager.isInAdaptationPeriod(appContext)) {
+        val baselineActive = TimeRuleManager.getBaselineFloatingGuardState(appContext)
+        if (TimeRuleManager.isInAdaptationPeriod(appContext) || !baselineActive) {
             setDesiredEnabled(appContext, false)
             ConfigPendingManager.clearPending(appContext, KEY_PENDING_DISABLE)
             hide(appContext)
@@ -138,6 +139,13 @@ object GuardFloatingWindowManager {
         )
         // PENDING 期间浮窗继续挂载防护
         show(appContext)
+    }
+
+    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
+        val appContext = context.applicationContext
+        setDesiredEnabled(appContext, false)
+        ConfigPendingManager.clearPending(appContext, KEY_PENDING_DISABLE)
+        hide(appContext)
     }
 
     /**

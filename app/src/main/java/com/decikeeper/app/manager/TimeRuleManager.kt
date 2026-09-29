@@ -672,15 +672,28 @@ object TimeRuleManager {
     fun getBaselinePrivilegeWindowEnd(context: Context): String? = if (context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).contains(KEY_PRIVILEGE_WINDOW_END)) context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getString(KEY_PRIVILEGE_WINDOW_END, null) else null
     
     fun getBaselineAntiUninstallState(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getBoolean("is_anti_uninstall_active", false)
+        val prefs = context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+        return prefs.getBoolean("is_anti_uninstall_enabled", prefs.getBoolean("is_anti_uninstall_active", false))
+    }
+
+    fun getBaselineA11yServiceState(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+            .getBoolean("a11y_service_enabled", false)
+    }
+
+    fun getBaselineFloatingGuardState(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+            .getBoolean("floating_guard_enabled", false)
     }
 
     fun getBaselinePrivacyProtectionState(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getBoolean("is_privacy_protection_enabled", false)
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+            .getBoolean("is_privacy_protection_enabled", false)
     }
 
     fun getBaselineFloatingWindowProtectionState(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getBoolean("is_floating_window_protection_enabled", false)
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+            .getBoolean("is_floating_window_protection_enabled", false)
     }
 
 
@@ -2164,7 +2177,16 @@ object TimeRuleManager {
             
             // 🚀 [Fix] Save Anti-Uninstall State Baseline
             val isAntiUninstallActive = AntiUninstallManager.getProtectionState(context) == AntiUninstallManager.State.ACTIVE
+            putBoolean("is_anti_uninstall_enabled", isAntiUninstallActive)
             putBoolean("is_anti_uninstall_active", isAntiUninstallActive)
+
+            // 🚀 [Baseline] Save Accessibility & Floating Guard State Baseline
+            val isA11yActive = AccessibilityControlManager.getState(context) == AccessibilityControlManager.State.ACTIVE
+            putBoolean("a11y_service_enabled", isA11yActive)
+
+            val isFloatingGuardActive = GuardFloatingWindowManager.getProtectionState(context) == GuardFloatingWindowManager.State.ACTIVE
+            putBoolean("floating_guard_enabled", isFloatingGuardActive)
+
             putBoolean(
                 "is_privacy_protection_enabled",
                 PrivacyProtectionManager.getProtectionState(context) == PrivacyProtectionManager.State.ACTIVE
