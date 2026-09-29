@@ -120,15 +120,27 @@ object PermissionManager {
         val enabled = isAccessibilityEnabled(context)
         val active = isAccessibilityActive()
         val recentSignal = CoreService.hasRecentAccessibilitySignal(nowMillis, A11Y_SIGNAL_GRACE_MS)
-        return shouldTreatAccessibilityAsHealthy(enabled, active, recentSignal)
+        val isStalled = com.decikeeper.app.ui.LockWindowManager.isTransientOverlayStale(
+            isInputPanelOpen = com.decikeeper.app.ui.LockWindowManager.isInputPanelOpen,
+            windowGeneration = -1,
+            currentGeneration = -1,
+            openDurationMs = if (com.decikeeper.app.ui.LockWindowManager.inputPanelOpenAtMs > 0L) nowMillis - com.decikeeper.app.ui.LockWindowManager.inputPanelOpenAtMs else 0L
+        )
+        return shouldTreatAccessibilityAsHealthy(enabled, active, recentSignal, isStalled)
     }
 
     internal fun shouldTreatAccessibilityAsHealthy(
         isEnabled: Boolean,
         isActive: Boolean,
-        hasRecentSignal: Boolean
+        hasRecentSignal: Boolean,
+        isPipelineStalled: Boolean = false
     ): Boolean {
-        return isEnabled && (isActive || hasRecentSignal)
+        return com.decikeeper.app.protection.CoreServiceProtectionDispatchPolicy.isAccessibilityPipelineHealthy(
+            isSystemEnabled = isEnabled,
+            isServiceConnected = isActive,
+            hasRecentRawSignal = hasRecentSignal,
+            isPipelineStalled = isPipelineStalled
+        )
     }
     
     /**
