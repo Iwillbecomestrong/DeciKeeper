@@ -295,9 +295,14 @@ class RulesFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         val context = requireContext()
+        val sysA11y = isAccessibilityServiceEnabled(context)
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        android.util.Log.i("RulesFragment", "[RULES_ON_RESUME] ${runIdTag}systemA11yEnabled=$sysA11y")
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(context, trigger = "RulesFragment.onResume")
         AccessibilityDependencyManager.reconcile(
             context,
-            systemAccessibilityEnabled = isAccessibilityServiceEnabled(context)
+            systemAccessibilityEnabled = sysA11y,
+            caller = "RulesFragment.onResume"
         )
         updateAccessibilityServiceUI()
         updateEditWindowPolicyUI()

@@ -494,10 +494,23 @@ class CoreService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        val uptime = android.os.SystemClock.uptimeMillis()
+        val lastSeqId = com.decikeeper.app.manager.ProtectionDiagnostics.lastUnbindSequenceId
+        val lastUnbindUptime = com.decikeeper.app.manager.ProtectionDiagnostics.lastUnbindUptimeMs
+        val gapMs = if (lastUnbindUptime > 0L) uptime - lastUnbindUptime else -1L
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+
+        if (lastSeqId != null) {
+            Log.w("CoreService", "[A11Y_RECONNECT] ${runIdTag}unbindSequenceId=$lastSeqId gapMs=$gapMs uptime=$uptime")
+        } else {
+            Log.i("CoreService", "[A11Y_RECONNECT] ${runIdTag}unbindSequenceId=NONE uptime=$uptime")
+        }
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "CoreService.onServiceConnected")
+
         Log.d("AntiUninstall", "CoreService (Anti-Uninstall) Connected")
         // [2026-06-25] 诊断日志：lifecycle 事件，便于排查无障碍 flapping 问题
         // 详见 Issue_AntiUninstallBootGap 尝试 7
-        Log.i("DeciKeeper", "[Lifecycle] onServiceConnected uptimeMs=${android.os.SystemClock.uptimeMillis()}")
+        Log.i("DeciKeeper", "[Lifecycle] onServiceConnected uptimeMs=$uptime")
         // [WP-1] Bump accessibility generation BEFORE any state change so any subsequent
         // MonitorService-snapshot request sees the new generation.
         val newGen = advanceAccessibilityGenerationForServiceConnected()
@@ -1440,19 +1453,33 @@ class CoreService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        val uptime = android.os.SystemClock.uptimeMillis()
+        val now = System.currentTimeMillis()
+        val serviceActiveBefore = isServiceActive
+        val recentSignalAgeMs = if (lastAccessibilitySignalTime > 0L) now - lastAccessibilitySignalTime else -1L
+        val seqId = com.decikeeper.app.manager.ProtectionDiagnostics.nextUnbindSequenceId()
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        val lostCounter = com.decikeeper.app.manager.PermissionManager.getA11yLostConsecutiveCount()
+        val systemAccessibilityEnabled = com.decikeeper.app.manager.PermissionManager.isAccessibilityEnabled(this)
+
+        Log.w(
+            "CoreService",
+            "[A11Y_UNBIND] ${runIdTag}unbindSequenceId=$seqId uptime=$uptime systemEnabledImmediate=$systemAccessibilityEnabled serviceActiveBefore=$serviceActiveBefore recentSignalAgeMs=$recentSignalAgeMs lostCounter=$lostCounter"
+        )
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "CoreService.onUnbind($seqId)")
+
         Log.e(TAG, "CRITICAL: Accessibility Service Unbound/Terminated by System.")
         Log.e("DeciKeeper", "CRITICAL: CoreService Unbound (onUnbind). Check Settings.")
         // [2026-06-25] 诊断日志：lifecycle 事件，记录 unbind 前 isServiceActive 状态
         // 详见 Issue_AntiUninstallBootGap 尝试 7
-        Log.w("DeciKeeper", "[Lifecycle] onUnbind isServiceActive was=$isServiceActive uptimeMs=${android.os.SystemClock.uptimeMillis()}")
+        Log.w("DeciKeeper", "[Lifecycle] onUnbind isServiceActive was=$isServiceActive uptimeMs=$uptime")
         isServiceActive = false
         lastAccessibilitySignalTime = 0L
         instance = null
         stateInitialized = false
         emitServiceStateIfChanged("STOPPED", "ON_UNBIND")
         emitProtectionStateChangeIfChanged("accessibility", "OK", "REVOKED", "ON_UNBIND")
-        val systemAccessibilityEnabled = com.decikeeper.app.manager.PermissionManager.isAccessibilityEnabled(this)
-        AccessibilityDependencyManager.reconcile(this, systemAccessibilityEnabled)
+        AccessibilityDependencyManager.reconcile(this, systemAccessibilityEnabled, caller = "CoreService.onUnbind")
         // 无障碍服务已解绑时，初始化覆盖层没有继续存在的意义，立即释放，避免卡到超时。
         StartupProtectionManager.stopFastLock(this)
         LockWindowManager.dismissSystemInitOverlay("accessibility_unbound")
@@ -1473,11 +1500,20 @@ class CoreService : AccessibilityService() {
      */
     override fun onRebind(intent: Intent?) {
         super.onRebind(intent)
+        val uptime = android.os.SystemClock.uptimeMillis()
+        val lastSeqId = com.decikeeper.app.manager.ProtectionDiagnostics.lastUnbindSequenceId
+        val lastUnbindUptime = com.decikeeper.app.manager.ProtectionDiagnostics.lastUnbindUptimeMs
+        val gapMs = if (lastUnbindUptime > 0L) uptime - lastUnbindUptime else -1L
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+
+        Log.w("CoreService", "[A11Y_REBIND] ${runIdTag}unbindSequenceId=${lastSeqId ?: "NONE"} gapMs=$gapMs uptime=$uptime")
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "CoreService.onRebind")
+
         Log.i("DeciKeeper", "CoreService onRebind: Re-initializing after re-enable.")
         // [2026-06-25] 诊断日志：lifecycle 事件，标记服务重新绑定
         // 每次 onRebind 都会刷新 AccessibilityProtection.lastServiceConnectedTime，可能掩盖 flapping 问题
         // 详见 Issue_AntiUninstallBootGap 尝试 7
-        Log.i("DeciKeeper", "[Lifecycle] onRebind uptimeMs=${android.os.SystemClock.uptimeMillis()}")
+        Log.i("DeciKeeper", "[Lifecycle] onRebind uptimeMs=$uptime")
         // Perform full initialization just like onServiceConnected
         onServiceConnected()
     }
@@ -1489,6 +1525,11 @@ class CoreService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        val uptime = android.os.SystemClock.uptimeMillis()
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.w("CoreService", "[A11Y_DESTROY] ${runIdTag}uptime=$uptime")
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "CoreService.onDestroy")
+
         Log.e(TAG, "CoreService Destroyed!")
         Log.e("DeciKeeper", "CRITICAL: CoreService Destroyed (onDestroy).")
         super.onDestroy()

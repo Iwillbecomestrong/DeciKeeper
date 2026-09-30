@@ -80,6 +80,10 @@ class MyApplication : Application() {
         super.onCreate()
         instance = this
 
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.i("MyApplication", "[APP_ON_CREATE] ${runIdTag}processInstanceId=${com.decikeeper.app.manager.ProtectionDiagnostics.processInstanceId} uptime=${android.os.SystemClock.uptimeMillis()}")
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "MyApplication.onCreate")
+
         // Direct Boot 进程的 Application 也会先执行；此时禁止任何 CE 初始化。
         if (isUserLockedForDirectBoot()) {
             checkAndResumeAlarmIfNeeded(directBoot = true)

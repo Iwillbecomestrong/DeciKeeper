@@ -92,9 +92,28 @@ object PrivacyProtectionManager {
         }
     }
 
-    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
-        getPrefs(context).edit().putBoolean(KEY_IS_ENABLED, false).apply()
+    internal fun disableImmediatelyForAccessibilityUnavailable(
+        context: Context,
+        caller: String = "AccessibilityDependencyManager"
+    ) {
+        val prefs = getPrefs(context)
+        val oldEnabled = prefs.getBoolean(KEY_IS_ENABLED, false)
+        val oldState = getProtectionState(context)
+        val oldPending = getPendingDisableTime(context)
+
+        prefs.edit().putBoolean(KEY_IS_ENABLED, false).apply()
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+
+        val newEnabled = prefs.getBoolean(KEY_IS_ENABLED, false)
+        val newState = getProtectionState(context)
+
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        android.util.Log.w(
+            "ProtectionDiagnostics",
+            "[PROTECTION_FORCE_DISABLE] ${runIdTag}component=privacy_protection caller=$caller " +
+                    "oldEnabled=$oldEnabled oldState=$oldState oldPending=$oldPending " +
+                    "newEnabled=$newEnabled newState=$newState"
+        )
     }
 
     fun getPendingDisableTime(context: Context): Long {

@@ -297,6 +297,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- 诊断与自动化测试控制广播 -->
+        <receiver
+            android:name=".receiver.ProtectionDiagnosticsReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.decikeeper.app.ACTION_TEST_DIAGNOSTICS" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".receiver.AlarmReceiver"
             android:exported="false"

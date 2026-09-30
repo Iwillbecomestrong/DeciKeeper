@@ -78,6 +78,8 @@ object PermissionManager {
     // 防抖计数器：ACCESSIBILITY 需要连续检测到丢失 N 次才判定为真丢失
     private const val A11Y_LOST_CONSECUTIVE_THRESHOLD = 2 // 连续 2 次（约 6 秒）才确认真丢失
     private var a11yLostConsecutiveCount = 0
+
+    fun getA11yLostConsecutiveCount(): Int = a11yLostConsecutiveCount
     
     // 监控回调
     interface OnPermissionChangedListener {
@@ -328,6 +330,8 @@ object PermissionManager {
                 // 防止服务 flapping 期间瞬时断连误报
                 if (permission == Permission.ACCESSIBILITY) {
                     a11yLostConsecutiveCount++
+                    val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+                    Log.w(TAG, "[A11Y_LOST_EVAL] ${runIdTag}count=$a11yLostConsecutiveCount threshold=$A11Y_LOST_CONSECUTIVE_THRESHOLD")
                     if (a11yLostConsecutiveCount < A11Y_LOST_CONSECUTIVE_THRESHOLD) {
                         Log.w(TAG, "⚠️ [Permission Lost (pending confirm)] ${permission.displayName} count=$a11yLostConsecutiveCount/$A11Y_LOST_CONSECUTIVE_THRESHOLD")
                         // 不下发 lostPermissions，继续等待下一次确认

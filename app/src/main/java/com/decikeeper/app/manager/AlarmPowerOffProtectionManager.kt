@@ -67,8 +67,21 @@ object AlarmPowerOffProtectionManager {
             .apply()
     }
 
-    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
+    internal fun disableImmediatelyForAccessibilityUnavailable(
+        context: Context,
+        caller: String = "AccessibilityDependencyManager"
+    ) {
+        val oldEnabled = isEnabled(context)
         setEnabled(context, false)
+        val newEnabled = isEnabled(context)
+
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        android.util.Log.w(
+            "ProtectionDiagnostics",
+            "[PROTECTION_FORCE_DISABLE] ${runIdTag}component=alarm_power_off caller=$caller " +
+                    "oldEnabled=$oldEnabled oldState=${if (oldEnabled) "ACTIVE" else "DISABLED"} oldPending=0 " +
+                    "newEnabled=$newEnabled newState=${if (newEnabled) "ACTIVE" else "DISABLED"}"
+        )
     }
 
     fun canEnable(context: Context): Boolean {

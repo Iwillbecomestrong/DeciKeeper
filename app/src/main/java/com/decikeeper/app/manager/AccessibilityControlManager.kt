@@ -91,9 +91,27 @@ object AccessibilityControlManager {
         )
     }
 
-    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
+    internal fun disableImmediatelyForAccessibilityUnavailable(
+        context: Context,
+        caller: String = "AccessibilityDependencyManager"
+    ) {
+        val oldDesired = getDesiredEnabled(context)
+        val oldState = getState(context)
+        val oldPending = getDisableEffectiveTime(context)
+
         setDesiredEnabled(context, false)
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+
+        val newDesired = getDesiredEnabled(context)
+        val newState = getState(context)
+
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        android.util.Log.w(
+            "ProtectionDiagnostics",
+            "[PROTECTION_FORCE_DISABLE] ${runIdTag}component=accessibility_control caller=$caller " +
+                    "oldEnabled=$oldDesired oldState=$oldState oldPending=$oldPending " +
+                    "newEnabled=$newDesired newState=$newState"
+        )
     }
 
     fun getDisableEffectiveTime(context: Context): Long {
