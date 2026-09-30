@@ -39,9 +39,8 @@ object AccessibilityControlManager {
         return false
     }
 
-    private fun getDesiredEnabled(context: Context): Boolean {
+    fun getDesiredEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            // 防关权限保护必须由设置页合并开关显式开启；仅开启系统无障碍不能自动恢复。
             .getBoolean(KEY_DESIRED_ENABLED, false)
     }
 
@@ -66,6 +65,10 @@ object AccessibilityControlManager {
 
         setDesiredEnabled(context, false)
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+        A11ySelfDisableAuthorization.authorize(
+            SelfDisableReason.USER_CONFIRMED,
+            30_000L
+        )
         return State.DISABLED
     }
 
@@ -80,6 +83,10 @@ object AccessibilityControlManager {
         if (TimeRuleManager.isInAdaptationPeriod(context) || !baselineActive) {
             setDesiredEnabled(context, false)
             ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+            A11ySelfDisableAuthorization.authorize(
+                SelfDisableReason.USER_CONFIRMED,
+                15_000L
+            )
             return
         }
 
@@ -91,27 +98,12 @@ object AccessibilityControlManager {
         )
     }
 
+    @Deprecated("No longer used: unbind/disconnect preserves desiredEnabled")
     internal fun disableImmediatelyForAccessibilityUnavailable(
         context: Context,
         caller: String = "AccessibilityDependencyManager"
     ) {
-        val oldDesired = getDesiredEnabled(context)
-        val oldState = getState(context)
-        val oldPending = getDisableEffectiveTime(context)
-
-        setDesiredEnabled(context, false)
-        ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
-
-        val newDesired = getDesiredEnabled(context)
-        val newState = getState(context)
-
-        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
-        android.util.Log.w(
-            "ProtectionDiagnostics",
-            "[PROTECTION_FORCE_DISABLE] ${runIdTag}component=accessibility_control caller=$caller " +
-                    "oldEnabled=$oldDesired oldState=$oldState oldPending=$oldPending " +
-                    "newEnabled=$newDesired newState=$newState"
-        )
+        // No-op to preserve desiredEnabled across transient accessibility disconnects
     }
 
     fun getDisableEffectiveTime(context: Context): Long {

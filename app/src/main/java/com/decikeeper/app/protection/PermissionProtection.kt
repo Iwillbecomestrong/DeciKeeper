@@ -105,11 +105,11 @@ class PermissionProtection(private val context: Context) {
     }
 
     fun check(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo) {
-        // 🚫 [Gate] 仅防关权限保护 ACTIVE 或 PENDING 时才拦截
+        // 🚫 [Gate] 仅防卸载与防关权限保护 ACTIVE 或 PENDING 时才拦截
         // PENDING 表示"已申请关闭，次日生效"，生效前仍需保护
-        val permState = com.decikeeper.app.manager.AccessibilityControlManager.getState(context)
-        if (permState != com.decikeeper.app.manager.AccessibilityControlManager.State.ACTIVE &&
-            permState != com.decikeeper.app.manager.AccessibilityControlManager.State.PENDING) {
+        val permState = com.decikeeper.app.manager.AntiUninstallManager.getProtectionState(context)
+        if (permState != com.decikeeper.app.manager.AntiUninstallManager.State.ACTIVE &&
+            permState != com.decikeeper.app.manager.AntiUninstallManager.State.PENDING) {
             return
         }
 

@@ -538,6 +538,10 @@ class CoreService : AccessibilityService() {
             mLastLocale = resources.configuration.locales[0].toString() // Store initial locale
             ProtectionManager.init(this)
             AccessibilityProtection.markServiceConnected()
+            // 🚀 [A11y Fronting] 无障碍服务连接即刻激活无障碍防关保护（若处于 PENDING 待关闭则保留待关闭）
+            if (com.decikeeper.app.manager.AccessibilityControlManager.getState(this) == com.decikeeper.app.manager.AccessibilityControlManager.State.DISABLED) {
+                com.decikeeper.app.manager.AccessibilityControlManager.setEnabled(this, true)
+            }
             if (AccessibilityProtection.shouldReturnToAppAfterConnect()) {
                 mHandler.postDelayed({
                     try {

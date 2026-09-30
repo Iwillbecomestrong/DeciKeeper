@@ -7,6 +7,7 @@ import android.util.Log
 import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.SegmentBlacklist
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.service.ForegroundDiagnosticTracker
 import com.decikeeper.app.ui.LockWindowManager
 
 /**
@@ -53,6 +54,8 @@ object ExpiryCoordinator {
             overrideForegroundPackage = overrideForegroundPackage
         )
 
+        ForegroundDiagnosticTracker.logExpiryForegroundSnapshot(reason.name, expiryContext)
+
         val (decision, cause) = ExpiryResolver.resolve(expiryContext)
         ExpiryResolver.logResolution(expiryContext, decision, cause)
 
@@ -66,6 +69,7 @@ object ExpiryCoordinator {
                 executeUnlock(context, expiryContext, cause)
             }
             ExpiryDecision.WAIT_DESKTOP_CONFIRM -> {
+                ForegroundDiagnosticTracker.logRawAccessibilityEvidence("FREE_TIME_END_ENTER_DESKTOP_PENDING")
                 startDesktopPending(context, reason)
             }
         }
@@ -131,6 +135,9 @@ object ExpiryCoordinator {
 
         // 达到 35s，执行 History fallback 最终裁决
         val expiryContext = VisibleContainerResolver.resolveContext(context, reason)
+        ForegroundDiagnosticTracker.logRawAccessibilityEvidence("DESKTOP_PENDING_TIMEOUT")
+        ForegroundDiagnosticTracker.logExpiryForegroundSnapshot("DESKTOP_PENDING_TIMEOUT", expiryContext)
+
         val (decision, cause) = ExpiryResolver.resolveHistoryFallback(
             recentForegroundPackages = expiryContext.recentForegroundPackages,
             isBlacklist = { pkg -> SegmentBlacklist.shouldLock(context, pkg) },

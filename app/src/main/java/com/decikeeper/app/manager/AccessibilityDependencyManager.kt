@@ -32,30 +32,17 @@ object AccessibilityDependencyManager {
 
         if (systemAccessibilityEnabled) {
             Log.i(TAG, "[A11Y_DEP_RECONCILE] ${runIdTag}decision=KEEP")
+            if (GuardFloatingWindowManager.isFloatingGuardEnabled(context)) {
+                GuardFloatingWindowManager.show(context, caller = caller, reason = "accessibility_reconnected")
+            }
             return
         }
 
-        // 如果 false：在执行任何清理之前先输出完整 BEFORE snapshot
+        // 无障碍不可用时仅挂起运行时展示，绝不破坏用户的持久化保护意图与配置
         Log.w(
             TAG,
-            "[A11Y_DEP_RECONCILE] ${runIdTag}decision=FORCE_DISABLE reason=SYSTEM_A11Y_UNAVAILABLE"
+            "[A11Y_DEP_RECONCILE] ${runIdTag}decision=SUSPEND_RUNTIME reason=SYSTEM_A11Y_UNAVAILABLE (persistent configs preserved)"
         )
-        ProtectionDiagnostics.dumpSnapshot(
-            context,
-            trigger = "A11Y_DEP_RECONCILE_BEFORE(caller=$caller, lostCounter=$lostCounter)"
-        )
-
-        AccessibilityControlManager.disableImmediatelyForAccessibilityUnavailable(context, caller = "AccessibilityDependencyManager")
-        AntiUninstallManager.disableImmediatelyForAccessibilityUnavailable(context, caller = "AccessibilityDependencyManager")
-        PrivacyProtectionManager.disableImmediatelyForAccessibilityUnavailable(context, caller = "AccessibilityDependencyManager")
-        FloatingWindowProtectionManager.disableImmediatelyForAccessibilityUnavailable(context, caller = "AccessibilityDependencyManager")
-        GuardFloatingWindowManager.disableImmediatelyForAccessibilityUnavailable(context, caller = "AccessibilityDependencyManager")
-        AlarmPowerOffProtectionManager.disableImmediatelyForAccessibilityUnavailable(context, caller = "AccessibilityDependencyManager")
-
-        // 最后输出 AFTER snapshot
-        ProtectionDiagnostics.dumpSnapshot(
-            context,
-            trigger = "A11Y_DEP_RECONCILE_AFTER(caller=$caller)"
-        )
+        GuardFloatingWindowManager.hide(context, caller = caller, reason = "accessibility_unavailable")
     }
 }

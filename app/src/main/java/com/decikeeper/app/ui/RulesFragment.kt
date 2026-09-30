@@ -890,7 +890,6 @@ class RulesFragment : Fragment() {
 
     private fun enableUninstallAndPermProtection(ctx: Context) {
         AntiUninstallManager.setProtectionEnabled(ctx, true)
-        AccessibilityControlManager.setEnabled(ctx, true)
         Toast.makeText(ctx, "防卸载与防关权限保护已开启", Toast.LENGTH_SHORT).show()
         updateUninstallAndPermProtectionUI()
         maybeAskBgBatteryPermissionAfterAntiUninstallEnabled()
@@ -898,10 +897,9 @@ class RulesFragment : Fragment() {
 
     private fun disableUninstallAndPermProtection(ctx: Context) {
         val isImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || (
-            !TimeRuleManager.getBaselineAntiUninstallState(ctx) && !TimeRuleManager.getBaselineA11yServiceState(ctx)
+            !TimeRuleManager.getBaselineAntiUninstallState(ctx)
         )
         AntiUninstallManager.setProtectionEnabled(ctx, false)
-        AccessibilityControlManager.setEnabled(ctx, false)
         updateUninstallAndPermProtectionUI()
         val message = if (isImmediate) {
             if (TimeRuleManager.isInAdaptationPeriod(ctx)) "适应期内，防卸载与防关权限保护已立即关闭"
@@ -955,12 +953,10 @@ class RulesFragment : Fragment() {
 
             if (isChecked) {
                 if (isAccessibilityServiceEnabled()) {
-                    // 已开启，检查是否有待关闭标记需要清除
-                    if (isA11yPendingDisable(context)) {
-                        setA11yPendingDisable(context, false)
-                        updateAccessibilityServiceUI()
-                        Toast.makeText(context, "已取消关闭申请", Toast.LENGTH_SHORT).show()
-                    }
+                    // 已开启，确保业务状态与防关保护处于 ACTIVE（清除待关闭申请）
+                    AccessibilityControlManager.setEnabled(context, true)
+                    updateAccessibilityServiceUI()
+                    Toast.makeText(context, "无障碍服务及防关保护已开启", Toast.LENGTH_SHORT).show()
                     return@setOnCheckedChangeListener
                 }
                 // 未开启 → 弹窗引导
@@ -2382,13 +2378,10 @@ class RulesFragment : Fragment() {
     private fun getCombinedProtectionState(context: Context): CombinedProtectionState {
         if (!isAccessibilityServiceEnabled(context)) return CombinedProtectionState.DISABLED
         val antiState = AntiUninstallManager.getProtectionState(context)
-        val permissionState = AccessibilityControlManager.getState(context)
-        return when {
-            antiState == AntiUninstallManager.State.ACTIVE &&
-                permissionState == AccessibilityControlManager.State.ACTIVE -> CombinedProtectionState.ACTIVE
-            antiState != AntiUninstallManager.State.DISABLED &&
-                permissionState != AccessibilityControlManager.State.DISABLED -> CombinedProtectionState.PENDING
-            else -> CombinedProtectionState.DISABLED
+        return when (antiState) {
+            AntiUninstallManager.State.ACTIVE -> CombinedProtectionState.ACTIVE
+            AntiUninstallManager.State.PENDING -> CombinedProtectionState.PENDING
+            AntiUninstallManager.State.DISABLED -> CombinedProtectionState.DISABLED
         }
     }
 
@@ -2454,12 +2447,8 @@ class RulesFragment : Fragment() {
         val ctx = requireContext()
         val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
         val a11yOk = isAccessibilityServiceEnabled()
-        val pendingDisable = isA11yPendingDisable(ctx)
-        // 如果系统已关闭但还标记着待关闭，清除标记
-        if (!a11yOk && pendingDisable) {
-            setA11yPendingDisable(ctx, false)
-        }
-        val finalPending = if (a11yOk) pendingDisable else false
+        val a11yState = AccessibilityControlManager.getState(ctx)
+        val finalPending = a11yState == AccessibilityControlManager.State.PENDING
 
         switchA11yServiceUiUpdating = true
         switchAccessibilityService?.isChecked = a11yOk && !finalPending
@@ -2473,11 +2462,16 @@ class RulesFragment : Fragment() {
                 it.text = "状态: 待关闭（明日生效）"
                 it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
             } else if (a11yOk) {
-                it.text = "状态: 无障碍服务已开启，可启用各项保护"
+                it.text = "状态: 无障碍服务已开启（防关保护生效中）"
                 it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzSuccess))
             } else {
-                it.text = "状态: 服务未开启"
-                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+                if (AccessibilityControlManager.getDesiredEnabled(ctx)) {
+                    it.text = "状态: 无障碍服务已断开（保护配置保持中，请前往开启）"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
+                } else {
+                    it.text = "状态: 服务未开启"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+                }
             }
         }
     }
@@ -2796,13 +2790,7 @@ class RulesFragment : Fragment() {
 
     private fun applyA11yDisableRequest(ctx: Context): Boolean {
         val immediate = TimeRuleManager.isInAdaptationPeriod(ctx) || !TimeRuleManager.getBaselineA11yServiceState(ctx)
-        if (immediate) {
-            ConfigPendingManager.clearPending(ctx, "a11y_service_self_pending")
-            setA11yPendingDisable(ctx, false)
-        } else {
-            ConfigPendingManager.submitChange(ctx, "a11y_service_self_pending", "true", strictNextDay = true)
-            setA11yPendingDisable(ctx, true)
-        }
+        AccessibilityControlManager.setEnabled(ctx, false)
         return immediate
     }
 
@@ -2824,15 +2812,15 @@ class RulesFragment : Fragment() {
     }
 
     internal fun isA11yPendingDisable(ctx: Context): Boolean {
-        return ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_A11Y_PENDING_DISABLE, false)
+        return AccessibilityControlManager.getState(ctx) == AccessibilityControlManager.State.PENDING
     }
 
     internal fun setA11yPendingDisable(ctx: Context, pending: Boolean) {
-        ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_A11Y_PENDING_DISABLE, pending)
-            .apply()
+        if (pending) {
+            AccessibilityControlManager.setEnabled(ctx, false)
+        } else {
+            AccessibilityControlManager.setEnabled(ctx, true)
+        }
     }
 
     internal fun isA11yServiceReady(ctx: Context? = context): Boolean {

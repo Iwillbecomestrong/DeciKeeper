@@ -21,6 +21,10 @@ class A11yProtectionDependencyRulesTest {
     @Before
     fun setUp() {
         context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("accessibility_control_prefs", Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences("pending_config_prefs", Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences("decikeeper_ledger", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @Test
@@ -40,19 +44,30 @@ class A11yProtectionDependencyRulesTest {
 
     @Test
     fun testA11yPendingDisable_storageAndReadyState() {
+        // 模拟已过适应期且基准已开启，使关闭无障碍时进入严格次日生效 (PENDING)
+        context.getSharedPreferences("decikeeper_ledger", Context.MODE_PRIVATE)
+            .edit()
+            .putLong("first_setup_timestamp_v2", System.currentTimeMillis() - 30L * 86400000L)
+            .putBoolean("has_manually_ended_adaptation", true)
+            .commit()
+        context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("a11y_service_enabled", true)
+            .commit()
+
         val fragment = RulesFragment()
 
-        // 初始状态下非 pending
+        // 开启服务状态下非 pending
         fragment.setA11yPendingDisable(context, false)
         assertFalse(fragment.isA11yPendingDisable(context))
 
-        // 设置待关闭标记
+        // 申请关闭（进入待关闭状态 PENDING）
         fragment.setA11yPendingDisable(context, true)
         assertTrue(fragment.isA11yPendingDisable(context))
         // 当处于待关闭状态时，isA11yServiceReady 必须为 false
         assertFalse(fragment.isA11yServiceReady(context))
 
-        // 取消待关闭标记
+        // 重新开启（取消待关闭标记）
         fragment.setA11yPendingDisable(context, false)
         assertFalse(fragment.isA11yPendingDisable(context))
     }

@@ -52,9 +52,10 @@ class AntiUninstallStartupProtectionContractTest {
         val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
         val combinedState = source.substringAfter("private fun getCombinedProtectionState")
             .substringBefore("private fun updateUninstallAndPermProtectionUI")
-        assertTrue(combinedState.contains("antiState == AntiUninstallManager.State.ACTIVE &&"))
-        assertTrue(combinedState.contains("permissionState == AccessibilityControlManager.State.ACTIVE"))
-        assertFalse(combinedState.contains("antiState == AntiUninstallManager.State.ACTIVE ||"))
+        assertTrue(combinedState.contains("!isAccessibilityServiceEnabled(context)"))
+        assertTrue(combinedState.contains("AntiUninstallManager.getProtectionState(context)"))
+        // 无障碍防关已前置独立，防卸载开关不再直接强耦合 AccessibilityControlManager 状态
+        assertFalse(combinedState.contains("permissionState == AccessibilityControlManager.State.ACTIVE"))
     }
 
     @Test
