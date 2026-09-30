@@ -42,7 +42,9 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.decikeeper.app.R
 import com.decikeeper.app.data.LogExporter
+import com.decikeeper.app.manager.A11ySelfDisableAuthorization
 import com.decikeeper.app.manager.AccessibilityControlManager
+import com.decikeeper.app.manager.SelfDisableReason
 import com.decikeeper.app.manager.SettingsNavigator
 import com.decikeeper.app.manager.AccessibilityDependencyManager
 import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
@@ -315,6 +317,11 @@ class RulesFragment : Fragment() {
         permProtectionGuideDialogRefresh?.invoke()
         updateFloatingGuardUI()
         updateDeviceAdminProtectionUI()
+
+        // 🚀 [Next-Day A11y Expiry Check] 检测昨日次日延迟关闭是否已在今日正式生效
+        if (AccessibilityControlManager.consumeNextDayDisableBecameEffective(context) && sysA11y) {
+            showNextDayA11yDisableGuideDialog(context)
+        }
 
         // Loop check for anti-uninstall status
         view?.let { triggerAntiUninstallStatusLoop(it) }
@@ -917,10 +924,10 @@ class RulesFragment : Fragment() {
         val context = requireContext()
         val locked = TimeRuleEditWindowPolicyManager.isEditLocked(context)
         val systemEnabled = isAccessibilityServiceEnabled()
-        val pendingDisable = isA11yPendingDisable(context)
+        val a11yState = AccessibilityControlManager.getState(context)
         switchA11yServiceUiUpdating = true
-        // 待关闭状态也显示为 unchecked
-        switchView.isChecked = systemEnabled && !pendingDisable
+        // 只有业务处于 ACTIVE 且系统服务开启时才勾选
+        switchView.isChecked = (a11yState == AccessibilityControlManager.State.ACTIVE && systemEnabled)
         switchView.isEnabled = !locked
         switchView.isClickable = !locked
         switchView.alpha = if (locked) 0.5f else 1.0f
@@ -929,6 +936,14 @@ class RulesFragment : Fragment() {
         (switchView.parent as? View)?.setOnClickListener {
             if (TimeRuleEditWindowPolicyManager.isEditLocked(context)) {
                 Toast.makeText(context, TimeRuleEditWindowPolicyManager.getLockoutHintText(context), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val state = AccessibilityControlManager.getState(context)
+            val ok = isAccessibilityServiceEnabled(context)
+            if (state == AccessibilityControlManager.State.PENDING) {
+                Toast.makeText(context, "无障碍服务关闭申请生效中（明日生效），期间防关保护持续生效", Toast.LENGTH_SHORT).show()
+            } else if (state == AccessibilityControlManager.State.DISABLED && ok) {
+                showPostImmediateDisableGuideDialog(context)
             }
         }
 
@@ -1126,14 +1141,10 @@ class RulesFragment : Fragment() {
             updatePrivacySpaceGuardUI()
             updateFloatingGuardUI()
             dialog.dismiss()
-            if (a11yImmediate && allImmediate) {
-                Toast.makeText(ctx, "保护已立即全部解除，请在系统设置中关闭无障碍服务", Toast.LENGTH_LONG).show()
-                openAccessibilitySettings()
-            } else if (a11yImmediate) {
-                Toast.makeText(ctx, "无障碍保护已解除，请在系统设置中关闭无障碍服务", Toast.LENGTH_LONG).show()
-                openAccessibilitySettings()
+            if (a11yImmediate) {
+                showPostImmediateDisableGuideDialog(ctx)
             } else {
-                Toast.makeText(ctx, "已同时提交关闭申请（闹钟防关机已立即关闭，其余次日生效）", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "已提交关闭申请（明日生效），期间无障碍防关保护持续生效", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -1246,14 +1257,10 @@ class RulesFragment : Fragment() {
             updatePrivacySpaceGuardUI()
             updateFloatingGuardUI()
             dialog.dismiss()
-            if (a11yImmediate && allImmediate) {
-                Toast.makeText(ctx, "保护已立即全部解除，请在系统设置中关闭无障碍服务", Toast.LENGTH_LONG).show()
-                openAccessibilitySettings()
-            } else if (a11yImmediate) {
-                Toast.makeText(ctx, "无障碍保护已解除，请在系统设置中关闭无障碍服务", Toast.LENGTH_LONG).show()
-                openAccessibilitySettings()
+            if (a11yImmediate) {
+                showPostImmediateDisableGuideDialog(ctx)
             } else {
-                Toast.makeText(ctx, "已同时提交关闭申请（闹钟防关机已立即关闭，其余次日生效）", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "已同时提交关闭申请（明日生效），期间无障碍防关保护持续生效", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -2448,32 +2455,171 @@ class RulesFragment : Fragment() {
         val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
         val a11yOk = isAccessibilityServiceEnabled()
         val a11yState = AccessibilityControlManager.getState(ctx)
-        val finalPending = a11yState == AccessibilityControlManager.State.PENDING
 
         switchA11yServiceUiUpdating = true
-        switchAccessibilityService?.isChecked = a11yOk && !finalPending
+        // 只有业务处于 ACTIVE 且系统服务开启时才勾选
+        switchAccessibilityService?.isChecked = (a11yState == AccessibilityControlManager.State.ACTIVE && a11yOk)
         switchAccessibilityService?.isEnabled = !locked
         switchAccessibilityService?.isClickable = !locked
         switchAccessibilityService?.alpha = if (locked) 0.5f else 1.0f
         switchA11yServiceUiUpdating = false
 
         tvAccessibilityStatus?.let {
-            if (finalPending) {
-                it.text = "状态: 待关闭（明日生效）"
-                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
-            } else if (a11yOk) {
-                it.text = "状态: 无障碍服务已开启（防关保护生效中）"
-                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzSuccess))
-            } else {
-                if (AccessibilityControlManager.getDesiredEnabled(ctx)) {
+            when {
+                a11yState == AccessibilityControlManager.State.PENDING -> {
+                    it.text = "状态: 待关闭（明日生效）"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
+                }
+                a11yState == AccessibilityControlManager.State.ACTIVE && a11yOk -> {
+                    it.text = "状态: 无障碍服务已开启（防关保护生效中）"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzSuccess))
+                }
+                a11yState == AccessibilityControlManager.State.ACTIVE && !a11yOk -> {
                     it.text = "状态: 无障碍服务已断开（保护配置保持中，请前往开启）"
                     it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
-                } else {
+                }
+                a11yState == AccessibilityControlManager.State.DISABLED && a11yOk -> {
+                    it.text = "状态: 守护已停用（待在系统设置中关闭服务）"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
+                }
+                else -> {
                     it.text = "状态: 服务未开启"
                     it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
                 }
             }
         }
+    }
+
+    private fun showPostImmediateDisableGuideDialog(ctx: Context) {
+        val density = ctx.resources.displayMetrics.density
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
+        }
+
+        val tvTitle = TextView(ctx).apply {
+            text = "保护已解除"
+            textSize = 18f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        container.addView(tvTitle)
+
+        val tvMessage = TextView(ctx).apply {
+            textSize = 14f
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
+            text = "无障碍防关保护已解除，决定守护不再使用无障碍功能。\n\n是否现在前往系统设置关闭底层的无障碍服务？"
+        }
+        container.addView(tvMessage)
+
+        val buttonRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, (20 * density).toInt(), 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val btnCancel = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "暂不关闭"
+            setAllCaps(false)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, (8 * density).toInt(), 0)
+            }
+        }
+
+        val btnGo = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "前往系统关闭"
+            setAllCaps(false)
+            setTextColor(android.graphics.Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        buttonRow.addView(btnCancel)
+        buttonRow.addView(btnGo)
+        container.addView(buttonRow)
+
+        val dialog = AlertDialog.Builder(ctx).setView(container).create()
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnGo.setOnClickListener {
+            dialog.dismiss()
+            A11ySelfDisableAuthorization.authorize(SelfDisableReason.USER_CONFIRMED, 60_000L)
+            openAccessibilitySettings()
+        }
+        dialog.show()
+    }
+
+    private fun showNextDayA11yDisableGuideDialog(ctx: Context) {
+        val density = ctx.resources.displayMetrics.density
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
+        }
+
+        val tvTitle = TextView(ctx).apply {
+            text = "无障碍关闭已生效"
+            textSize = 18f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        container.addView(tvTitle)
+
+        val tvMessage = TextView(ctx).apply {
+            textSize = 14f
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
+            text = "您昨日申请的无障碍服务关闭已正式生效，相关保护已解除。\n\n是否前往系统设置关闭底层的无障碍服务？"
+        }
+        container.addView(tvMessage)
+
+        val buttonRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, (20 * density).toInt(), 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val btnCancel = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "稍后再说"
+            setAllCaps(false)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, (8 * density).toInt(), 0)
+            }
+        }
+
+        val btnGo = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "前往系统关闭"
+            setAllCaps(false)
+            setTextColor(android.graphics.Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        buttonRow.addView(btnCancel)
+        buttonRow.addView(btnGo)
+        container.addView(buttonRow)
+
+        val dialog = AlertDialog.Builder(ctx).setView(container).create()
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnGo.setOnClickListener {
+            dialog.dismiss()
+            A11ySelfDisableAuthorization.authorize(SelfDisableReason.USER_CONFIRMED, 60_000L)
+            openAccessibilitySettings()
+        }
+        dialog.show()
     }
 
     private fun updateAlarmPowerOffProtectionUI() {

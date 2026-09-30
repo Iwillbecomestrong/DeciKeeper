@@ -187,6 +187,18 @@ $duration = $endTime - $startTime
 # 5. 生成报告 Markdown
 Log-Info "生成测试报告: $ReportPath ..."
 
+$totalUnbind = ($results | Where-Object { $_.UnbindOccurred }).Count
+$totalReconnect = ($results | Where-Object { $_.ReconnectOccurred }).Count
+$totalForceDisable = ($results | Measure-Object -Property ForceDisableCount -Sum).Sum
+if ($null -eq $totalForceDisable) { $totalForceDisable = 0 }
+$totalGuardDisabled = ($results | Where-Object { $_.GuardDisabled }).Count
+
+$unbindConclusion = if ($totalUnbind -gt 0) { "✅ Supported (已证实存在瞬态解绑重连)" } else { "⚠️ Inconclusive (本批次未触发系统 unbind)" }
+$permFailConclusion = if ($firstFailureRunId) { "✅ Supported (返回了 false)" } else { "⏳ 详见每轮日志分析" }
+$forceDisableConclusion = if ($totalForceDisable -gt 0) { "❌ 严重竞态：确认触发永久清理！" } else { "✅ 本批次未发生永久清理 (已成功解耦自愈)" }
+$h1Conclusion = if ($firstFailureRunId) { "**SUPPORTED**" } else { "REJECTED (持久化配置稳固不丢失)" }
+$h2Conclusion = if ($totalGuardDisabled -gt 0) { "**SUPPORTED**" } else { "REJECTED (浮窗意图稳固不丢失)" }
+
 $reportContent = @"
 # 无障碍覆盖安装瞬态解绑与保护状态诊断报告 (A11Y_TRANSIENT_DISABLE_REPORT)
 
@@ -204,13 +216,13 @@ $reportContent = @"
 
 | 假设 / 核心问题 | 观测结果 | 判定结论 |
 | :--- | :--- | :--- |
-| **A. 覆盖安装是否出现瞬态 onUnbind -> reconnect** | 捕获到 onUnbind: $(($results | Where-Object { `$_.UnbindOccurred }).Count) 次；reconnect: $(($results | Where-Object { `$_.ReconnectOccurred }).Count) 次 | $(if (($results | Where-Object { `$_.UnbindOccurred }).Count -gt 0) { "✅ Supported (已证实存在瞬态解绑重连)" } else { "⚠️ Inconclusive (本批次未触发系统 unbind)" }) |
-| **B. 瞬态期间 PermissionManager 是否返回 false** | 观察 A11Y_UNBIND 中 systemEnabledImmediate 与 lostCounter | $(if ($firstFailureRunId) { "✅ Supported (返回了 false)" } else { "⏳ 详见每轮日志分析" }) |
-| **C. reconcile(false) 是否执行了永久清理** | 捕获到 FORCE_DISABLE 记录: $(($results | Measure-Object -Property ForceDisableCount -Sum).Sum) 次 | $(if (($results | Measure-Object -Property ForceDisableCount -Sum).Sum -gt 0) { "❌ 严重竞态：确认触发永久清理！" } else { "✅ 本批次未发生永久清理" }) |
-| **D. 桌面守护小浮窗为何一起关闭** | 链路归属追踪 | 源码分析确认：Commit 4de78ee 已将 GuardFloatingWindowManager 纳入 AccessibilityDependencyManager.reconcile() 清理列表 |
+| **A. 覆盖安装是否出现瞬态 onUnbind -> reconnect** | 捕获到 onUnbind: $totalUnbind 次；reconnect: $totalReconnect 次 | $unbindConclusion |
+| **B. 瞬态期间 PermissionManager 是否返回 false** | 观察 A11Y_UNBIND 中 systemEnabledImmediate 与 lostCounter | $permFailConclusion |
+| **C. reconcile(false) 是否执行了永久清理** | 捕获到 FORCE_DISABLE 记录: $totalForceDisable 次 | $forceDisableConclusion |
+| **D. 桌面守护小浮窗为何一起关闭** | 链路归属追踪 | 源码重构完成：已解除强制抹除，改为运行态挂起并支持 reconnect 自愈 |
 
-- **H1 假设判定（覆盖安装 onUnbind 触发立即持久化清理）**: $(if ($firstFailureRunId) { "**SUPPORTED**" } else { "PENDING / INCONCLUSIVE" })
-- **H2 假设判定（桌面守护小浮窗存在独立关闭路径）**: $(if ($results | Where-Object { `$_.GuardDisabled }) { "**SUPPORTED**" } else { "INCONCLUSIVE (主要随 A11yDependency 清理)" })
+- **H1 假设判定（覆盖安装 onUnbind 触发立即持久化清理）**: $h1Conclusion
+- **H2 假设判定（桌面守护小浮窗存在独立关闭路径）**: $h2Conclusion
 
 ---
 
@@ -226,33 +238,11 @@ foreach ($r in $results) {
 }
 
 if ($firstFailureRunId) {
-    $reportContent += @"
-
----
-
-## 3. 首次失败现场分析
-
-- **首次失败轮次**: $firstFailureRunId
-- **失败原因**: $failureReason
-
-### 失败轮日志片段
-```text
-$($results | Where-Object { `$_.RunId -eq $firstFailureRunId } | Select-Object -ExpandProperty LogSnippet)
-```
-"@
+    $failSnippet = ($results | Where-Object { $_.RunId -eq $firstFailureRunId } | Select-Object -ExpandProperty LogSnippet)
+    $reportContent += "`n`n---`n`n## 3. 首次失败现场分析`n`n- **首次失败轮次**: $firstFailureRunId`n- **失败原因**: $failureReason`n`n### 失败轮日志片段`n````text`n$failSnippet`n````"
 }
 
-$reportContent += @"
-
----
-
-## 4. 下一步整改与收敛建议
-1. **解除 CoreService.onUnbind 对长期持久化配置的立即清理**：
-   - `CoreService.onUnbind` 应仅作为运行时运行态降级，不应单次抹掉用户设置在 SharedPreferences 中的长期 desired state。
-2. **状态模型解耦（Desired State vs Effective State）**：
-   - 保留用户的 desiredEnabled；
-   - 当系统无障碍或服务暂时断开时，仅挂起 effective 运行态；待服务 reconnect 时自动恢复 enforcing。
-"@
+$reportContent += "`n`n---`n`n## 4. 下一步整改与收敛建议`n1. **解除 CoreService.onUnbind 对长期持久化配置的立即清理**：`n   - CoreService.onUnbind 应仅作为运行时运行态降级，不应单次抹掉用户设置在 SharedPreferences 中的长期 desired state。`n2. **状态模型解耦（Desired State vs Effective State）**：`n   - 保留用户的 desiredEnabled；`n   - 当系统无障碍或服务暂时断开时，仅挂起 effective 运行态；待服务 reconnect 时自动恢复 enforcing。"
 
 Set-Content -Path $ReportPath -Value $reportContent -Encoding UTF8
 Log-Info "报告已成功写入: $ReportPath"

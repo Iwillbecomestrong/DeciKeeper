@@ -26,6 +26,8 @@ object AccessibilityControlManager {
     private const val KEY_DESIRED_ENABLED = "accessibility_desired_enabled"
     private const val KEY_PENDING_DISABLE = "accessibility_pending_disable"
 
+    private const val KEY_NEXT_DAY_AWAITING_PROMPT = "next_day_awaiting_prompt"
+
     enum class State {
         ACTIVE,
         PENDING,
@@ -51,6 +53,22 @@ object AccessibilityControlManager {
             .apply()
     }
 
+    fun markNextDayDisableBecameEffective(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, true)
+            .apply()
+    }
+
+    fun consumeNextDayDisableBecameEffective(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val awaiting = prefs.getBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, false)
+        if (awaiting) {
+            prefs.edit().putBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, false).apply()
+        }
+        return awaiting
+    }
+
     fun getState(context: Context): State {
         val desiredEnabled = getDesiredEnabled(context)
         if (!desiredEnabled) return State.DISABLED
@@ -65,9 +83,10 @@ object AccessibilityControlManager {
 
         setDesiredEnabled(context, false)
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+        markNextDayDisableBecameEffective(context)
         A11ySelfDisableAuthorization.authorize(
             SelfDisableReason.USER_CONFIRMED,
-            30_000L
+            60_000L
         )
         return State.DISABLED
     }
@@ -76,6 +95,10 @@ object AccessibilityControlManager {
         if (enabled) {
             setDesiredEnabled(context, true)
             ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, false)
+                .apply()
             return
         }
 
