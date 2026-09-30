@@ -2454,7 +2454,21 @@ class RulesFragment : Fragment() {
         val ctx = requireContext()
         val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
         val a11yOk = isAccessibilityServiceEnabled()
-        val a11yState = AccessibilityControlManager.getState(ctx)
+        var a11yState = AccessibilityControlManager.getState(ctx)
+
+        // 🚀 [A11y Baseline & State Self-Healing]
+        // 1. 若系统无障碍服务已开启，且受控状态为 DISABLED，只要并非处于到期等待去系统关闭流程中，即刻自愈为 ACTIVE
+        if (a11yOk && a11yState == AccessibilityControlManager.State.DISABLED && !AccessibilityControlManager.isAwaitingSelfDisable(ctx)) {
+            AccessibilityControlManager.setEnabled(ctx, true)
+            a11yState = AccessibilityControlManager.State.ACTIVE
+        }
+        // 2. 若用户已不在适应期，系统无障碍正在运行，且未处于申请待关闭状态：
+        //    检查基准记录是否遗漏/误记为 false，若为 false 即刻自愈修复基准为 true！
+        if (!TimeRuleManager.isInAdaptationPeriod(ctx) && a11yOk && a11yState != AccessibilityControlManager.State.PENDING) {
+            if (!TimeRuleManager.getBaselineA11yServiceState(ctx) && AccessibilityControlManager.getDisableEffectiveTime(ctx) == 0L) {
+                TimeRuleManager.repairBaselineA11yServiceState(ctx, true)
+            }
+        }
 
         switchA11yServiceUiUpdating = true
         // 只有业务处于 ACTIVE 且系统服务开启时才勾选

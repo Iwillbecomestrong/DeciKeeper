@@ -681,6 +681,13 @@ object TimeRuleManager {
             .getBoolean("a11y_service_enabled", false)
     }
 
+    fun repairBaselineA11yServiceState(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+        if (prefs.contains("snapshot_time")) {
+            prefs.edit().putBoolean("a11y_service_enabled", enabled).apply()
+        }
+    }
+
     fun getBaselineFloatingGuardState(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
             .getBoolean("floating_guard_enabled", false)
@@ -2181,7 +2188,16 @@ object TimeRuleManager {
             putBoolean("is_anti_uninstall_active", isAntiUninstallActive)
 
             // 🚀 [Baseline] Save Accessibility & Floating Guard State Baseline
-            val isA11yActive = AccessibilityControlManager.getState(context) == AccessibilityControlManager.State.ACTIVE
+            val sysA11yEnabled = com.decikeeper.app.manager.PermissionManager.isAccessibilityEnabled(context)
+            val a11yState = AccessibilityControlManager.getState(context)
+            val isA11yActive = if (sysA11yEnabled) {
+                if (a11yState == AccessibilityControlManager.State.DISABLED) {
+                    AccessibilityControlManager.setEnabled(context, true)
+                }
+                a11yState != AccessibilityControlManager.State.PENDING
+            } else {
+                false
+            }
             putBoolean("a11y_service_enabled", isA11yActive)
 
             val isFloatingGuardActive = GuardFloatingWindowManager.getProtectionState(context) == GuardFloatingWindowManager.State.ACTIVE

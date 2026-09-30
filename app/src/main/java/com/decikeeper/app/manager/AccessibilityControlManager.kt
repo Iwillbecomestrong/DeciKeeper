@@ -69,6 +69,12 @@ object AccessibilityControlManager {
         return awaiting
     }
 
+    fun isAwaitingSelfDisable(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, false) ||
+            A11ySelfDisableAuthorization.isAuthorized()
+    }
+
     fun getState(context: Context): State {
         val desiredEnabled = getDesiredEnabled(context)
         if (!desiredEnabled) return State.DISABLED

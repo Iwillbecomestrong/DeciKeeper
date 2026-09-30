@@ -117,4 +117,27 @@ class AccessibilityAndEnhancementBaselineRestorationContractTest {
         assertEquals(PrivacyProtectionManager.State.PENDING, PrivacyProtectionManager.getProtectionState(context))
         assertEquals(FloatingWindowProtectionManager.State.PENDING, FloatingWindowProtectionManager.getProtectionState(context))
     }
+
+    @Test
+    fun whenSystemA11yIsEnabled_saveBaselineParamsCapturesActiveAndHealsState() {
+        // 模拟系统无障碍服务已开启（但尚未被明确 setEnabled）
+        android.provider.Settings.Secure.putString(
+            context.contentResolver,
+            android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+            context.packageName + "/com.decikeeper.app.service.CoreService"
+        )
+        // 此时 desiredEnabled 为 false
+        assertEquals(AccessibilityControlManager.State.DISABLED, AccessibilityControlManager.getState(context))
+
+        // 执行基准保存（如结束适应期时）
+        TimeRuleManager.saveBaselineParams(context)
+
+        // 验证：基准应记录为 true，且状态自愈为 ACTIVE
+        assertTrue(TimeRuleManager.getBaselineA11yServiceState(context))
+        assertEquals(AccessibilityControlManager.State.ACTIVE, AccessibilityControlManager.getState(context))
+
+        // 关闭申请应严格走次日延迟
+        AccessibilityControlManager.setEnabled(context, false)
+        assertEquals(AccessibilityControlManager.State.PENDING, AccessibilityControlManager.getState(context))
+    }
 }
