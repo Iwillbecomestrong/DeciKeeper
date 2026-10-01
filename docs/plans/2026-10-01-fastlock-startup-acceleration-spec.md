@@ -153,3 +153,34 @@ fun shouldKeepInitialization(context: Context): Boolean {
   - 验证多通道同时到达时的 CAS 互斥机制（仅 attach 一次）。
 - [ ] `StartupProtectionZeroIpcContractTest`：
   - 断言 `attachEarlyBootFastLock` 在早期启动阶段绝不触发 `Settings.Secure` IPC 查询。
+
+---
+
+## 6. 后续修改红线：Direct Boot 阶段严禁读取主题偏好（防系统 40 秒崩溃惩罚）
+
+> **给后续接手的 Agent / 开发者：改动 FastLock 启动链路前必读。**
+
+### 6.1 核心约束
+在 **Direct Boot（用户解锁前）** 阶段，`FastLockService`（以及 `StartupProtectionManager.attachEarlyBootFastLock`）**绝对不能读取 `ThemeManager`**，或必须让 `ThemeManager` 在未解锁时**直接返回默认主题兜底 `R.style.Theme_DeciKeeper`（`Theme.DeciKeeper`，即 Summer 别名），禁止访问 CE（Credential Encrypted）SharedPreferences**。
+
+只要堵住这个点，就不会触发系统「CE 存储未解锁时访问 → 进程崩溃 → 系统 40 秒重启惩罚」的连锁反应。
+
+### 6.2 根因
+* `ThemeManager.currentKey()` 通过 `context.getSharedPreferences("decikeeper_ui_theme", ...)` 读取主题，该文件位于 **CE 存储**；用户首次解锁前 CE 存储不可用，访问会抛 `IllegalStateException` / 触发 `SharedPreferences` 读取失败；
+* 该异常发生在 `FastLockService` / 开机早期广播链路中，进程崩溃后系统对被拉起的开机组件施加约 40 秒的重启退避惩罚，导致防护真空期被进一步拉长。
+
+### 6.3 当前代码中的已知读取点（必须受此约束保护）
+| 位置 | 调用 |
+| :--- | :--- |
+| `FastLockService.kt`（约 L291） | `ThemeManager.themeRes(this)` |
+| `StartupProtectionManager.kt`（`attachEarlyBootFastLock`，约 L76） | `ThemeManager.themeRes(context)` |
+
+### 6.4 合规做法（二选一，推荐同时做）
+1. **调用方判定**：以上两处调用前先判断用户是否已解锁（`UserManager.isUserUnlocked` / 项目内既有的 `isUserLockedForDirectBoot()`）；未解锁则直接使用 `R.style.Theme_DeciKeeper`，不调用 `ThemeManager`。
+2. **`ThemeManager` 自身兜底**：在 `ThemeManager.themeRes()` / `currentKey()` 入口加未解锁短路，返回默认主题（或默认 key `"summer"`），**不触碰 `getSharedPreferences`**。
+   * 不得通过 `createDeviceProtectedStorageContext()` 等方式把主题偏好迁移到 DE 存储来「绕过」——主题非开机防护必需数据，用默认主题即可，保持最小改动面。
+
+### 6.5 回归检查清单
+- [ ] 任何新增的 FastLock 触发通道（含 §4.1 的 `USER_UNLOCKED` / `onServiceConnected`）在 attach 路径上均不读取 CE SharedPreferences / `Settings.Secure` 等未解锁不可用资源；
+- [ ] 新增/保留测试：模拟未解锁（locked）状态下调用 `attachEarlyBootFastLock` 与 `FastLockService` 布局构建，断言不访问 `ThemeManager` 的 SharedPreferences 且使用 `Theme_DeciKeeper`；
+- [ ] 真机冷启动（锁屏未解锁阶段）logcat 无 `FastLockService` / `DeciKeeper` 进程 `FATAL EXCEPTION`，且开机后无约 40 秒的服务重启延迟。
