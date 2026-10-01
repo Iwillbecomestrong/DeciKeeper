@@ -519,6 +519,21 @@ class CoreService : AccessibilityService() {
         lastAccessibilitySignalTime = System.currentTimeMillis()
         instance = this // 🚀 Capture instance
 
+        // 开机提速通道：无障碍由系统 Binder 直连，通常最先就绪。
+        // 放在 try 之前，避免后面的 CE 初始化异常跳过它。
+        // 只在进程出生于 Direct Boot（armed）时补挂，避免用户首次开启无障碍时误弹初始化遮罩。
+        try {
+            if (com.decikeeper.app.util.DirectBootState.isUserUnlocked(this)) {
+                if (StartupProtectionManager.isUnlockTriggerArmed()) {
+                    StartupProtectionManager.triggerBootFastLock(this, "a11y_connected")
+                }
+            } else {
+                com.decikeeper.app.manager.BootUnlockTrigger.armIfLocked(this)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "onServiceConnected: boot FastLock channel failed", e)
+        }
+
         emitServiceStateIfChanged("OK", "ON_SERVICE_CONNECTED")
         emitProtectionStateChangeIfChanged("accessibility", "INITIALIZING", "OK", "ON_SERVICE_CONNECTED")
 
@@ -601,15 +616,17 @@ class CoreService : AccessibilityService() {
             // 防止在用户刚解锁、CE 尚未可用时就关掉覆盖层留下真空期。
             mHandler.postDelayed(object : Runnable {
                 override fun run() {
+                    // Direct Boot 红线：必须先确认 CE 就绪，再读防卸载状态；
+                    // 否则锁屏期 shouldKeepInitialization=false 会误关 FastLock 且不再重试。
+                    if (!isCeStorageAvailable()) {
+                        Log.d("AntiUninstall", "CoreService: CE storage not ready, deferring FastLock handoff")
+                        mHandler.postDelayed(this, 2000L)
+                        return
+                    }
                     if (!StartupProtectionManager.shouldKeepInitialization(this@CoreService)) {
                         StartupProtectionManager.stopFastLock(this@CoreService)
                         LockWindowManager.dismissSystemInitOverlay("initialization_disabled")
                         Log.i("AntiUninstall", "CoreService: initialization no longer required, stopped FastLock")
-                        return
-                    }
-                    if (!isCeStorageAvailable()) {
-                        Log.d("AntiUninstall", "CoreService: CE storage not ready, deferring FastLock handoff")
-                        mHandler.postDelayed(this, 2000L)
                         return
                     }
                     try {
@@ -791,6 +808,12 @@ class CoreService : AccessibilityService() {
                 "navigation=${newConfig.navigation} " +
                 "touchscreen=${newConfig.touchscreen}"
         )
+
+        // Direct Boot 红线：未解锁时不得读 CE（防卸载状态等），mLastLocale 不更新，解锁后 locale 再变化仍会重新判定。
+        if (!com.decikeeper.app.util.DirectBootState.isUserUnlocked(this)) {
+            Log.i(TAG, "onConfigurationChanged: user locked (Direct Boot), skip CE-dependent protection")
+            return
+        }
 
         // 早期返回：locale 未变化时，不触发 FastLock，但记录详细的触发现场。
         // 原代码仅输出 "Orientation/Resize detected" 但在只有 locale 被追踪的前提下

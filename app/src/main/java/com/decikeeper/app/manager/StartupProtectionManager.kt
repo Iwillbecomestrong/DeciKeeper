@@ -24,6 +24,7 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -32,6 +33,7 @@ import android.view.WindowManager
 import com.decikeeper.app.R
 import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.service.FastLockService
+import com.decikeeper.app.util.DirectBootState
 
 
 
@@ -47,7 +49,26 @@ object StartupProtectionManager {
 
     // MyApplication 已在本轮启动中拉过 FastLockService 时置 true，
     // BootReceiver 看到此标志就不再重复拉起，避免系统初始化界面出现两次。
-    @Volatile var earlyBootFastLockStarted = false
+    // 开机 FastLock 的 CAS 占用标志：多通道（Application / 解锁广播 / 无障碍连接 / BootReceiver）
+    // 并发到达时只有第一个能 attach。保留 earlyBootFastLockStarted 作为兼容读写入口。
+    private val bootFastLockClaimed = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val bootAttachAttempts = java.util.concurrent.atomic.AtomicInteger(0)
+    private const val MAX_BOOT_ATTACH_ATTEMPTS = 3
+    var earlyBootFastLockStarted: Boolean
+        get() = bootFastLockClaimed.get()
+        set(value) = bootFastLockClaimed.set(value)
+
+    // 进程出生在 Direct Boot（未解锁）时置 true：解锁通道需要为本进程补挂 FastLock。
+    @Volatile private var unlockTriggerArmed = false
+    fun markUnlockTriggerArmed() { unlockTriggerArmed = true }
+    fun isUnlockTriggerArmed(): Boolean = unlockTriggerArmed
+    @Volatile private var earlyBootLayoutParams: WindowManager.LayoutParams? = null
+
+    /** 测试注入点：单测环境不含 Android 资源，无法 inflate window_fast_lock。 */
+    @androidx.annotation.VisibleForTesting
+    internal var overlayViewFactory: ((Context) -> View)? = null
+
+    internal enum class AttachResult { ATTACHED, ALREADY_ATTACHED, GATE_CLOSED, FAILED }
 
     // MyApplication 直接 addView 的覆盖层，FastLockService 启动后接管。
     @Volatile var earlyBootOverlayView: View? = null
@@ -64,23 +85,39 @@ object StartupProtectionManager {
      * 返回 true 表示覆盖层已成功添加到 WindowManager。
      */
     fun attachEarlyBootFastLock(context: Context): Boolean {
-        if (!shouldKeepInitialization(context)) {
-            Log.i("DeciKeeper", "StartupProtectionManager: anti-uninstall initialization disabled, skip early boot overlay")
-            return false
+        val r = attachEarlyBootFastLockInternal(context)
+        return r == AttachResult.ATTACHED || r == AttachResult.ALREADY_ATTACHED
+    }
+
+    /** 零 IPC 门禁：只读 DPS 缓存与防卸载本地状态，不查 Settings.Secure。 */
+    internal fun shouldAttachBootOverlay(context: Context): Boolean {
+        if (!DirectBootState.isUserUnlocked(context)) return false
+        if (!StartupA11yCache.isA11yWasEnabledForStartup(context)) return false
+        return AntiUninstallManager.shouldShowInitialization(AntiUninstallManager.getProtectionState(context))
+    }
+
+    internal fun attachEarlyBootFastLockInternal(context: Context): AttachResult {
+        val t0 = SystemClock.elapsedRealtimeNanos()
+        if (!shouldAttachBootOverlay(context)) {
+            Log.i("DeciKeeper", "StartupProtectionManager: boot overlay gate closed (locked / a11y cache false / anti-uninstall disabled), skip early boot overlay")
+            return AttachResult.GATE_CLOSED
         }
-        if (earlyBootOverlayView != null) return true
+        if (earlyBootOverlayView != null) return AttachResult.ALREADY_ATTACHED
+        val t1 = SystemClock.elapsedRealtimeNanos()
 
         return try {
             val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             earlyBootWindowManager = wm
             val themeRes = com.decikeeper.app.ui.ThemeManager.themeRes(context)
             val themedContext = android.view.ContextThemeWrapper(context, themeRes)
-            val inflater = LayoutInflater.from(themedContext)
-            val view = inflater.inflate(R.layout.window_fast_lock, null).apply {
+            val t2 = SystemClock.elapsedRealtimeNanos()
+            val view = (overlayViewFactory?.invoke(themedContext)
+                ?: LayoutInflater.from(themedContext).inflate(R.layout.window_fast_lock, null)).apply {
                 isClickable = true
                 isFocusable = true
                 setOnTouchListener { _, _ -> true }
             }
+            val t3 = SystemClock.elapsedRealtimeNanos()
 
             val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -101,6 +138,8 @@ object StartupProtectionManager {
             }
 
             wm.addView(view, params)
+            val t4 = SystemClock.elapsedRealtimeNanos()
+            earlyBootLayoutParams = params
             earlyBootOverlayView = view
             val attachedAt = System.currentTimeMillis()
             earlyBootOverlayAttachedAtMs = attachedAt
@@ -109,6 +148,11 @@ object StartupProtectionManager {
             // 用于排查"初始化界面刷新两次"现象（多次 attach）
             // 详见 Issue_AntiUninstallBootGap 尝试 8
             Log.i("DeciKeeper", "[FastLock] attach caller=${Thread.currentThread().stackTrace[4]}")
+            Log.i(
+                "DeciKeeper",
+                "[FastLockBoot] phase gateMs=${(t1 - t0) / 1_000_000} themeMs=${(t2 - t1) / 1_000_000} " +
+                    "inflateMs=${(t3 - t2) / 1_000_000} addViewMs=${(t4 - t3) / 1_000_000} totalMs=${(t4 - t0) / 1_000_000}"
+            )
 
             // 启动独立主线程倒计时调度链，防止 Service 未能接管时秒数静止
             val countdownTv = view.findViewById<android.widget.TextView>(R.id.countdown_text)
@@ -116,11 +160,85 @@ object StartupProtectionManager {
 
             // 设定最大超时安全兜底（10s），防止 Service 未启动或被系统拦截时永久卡死在屏幕上
             scheduleEarlyBootTimeout(context, FAST_LOCK_MAX_VISIBLE_MS)
-            true
+            AttachResult.ATTACHED
         } catch (e: Exception) {
             Log.e("DeciKeeper", "StartupProtectionManager: failed to attach early boot overlay", e)
-            false
+            AttachResult.FAILED
         }
+    }
+
+    /**
+     * 开机 FastLock 的统一触发入口（所有通道都必须走这里）。
+     *
+     * 顺序即红线：① 未解锁直接返回（不碰 CE）→ ② 只读 DPS 缓存 → ③ CAS 抢占 → ④ attach + 起服务。
+     * 先到先得，后到的通道只做 reassert（遮罩被系统摘掉 / 服务没起来时补救），不会重复弹出。
+     */
+    fun triggerBootFastLock(context: Context, channel: String): Boolean {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { triggerBootFastLock(context, channel) }
+            return false
+        }
+        val t0 = SystemClock.elapsedRealtimeNanos()
+        if (!DirectBootState.isUserUnlocked(context)) {
+            Log.d("DeciKeeper", "[FastLockBoot] channel=$channel skip_locked")
+            return false
+        }
+        if (!StartupA11yCache.isA11yWasEnabledForStartup(context)) {
+            Log.d("DeciKeeper", "[FastLockBoot] channel=$channel skip_cache_false")
+            return false
+        }
+        if (!bootFastLockClaimed.compareAndSet(false, true)) {
+            Log.d("DeciKeeper", "[FastLockBoot] channel=$channel already_claimed -> reassert")
+            reassertBootFastLock(context, channel)
+            return false
+        }
+        val result = attachEarlyBootFastLockInternal(context)
+        if (result == AttachResult.FAILED && bootAttachAttempts.incrementAndGet() < MAX_BOOT_ATTACH_ATTEMPTS) {
+            // 仅异常失败才释放占用，允许后续通道重试；GATE_CLOSED 是最终结果，保持占用。
+            bootFastLockClaimed.set(false)
+        }
+        if (result == AttachResult.ATTACHED || result == AttachResult.ALREADY_ATTACHED) {
+            startFastLock(context)
+        }
+        Log.i(
+            "DeciKeeper",
+            "[FastLockBoot] channel=$channel result=$result totalMs=${(SystemClock.elapsedRealtimeNanos() - t0) / 1_000_000}"
+        )
+        return result == AttachResult.ATTACHED
+    }
+
+    private fun reassertBootFastLock(context: Context, channel: String) {
+        val view = earlyBootOverlayView ?: return
+        val params = earlyBootLayoutParams
+        val attachedAt = earlyBootOverlayAttachedAtMs
+        val now = System.currentTimeMillis()
+        if (view.parent == null && params != null && now < attachedAt + FAST_LOCK_MAX_VISIBLE_MS) {
+            try {
+                (earlyBootWindowManager ?: context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).addView(view, params)
+                Log.i("DeciKeeper", "[FastLockBoot] channel=$channel reassert re-added detached overlay")
+            } catch (e: Exception) {
+                Log.e("DeciKeeper", "[FastLockBoot] reassert addView failed", e)
+            }
+        }
+        if (!FastLockService.isRunning && now - attachedAt > 1_000L) {
+            startFastLock(context)
+        }
+    }
+
+    @androidx.annotation.VisibleForTesting
+    internal fun tryClaimBootFastLock(): Boolean = bootFastLockClaimed.compareAndSet(false, true)
+
+    @androidx.annotation.VisibleForTesting
+    internal fun resetBootFastLockStateForTest() {
+        cancelEarlyBootTasks()
+        bootFastLockClaimed.set(false)
+        bootAttachAttempts.set(0)
+        unlockTriggerArmed = false
+        earlyBootOverlayView = null
+        earlyBootOverlayAttachedAtMs = 0L
+        earlyBootWindowManager = null
+        earlyBootLayoutParams = null
+        overlayViewFactory = null
     }
 
     /**
@@ -211,6 +329,9 @@ object StartupProtectionManager {
 
     /** 只有防卸载保护仍开启且系统无障碍仍开启时，才需要初始化覆盖层。 */
     fun shouldKeepInitialization(context: Context): Boolean {
+        // Direct Boot 红线：未解锁时 CE 不可用（防卸载状态、主题均在 CE），
+        // 不显示初始化界面也不读 CE；解锁后由 USER_UNLOCKED 通道按同一门禁补挂。
+        if (!DirectBootState.isUserUnlocked(context)) return false
         return AntiUninstallManager.shouldShowInitialization(
             AntiUninstallManager.getProtectionState(context)
         ) && PermissionManager.isAccessibilityEnabled(context)

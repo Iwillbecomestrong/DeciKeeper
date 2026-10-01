@@ -86,6 +86,9 @@ class MyApplication : Application() {
         // Direct Boot 进程的 Application 也会先执行；此时禁止任何 CE 初始化。
         if (isUserLockedForDirectBoot()) {
             checkAndResumeAlarmIfNeeded(directBoot = true)
+            // 本进程出生在 Direct Boot：Application.onCreate 解锁后不会再跑，
+            // 动态注册 USER_UNLOCKED / USER_PRESENT（manifest 收不到 USER_UNLOCKED），解锁瞬间补挂 FastLock。
+            com.decikeeper.app.manager.BootUnlockTrigger.armIfLocked(this)
             return
         }
 
@@ -103,11 +106,8 @@ class MyApplication : Application() {
         val a11yWasEnabled = StartupA11yCache.isA11yWasEnabledForStartup(this)
         Log.d("DeciKeeper", "MyApplication: startup a11y DPS cache=$a11yWasEnabled readAt=$startupCacheReadAt")
         if (a11yWasEnabled) {
-            // 直接 addView 覆盖层，不等 Service 启动（毫秒级出现）
-            StartupProtectionManager.attachEarlyBootFastLock(this)
-            // Service 仍启动，负责前台通知、超时管理、handoff
-            StartupProtectionManager.startFastLock(this)
-            StartupProtectionManager.earlyBootFastLockStarted = true
+            // 统一 CAS 入口：直接 addView 覆盖层（毫秒级出现）+ 启动 Service 负责前台通知、超时管理、handoff
+            StartupProtectionManager.triggerBootFastLock(this, "app_on_create")
             Log.d("DeciKeeper", "MyApplication: Early boot FastLock overlay attached + service requested")
             // [2026-06-25] 诊断日志：记录 MyApplication 路径是否触发 FastLock
             // 用于排查"初始化界面刷新两次"现象

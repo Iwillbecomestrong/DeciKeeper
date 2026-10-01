@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.util.TypedValue
 import androidx.appcompat.app.AlertDialog
 import com.decikeeper.app.R
+import com.decikeeper.app.util.DirectBootState
 
 object ThemeManager {
     private const val PREFS = "decikeeper_ui_theme"
@@ -13,14 +14,26 @@ object ThemeManager {
     private val keys = arrayOf("spring", "summer", "autumn", "winter")
     val labels = arrayOf("春 · 苔樱", "夏 · 潮汐", "秋 · 茶陶", "冬 · 雪岚")
 
-    fun currentKey(context: Context): String = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "summer") ?: "summer"
+    // Direct Boot 红线：用户解锁前 CE 存储不可用，getSharedPreferences 会抛 IllegalStateException
+    // 并使 FastLockService 等开机早期组件崩溃。未解锁时一律返回默认主题，不触碰 CE。
+    fun currentKey(context: Context): String {
+        if (!DirectBootState.isUserUnlocked(context)) return "summer"
+        return try {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "summer") ?: "summer"
+        } catch (_: IllegalStateException) {
+            "summer"
+        }
+    }
     fun currentLabel(context: Context): String = labels[keys.indexOf(currentKey(context)).coerceAtLeast(0)]
 
-    fun themeRes(context: Context): Int = when (currentKey(context)) {
-        "spring" -> R.style.Theme_DeciKeeper_Spring
-        "autumn" -> R.style.Theme_DeciKeeper_Autumn
-        "winter" -> R.style.Theme_DeciKeeper_Winter
-        else -> R.style.Theme_DeciKeeper_Summer
+    fun themeRes(context: Context): Int {
+        if (!DirectBootState.isUserUnlocked(context)) return R.style.Theme_DeciKeeper
+        return when (currentKey(context)) {
+            "spring" -> R.style.Theme_DeciKeeper_Spring
+            "autumn" -> R.style.Theme_DeciKeeper_Autumn
+            "winter" -> R.style.Theme_DeciKeeper_Winter
+            else -> R.style.Theme_DeciKeeper_Summer
+        }
     }
 
     fun apply(activity: Activity) = activity.setTheme(themeRes(activity))
