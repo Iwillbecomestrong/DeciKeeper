@@ -34,6 +34,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import com.decikeeper.app.R
+import com.decikeeper.app.manager.PermissionManager
 import com.decikeeper.app.manager.StartupA11yCache
 import com.decikeeper.app.manager.StartupProtectionManager
 
@@ -128,12 +129,9 @@ class FastLockService : Service() {
         // - 缓存 false 但无障碍实际已开启 → 更新缓存（下次重启生效）
         Thread {
             try {
-                val serviceName = "${packageName}/${CoreService::class.java.canonicalName}"
-                val enabled = android.provider.Settings.Secure.getString(
-                    contentResolver,
-                    android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-                )
-                val actuallyEnabled = enabled?.contains(serviceName) == true
+                // 必须走 PermissionManager：系统（vivo）可能存短格式 `pkg/.service.CoreService`，
+                // 自行拼全名 contains 会误判"已关闭"，把缓存改 false 并在 0.3s 内 stopSelf。
+                val actuallyEnabled = PermissionManager.isAccessibilityEnabled(this)
                 val cacheSaysEnabled = StartupA11yCache.isA11yWasEnabledForStartup(this)
 
                 if (cacheSaysEnabled && !actuallyEnabled) {

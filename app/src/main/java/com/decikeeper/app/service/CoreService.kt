@@ -257,7 +257,9 @@ class CoreService : AccessibilityService() {
                 android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ) ?: return "UNAVAILABLE"
             val ourName = ctx.packageName + "/" + CoreService::class.java.name
-            return if (!enabled.contains(ourName)) {
+            val listed = enabled.contains(ourName) ||
+                PermissionManager.isComponentListed(enabled, ctx.packageName, CoreService::class.java.name)
+            return if (!listed) {
                 "UNAVAILABLE"
             } else if (diagnosticsServiceConnected) {
                 "AVAILABLE"
