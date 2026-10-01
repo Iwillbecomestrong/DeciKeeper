@@ -19,6 +19,9 @@
   - 锁屏期禁止 `startForegroundService(FastLockService)`，任何新通道必须先过 `DirectBootState`；
   - 「vivo 40 秒冷冻 = 系统崩溃惩罚」的机制**未被证实**（也可能是 `START_STICKY` 重启退避），修复方向不变；
   - 单测环境不含 Android 资源，无法 inflate `window_fast_lock`，测试经 `StartupProtectionManager.overlayViewFactory` 注入。
+- **真机验证（V2425A，2026-10-01）通过**：遮罩撑满 10 秒，期间无法卸载。验证中追加了两项决策：
+  5. **锁屏期预挂遮罩**：解锁广播实测晚于系统解锁约 2.8s（进程被调度延迟，非广播慢），故在 Direct Boot 把遮罩预挂在 keyguard 之下，解锁信号到达后才启动倒计时/超时/服务；锁屏期门禁只读 DPS（无障碍缓存 + `StartupAntiUninstallCache` 防卸载镜像，由 `AntiUninstallManager.getProtectionState` 同步），解锁后若 CE 门禁关闭则撤掉预挂遮罩。
+  6. **无障碍服务名必须按组件归一化**：vivo 在 `ENABLED_ACCESSIBILITY_SERVICES` 里存短格式 `pkg/.service.CoreService`，自行拼全名 `contains` 会误判"已关闭"——`FastLockService` 后台校验曾因此把缓存改 false 并在 0.3s 内 `stopSelf`，遮罩一闪而过。统一走 `PermissionManager.isAccessibilityEnabled` / `isComponentListed`，`FastLockA11yNameContractTest` 守护。遮罩布局默认倒计时文案须与 `FAST_LOCK_MAX_VISIBLE_MS`（10s）一致。
 - **未做/待办**：预 inflate（需先用 `[FastLockBoot] phase` 数据确认 `inflateMs` 是否显著）；无障碍在 Direct Boot 期连上时被 CE 异常跳过的 `onServiceConnected` 后续初始化需在解锁后补跑；`CoreService.onUnbind` 锁屏期读 CE、Direct Boot 出生进程不执行 `finishApplicationInit` 为独立问题。
 - 详细方案与真机证据：[docs/plans/2026-10-01-fastlock-startup-acceleration-spec.md](docs/plans/2026-10-01-fastlock-startup-acceleration-spec.md)。
 

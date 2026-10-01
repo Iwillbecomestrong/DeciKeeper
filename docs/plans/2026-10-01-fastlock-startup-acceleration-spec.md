@@ -191,5 +191,6 @@ fun shouldKeepInitialization(context: Context): Boolean {
 
 * 已实现：`DirectBootState`、`ThemeManager`/`shouldKeepInitialization` 未解锁兜底、`triggerBootFastLock` CAS 统一入口、`BootUnlockTrigger` 动态解锁通道、`CoreService.onServiceConnected` 补充通道、零 IPC attach 门禁与 `[FastLockBoot] phase` 日志；
 * 新增测试：`ThemeManagerDirectBootTest`、`FastLockDirectBootSafetyTest`、`FastLockStartupAccelerationTest`；
-* **待真机验证**：解锁到遮罩 ≤200ms、无 FATAL EXCEPTION、无约 40s 冷冻；`USER_PRESENT` 静态注册在 targetSdk 36 下是否可达待日志确认；
+* **真机验证（2026-10-01，V2425A）通过**：无崩溃，遮罩撑满 10s 且期间无法卸载。方案追加：锁屏期预挂遮罩于 keyguard 之下（DPS 镜像门禁）、无障碍服务名短格式归一化（详见 HISTORY DECISION-34 第 5、6 条）；
+* 未验证：`USER_PRESENT` 静态注册在 targetSdk 36 下是否可达；
 * 未做：预 inflate（先看阶段耗时数据）、无障碍 CE 初始化解锁后补跑。
