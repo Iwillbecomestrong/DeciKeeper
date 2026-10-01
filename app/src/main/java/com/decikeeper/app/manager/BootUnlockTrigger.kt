@@ -39,7 +39,10 @@ object BootUnlockTrigger {
     fun armIfLocked(context: Context) {
         val app = context.applicationContext ?: context
         if (DirectBootState.isUserUnlocked(app)) return
-        if (!registered.compareAndSet(false, true)) return
+        if (!registered.compareAndSet(false, true)) {
+            StartupProtectionManager.preAttachBootOverlayIfLocked(app)
+            return
+        }
         StartupProtectionManager.markUnlockTriggerArmed()
         val r = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
@@ -64,6 +67,9 @@ object BootUnlockTrigger {
         if (DirectBootState.isUserUnlocked(app)) {
             mainHandler.post { onUnlockSignal(app, "post_register_recheck") }
         }
+        // 接收器注册完成后再预挂遮罩（addView 可能耗时数百毫秒，不能挡住解锁通道）。
+        // 窗口位于 keyguard 之下，解锁瞬间即就位；失败不影响解锁通道。
+        StartupProtectionManager.preAttachBootOverlayIfLocked(app)
     }
 
     @VisibleForTesting

@@ -111,4 +111,46 @@ class FastLockStartupAccelerationTest {
         assertNotNull(StartupProtectionManager.earlyBootOverlayView)
         assertTrue(StartupProtectionManager.earlyBootFastLockStarted)
     }
+    @Test
+    fun `locked process pre-attaches under keyguard and unlock activates the same view`() {
+        StartupAntiUninstallCache.sync(app, true)
+        Shadows.shadowOf(userManager).setUserUnlocked(false)
+        BootUnlockTrigger.armIfLocked(app)
+
+        val pre = StartupProtectionManager.earlyBootOverlayView
+        assertNotNull(pre)
+        assertFalse(StartupProtectionManager.earlyBootFastLockStarted)
+        assertEquals(0L, StartupProtectionManager.earlyBootOverlayAttachedAtMs)
+
+        Shadows.shadowOf(userManager).setUserUnlocked(true)
+        app.sendBroadcast(Intent(Intent.ACTION_USER_UNLOCKED))
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        assertTrue(pre === StartupProtectionManager.earlyBootOverlayView)
+        assertTrue(StartupProtectionManager.earlyBootFastLockStarted)
+        assertTrue(StartupProtectionManager.earlyBootOverlayAttachedAtMs > 0L)
+    }
+
+    @Test
+    fun `no pre-attach without anti-uninstall mirror`() {
+        StartupAntiUninstallCache.sync(app, false)
+        Shadows.shadowOf(userManager).setUserUnlocked(false)
+        BootUnlockTrigger.armIfLocked(app)
+        assertNull(StartupProtectionManager.earlyBootOverlayView)
+    }
+
+    @Test
+    fun `pre-attached overlay is discarded when CE gate says anti-uninstall is off`() {
+        StartupAntiUninstallCache.sync(app, true)
+        Shadows.shadowOf(userManager).setUserUnlocked(false)
+        BootUnlockTrigger.armIfLocked(app)
+        assertNotNull(StartupProtectionManager.earlyBootOverlayView)
+
+        setAntiUninstall(false)
+        Shadows.shadowOf(userManager).setUserUnlocked(true)
+        app.sendBroadcast(Intent(Intent.ACTION_USER_UNLOCKED))
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(StartupProtectionManager.earlyBootOverlayView)
+    }
 }

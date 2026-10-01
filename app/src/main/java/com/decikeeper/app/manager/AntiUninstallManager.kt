@@ -104,6 +104,13 @@ object AntiUninstallManager {
      * returns the current protection state.
      */
     fun getProtectionState(context: Context): State {
+        val state = computeProtectionState(context)
+        // 同步 Direct Boot 镜像：锁屏期预挂遮罩只能读这个 DPS 镜像（CE 不可用）。
+        StartupAntiUninstallCache.sync(context, shouldShowInitialization(state))
+        return state
+    }
+
+    private fun computeProtectionState(context: Context): State {
         val prefs = getPrefs(context)
         
         // 1) Explicit switch OFF means protection disabled.

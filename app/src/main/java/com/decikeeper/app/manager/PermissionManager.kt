@@ -104,7 +104,16 @@ object PermissionManager {
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         )
-        return enabledServices?.contains(serviceName) == true
+        if (enabledServices?.contains(serviceName) == true) return true
+        return isComponentListed(enabledServices, context.packageName, CoreService::class.java.name)
+    }
+
+    /** 系统（尤其 vivo）可能以短格式 `pkg/.service.CoreService` 保存，按组件名归一化比较。 */
+    internal fun isComponentListed(enabledServices: String?, pkg: String, cls: String): Boolean {
+        val target = android.content.ComponentName(pkg, cls)
+        return enabledServices?.split(':')?.any {
+            android.content.ComponentName.unflattenFromString(it.trim()) == target
+        } == true
     }
     
     /**
