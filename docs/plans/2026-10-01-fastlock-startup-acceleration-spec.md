@@ -108,7 +108,7 @@ flowchart TD
 * 若未拉起过且用户已解锁，直接在当前进程的 MainHandler 中秒级调用 `attachEarlyBootFastLock(this)` 并启动 `FastLockService`。
 
 #### 通道 2：`android.intent.action.USER_UNLOCKED`（Direct Boot 退出瞬间）
-* 在 `AndroidManifest.xml` 中为 `BootReceiver` 显式增加 `<action android:name="android.intent.action.USER_UNLOCKED" />`；
+* ⚠️ **修订（2026-10-01）**：`ACTION_USER_UNLOCKED` 以 `FLAG_RECEIVER_REGISTERED_ONLY` 发送，**manifest 静态声明收不到**，必须在运行中的进程里动态 `registerReceiver`。实现为 `BootUnlockTrigger`（`MyApplication` Direct Boot 分支与 `CoreService.onServiceConnected` 调用 `armIfLocked`）；
 * 当用户在开机锁屏输入完凭据的瞬间，系统立即广播 `USER_UNLOCKED`（比 `BOOT_COMPLETED` 早数秒到十几秒），在此处立即 attach。
 
 #### 通道 3：`android.intent.action.USER_PRESENT`（屏幕解锁瞬间）
@@ -184,3 +184,12 @@ fun shouldKeepInitialization(context: Context): Boolean {
 - [ ] 任何新增的 FastLock 触发通道（含 §4.1 的 `USER_UNLOCKED` / `onServiceConnected`）在 attach 路径上均不读取 CE SharedPreferences / `Settings.Secure` 等未解锁不可用资源；
 - [ ] 新增/保留测试：模拟未解锁（locked）状态下调用 `attachEarlyBootFastLock` 与 `FastLockService` 布局构建，断言不访问 `ThemeManager` 的 SharedPreferences 且使用 `Theme_DeciKeeper`；
 - [ ] 真机冷启动（锁屏未解锁阶段）logcat 无 `FastLockService` / `DeciKeeper` 进程 `FATAL EXCEPTION`，且开机后无约 40 秒的服务重启延迟。
+
+---
+
+## 7. 实施状态（2026-10-01）
+
+* 已实现：`DirectBootState`、`ThemeManager`/`shouldKeepInitialization` 未解锁兜底、`triggerBootFastLock` CAS 统一入口、`BootUnlockTrigger` 动态解锁通道、`CoreService.onServiceConnected` 补充通道、零 IPC attach 门禁与 `[FastLockBoot] phase` 日志；
+* 新增测试：`ThemeManagerDirectBootTest`、`FastLockDirectBootSafetyTest`、`FastLockStartupAccelerationTest`；
+* **待真机验证**：解锁到遮罩 ≤200ms、无 FATAL EXCEPTION、无约 40s 冷冻；`USER_PRESENT` 静态注册在 targetSdk 36 下是否可达待日志确认；
+* 未做：预 inflate（先看阶段耗时数据）、无障碍 CE 初始化解锁后补跑。

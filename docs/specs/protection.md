@@ -452,7 +452,8 @@ Baseline 用于判断一次“关闭”到底是在削弱既有保护，还是�
 - 防卸载为 `PENDING`（待关闭，明日生效）时仍允许显示；
 - 防卸载为 `DISABLED` 时不得因为无障碍服务开启、其他增强开启、配置变更或闹钟流程而显示；
 - 小窗可见性增强、隐私空间保护或闹钟防关机保护单独开启时，不得触发防卸载初始化界面；
-- 初始化/预热界面出现时不得把防卸载状态错误改写为 `DISABLED`，也不得绕过 `PENDING` 的继续保护语义。
+- 初始化/预热界面出现时不得把防卸载状态错误改写为 `DISABLED`，也不得绕过 `PENDING` 的继续保护语义；
+- 用户首次解锁前（Direct Boot）不显示初始化界面、不读取任何 CE 存储（含主题偏好），解锁后立即按同一门禁补挂；统一入口为 `StartupProtectionManager.triggerBootFastLock`，多通道（Application / `USER_UNLOCKED` / 无障碍连接 / `BOOT_COMPLETED`）先到先得、只挂一次。
 
 ### 12.7 设置页验收契约
 

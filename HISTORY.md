@@ -7,6 +7,21 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-34] FastLock 开机提速：Direct Boot 红线与解锁即时触发
+- **背景**：解锁进桌面后，防卸载初始化遮罩要 5~15s 才弹出（依赖低优先级排队的 `BOOT_COMPLETED`）。首次提速尝试在锁屏（Direct Boot）期提前拉起 `FastLockService`，`ThemeManager.currentKey()` 读取 CE SharedPreferences 抛 `IllegalStateException`（`SharedPreferences in credential encrypted storage are not available until after user (id 0) is unlocked`），服务连续崩溃，比基线更慢（约 43s 才恢复）。
+- **决策**：
+  1. **Direct Boot 红线**：未解锁时 FastLock 链路不得访问 CE。`DirectBootState.isUserUnlocked` 为唯一判定；`ThemeManager` 未解锁返回 `Theme_DeciKeeper`；`StartupProtectionManager.shouldKeepInitialization` 未解锁返回 `false`。
+  2. **统一 CAS 入口** `triggerBootFastLock(context, channel)`：未解锁返回 → 只读 DPS 缓存 → CAS 抢占 → attach + 起服务；后到通道只做 reassert。
+  3. **解锁通道**：进程出生于 Direct Boot 时由 `BootUnlockTrigger` 动态注册 `USER_UNLOCKED`/`USER_PRESENT`；`CoreService.onServiceConnected` 在 armed 进程中作为补充通道。
+  4. attach 门禁改为零 IPC（`shouldAttachBootOverlay`：解锁 + DPS 缓存 + 防卸载状态，不查 `Settings.Secure`），并输出 `[FastLockBoot] phase` 阶段耗时日志。
+- **防坑警告**：
+  - `ACTION_USER_UNLOCKED` 只投递给**动态注册**的接收器，manifest 声明无效；
+  - 锁屏期禁止 `startForegroundService(FastLockService)`，任何新通道必须先过 `DirectBootState`；
+  - 「vivo 40 秒冷冻 = 系统崩溃惩罚」的机制**未被证实**（也可能是 `START_STICKY` 重启退避），修复方向不变；
+  - 单测环境不含 Android 资源，无法 inflate `window_fast_lock`，测试经 `StartupProtectionManager.overlayViewFactory` 注入。
+- **未做/待办**：预 inflate（需先用 `[FastLockBoot] phase` 数据确认 `inflateMs` 是否显著）；无障碍在 Direct Boot 期连上时被 CE 异常跳过的 `onServiceConnected` 后续初始化需在解锁后补跑；`CoreService.onUnbind` 锁屏期读 CE、Direct Boot 出生进程不执行 `finishApplicationInit` 为独立问题。
+- 详细方案与真机证据：[docs/plans/2026-10-01-fastlock-startup-acceleration-spec.md](docs/plans/2026-10-01-fastlock-startup-acceleration-spec.md)。
+
 ### [DECISION-33] vivo 快捷支付/超级卡包无障碍重连与 Transient Overlay 代际死锁治理
 - **背景**：在 vivo OriginOS（机型 V2425A 等）上，勿扰时段从屏幕边缘滑出快捷入口/超级卡包（`com.vivo.card`）调起微信支付时，vivo 系统级安全沙盒临时解绑无障碍服务（`onUnbind`，持续约 1.4s）后重新连接。重连后主锁屏虽然重建（generation 从 1 变 2），但因 `LockWindowManager` 中的 transient overlay（`mRestWindow`、`isInputPanelOpen`、`isSettingsPassThrough`）未纳入代际治理且未清理，导致 `isInputPanelOpen` 永久泄露为 true；随后 `MonitorService.checkForegroundApp()` 将 pause 门禁置于最顶部，导致 `currentLockedPkg` 无法重置、前台检测与 `mLastTopResolvedAt` 永久冻结；同时 `CoreService` 在 `isInputPanelOpen` 时 early-return 截断了 `ProtectionManager`，掐死了防卸载与防关权限，但因底层原始 signal 持续更新导致 `PermissionManager` 误判为健康（假健康）。
 - **决策**：
