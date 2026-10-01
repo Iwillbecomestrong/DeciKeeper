@@ -85,7 +85,7 @@ class GlobalParamsActivity : AppCompatActivity() {
         val etBlacklist = findViewById<EditText>(R.id.et_cool_down_blacklist)
         val etBorrowPercent = findViewById<EditText>(R.id.et_borrow_percentage)
         val etTempRestrictedAccessMax = findViewById<EditText>(R.id.et_temp_restricted_access_max_seconds)
-        val etRefreshTime = findViewById<EditText>(R.id.et_refresh_time)
+        val etRefreshTime = findViewById<EditText?>(R.id.et_refresh_time)
         val etNotifyEntryFar = findViewById<EditText>(R.id.et_notify_entry_far)
         val etNotifyEntryNear = findViewById<EditText>(R.id.et_notify_entry_near)
         val etWeeklyPrivilegeCount = findViewById<EditText>(R.id.et_weekly_privilege_limit)
@@ -142,7 +142,7 @@ class GlobalParamsActivity : AppCompatActivity() {
         etBlacklist.setText(pendingStrict.toString())
         etBorrowPercent.setText(pendingBorrow.toString())
         etTempRestrictedAccessMax.setText(formatTemporaryAccessSecondsAsMinutes(pendingTempRestrictedAccessMax))
-        etRefreshTime.setText(pendingRefresh)
+        etRefreshTime?.setText(pendingRefresh)
         etNotifyEntryFar.setText(currentEntryFar.toString())
         etNotifyEntryNear.setText(currentEntryNear.toString())
         etWeeklyPrivilegeCount.setText(pendingPrivilegeCount.toString())
@@ -151,7 +151,7 @@ class GlobalParamsActivity : AppCompatActivity() {
         etPrivWindowEnd.setText(pendingPrivWindowEnd)
 
         if (isLocked) {
-            listOf(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax, etRefreshTime,
+            listOfNotNull(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax, etRefreshTime,
                 etNotifyEntryFar, etNotifyEntryNear, etWeeklyPrivilegeCount, etWeeklyPrivilegeDuration,
                 etPrivWindowStart, etPrivWindowEnd).forEach { it.isEnabled = false }
             rbPolicyFavorable?.isEnabled = false
@@ -179,23 +179,23 @@ class GlobalParamsActivity : AppCompatActivity() {
             }
         } else if (!isLocked) cardPending.visibility = android.view.View.GONE else tvPending.text = ""
 
-        val switchSync = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_refresh_sync)
-        val tvSyncHint = findViewById<android.widget.TextView>(R.id.tv_refresh_sync_hint)
+        val switchSync = findViewById<androidx.appcompat.widget.SwitchCompat?>(R.id.switch_refresh_sync)
+        val tvSyncHint = findViewById<android.widget.TextView?>(R.id.tv_refresh_sync_hint)
         val isSynced = TimeRuleManager.isRefreshTimeSynced(this)
-        switchSync.isChecked = isSynced
-        tvSyncHint.visibility = if (isSynced) android.view.View.VISIBLE else android.view.View.GONE
-        etRefreshTime.isEnabled = !isSynced
+        switchSync?.isChecked = isSynced
+        tvSyncHint?.visibility = if (isSynced) android.view.View.VISIBLE else android.view.View.GONE
+        etRefreshTime?.isEnabled = !isSynced
 
         fun syncWithFirstSegment() {
             val segments = TimeRuleManager.getPendingTimeSegments(this) ?: TimeRuleManager.getTimeSegments(this)
             val formatted = TimeRuleManager.findRefreshTimeFromSegments(segments)
-            etRefreshTime.setText(formatted)
-            tvSyncHint.text = "当前自动同步为：$formatted（跟随 04:00~12:00 内最早结束的勿扰时段）"
+            etRefreshTime?.setText(formatted)
+            tvSyncHint?.text = "当前自动同步为：$formatted（跟随 04:00~12:00 内最早结束的勿扰时段）"
         }
         if (isSynced) syncWithFirstSegment()
-        switchSync.setOnCheckedChangeListener { _, checked ->
-            etRefreshTime.isEnabled = !checked
-            tvSyncHint.visibility = if (checked) android.view.View.VISIBLE else android.view.View.GONE
+        switchSync?.setOnCheckedChangeListener { _, checked ->
+            etRefreshTime?.isEnabled = !checked
+            tvSyncHint?.visibility = if (checked) android.view.View.VISIBLE else android.view.View.GONE
             if (checked) syncWithFirstSegment()
         }
         layoutPrivWindowInputs.visibility = android.view.View.VISIBLE
@@ -203,10 +203,10 @@ class GlobalParamsActivity : AppCompatActivity() {
 
         val btnSave = findViewById<android.view.View>(R.id.btn_save)
         if (isLocked) {
-            switchSync.isEnabled = false
+            switchSync?.isEnabled = false
             btnSave.isEnabled = false
             btnSave.alpha = 0.5f
-            etRefreshTime.isEnabled = false
+            etRefreshTime?.isEnabled = false
         }
 
         btnSave.setOnClickListener {
@@ -227,8 +227,8 @@ class GlobalParamsActivity : AppCompatActivity() {
 
             val newNotifyFar = etNotifyEntryFar.text.toString().toIntOrNull() ?: currentEntryFar
             val newNotifyNear = etNotifyEntryNear.text.toString().toIntOrNull() ?: currentEntryNear
-            var newRefreshTime = etRefreshTime.text.toString().trim()
-            if (switchSync.isChecked) {
+            var newRefreshTime = etRefreshTime?.text?.toString()?.trim() ?: TimeRuleManager.getRefreshTime(this)
+            if (switchSync?.isChecked == true) {
                 val segments = TimeRuleManager.getPendingTimeSegments(this) ?: TimeRuleManager.getTimeSegments(this)
                 newRefreshTime = TimeRuleManager.findRefreshTimeFromSegments(segments)
             }
@@ -260,7 +260,7 @@ class GlobalParamsActivity : AppCompatActivity() {
             }
             newPrivWindowStart = formatTime(newPrivWindowStart)
             newPrivWindowEnd = formatTime(newPrivWindowEnd)
-            TimeRuleManager.setRefreshTimeSynced(this, switchSync.isChecked)
+            TimeRuleManager.setRefreshTimeSynced(this, switchSync?.isChecked == true)
             TimeRuleManager.setPrivilegeWindowSynced(this, false)
             val oldPolicy = EffectiveActivationPolicyManager.getPolicy(this)
             val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
@@ -293,11 +293,11 @@ class GlobalParamsActivity : AppCompatActivity() {
         if (promoted.isNotEmpty()) {
             Toast.makeText(this, "已晋升 ${promoted.size} 个配置项为新基准", Toast.LENGTH_SHORT).show(); recreate(); return
         }
-        val switchSync = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_refresh_sync)
+        val switchSync = findViewById<androidx.appcompat.widget.SwitchCompat?>(R.id.switch_refresh_sync)
         if (switchSync != null && switchSync.isChecked) {
             val segments = TimeRuleManager.getPendingTimeSegments(this) ?: TimeRuleManager.getTimeSegments(this)
             val derived = TimeRuleManager.findRefreshTimeFromSegments(segments)
-            findViewById<EditText>(R.id.et_refresh_time).setText(derived)
+            findViewById<EditText?>(R.id.et_refresh_time)?.setText(derived)
         }
         setupUI(TimeRuleManager.isTimeRuleEditLocked(this))
     }

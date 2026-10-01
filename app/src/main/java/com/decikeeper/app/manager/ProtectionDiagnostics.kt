@@ -61,6 +61,13 @@ object ProtectionDiagnostics {
 
     fun dumpSnapshot(context: Context, trigger: String) {
         val appContext = context.applicationContext ?: context
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            val userManager = appContext.getSystemService(android.os.UserManager::class.java)
+            if (userManager != null && !userManager.isUserUnlocked) {
+                Log.w(TAG, "[SNAPSHOT_SKIPPED] Device in Direct Boot (user locked). Trigger: $trigger")
+                return
+            }
+        }
         val now = System.currentTimeMillis()
         val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(Date(now))
         val uptimeMs = SystemClock.uptimeMillis()

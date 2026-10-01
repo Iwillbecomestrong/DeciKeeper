@@ -240,6 +240,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.PermissionsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.DeciKeeper" />
+
+        <activity
             android:name=".ui.AlarmEmergencyWhitelistPickerActivity"
             android:exported="false"
             android:label="闹钟挑战应急白名单" />

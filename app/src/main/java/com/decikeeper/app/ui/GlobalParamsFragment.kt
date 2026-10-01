@@ -11,11 +11,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import com.decikeeper.app.R
 import com.decikeeper.app.data.AdverseAnalysis
-import com.decikeeper.app.manager.BoundaryResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
-import com.decikeeper.app.manager.MinuteBoundary
 import com.decikeeper.app.manager.ProbationManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
@@ -54,12 +52,6 @@ class GlobalParamsFragment : Fragment() {
             reloadData()
             return
         }
-        val switchSync = view?.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_refresh_sync)
-        if (switchSync?.isChecked == true) {
-            val segments = TimeRuleManager.getPendingTimeSegments(context) ?: TimeRuleManager.getTimeSegments(context)
-            val derived = TimeRuleManager.findRefreshTimeFromSegments(segments)
-            view?.findViewById<EditText>(R.id.et_refresh_time)?.setText(derived)
-        }
         setupUI(TimeRuleManager.isTimeRuleEditLocked(context))
     }
 
@@ -75,7 +67,6 @@ class GlobalParamsFragment : Fragment() {
         val etBlacklist = root.findViewById<EditText>(R.id.et_cool_down_blacklist)
         val etBorrowPercent = root.findViewById<EditText>(R.id.et_borrow_percentage)
         val etTempRestrictedAccessMax = root.findViewById<EditText>(R.id.et_temp_restricted_access_max_seconds)
-        val etRefreshTime = root.findViewById<EditText>(R.id.et_refresh_time)
         val etNotifyEntryFar = root.findViewById<EditText>(R.id.et_notify_entry_far)
         val etNotifyEntryNear = root.findViewById<EditText>(R.id.et_notify_entry_near)
         val etWeeklyPrivilegeCount = root.findViewById<EditText>(R.id.et_weekly_privilege_limit)
@@ -95,7 +86,6 @@ class GlobalParamsFragment : Fragment() {
         val currentPrivWindowStart = TimeRuleManager.getPrivilegeWindowStart(context)
         val currentPrivWindowEnd = TimeRuleManager.getPrivilegeWindowEnd(context)
         val currentStrict = TimeRuleManager.getStrictPenaltyDurationSeconds(context)
-        val currentRefreshTime = TimeRuleManager.getRefreshTime(context)
         val hasPending = TimeRuleManager.hasPendingRules(context)
 
         fun getPendingInt(key: String, fallback: Int): Int {
@@ -111,9 +101,6 @@ class GlobalParamsFragment : Fragment() {
         val pendingPrivilegeDuration = if (CreditManager.hasPendingWeeklyPrivilegeLimit(context)) CreditManager.getPendingWeeklyPrivilegeDurationLimit(context) else currentPrivilegeDuration
         val pendingPrivWindowStart = TimeRuleManager.getPendingPrivilegeWindowStart(context) ?: currentPrivWindowStart
         val pendingPrivWindowEnd = TimeRuleManager.getPendingPrivilegeWindowEnd(context) ?: currentPrivWindowEnd
-        val hasCustomRefreshTime = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE).contains("config_refresh_time")
-        val defaultRefreshTime = if (hasCustomRefreshTime) currentRefreshTime else "07:30"
-        val pendingRefresh = if (hasPending) TimeRuleManager.getPendingRefreshTime(context) ?: defaultRefreshTime else defaultRefreshTime
         val pendingStrict = if (hasPending) TimeRuleManager.getPendingStrictPenaltyDurationSeconds(context) ?: currentStrict else currentStrict
 
         val rgEffectivePolicy = root.findViewById<android.widget.RadioGroup>(R.id.rg_effective_policy)
@@ -132,7 +119,6 @@ class GlobalParamsFragment : Fragment() {
         etBlacklist.setText(pendingStrict.toString())
         etBorrowPercent.setText(pendingBorrow.toString())
         etTempRestrictedAccessMax.setText(formatTemporaryAccessSecondsAsMinutes(pendingTempRestrictedAccessMax))
-        etRefreshTime.setText(pendingRefresh)
         etNotifyEntryFar.setText(currentEntryFar.toString())
         etNotifyEntryNear.setText(currentEntryNear.toString())
         etWeeklyPrivilegeCount.setText(pendingPrivilegeCount.toString())
@@ -141,7 +127,7 @@ class GlobalParamsFragment : Fragment() {
         etPrivWindowEnd.setText(pendingPrivWindowEnd)
 
         if (isLocked) {
-            listOf(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax, etRefreshTime,
+            listOf(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax,
                 etNotifyEntryFar, etNotifyEntryNear, etWeeklyPrivilegeCount, etWeeklyPrivilegeDuration,
                 etPrivWindowStart, etPrivWindowEnd).forEach { it.isEnabled = false }
             rbPolicyFavorable?.isEnabled = false
@@ -169,34 +155,13 @@ class GlobalParamsFragment : Fragment() {
             }
         } else if (!isLocked) cardPending.visibility = View.GONE else tvPending.text = ""
 
-        val switchSync = root.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_refresh_sync)
-        val tvSyncHint = root.findViewById<android.widget.TextView>(R.id.tv_refresh_sync_hint)
-        val isSynced = TimeRuleManager.isRefreshTimeSynced(context)
-        switchSync.isChecked = isSynced
-        tvSyncHint.visibility = if (isSynced) View.VISIBLE else View.GONE
-        etRefreshTime.isEnabled = !isSynced
-
-        fun syncWithFirstSegment() {
-            val segments = TimeRuleManager.getPendingTimeSegments(context) ?: TimeRuleManager.getTimeSegments(context)
-            val formatted = TimeRuleManager.findRefreshTimeFromSegments(segments)
-            etRefreshTime.setText(formatted)
-            tvSyncHint.text = "当前自动同步为：$formatted（跟随 04:00~12:00 内最早结束的勿扰时段）"
-        }
-        if (isSynced) syncWithFirstSegment()
-        switchSync.setOnCheckedChangeListener { _, checked ->
-            etRefreshTime.isEnabled = !checked
-            tvSyncHint.visibility = if (checked) View.VISIBLE else View.GONE
-            if (checked) syncWithFirstSegment()
-        }
         layoutPrivWindowInputs.visibility = View.VISIBLE
         TimeRuleManager.setPrivilegeWindowSynced(context, false)
 
         val btnSave = root.findViewById<View>(R.id.btn_save)
         if (isLocked) {
-            switchSync.isEnabled = false
             btnSave.isEnabled = false
             btnSave.alpha = 0.5f
-            etRefreshTime.isEnabled = false
         }
 
         btnSave.setOnClickListener {
@@ -217,27 +182,6 @@ class GlobalParamsFragment : Fragment() {
 
             val newNotifyFar = etNotifyEntryFar.text.toString().toIntOrNull() ?: currentEntryFar
             val newNotifyNear = etNotifyEntryNear.text.toString().toIntOrNull() ?: currentEntryNear
-            var newRefreshTime = etRefreshTime.text.toString().trim()
-            if (switchSync.isChecked) {
-                val segments = TimeRuleManager.getPendingTimeSegments(context) ?: TimeRuleManager.getTimeSegments(context)
-                newRefreshTime = TimeRuleManager.findRefreshTimeFromSegments(segments)
-            }
-            if (newRefreshTime.contains(":")) {
-                val parts = newRefreshTime.split(":")
-                if (parts.size == 2) newRefreshTime = String.format("%02d:%02d", parts[0].toIntOrNull() ?: 0, parts[1].toIntOrNull() ?: 0)
-            }
-            if (newRefreshTime < "04:00" || newRefreshTime > "12:00") {
-                Toast.makeText(context, "生效时间必须在 04:00 - 12:00 之间", Toast.LENGTH_SHORT).show(); return@setOnClickListener
-            }
-            val effectiveSegments = TimeRuleManager.getPendingTimeSegments(context) ?: TimeRuleManager.getTimeSegments(context)
-            val candidateMinutes = GlobalParamsActivity.parseRefreshTimeToMinutes(newRefreshTime)
-            if (candidateMinutes == null) { Toast.makeText(context, "生效时间格式无效", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-            val preflight = MinuteBoundary.isRefreshLegal(candidateMinutes, effectiveSegments)
-            if (preflight is BoundaryResult.Rejected) {
-                android.util.Log.w("GlobalParamsFragment", "Refresh preflight REJECTED candidate=$newRefreshTime (${candidateMinutes}m) reason=${preflight.reason}")
-                AlertDialog.Builder(context).setTitle("生效时间配置不当").setMessage("refresh time 必须配置在空档期或 DND 时段边界").setPositiveButton("我知道了", null).show()
-                return@setOnClickListener
-            }
 
             var newPrivWindowStart = etPrivWindowStart.text.toString().trim()
             var newPrivWindowEnd = etPrivWindowEnd.text.toString().trim()
@@ -250,7 +194,6 @@ class GlobalParamsFragment : Fragment() {
             }
             newPrivWindowStart = formatTime(newPrivWindowStart)
             newPrivWindowEnd = formatTime(newPrivWindowEnd)
-            TimeRuleManager.setRefreshTimeSynced(context, switchSync.isChecked)
             TimeRuleManager.setPrivilegeWindowSynced(context, false)
             val oldPolicy = EffectiveActivationPolicyManager.getPolicy(context)
             val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
@@ -262,9 +205,10 @@ class GlobalParamsFragment : Fragment() {
             if (policyChanged) {
                 EffectiveActivationPolicyManager.setPolicy(context, selectedPolicy)
             }
+            val preservedRefreshTime = TimeRuleManager.getPendingRefreshTime(context) ?: TimeRuleManager.getRefreshTime(context)
             val result = TimeRuleManager.analyzeAndSaveGlobalParams(
                 context, newRest, newGap, newLockDuration, newBorrow, newNotifyFar, newNotifyNear,
-                newWeeklyCount, newWeeklyDuration, newRefreshTime, newTempRestrictedAccessMax,
+                newWeeklyCount, newWeeklyDuration, preservedRefreshTime, newTempRestrictedAccessMax,
                 newPrivWindowStart, newPrivWindowEnd
             )
             if (policyChanged && result is com.decikeeper.app.data.AnalysisResult.NoChange) {

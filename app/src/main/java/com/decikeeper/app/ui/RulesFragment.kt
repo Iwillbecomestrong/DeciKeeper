@@ -218,6 +218,9 @@ class RulesFragment : Fragment() {
     private var tvUninstallAndPermProtectionStatus: TextView? = null
     private var switchFloatingWindowProtection: Switch? = null
     private var tvFloatingWindowProtectionStatus: TextView? = null
+    private var cardBasicPermissions: View? = null
+    private var tvBasicPermissionsStatus: TextView? = null
+    private var tvBasicPermissionsBadge: TextView? = null
     private var tvAccessibilityStatus: TextView? = null
     private var switchAccessibilityService: Switch? = null
     private var switchAlarmPowerOffProtection: Switch? = null
@@ -307,6 +310,7 @@ class RulesFragment : Fragment() {
             caller = "RulesFragment.onResume"
         )
         updateAccessibilityServiceUI()
+        updateBasicPermissionsUI()
         updateEditWindowPolicyUI()
         updateRefreshTimeUI()
         updateAlarmPowerOffProtectionUI()
@@ -334,6 +338,13 @@ class RulesFragment : Fragment() {
     }
 
     private fun initViews(view: View) {
+        cardBasicPermissions = view.findViewById(R.id.card_basic_permissions)
+        tvBasicPermissionsStatus = view.findViewById(R.id.tv_basic_permissions_status)
+        tvBasicPermissionsBadge = view.findViewById(R.id.tv_basic_permissions_badge)
+        cardBasicPermissions?.setOnClickListener {
+            val intent = Intent(requireContext(), PermissionsActivity::class.java)
+            startActivity(intent)
+        }
         switchRefreshSyncRules = view.findViewById(R.id.switch_refresh_sync_rules)
         tvRefreshSyncHintRules = view.findViewById(R.id.tv_refresh_sync_hint_rules)
         tvRefreshTimeValueRules = view.findViewById(R.id.tv_refresh_time_value_rules)
@@ -2952,6 +2963,52 @@ class RulesFragment : Fragment() {
         val immediate = TimeRuleManager.isInAdaptationPeriod(ctx) || !TimeRuleManager.getBaselineA11yServiceState(ctx)
         AccessibilityControlManager.setEnabled(ctx, false)
         return immediate
+    }
+
+    private fun getBasicPermissionsOverview(ctx: Context): Pair<Int, Int> {
+        var ready = 0
+        var total = 0
+
+        // 一、基础运行
+        // 1. 悬浮窗
+        total++
+        if (PermissionManager.hasOverlayPermission(ctx)) ready++
+
+        // 2. 通知
+        total++
+        if (PermissionManager.hasNotificationPermission(ctx)) ready++
+
+        // 3. 后台耗电管理
+        total++
+        if (PermissionManager.isBatteryOptimizationExempt(ctx)) ready++
+
+        // 三、时间规则
+        // 4. 使用情况访问
+        total++
+        if (PermissionManager.hasUsageStatsPermission(ctx)) ready++
+
+        return ready to total
+    }
+
+    private fun updateBasicPermissionsUI() {
+        if (!isAdded) return
+        val ctx = context ?: return
+        val (ready, total) = getBasicPermissionsOverview(ctx)
+
+        if (ready == total) {
+            tvBasicPermissionsStatus?.text = "基础运行与核心识别权限已就绪"
+            tvBasicPermissionsBadge?.apply {
+                text = "已就绪 ✓"
+                setTextColor(android.graphics.Color.parseColor("#388E3C"))
+            }
+        } else {
+            val missing = total - ready
+            tvBasicPermissionsStatus?.text = "有 ${missing} 项核心基础设置待开启，点击查看与配置"
+            tvBasicPermissionsBadge?.apply {
+                text = "${ready}/${total} 项 ›"
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
+            }
+        }
     }
 
     private fun openAppDetailsSettings() {

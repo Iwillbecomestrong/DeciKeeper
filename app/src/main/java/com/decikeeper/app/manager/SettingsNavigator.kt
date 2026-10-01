@@ -49,6 +49,10 @@ object SettingsNavigator {
 
     fun isVivoOrIqoo(): Boolean = OemManager.current.brandName == "vivo"
 
+    fun isChineseRomDevice(): Boolean =
+        isXiaomiOrRedmi() || isHuaweiOrHonor() || isOppoOrOnePlusOrRealme() || isVivoOrIqoo() ||
+                manufacturer.contains("meizu") || brand.contains("meizu")
+
     fun isMeizu(): Boolean =
         manufacturer.contains("meizu") || brand.contains("meizu")
 

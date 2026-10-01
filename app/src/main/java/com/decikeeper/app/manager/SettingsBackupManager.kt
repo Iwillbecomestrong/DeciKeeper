@@ -166,13 +166,23 @@ object SettingsBackupManager {
         "bg_popup_confirmed_at",              // decikeeper_ledger
         "assoc_start_confirmed",              // decikeeper_ledger 权限确认
         "assoc_start_confirmed_at",           // decikeeper_ledger
+        "bg_battery_confirmed",               // decikeeper_ledger 后台高耗电确认
+        "bg_battery_confirmed_at",            // decikeeper_ledger
+        "bg_battery_permission_confirmed",   // decikeeper_ledger
+        "recents_lock_confirmed",             // decikeeper_ledger 多任务卡片加锁
+        "recents_lock_confirmed_at",          // decikeeper_ledger
+        "sleep_standby_confirmed",            // alarm_prefs 睡眠待机优化
+        "vivo_sleep_standby_confirmed",       // alarm_prefs
+        "lock_screen_display_confirmed",      // alarm_prefs
         "manual_permission_last_ask_auto_start",
         "manual_permission_last_ask_bg_popup",
         "manual_permission_last_ask_assoc_start",
+        "manual_permission_last_ask_bg_battery",
         "manual_permission_prompt_primed",
         "manual_permission_settings_visit_at_auto_start",
         "manual_permission_settings_visit_at_bg_popup",
-        "manual_permission_settings_visit_at_assoc_start"
+        "manual_permission_settings_visit_at_assoc_start",
+        "manual_permission_settings_visit_at_bg_battery"
     )
 
     private val CORE_PREF_NAMES = listOf(
@@ -612,11 +622,11 @@ object SettingsBackupManager {
             if (!writtenTargets.add(targetName)) continue
 
             val rawDecoded = try { decodeEntries(file.getJSONObject("entries")) } catch (_: Exception) { continue }
-            val rawValues = if (!allSelected && allowedFileKeys[name] != null) {
+            val rawValues = (if (!allSelected && allowedFileKeys[name] != null) {
                 filterKeys(rawDecoded, allowedFileKeys[name]!!)
             } else {
                 rawDecoded
-            }
+            }).filterKeys { it !in EXCLUDED_KEYS }
             if (rawValues.isEmpty()) continue
 
             fileCount++
@@ -950,6 +960,9 @@ object SettingsBackupManager {
 
         // 2. 遍历其余键
         for ((key, value) in rawValues) {
+            if (key in EXCLUDED_KEYS) {
+                continue // 严禁导入任何权限确认与设备特有键
+            }
             if (key == "weekly_privilege_count_limit_v2" || key == "weekly_privilege_duration_limit_v2") {
                 continue
             }

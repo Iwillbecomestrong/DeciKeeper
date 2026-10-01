@@ -204,13 +204,41 @@ class RulesSettingsUiContractTest {
         val syncTime = com.decikeeper.app.manager.TimeRuleManager.findRefreshTimeFromSegments(segments)
         org.junit.Assert.assertEquals("07:30", syncTime)
 
+        val rulesFragmentSource = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
+        assertTrue(rulesFragmentSource.contains("findRefreshTimeFromSegments"))
+        assertFalse(rulesFragmentSource.contains("firstSeg.startHour, firstSeg.startMinute"))
+
         val globalParamsFragmentSource = source("app/src/main/java/com/decikeeper/app/ui/GlobalParamsFragment.kt")
-        assertTrue(globalParamsFragmentSource.contains("findRefreshTimeFromSegments"))
-        assertFalse(globalParamsFragmentSource.contains("firstSeg.startHour, firstSeg.startMinute"))
+        assertFalse(globalParamsFragmentSource.contains("et_refresh_time"))
+        assertFalse(globalParamsFragmentSource.contains("switch_refresh_sync"))
 
         val globalParamsActivitySource = source("app/src/main/java/com/decikeeper/app/ui/GlobalParamsActivity.kt")
         assertTrue(globalParamsActivitySource.contains("findRefreshTimeFromSegments"))
         assertFalse(globalParamsActivitySource.contains("firstSeg.startHour, firstSeg.startMinute"))
+    }
+
+    @Test
+    fun basicPermissionsCardNavigatesToPermissionsActivity() {
+        val rulesSource = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
+        val rulesXml = source("app/src/main/res/layout/fragment_rules.xml")
+        assertTrue(rulesXml.contains("@+id/card_basic_permissions"))
+        assertTrue(rulesSource.contains("PermissionsActivity::class.java"))
+
+        val permActivitySource = source("app/src/main/java/com/decikeeper/app/ui/PermissionsActivity.kt")
+        assertTrue(permActivitySource.contains("ThemeManager.apply(this)"))
+        assertTrue(permActivitySource.contains("一、基础运行（日常拦截与常驻保活）"))
+        assertTrue(permActivitySource.contains("二、挑战闹钟（防漏响与起床核验）"))
+        assertTrue(permActivitySource.contains("三、时间规则（应用使用识别）"))
+        assertTrue(permActivitySource.contains("四、增强能力（高级防绕过，按需开启）"))
+
+        // 契约：自启动、关联启动等系统无法识别的权限使用 CheckBox 矩阵框
+        assertTrue(permActivitySource.contains("PermItem.Manual"))
+        assertTrue(permActivitySource.contains("val checkBox = CheckBox(ctx)"))
+        assertTrue(permActivitySource.contains("auto_start_confirmed"))
+        assertTrue(permActivitySource.contains("assoc_start_confirmed"))
+
+        // 契约：设备管理器仅在适配推荐机型（如 OPPO）展示，vivo 等机型默认隐藏
+        assertTrue(permActivitySource.contains("isDeviceAdminRecommended"))
     }
 
     private fun source(path: String): String {

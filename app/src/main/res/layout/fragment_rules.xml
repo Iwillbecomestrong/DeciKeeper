@@ -243,6 +243,55 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <!-- 基础权限与系统设置（前置卡片） -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_basic_permissions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            app:cardBackgroundColor="?attr/zzSurface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="基础权限与系统设置"
+                        android:textColor="?attr/zzText"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tv_basic_permissions_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="悬浮窗、使用情况、后台保活等状态"
+                        android:textColor="?attr/zzMuted"
+                        android:textSize="11sp" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/tv_basic_permissions_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/zzAccent"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

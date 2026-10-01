@@ -388,6 +388,18 @@ class AlarmDirectBootRecoveryTest {
     }
 
     @Test
+    fun `dumpSnapshot skips execution when device is locked in direct boot`() {
+        val userManager = context.getSystemService(UserManager::class.java)
+        Shadows.shadowOf(userManager).setUserUnlocked(false)
+        try {
+            // Must not throw IllegalStateException or any exception when user is locked
+            ProtectionDiagnostics.dumpSnapshot(context, "DirectBootTest")
+        } finally {
+            Shadows.shadowOf(userManager).setUserUnlocked(true)
+        }
+    }
+
+    @Test
     fun `cancelAlarm cancels kind-aware pending intent identity`() {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val operation = AlarmScheduler.buildPendingIntent(

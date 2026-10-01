@@ -3344,6 +3344,54 @@ class MonitorService : Service() {
             }
         }
 
+        // [Diagnostics-only] Section III: RAW UsageEvents 诊断 (180s 窗口观察)
+        val diagEvents180 = try { usm.queryEvents(time - 180000L, time) } catch (_: Exception) { null }
+        val shouldLogRawEvents = !foundRelevantEvent || calculatedTop == null || mLastTopPackage == "com.anthropic.claude"
+        val eventsDiag = ForegroundDiagnosticTracker.analyzeAndLogUsageEvents(
+            checkedAtMs = time,
+            events180s = diagEvents180,
+            businessWindowMs = 30000L,
+            diagnosticWindowMs = 180000L,
+            eventsBusinessResult = if (foundRelevantEvent) calculatedTop else null,
+            shouldLogRawEvents = shouldLogRawEvents
+        )
+
+        fun traceAndReturn(
+            result: String?,
+            evidence: TopPackageEvidence,
+            finalReason: String
+        ): String? {
+            mLastTopEvidence = evidence
+            mLastTopResolvedAt = time
+            val statsSummary = ForegroundDiagnosticTracker.lastUsageStatsDiagSummary
+            val a11ySnapshot = CoreService.captureWindowSnapshot(time)
+            val a11yVisiblePkgs = a11ySnapshot.packages.ifEmpty { CoreService.lastVisiblePackagesFromWindows }
+            val a11yClaudeVisible = a11yVisiblePkgs.contains("com.anthropic.claude")
+
+            ForegroundDiagnosticTracker.logResolveTrace(
+                checkedAtMs = time,
+                result = result,
+                selectedSource = evidence.name,
+                eventsBusinessResult = if (foundRelevantEvent) calculatedTop else null,
+                eventsDiagnosticLastFgPkg = eventsDiag.diagnosticLastFgPkg,
+                eventsDiagnosticLastFgAgeMs = eventsDiag.diagnosticLastFgAgeMs,
+                usageStatsRawClaudePresent = statsSummary?.claudePresentInRaw ?: false,
+                usageStatsClaudeAccepted = statsSummary?.claudeAccepted ?: false,
+                usageStatsClaudeRejectReason = statsSummary?.claudeRejectReason ?: "NOT_QUERIED",
+                a11yClaudeVisible = a11yClaudeVisible,
+                a11yLastEventPkg = CoreService.diagnosticsLastEligibleEventPackage,
+                cachePkg = mLastTopPackage,
+                cacheAgeMs = if (mLastTopResolvedAt > 0) time - mLastTopResolvedAt else -1L,
+                finalReason = finalReason
+            )
+
+            if (result == null) {
+                ForegroundDiagnosticTracker.logRawAccessibilityEvidence("FOREGROUND_RESOLVER_NULL")
+            }
+
+            return result
+        }
+
         // 2. If we found relevant events, update cache and return
         if (foundRelevantEvent) {
             mLastTopPackage = calculatedTop
@@ -3357,7 +3405,7 @@ class MonitorService : Service() {
                 selectionReason = "EVENTS_QUERY",
                 status = if (calculatedTop != null) ForegroundSourceStatus.AVAILABLE else ForegroundSourceStatus.UNAVAILABLE
             )
-            return calculatedTop
+            return traceAndReturn(calculatedTop, TopPackageEvidence.EVENTS, "EVENTS_BUSINESS_MATCH")
         }
 
         // 3. If NO events in last 30s, use queryUsageStats to cross-validate cache
@@ -3379,7 +3427,7 @@ class MonitorService : Service() {
                 selectionReason = null,
                 status = ForegroundSourceStatus.UNAVAILABLE
             )
-            return mLastTopPackage
+            return traceAndReturn(mLastTopPackage, TopPackageEvidence.USAGE_STATS, "EVENTS_EMPTY_30S->USAGE_STATS_MATCH")
         }
         
         // 4. queryUsageStats 也没有结果，使用缓存
@@ -3402,7 +3450,7 @@ class MonitorService : Service() {
                 selectionReason = null,
                 status = ForegroundSourceStatus.UNAVAILABLE
             )
-            return mLastTopPackage
+            return traceAndReturn(mLastTopPackage, TopPackageEvidence.CACHE, "EVENTS_EMPTY_30S->STATS_EMPTY->CACHE_HIT")
         }
 
         // 5. Initialization Case: Cache is null and no recent events (service restart?).
@@ -3423,7 +3471,7 @@ class MonitorService : Service() {
                 candidates = emptyList(), selectionReason = null,
                 status = ForegroundSourceStatus.UNAVAILABLE
             )
-            return null
+            return traceAndReturn(null, TopPackageEvidence.NONE, "EVENTS_EMPTY_30S->STATS_EMPTY->CACHE_NULL->HISTORY_COOLDOWN")
         }
         mLastHistoryQueryTime = time
         Log.d(TAG, "[getTopPackageName] Cache empty & no recent events. Querying history (12h)...")
@@ -3467,7 +3515,7 @@ class MonitorService : Service() {
                 candidates = emptyList(), selectionReason = null,
                 status = ForegroundSourceStatus.UNAVAILABLE
             )
-            return historyTop
+            return traceAndReturn(historyTop, TopPackageEvidence.HISTORY, "EVENTS_EMPTY_30S->STATS_EMPTY->CACHE_NULL->HISTORY_MATCH")
         }
 
         Log.w(TAG, "[getTopPackageName] No foreground app detected via Events/UsageStats/History. Returning null.")
@@ -3484,7 +3532,7 @@ class MonitorService : Service() {
             candidates = emptyList(), selectionReason = null,
             status = ForegroundSourceStatus.UNAVAILABLE
         )
-        return null
+        return traceAndReturn(null, TopPackageEvidence.NONE, "EVENTS_EMPTY_30S->STATS_EMPTY->CACHE_NULL->HISTORY_EMPTY")
     }
 
     /**
@@ -3525,6 +3573,14 @@ class MonitorService : Service() {
         }
         mLastStatsQueryFinishedAtMs = System.currentTimeMillis()
         if (stats.isNullOrEmpty()) {
+            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
+                now = now,
+                rawStats = stats,
+                recentActive = emptyList(),
+                selectedPkg = null,
+                carrierNoisePackages = usageCarrierNoisePackages,
+                isLauncher = { CreditManager.isLauncher(it) }
+            )
             // [Diagnostics-only] UsageStats returned nothing
             pushUsageStatsSnapshotToCycle(
                 packageName = null, eventTimeMs = 0L,
@@ -3555,7 +3611,17 @@ class MonitorService : Service() {
             isActive && stat.totalTimeInForeground > 0
         }
 
-        if (recentActive.isEmpty()) return null
+        if (recentActive.isEmpty()) {
+            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
+                now = now,
+                rawStats = stats,
+                recentActive = emptyList(),
+                selectedPkg = null,
+                carrierNoisePackages = usageCarrierNoisePackages,
+                isLauncher = { CreditManager.isLauncher(it) }
+            )
+            return null
+        }
 
         // 🔧 [Fix] 优先选择非launcher/非系统UI的应用
         // 避免 launcher 因为后台活动被排在前面
@@ -3575,6 +3641,14 @@ class MonitorService : Service() {
             .maxByOrNull(timeSelector)
 
         if (nonLauncher != null) {
+            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
+                now = now,
+                rawStats = stats,
+                recentActive = recentActive,
+                selectedPkg = nonLauncher.packageName,
+                carrierNoisePackages = usageCarrierNoisePackages,
+                isLauncher = { CreditManager.isLauncher(it) }
+            )
             mLastTopUsageStatTs = timeSelector(nonLauncher)
             // [Diagnostics-only] push real UsageStats snapshot. Sort newest-first so
             // take(3) returns the actual 3 most recent candidates, not 3 arbitrary entries.
@@ -3612,6 +3686,14 @@ class MonitorService : Service() {
         mLastTopUsageStatTs = fallback?.let { timeSelector(it) } ?: 0L
 
         if (fallback != null) {
+            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
+                now = now,
+                rawStats = stats,
+                recentActive = recentActive,
+                selectedPkg = fallback.packageName,
+                carrierNoisePackages = usageCarrierNoisePackages,
+                isLauncher = { CreditManager.isLauncher(it) }
+            )
             // [Diagnostics-only] push UsageStats snapshot for fallback. Sorted.
             val candidates = recentActive
                 .sortedByDescending { timeSelector(it) }

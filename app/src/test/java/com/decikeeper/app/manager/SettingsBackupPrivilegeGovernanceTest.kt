@@ -279,4 +279,59 @@ class SettingsBackupPrivilegeGovernanceTest {
         assertTrue("本地特权流水记录必须被保留", ids.contains(localRecord.id))
         assertTrue("备份中的流水记录必须被合并入库", ids.contains("rest_backup_historical_1"))
     }
+
+    @Test
+    fun testPermissionStateAndHardwareConfirmationKeys_neverImported() {
+        val ledgerPrefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+        val alarmPrefs = context.getSharedPreferences("alarm_prefs", Context.MODE_PRIVATE)
+        ledgerPrefs.edit().clear().commit()
+        alarmPrefs.edit().clear().commit()
+
+        val backupJson = JSONObject().apply {
+            put("type", "decikeeper_settings_backup")
+            put("schemaVersion", 2)
+            put("preferenceFiles", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("name", "decikeeper_ledger")
+                    put("entries", JSONObject().apply {
+                        put("bg_battery_confirmed", JSONObject().apply { put("type", "Boolean"); put("value", true) })
+                        put("auto_start_confirmed", JSONObject().apply { put("type", "Boolean"); put("value", true) })
+                        put("assoc_start_confirmed", JSONObject().apply { put("type", "Boolean"); put("value", true) })
+                        put("recents_lock_confirmed", JSONObject().apply { put("type", "Boolean"); put("value", true) })
+                        put("config_refresh_time", JSONObject().apply { put("type", "String"); put("value", "04:00") })
+                    })
+                })
+                put(JSONObject().apply {
+                    put("name", "alarm_prefs")
+                    put("entries", JSONObject().apply {
+                        put("sleep_standby_confirmed", JSONObject().apply { put("type", "Boolean"); put("value", true) })
+                        put("vivo_sleep_standby_confirmed", JSONObject().apply { put("type", "Boolean"); put("value", true) })
+                        put("lock_screen_display_confirmed", JSONObject().apply { put("type", "Boolean"); put("value", true) })
+                        put("snooze_minutes", JSONObject().apply { put("type", "Int"); put("value", 10) })
+                    })
+                })
+            })
+        }.toString()
+
+        // 无论是全选恢复还是指定分类恢复，权限/硬件确认键都必须被彻底排除
+        SettingsBackupManager.applyBackupJson(
+            context,
+            backupJson,
+            SettingsBackupManager.BackupCategory.values().toList()
+        )
+
+        // 验证权限/硬件确认键绝不被导入
+        assertFalse(ledgerPrefs.contains("bg_battery_confirmed"))
+        assertFalse(ledgerPrefs.contains("auto_start_confirmed"))
+        assertFalse(ledgerPrefs.contains("assoc_start_confirmed"))
+        assertFalse(ledgerPrefs.contains("recents_lock_confirmed"))
+
+        assertFalse(alarmPrefs.contains("sleep_standby_confirmed"))
+        assertFalse(alarmPrefs.contains("vivo_sleep_standby_confirmed"))
+        assertFalse(alarmPrefs.contains("lock_screen_display_confirmed"))
+
+        // 常规业务配置仍正常导入
+        assertEquals("04:00", ledgerPrefs.getString("config_refresh_time", null))
+        assertEquals(10, alarmPrefs.getInt("snooze_minutes", -1))
+    }
 }

@@ -217,19 +217,52 @@ class AlarmFragment : Fragment() {
 
         val batteryLabel = SettingsNavigator.getBatteryOptimizationLabel()
 
-        // 行 1：后台耗电/完全允许后台行为
+        // 行 1：后台耗电/完全允许后台行为（优化为标准设置条目行，去除冗余灰色矩形框与复选框）
         val rowBgBattery = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, (10 * density).toInt())
+            setPadding(0, (6 * density).toInt(), 0, (12 * density).toInt())
         }
-        val btnBgBattery = buildButton("去设置「$batteryLabel」")
-        val cbBgBattery = CheckBox(ctx).apply {
-            text = "已开启"
+        val textContainer = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val tvBatteryTitle = TextView(ctx).apply {
+            text = batteryLabel
+            textSize = 15f
             setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            setTypeface(typeface, Typeface.BOLD)
         }
+        val tvBatteryDesc = TextView(ctx).apply {
+            text = "允许后台高耗电，防止系统清理闹钟进程"
+            textSize = 12f
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setPadding(0, (2 * density).toInt(), 0, 0)
+        }
+        textContainer.addView(tvBatteryTitle)
+        textContainer.addView(tvBatteryDesc)
+        rowBgBattery.addView(textContainer)
+
+        val tvBatteryBadge = TextView(ctx).apply {
+            text = "已开启 ✓"
+            textSize = 13f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(android.graphics.Color.parseColor("#388E3C"))
+            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
+            visibility = View.GONE
+        }
+        val btnBgBattery = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "去开启"
+            setAllCaps(false)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (36 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            visibility = View.VISIBLE
+        }
+        rowBgBattery.addView(tvBatteryBadge)
         rowBgBattery.addView(btnBgBattery)
-        rowBgBattery.addView(cbBgBattery)
         container.addView(rowBgBattery)
 
         // 行 2：睡眠待机优化（全机型开放引导，支持一键勾选）
@@ -269,11 +302,13 @@ class AlarmFragment : Fragment() {
                 powerManager?.isIgnoringBatteryOptimizations(ctx.packageName) == true
             } else true
 
-            btnBgBattery.text = if (isBgBatteryOk) "${batteryLabel}已开启" else "去设置「$batteryLabel」"
-            btnBgBattery.isEnabled = !isBgBatteryOk
-            btnBgBattery.alpha = if (isBgBatteryOk) 0.5f else 1.0f
-            cbBgBattery.isChecked = isBgBatteryOk
-            cbBgBattery.isEnabled = !isBgBatteryOk
+            if (isBgBatteryOk) {
+                tvBatteryBadge.visibility = View.VISIBLE
+                btnBgBattery.visibility = View.GONE
+            } else {
+                tvBatteryBadge.visibility = View.GONE
+                btnBgBattery.visibility = View.VISIBLE
+            }
 
             val isSleepConfirmed = isSleepStandbyConfirmed(prefs)
             cbSleep.isChecked = isSleepConfirmed
@@ -286,10 +321,6 @@ class AlarmFragment : Fragment() {
 
         btnBgBattery.setOnClickListener {
             openKeepAliveSettings(ctx)
-        }
-        cbBgBattery.setOnCheckedChangeListener { _, checked ->
-            if (uiUpdating) return@setOnCheckedChangeListener
-            updateDialogUi()
         }
 
         btnSleep.setOnClickListener {
