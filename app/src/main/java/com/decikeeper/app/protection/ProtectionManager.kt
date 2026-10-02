@@ -63,6 +63,14 @@ object ProtectionManager {
             android.util.Log.d(com.decikeeper.app.protection.AccessibilityProtection.TAG, "[PM] Event: Type=${event.eventType} Pkg=${event.packageName}")
         }
 
+        // 0. Permission Protection 先行：自启动/关联启动/悬浮窗页面的拦截对延迟最敏感，
+        //    它对非设置类包名几乎零成本返回；放在 AntiUninstall 的整树文本扫描之前，避免被拖慢。
+        try {
+            permissionProtection?.check(service, event, root)
+        } catch (e: Exception) {
+            android.util.Log.e(com.decikeeper.app.protection.PermissionProtection.TAG, "PermissionProtection Error", e)
+        }
+
         // 1. Accessibility Protection (Highest Priority - prevent disabling self)
         try {
             accessibilityProtection?.check(service, event, root)
@@ -75,13 +83,6 @@ object ProtectionManager {
             antiUninstallProtection?.check(service, event, root)
         } catch (e: Exception) {
             android.util.Log.e(com.decikeeper.app.protection.AntiUninstallProtection.TAG, "AntiUninstallProtection Error", e)
-        }
-
-        // 3. Permission Protection
-        try {
-             permissionProtection?.check(service, event, root)
-        } catch (e: Exception) {
-             android.util.Log.e(com.decikeeper.app.protection.PermissionProtection.TAG, "PermissionProtection Error", e)
         }
 
     }
