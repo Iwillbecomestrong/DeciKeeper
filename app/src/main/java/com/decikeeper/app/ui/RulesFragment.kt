@@ -2394,7 +2394,8 @@ class RulesFragment : Fragment() {
     private enum class CombinedProtectionState { DISABLED, ACTIVE, PENDING }
 
     private fun getCombinedProtectionState(context: Context): CombinedProtectionState {
-        if (!isAccessibilityServiceEnabled(context)) return CombinedProtectionState.DISABLED
+        // 开关只反映用户的持久化设置：无障碍意外掉线时不得把它显示成「未开启」
+        // （否则看起来像被自动关闭了）。无障碍是否已连接另在状态文字里提示。
         val antiState = AntiUninstallManager.getProtectionState(context)
         return when (antiState) {
             AntiUninstallManager.State.ACTIVE -> CombinedProtectionState.ACTIVE
@@ -2415,9 +2416,11 @@ class RulesFragment : Fragment() {
         switchUninstallAndPermProtection?.alpha = if (locked) 0.5f else 1.0f
         switchUninstallAndPermUiUpdating = false
 
+        val a11yConnected = isAccessibilityServiceEnabled(ctx)
         tvUninstallAndPermProtectionStatus?.let {
             it.text = when (state) {
-                CombinedProtectionState.ACTIVE -> "状态: 已开启"
+                CombinedProtectionState.ACTIVE ->
+                    if (a11yConnected) "状态: 已开启" else "状态: 已开启（无障碍未连接，暂未生效）"
                 CombinedProtectionState.PENDING -> "状态: 待关闭（明日生效）"
                 CombinedProtectionState.DISABLED -> "状态: 未开启"
             }
@@ -2654,13 +2657,25 @@ class RulesFragment : Fragment() {
         val configuredEnabled = AlarmPowerOffProtectionManager.isEnabled(context)
         val enabled = configuredEnabled && status.allReady
 
+        // 开关只反映用户设置；前置条件（如无障碍）暂时不满足时保持「已开启」，仅在文字里提示未生效。
         switchAlarmPowerOffUiUpdating = true
-        switchAlarmPowerOffProtection?.isChecked = enabled
+        switchAlarmPowerOffProtection?.isChecked = configuredEnabled
         switchAlarmPowerOffUiUpdating = false
 
-        tvAlarmPowerOffProtectionStatus?.text = if (enabled) "状态: 已开启" else "状态: 未开启"
+        tvAlarmPowerOffProtectionStatus?.text = when {
+            enabled -> "状态: 已开启"
+            configuredEnabled -> "状态: 已开启（前置条件未满足，暂未生效）"
+            else -> "状态: 未开启"
+        }
         tvAlarmPowerOffProtectionStatus?.setTextColor(
-            ThemeManager.getColorAttr(context, if (enabled) R.attr.zzSuccess else R.attr.zzMuted)
+            ThemeManager.getColorAttr(
+                context,
+                when {
+                    enabled -> R.attr.zzSuccess
+                    configuredEnabled -> R.attr.zzWarning
+                    else -> R.attr.zzMuted
+                }
+            )
         )
     }
 
