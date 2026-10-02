@@ -86,6 +86,13 @@ object AlarmWindowManager {
                     LogExporter.logEvent("AlarmOverlay", "SCREEN_OFF_KEEP_SILENT id=$alarmId")
                 }
                 Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
+                    // 应急应用/通话界面在前台时挑战浮层是被刻意让出的；此时亮屏若再挂回浮层，
+                    // 会盖住应急应用，且浮层上的扫码按钮会在已 STOPPED 的 AlarmActivity 上绑定相机，
+                    // 永远出不了画面（表现为“点扫码没反应”）。回到本应用时由守护服务负责恢复。
+                    if (AlarmChallengeEmergencyGuardService.isEmergencyAccessInProgress()) {
+                        Log.i(TAG, "SCREEN_ON/USER_PRESENT: emergency app in foreground, keep overlay yielded id=$alarmId")
+                        return
+                    }
                     Log.i(TAG, "SCREEN_ON/USER_PRESENT: restoring alarm overlay visibility id=$alarmId")
                     LogExporter.logEvent("AlarmOverlay", "SCREEN_ON_RESTORE id=$alarmId")
                     LockWindowManager.showAlarmOverlayIfHidden()

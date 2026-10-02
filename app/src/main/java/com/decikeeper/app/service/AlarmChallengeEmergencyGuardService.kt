@@ -173,6 +173,20 @@ class AlarmChallengeEmergencyGuardService : Service() {
             return
         }
 
+        if (AlarmChallengeEmergencyWhitelist.isCallUiPackage(top)) {
+            // 来电/通话界面：窗口模式的挑战浮层会盖住它，需像应急应用一样暂时让出；
+            // 通话结束回到本应用时由上面的 top == packageName 分支恢复浮层。
+            if (!emergencyAccessInProgress) {
+                emergencyAccessInProgress = true
+                launchGraceUntil = 0L
+                if (!LockWindowManager.isCurrentOverlayInline()) {
+                    LockWindowManager.hideAlarmOverlayForPermission()
+                }
+                Log.i(TAG, "call UI foreground=$top; challenge overlay yielded")
+            }
+            return
+        }
+
         if (AlarmChallengeEmergencyWhitelist.isPackageAllowedDuringChallenge(
                 alarmActive = true,
                 foregroundPackage = top,

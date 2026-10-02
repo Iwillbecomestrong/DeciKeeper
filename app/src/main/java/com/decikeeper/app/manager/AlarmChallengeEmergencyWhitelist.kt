@@ -27,8 +27,20 @@ object AlarmChallengeEmergencyWhitelist {
     ): Boolean {
         if (!alarmActive) return true
         if (foregroundPackage == selfPackage || allowedPackages.contains(foregroundPackage)) return true
+        if (isCallUiPackage(foregroundPackage)) return true
         if (isPermissionRequestInProgress && isSystemPermissionController(foregroundPackage)) return true
         return false
+    }
+
+    /**
+     * 系统通话界面（来电接听 / 拨出后的通话页）与拨号器不是同一个包，白名单只配了拨号器时
+     * 通话界面会被当成“离开白名单”而被拉回挑战。接打电话是安全必需，挑战期间始终放行。
+     */
+    internal fun isCallUiPackage(packageName: String): Boolean {
+        val p = packageName.lowercase()
+        return p == "com.android.phone" ||
+            p == "com.android.server.telecom" ||
+            p.contains("incallui")
     }
 
     internal fun isSystemPermissionController(packageName: String): Boolean {
@@ -106,22 +118,23 @@ object AlarmChallengeEmergencyWhitelist {
             !dangerousPackages(context).contains(packageName)
 
     /**
-     * Launch defaults through their narrow communication intents when possible.
-     * This avoids requiring a launcher activity for system Phone/Messages apps.
+     * Prefer the app's normal launcher entry so Messages opens its conversation list and
+     * Phone opens its main tabs. Narrow dial/compose intents are only a fallback for system
+     * Phone/Messages apps without a launcher activity: SENDTO would land straight on the
+     * compose page, hiding existing messages and making Back leave the app.
      */
     fun launch(context: Context, packageName: String): Boolean {
         if (!isSelectable(context, packageName)) return false
         val pm = context.packageManager
-        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:"))
-        val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))
-        val dialPackage = resolvePackage(context, dialIntent)
-        val smsPackage = resolvePackage(context, smsIntent)
-
-        val intent = when (packageName) {
-            dialPackage -> dialIntent.setPackage(packageName)
-            smsPackage -> smsIntent.setPackage(packageName)
-            else -> pm.getLaunchIntentForPackage(packageName) ?: return false
-        }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = pm.getLaunchIntentForPackage(packageName)
+            ?: when (packageName) {
+                resolvePackage(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:"))) ->
+                    Intent(Intent.ACTION_DIAL, Uri.parse("tel:")).setPackage(packageName)
+                resolvePackage(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))) ->
+                    Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")).setPackage(packageName)
+                else -> return false
+            }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
         return try {
             context.startActivity(intent)

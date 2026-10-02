@@ -75,6 +75,18 @@ class AlarmChallengeReentryContractTest {
     }
 
     @Test
+    fun screenOnDoesNotReattachOverlayOverAnEmergencyApp() {
+        val window = source("app/src/main/java/com/decikeeper/app/manager/AlarmWindowManager.kt")
+        val screenOn = window.substringAfter("Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT ->")
+            .substringBefore("showAlarmOverlayIfHidden()")
+
+        assertTrue(
+            "screen-on must not re-show the challenge overlay on top of an emergency app: the scan button on it would bind CameraX to a stopped AlarmActivity",
+            screenOn.contains("AlarmChallengeEmergencyGuardService.isEmergencyAccessInProgress()")
+        )
+    }
+
+    @Test
     fun clozePassageKeepsOnlyTheSingleFourUnderscoreTargetBlank() {
         val dirty = "Too often, careless use of words __ ____ a meeting. The words may ___ stir up reactions."
         val cleaned = invokeClozeSanitizer(dirty)
