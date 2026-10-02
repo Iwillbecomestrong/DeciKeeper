@@ -312,7 +312,13 @@ object TimeRuleManager {
     // ==========================================
     // 🟡 保存
     // ==========================================
-    fun saveTimeSegments(context: Context, segments: List<TimeSegment>) {
+    /**
+     * @param syncRefreshFromSegments 是否在保存时按"本次传入的时段"重新推导并覆盖刷新时刻。
+     *   `analyzeAndSaveTimeSegments` 的混合（部分延迟）路径传 false：它已按「即将生效的新时段」
+     *   同步过刷新时刻；而此处传入的是保守的 hybrid 时段（仍保留旧的、更严的结束时间），
+     *   再推导一次会把刚同步好的 07:15 又改回 07:30。
+     */
+    fun saveTimeSegments(context: Context, segments: List<TimeSegment>, syncRefreshFromSegments: Boolean = true) {
         // WP-03-T02 REVISE DA-D1 entry guard: refuse to save if any candidate
         // segment strictly contains the configured refresh time (`start <
         // refresh < end`) or is malformed/out-of-range. Cross-midnight segments
@@ -360,7 +366,7 @@ object TimeRuleManager {
                 .edit().putString(KEY_SEGMENTS_JSON, json).apply()
             getDeviceProtectedPrefs(context)?.edit()?.putString(KEY_SEGMENTS_JSON, json)?.apply()
             
-            checkAndSyncRefreshTime(context, segments)
+            checkAndSyncRefreshTime(context, segments, syncRefreshFromSegments)
             saveBaselineSnapshot(context)
             invalidateSegmentsCache()
             AutoBackupManager.triggerDebouncedBackup(context)
@@ -391,7 +397,7 @@ object TimeRuleManager {
         // 🚀 [Fix] Sync refresh time BEFORE calculating effective timestamps,
         // so that both adverse and favorable paths use the up-to-date config_refresh_time.
         // Also propagates to all other pending files (app_window, blacklist, etc.)
-        checkAndSyncRefreshTime(context, segments)
+        checkAndSyncRefreshTime(context, segments, syncRefreshFromSegments)
 
         if (isAdverse) {
             // ❌ ADVERSE -> Pending
@@ -424,8 +430,12 @@ object TimeRuleManager {
         }
     }
 
-    private fun checkAndSyncRefreshTime(context: Context, segments: List<TimeSegment>) {
-        if (isRefreshTimeSynced(context)) {
+    private fun checkAndSyncRefreshTime(
+        context: Context,
+        segments: List<TimeSegment>,
+        syncRefresh: Boolean = true
+    ) {
+        if (syncRefresh && isRefreshTimeSynced(context)) {
             val oldRefresh = getRefreshTime(context)
             val newRefreshTime = findRefreshTimeFromSegments(segments)
             if (newRefreshTime != oldRefresh) {
@@ -2935,6 +2945,24 @@ object TimeRuleManager {
     }
 
     fun saveRefreshTime(context: Context, time: String) {
+        saveRefreshTimeValidated(context, time, null)
+    }
+
+    /**
+     * 与 [saveRefreshTime] 相同，但可指定"用哪套时段做 DA-D2 合法性校验"，并返回是否真正写入。
+     *
+     * 勿扰时段保存时，同步推导出的新刷新时刻必须对照**即将生效的新时段**校验：
+     * 此刻生效中的旧时段还在，新刷新时刻（如 07:15）会落在旧时段（…–07:30）内部，
+     * 对照旧时段会被静默拒绝，而新时段要等到该刷新时刻才会生效——形成循环，
+     * 表现为「界面提示已同步成 07:15，实际与待生效表仍是 07:30」。
+     *
+     * @return true = 已写入（或与原值相同）；false = 被入口守卫拒绝，未改动任何状态。
+     */
+    internal fun saveRefreshTimeValidated(
+        context: Context,
+        time: String,
+        guardSegments: List<TimeSegment>?
+    ): Boolean {
         // WP-03-T02 DA-D2 entry guard: refuse to write if the candidate
         // refresh time is malformed, or strictly inside any currently
         // configured DND segment. Atomicity contract: on REJECT, this
@@ -2948,9 +2976,9 @@ object TimeRuleManager {
                 "TimeRuleManager",
                 "saveRefreshTime rejected: malformed candidate time='$time'"
             )
-            return
+            return false
         }
-        val currentSegments = getActiveSegmentsForGuard(context)
+        val currentSegments = guardSegments ?: getActiveSegmentsForGuard(context)
         val verdict = MinuteBoundary.isRefreshLegal(candidateMinutes, currentSegments)
         if (verdict is BoundaryResult.Rejected) {
             android.util.Log.w(
@@ -2958,10 +2986,11 @@ object TimeRuleManager {
                 "saveRefreshTime rejected: candidate=${time} " +
                     "(${candidateMinutes}m) reason=${verdict.reason}"
             )
-            return
+            return false
         }
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString("config_refresh_time", time).apply()
+        return true
     }
 
     /**
@@ -3542,8 +3571,10 @@ object TimeRuleManager {
                      val msg = "生效时间: $curRefresh -> $targetRefresh (不利)"
                      delList.add(msg)
                      logItems.add(Triple(msg, true, refreshTag))
-                } else {
-                     saveRefreshTime(context, targetRefresh)
+                } else if (saveRefreshTimeValidated(context, targetRefresh, newSegments)) {
+                     // 校验对照"即将生效的新时段"，避免被仍在生效的旧时段静默拒绝（详见 saveRefreshTimeValidated）。
+                     // 同步刷新所有待生效项的生效时间戳，保证延迟生效表与实际生效时刻一致。
+                     propagateRefreshTimeToPendingFiles(context)
                      val suffix = if (isRefreshRestored) " [恢复]" else " (有利)"
                      val msg = "生效时间: $curRefresh -> $targetRefresh$suffix"
                      if (isRefreshRestored) resList.add(msg)
@@ -3553,10 +3584,12 @@ object TimeRuleManager {
                      // Cleanup Pending
                      ChangeLogManager.removePendingEntriesByTag(context, "global_params", refreshTag)
                      context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).edit().remove("config_refresh_time").apply()
+                } else {
+                     android.util.Log.w("TimeRuleManager", "Mixed path: refresh sync $curRefresh -> $targetRefresh rejected by entry guard, keep $curRefresh")
                 }
             }
             
-            saveTimeSegments(context, hybridSegments)
+            saveTimeSegments(context, hybridSegments, syncRefreshFromSegments = false)
 
             // Stage Pending
             val effectiveTime = getEffectiveTimestamp(context)

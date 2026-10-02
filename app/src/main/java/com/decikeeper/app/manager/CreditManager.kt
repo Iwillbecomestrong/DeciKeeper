@@ -3694,11 +3694,13 @@ object CreditManager {
         val nextSeg = segments[(currentIndex + 1) % segments.size]
         val currentCountUsageKey = getCountUsageKeyForSegment(context, currentSeg)
         val nextCountUsageKey = getCountUsageKeyForSegment(context, nextSeg)
-        val nextCountBorrowKey = getCountBorrowKeyForSegment(context, nextSeg)
-        if (currentCountUsageKey == null || nextCountUsageKey == null || nextCountBorrowKey == null) {
+        // 借用本金记在"当前段"的借用账本，与正常借用事务及 getBorrowedUsableCountHalfUnitsFromNext 同口径；
+        // 记在下一段会让上限计算看不到惩罚借用，连续惩罚即可突破借用上限。
+        val currentCountBorrowKey = getCountBorrowKeyForSegment(context, currentSeg)
+        if (currentCountUsageKey == null || nextCountUsageKey == null || currentCountBorrowKey == null) {
             LogExporter.logEvent(
                 "Penalty",
-                "[ABORT] count ledger key missing: currentUsage=$currentCountUsageKey nextUsage=$nextCountUsageKey nextBorrow=$nextCountBorrowKey"
+                "[ABORT] count ledger key missing: currentUsage=$currentCountUsageKey nextUsage=$nextCountUsageKey currentBorrow=$currentCountBorrowKey"
             )
             return PenaltyChargeResult()
         }
@@ -3726,6 +3728,7 @@ object CreditManager {
 
         var borrowedTimeSec = 0
         var borrowedTimeCostSec = 0
+        var borrowedRawSec = 0
         if (remainingPenaltySec > 0) {
             val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
             var remainingDeficit = remainingPenaltySec
@@ -3765,33 +3768,31 @@ object CreditManager {
                 if (DefaultLogDebugConfig.quotaCalculation) {
                     LogExporter.logEvent("Penalty", "[STEP2] needBorrow=$clampedBorrow multiplier=$borrowedMultiplier cost=$borrowedCost segCount=${segments.size} curIdx=$currentIndex")
                 }
-                var i = (currentIndex + 1) % segments.size
-                while (i != currentIndex && borrowedRemaining > 0) {
-                    val seg = segments[i]
-                    if (!seg.isActiveToday()) {
-                        i = (i + 1) % segments.size
-                        continue
-                    }
-                    val usageKey = getUsageKeyForSegment(context, seg)
+                // 只能从"下一时段"借：不得越过下一时段去扣更后面的时段（否则下一时段保留额度形同虚设）。
+                if (nextSeg.isActiveToday()) {
+                    val usageKey = getUsageKeyForSegment(context, nextSeg)
                     val used = prefs.getInt(usageKey, 0)
-                    val avail = (seg.limitMins * 60 - used).coerceAtLeast(0)
+                    val avail = (nextSeg.limitMins * 60 - used).coerceAtLeast(0)
                     if (avail > 0) {
                         val take = minOf(avail, borrowedRemaining)
                         edit.putInt(usageKey, used + take)
                         borrowedRemaining -= take
                         borrowedTotal += take
                         if (DefaultLogDebugConfig.quotaCalculation) {
-                            LogExporter.logEvent("Penalty", "[STEP2] took ${take}s from[$i]=${seg.name} (used=$used→${used + take})")
+                            LogExporter.logEvent("Penalty", "[STEP2] took ${take}s from next=${nextSeg.name} (used=$used→${used + take})")
                         }
                     }
-                    i = (i + 1) % segments.size
                 }
+                // 实际借到的本金（秒）：按实际偿还量折算；一点都借不到则不记账、不扣。
                 val borrowRecord = if (borrowedRemaining > 0) {
-                    (clampedBorrow * borrowedTotal.toDouble() / borrowedCost.toDouble()).toInt().coerceAtLeast(1)
+                    (clampedBorrow * borrowedTotal.toDouble() / borrowedCost.toDouble()).toInt()
                 } else {
                     clampedBorrow
                 }
-                edit.putInt(currentBorrowKey, currentBorrowed + borrowRecord)
+                if (borrowRecord > 0) {
+                    edit.putInt(currentBorrowKey, currentBorrowed + borrowRecord)
+                }
+                borrowedRawSec = borrowRecord
                 borrowedTimeSec = borrowedTotal
                 borrowedTimeCostSec = borrowedCost
                 if (DefaultLogDebugConfig.quotaCalculation) {
@@ -3809,18 +3810,26 @@ object CreditManager {
         val currentCountLimit = currentSeg.getEffectiveUsableCountLimitHalfUnits()
         val currentAvailCountHalfUnits = (currentCountLimit - currentCountUsed).coerceAtLeast(0)
         val currentCountCostHalfUnits = minOf(neededCountHalfUnits, currentAvailCountHalfUnits)
-        val borrowedCountPrincipalHalfUnits = neededCountHalfUnits - currentCountCostHalfUnits
-        val nextCountCostHalfUnits = minOf(borrowedCountPrincipalHalfUnits * 2, 4)
+        // 缺口需要借用：本金不得超过"下一段次数额度 × 借用比例 − 已借(×2)"剩余的可借量，
+        // 也不得超过下一段实际还剩的次数（偿还 ×2）。只剩一点就只扣一点，没有可借就不扣次数。
+        val wantedCountPrincipalHalfUnits = neededCountHalfUnits - currentCountCostHalfUnits
+        val nextCountUsedBefore = prefs.getInt(nextCountUsageKey, 0)
+        val borrowedCountPrincipalHalfUnits = if (wantedCountPrincipalHalfUnits > 0) {
+            val capByRatio = getMaxBorrowableUsableCountHalfUnits(context)
+            val nextCountAvail = (nextSeg.getEffectiveUsableCountLimitHalfUnits() - nextCountUsedBefore).coerceAtLeast(0)
+            minOf(wantedCountPrincipalHalfUnits, capByRatio, nextCountAvail / 2).coerceAtLeast(0)
+        } else 0
+        val nextCountCostHalfUnits = borrowedCountPrincipalHalfUnits * 2
         edit.putInt(currentCountUsageKey, currentCountUsed + currentCountCostHalfUnits)
         if (borrowedCountPrincipalHalfUnits > 0) {
-            val nextCountUsed = prefs.getInt(nextCountUsageKey, 0)
-            val nextCountBorrowed = prefs.getInt(nextCountBorrowKey, 0)
-            edit.putInt(nextCountUsageKey, nextCountUsed + nextCountCostHalfUnits)
-            edit.putInt(nextCountBorrowKey, nextCountBorrowed + borrowedCountPrincipalHalfUnits)
+            val currentCountBorrowed = prefs.getInt(currentCountBorrowKey, 0)
+            edit.putInt(nextCountUsageKey, nextCountUsedBefore + nextCountCostHalfUnits)
+            edit.putInt(currentCountBorrowKey, currentCountBorrowed + borrowedCountPrincipalHalfUnits)
         }
 
         val chargeResult = PenaltyChargeResult(
-            timeDeductSec = penaltySec,
+            // 实际扣除：当前段/历史结余 + 实际借到的本金；超出借用上限的部分不再追扣。
+            timeDeductSec = normalTimeSec + borrowedRawSec,
             normalTimeSec = normalTimeSec,
             borrowedTimeSec = borrowedTimeSec,
             borrowedTimeCostSec = borrowedTimeCostSec,

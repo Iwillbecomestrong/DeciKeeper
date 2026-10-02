@@ -7,6 +7,14 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-35] 惩罚借用上限收口与「刷新时刻同步」被回写
+- **背景**：① 频繁锁屏惩罚的次数借用只受固定「最多 4 个半次」限制，借用本金还记在**下一段**的借用账本，而上限计算读的是**当前段**账本，连续惩罚看不到已借量，次数借用被突破；时长借用还会越过下一段去扣更后面的时段；逻辑最后一段（下一段属于下一业务日）也能借。② 把勿扰时段结束时间 07:30→07:15（放宽）并开启「同步」后，界面提示生效时刻已同步为 07:15，延迟生效表与实际生效时刻仍是 07:30。
+- **根因（②）**：混合路径里 `saveRefreshTime` 的入口守卫对照仍在生效的**旧时段**校验（07:15 落在旧时段 …–07:30 内部）被静默拒绝；即使放行，随后 `saveTimeSegments(hybrid)` 又按保守的 hybrid 时段（仍是 07:30）重新推导刷新时刻，把它改回 07:30。
+- **决策**：
+  1. 惩罚借用本金记在当前段账本；次数与时长借用都受「下一段额度 × 借用比例 − 已借(×2)」和下一段实际剩余约束，只剩一点扣一点、没了不扣；只从下一段借，逻辑最后一段不可借；回执 `timeDeductSec` 为实际扣除量。
+  2. 刷新时刻同步对照**即将生效的新时段**校验（`saveRefreshTimeValidated`），写入后同步所有待生效项的生效时间戳；混合路径调用 `saveTimeSegments` 时关闭其内部的刷新时刻重推导（`syncRefreshFromSegments=false`）。
+- **防坑警告**：任何读写借用账本的新代码必须与 `getBorrowedUsableCountHalfUnitsFromNext` 同口径（当前段账本）；任何「刷新时刻 ↔ 时段」联动都要警惕多处写入者互相回写，并用 `RefreshTimeSyncOnSegmentShortenTest` 守护。测试夹具不得依赖墙钟（当前段若恰是逻辑最后一段则不可借）。
+
 ### [DECISION-34] FastLock 开机提速：Direct Boot 红线与解锁即时触发
 - **背景**：解锁进桌面后，防卸载初始化遮罩要 5~15s 才弹出（依赖低优先级排队的 `BOOT_COMPLETED`）。首次提速尝试在锁屏（Direct Boot）期提前拉起 `FastLockService`，`ThemeManager.currentKey()` 读取 CE SharedPreferences 抛 `IllegalStateException`（`SharedPreferences in credential encrypted storage are not available until after user (id 0) is unlocked`），服务连续崩溃，比基线更慢（约 43s 才恢复）。
 - **决策**：
