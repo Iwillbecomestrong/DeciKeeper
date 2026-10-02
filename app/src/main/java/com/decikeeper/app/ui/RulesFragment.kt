@@ -297,6 +297,18 @@ class RulesFragment : Fragment() {
             if (shouldShowWeeklyPrivilegeEntryInSettings()) View.VISIBLE else View.GONE
     }
 
+    /**
+     * MainActivity 用 hide/show 切换底部 Tab，切回设置页时 onResume 不会触发，
+     * 在「时间规则」页改完勿扰时段后，这里的「每日生效时间」「待生效」等会停留在旧值。
+     */
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (hidden || !isAdded || view == null) return
+        updateEditWindowPolicyUI()
+        updateRefreshTimeUI()
+        updateUninstallAndPermProtectionUI()
+    }
+
     override fun onResume() {
         super.onResume()
         val context = requireContext()
