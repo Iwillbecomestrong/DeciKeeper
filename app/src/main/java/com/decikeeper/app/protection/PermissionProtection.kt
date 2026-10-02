@@ -42,6 +42,19 @@ class PermissionProtection(private val context: Context) {
         // 过长会让用户在窗口内重新进入页面时漏检。
         internal const val DETECTION_DEBOUNCE_MS = 150L
 
+        // vivo「管理所有应用」的全局列表页（开关直接放在每一行里）。防关权限保护开启时，
+        // 页面一出现就退回，不等我们的那一行渲染出来——否则手快的用户能在识别前直接拨开关。
+        // 其他应用的应用详情页（SoftPermissionDetailActivity）不在此列，仍按「识别到决定守护才拦」。
+        internal val VIVO_GLOBAL_LIST_PAGE_CLASS_KEYWORDS = listOf(
+            "BgStartUpManager",      // 自启动 / 关联启动（后台启动管理）
+            "FloatWindowManager"     // 悬浮窗
+        )
+
+        internal fun isVivoGlobalListPage(pkg: String, className: String): Boolean {
+            if (!pkg.startsWith("com.vivo.permissionmanager")) return false
+            return VIVO_GLOBAL_LIST_PAGE_CLASS_KEYWORDS.any { className.contains(it, ignoreCase = true) }
+        }
+
         // 当前应用的展示名：用系统原生的 findAccessibilityNodeInfosByText 做第一道快速命中，
         // 避免在全局列表（滚动加载、层级很深）里手写递归遍历。历史改名的旧名仍走原有递归兜底。
         internal val FAST_SEARCH_APP_NAMES = listOf("决定守护", "DeciKeeper")
@@ -130,6 +143,16 @@ class PermissionProtection(private val context: Context) {
         val eventText = event.text?.toString() ?: ""
         val eventClassName = event.className?.toString() ?: ""
         val checkStartedAt = System.currentTimeMillis()
+
+        // 🚀 [Global List Page] 页面一出现就拦（仅窗口状态变化事件，零扫描）。
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            isVivoGlobalListPage(pkg, eventClassName)
+        ) {
+            Log.w(TAG, "!!! [GlobalListPage] block immediately: class=$eventClassName")
+            Log.i(TAG, "[Latency] globalListPage blocked immediately class=$eventClassName")
+            handleDetection(service)
+            return
+        }
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             lastWindowStateChangedAt = checkStartedAt
         }

@@ -2393,6 +2393,10 @@ class RulesFragment : Fragment() {
 
     private enum class CombinedProtectionState { DISABLED, ACTIVE, PENDING }
 
+    /** 无障碍未连接时，依赖无障碍的保护项在「已开启」后追加的提示（开关本身保持用户设置不变）。 */
+    private fun a11yInactiveSuffix(ctx: Context): String =
+        if (isAccessibilityServiceEnabled(ctx)) "" else "（无障碍未连接，暂未生效）"
+
     private fun getCombinedProtectionState(context: Context): CombinedProtectionState {
         // 开关只反映用户的持久化设置：无障碍意外掉线时不得把它显示成「未开启」
         // （否则看起来像被自动关闭了）。无障碍是否已连接另在状态文字里提示。
@@ -2427,7 +2431,8 @@ class RulesFragment : Fragment() {
             it.setTextColor(
                 ThemeManager.getColorAttr(
                     ctx,
-                    if (state == CombinedProtectionState.PENDING) R.attr.zzWarning
+                    if (state == CombinedProtectionState.PENDING ||
+                        (state == CombinedProtectionState.ACTIVE && !a11yConnected)) R.attr.zzWarning
                     else if (state == CombinedProtectionState.ACTIVE) R.attr.zzSuccess
                     else R.attr.zzMuted
                 )
@@ -2446,16 +2451,18 @@ class RulesFragment : Fragment() {
         switchFloatingWindowProtection?.isClickable = !locked
         switchFloatingWindowProtection?.alpha = if (locked) 0.5f else 1.0f
         switchFloatingWindowUiUpdating = false
+        val floatingWindowInactive = a11yInactiveSuffix(ctx)
         tvFloatingWindowProtectionStatus?.let {
             it.text = when (state) {
-                FloatingWindowProtectionManager.State.ACTIVE -> "状态: 已开启"
+                FloatingWindowProtectionManager.State.ACTIVE -> "状态: 已开启$floatingWindowInactive"
                 FloatingWindowProtectionManager.State.PENDING -> "状态: 待关闭（明日生效）"
                 FloatingWindowProtectionManager.State.DISABLED -> "状态: 未开启"
             }
             it.setTextColor(
                 ThemeManager.getColorAttr(
                     ctx,
-                    if (state == FloatingWindowProtectionManager.State.PENDING) R.attr.zzWarning
+                    if (state == FloatingWindowProtectionManager.State.PENDING ||
+                        (state == FloatingWindowProtectionManager.State.ACTIVE && floatingWindowInactive.isNotEmpty())) R.attr.zzWarning
                     else if (state == FloatingWindowProtectionManager.State.ACTIVE) R.attr.zzSuccess
                     else R.attr.zzMuted
                 )
@@ -2763,8 +2770,11 @@ class RulesFragment : Fragment() {
         tvFloatingGuardStatus?.let { tv ->
             when (state) {
                 GuardFloatingWindowManager.State.ACTIVE -> {
-                    tv.text = "状态: 已开启"
-                    tv.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzSuccess))
+                    val inactive = a11yInactiveSuffix(context)
+                    tv.text = "状态: 已开启$inactive"
+                    tv.setTextColor(
+                        ThemeManager.getColorAttr(context, if (inactive.isEmpty()) R.attr.zzSuccess else R.attr.zzWarning)
+                    )
                 }
                 GuardFloatingWindowManager.State.PENDING -> {
                     tv.text = "状态: 待关闭（明日生效）"
@@ -2876,11 +2886,13 @@ class RulesFragment : Fragment() {
         switchPrivacySpaceGuardUiUpdating = false
 
         tvPrivacySpaceGuardStatus?.let {
-            val statusText = computePrivacySpaceGuardUiText(state, enforcing)
+            val inactive = if (state == PrivacyProtectionManager.State.ACTIVE) a11yInactiveSuffix(context) else ""
+            val statusText = computePrivacySpaceGuardUiText(state, enforcing) + inactive
             it.text = "状态: $statusText"
             // 颜色随状态变化, 保持对比度
             val color = when {
                 state == PrivacyProtectionManager.State.PENDING -> ThemeManager.getColorAttr(context, R.attr.zzWarning)
+                inactive.isNotEmpty() -> ThemeManager.getColorAttr(context, R.attr.zzWarning)
                 enforcing -> ThemeManager.getColorAttr(context, R.attr.zzSuccess)
                 else -> ThemeManager.getColorAttr(context, R.attr.zzMuted)
             }
