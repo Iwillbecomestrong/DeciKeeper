@@ -1974,7 +1974,9 @@ class MonitorService : Service() {
         if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
             val visiblePkgs = CoreService.lastVisiblePackagesFromWindows
             val visibleBlacklistedPkg = visiblePkgs.firstOrNull { pkg ->
-                pkg != this.packageName && SegmentBlacklist.shouldLock(this, pkg)
+                pkg != this.packageName &&
+                    mPresenceTracker.isPhysicallyVisible(pkg, visiblePkgs) &&
+                    SegmentBlacklist.shouldLock(this, pkg)
             }
             if (visibleBlacklistedPkg != null) {
                 resolvedPackageName = visibleBlacklistedPkg
@@ -2041,7 +2043,7 @@ class MonitorService : Service() {
         // so that the block is not bypassed, and the lock screen remains active.
         if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
             val pendingPkg = LockWindowManager.homeClickPendingPackage
-            if (pendingPkg != null && CoreService.lastVisiblePackagesFromWindows.contains(pendingPkg)) {
+            if (pendingPkg != null && mPresenceTracker.isPhysicallyVisible(pendingPkg, CoreService.lastVisiblePackagesFromWindows)) {
                 Log.w(TAG, "[Anti-Deadlock] Pending pkg $pendingPkg is physically visible on screen, clearing suppression!")
                 LockWindowManager.clearHomeClickPendingPackage()
             }
