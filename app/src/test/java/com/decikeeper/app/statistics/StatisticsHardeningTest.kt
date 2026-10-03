@@ -117,7 +117,9 @@ class StatisticsHardeningTest {
 
     @Test
     fun ruleProtection_monthBucketAggregatesEveryDayInTheMonth() {
-        val now = LocalDateTime.now(zoneId)
+        // 固定「现在」为某月下旬：用例要写入本月 1 日与 11 日两天，若取真实当前时间，
+        // 每月 1~10 日 11 日尚未到来，会被统计范围排除而误报失败。
+        val now = LocalDateTime.of(2026, 6, 28, 12, 0)
         val first = now.withDayOfMonth(1).toLocalDate()
         val middle = first.plusDays(10)
         val prefs = context.getSharedPreferences("rule_change_ledger", 0)
