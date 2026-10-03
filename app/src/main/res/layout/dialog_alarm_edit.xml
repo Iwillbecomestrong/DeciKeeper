@@ -413,65 +413,11 @@
         android:orientation="vertical"
         android:layout_marginTop="8dp">
 
-        <CheckBox
-            android:id="@+id/cb_also_save_default"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="同时设为默认设置"
-            android:textSize="13sp"
-            android:textColor="?attr/zzText" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="4dp">
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btn_alarm_edit_test"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:text="测试"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="?attr/zzText"
-                android:paddingHorizontal="2dp"
-                android:maxLines="1"
-                android:singleLine="true"
-                android:includeFontPadding="false"
-                app:autoSizeTextType="uniform"
-                app:autoSizeMinTextSize="10sp"
-                app:autoSizeMaxTextSize="13sp"
-                app:autoSizeStepGranularity="1sp"
-                android:background="@drawable/bg_zz_pill"
-                android:backgroundTint="?attr/zzSurfaceStrong" />
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btn_alarm_edit_save_default"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-            android:layout_marginStart="8dp"
-                android:text="只存为默认"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="?attr/zzText"
-                android:paddingHorizontal="2dp"
-                android:maxLines="1"
-                android:singleLine="true"
-                android:includeFontPadding="false"
-                app:autoSizeTextType="uniform"
-                app:autoSizeMinTextSize="10sp"
-                app:autoSizeMaxTextSize="13sp"
-                app:autoSizeStepGranularity="1sp"
-                android:background="@drawable/bg_zz_pill"
-                android:backgroundTint="?attr/zzSurfaceStrong" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
+            android:layout_marginTop="0dp">
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_alarm_edit_cancel"
                 android:layout_width="0dp"
@@ -492,12 +438,57 @@
                 android:background="@drawable/bg_zz_pill"
                 android:backgroundTint="?attr/zzSurfaceStrong" />
             <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_alarm_edit_save_default"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="存为默认"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="?attr/zzText"
+                android:paddingHorizontal="2dp"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:includeFontPadding="false"
+                app:autoSizeTextType="uniform"
+                app:autoSizeMinTextSize="10sp"
+                app:autoSizeMaxTextSize="13sp"
+                app:autoSizeStepGranularity="1sp"
+                android:background="@drawable/bg_zz_pill"
+                android:backgroundTint="?attr/zzSurfaceStrong" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_alarm_edit_test"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:text="测试"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="?attr/zzText"
+                android:paddingHorizontal="2dp"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:includeFontPadding="false"
+                app:autoSizeTextType="uniform"
+                app:autoSizeMinTextSize="10sp"
+                app:autoSizeMaxTextSize="13sp"
+                app:autoSizeStepGranularity="1sp"
+                android:background="@drawable/bg_zz_pill"
+                android:backgroundTint="?attr/zzSurfaceStrong" />
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_alarm_edit_save"
                 android:layout_width="0dp"
                 android:layout_height="44dp"
-                android:layout_weight="1.6"
-            android:layout_marginStart="8dp"
-                android:text="新增闹钟"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="保存"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"

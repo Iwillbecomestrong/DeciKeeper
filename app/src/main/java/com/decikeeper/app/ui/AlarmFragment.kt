@@ -949,7 +949,7 @@ class AlarmFragment : Fragment() {
         }
     }
 
-    /** 新增 / 编辑闹钟界面一次提交的全部取值；新增、只存为默认、测试三个出口共用。 */
+    /** 新增 / 编辑闹钟界面一次提交的全部取值；新增、存为默认、测试三个出口共用。 */
     private data class EditForm(
         val hour: Int,
         val minute: Int,
@@ -1215,10 +1215,9 @@ class AlarmFragment : Fragment() {
         editDialog.show()
 
         dialogView.findViewById<TextView>(R.id.tv_alarm_edit_title).text = if (existing == null) "新增闹钟" else "编辑闹钟"
-        dialogView.findViewById<Button>(R.id.btn_alarm_edit_save).text = if (existing == null) "新增闹钟" else "保存"
-        val cbAlsoDefault = dialogView.findViewById<CheckBox>(R.id.cb_also_save_default)
+        dialogView.findViewById<Button>(R.id.btn_alarm_edit_save).text = "保存"
 
-        // 校验并收集整个表单；任一项不合法时已弹 Toast 并返回 null。新增 / 只存默认 / 测试三个出口共用。
+        // 校验并收集整个表单；任一项不合法时已弹 Toast 并返回 null。新增 / 存为默认 / 测试三个出口共用。
         fun collectForm(): EditForm? {
             val c = requireContext()
             val hour = selectedHour
@@ -1297,7 +1296,7 @@ class AlarmFragment : Fragment() {
             )
         }
 
-        // 这些是全局设置，新增 / 保存 / 只存默认时一并落盘。
+        // 这些是全局设置，新增 / 保存 / 存为默认时一并落盘。
         fun applyGlobalSettings(f: EditForm) {
             val c = requireContext()
             for ((bId, count) in f.bankCounts) AlarmScheduler.setBankDefaultCount(c, bId, count)
@@ -1392,8 +1391,8 @@ class AlarmFragment : Fragment() {
         dialogView.findViewById<Button>(R.id.btn_alarm_edit_save_default).setOnClickListener {
             val f = collectForm() ?: return@setOnClickListener
             saveAsDefault(f)
+            // 保存默认后弹窗保持打开：可继续点「保存」把这条闹钟也存下来，或点「测试」
             Toast.makeText(requireContext(), "默认设置已保存", Toast.LENGTH_SHORT).show()
-            editDialog.dismiss()
         }
 
         dialogView.findViewById<Button>(R.id.btn_alarm_edit_save).setOnClickListener {
@@ -1401,7 +1400,6 @@ class AlarmFragment : Fragment() {
             if (!ensureAlarmOverlayPermission()) return@setOnClickListener
             val f = collectForm() ?: return@setOnClickListener
             applyGlobalSettings(f)
-            if (cbAlsoDefault.isChecked) saveAsDefault(f)
 
             val c = requireContext()
             val useQr = "qr" in f.s1Types
@@ -1459,9 +1457,6 @@ class AlarmFragment : Fragment() {
                 )
             }
             upsertAlarm(entry)
-            if (cbAlsoDefault.isChecked) {
-                Toast.makeText(c, "已同时设为默认设置", Toast.LENGTH_SHORT).show()
-            }
             editDialog.dismiss()
         }
     }
