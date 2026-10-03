@@ -334,8 +334,8 @@ class AlarmVibrationService : Service() {
                 fixedVibrationIntensity = entry.stage2VibrationIntensity,
                 fixedRingVolume = entry.stage2RingVolume
             )
-        } else null
-        val useIndependent = entry?.stage2UseIndependentAlertPolicy ?: false
+        } else LockWindowManager.testStage2AlertPolicy
+        val useIndependent = entry?.stage2UseIndependentAlertPolicy ?: (stage2 != null)
         return AlarmAlertPolicy.resolveStagePolicy(stage1, useIndependent, stage2)
     }
 

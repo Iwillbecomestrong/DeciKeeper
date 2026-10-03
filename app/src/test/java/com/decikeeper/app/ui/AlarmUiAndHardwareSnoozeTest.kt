@@ -35,23 +35,26 @@ class AlarmUiAndHardwareSnoozeTest {
     }
 
     @Test
-    fun defaultAlarmSettingsDialog_hasThreeButtonsWithRoundedPills() {
+    fun unifiedAlarmDialog_hasAllSaveExitsWithRoundedPills() {
         val cwd = File(System.getProperty("user.dir") ?: ".")
         val candidates = listOf(
-            File(cwd, "app/src/main/res/layout/dialog_test_alarm.xml"),
-            File(cwd, "src/main/res/layout/dialog_test_alarm.xml")
+            File(cwd, "app/src/main/res/layout/dialog_alarm_edit.xml"),
+            File(cwd, "src/main/res/layout/dialog_alarm_edit.xml")
         )
         val file = candidates.firstOrNull { it.isFile }
-        assertNotNull("dialog_test_alarm.xml must exist", file)
+        assertNotNull("dialog_alarm_edit.xml must exist", file)
         val content = file!!.readText()
 
-        assertTrue(content.contains("btn_test_dialog_exit"))
-        assertTrue(content.contains("btn_test_dialog_save"))
-        assertTrue(content.contains("btn_test_dialog_save_and_test"))
+        assertTrue(content.contains("btn_alarm_edit_cancel"))
+        assertTrue(content.contains("btn_alarm_edit_test"))
+        assertTrue(content.contains("btn_alarm_edit_save_default"))
+        assertTrue(content.contains("btn_alarm_edit_save"))
+        assertTrue(content.contains("cb_also_save_default"))
         assertTrue(content.contains("bg_zz_pill"))
-        assertTrue(content.contains("退出"))
-        assertTrue(content.contains("保存"))
-        assertTrue(content.contains("保存并测试"))
+        assertTrue(content.contains("取消"))
+        assertTrue(content.contains("测试"))
+        assertTrue(content.contains("只存为默认"))
+        assertTrue(content.contains("同时设为默认设置"))
     }
 
     @Test

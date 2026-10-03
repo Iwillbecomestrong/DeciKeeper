@@ -529,6 +529,54 @@ object AlarmScheduler {
         prefs.edit().putInt(KEY_DEFAULT_STAGE_COOLDOWN_SECONDS, value).apply()
     }
 
+    // ----- 第二关独立提醒的默认值（新增闹钟与测试闹钟共用）-----
+    private const val KEY_DEFAULT_STAGE2_INDEPENDENT = "default_stage2_independent_alert"
+    private const val KEY_DEFAULT_STAGE2_ALARM_MODE = "default_stage2_alarm_mode"
+    private const val KEY_DEFAULT_STAGE2_VIBRATION_MODE = "default_stage2_vibration_mode"
+    private const val KEY_DEFAULT_STAGE2_VIBRATION_INTENSITY = "default_stage2_vibration_intensity"
+    private const val KEY_DEFAULT_STAGE2_RING_VOLUME = "default_stage2_ring_volume"
+
+    fun getDefaultStage2UseIndependentAlert(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_DEFAULT_STAGE2_INDEPENDENT, false)
+
+    fun getDefaultStage2AlarmMode(context: Context): AlarmMode {
+        val name = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_DEFAULT_STAGE2_ALARM_MODE, null) ?: return AlarmMode.VIBRATE_AND_RING
+        return try { AlarmMode.valueOf(name) } catch (e: Exception) { AlarmMode.VIBRATE_AND_RING }
+    }
+
+    fun getDefaultStage2VibrationMode(context: Context): VibrationMode {
+        val name = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_DEFAULT_STAGE2_VIBRATION_MODE, null) ?: return VibrationMode.PROGRESSIVE
+        return try { VibrationMode.valueOf(name) } catch (e: Exception) { VibrationMode.PROGRESSIVE }
+    }
+
+    fun getDefaultStage2VibrationIntensity(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_DEFAULT_STAGE2_VIBRATION_INTENSITY, 7).coerceIn(1, 10)
+
+    fun getDefaultStage2RingVolume(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_DEFAULT_STAGE2_RING_VOLUME, 7).coerceIn(1, 10)
+
+    fun setDefaultStage2Alert(
+        context: Context,
+        useIndependent: Boolean,
+        alarmMode: AlarmMode,
+        vibrationMode: VibrationMode,
+        vibrationIntensity: Int,
+        ringVolume: Int
+    ) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_DEFAULT_STAGE2_INDEPENDENT, useIndependent)
+            .putString(KEY_DEFAULT_STAGE2_ALARM_MODE, alarmMode.name)
+            .putString(KEY_DEFAULT_STAGE2_VIBRATION_MODE, vibrationMode.name)
+            .putInt(KEY_DEFAULT_STAGE2_VIBRATION_INTENSITY, vibrationIntensity.coerceIn(1, 10))
+            .putInt(KEY_DEFAULT_STAGE2_RING_VOLUME, ringVolume.coerceIn(1, 10))
+            .apply()
+    }
+
     private const val KEY_DEFAULT_RINGTONE_URI = "default_ringtone_uri"
     private const val KEY_DEFAULT_ALARM_MODE = "default_alarm_mode"
 

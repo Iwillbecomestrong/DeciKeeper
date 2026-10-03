@@ -574,7 +574,12 @@ object LockWindowManager {
         val stage1CustomBanks: Map<String, Int> = emptyMap(),
         val stage2CustomBanks: Map<String, Int> = emptyMap(),
         val snoozeMinutes: Int = 10,
-        val snoozeMaxCount: Int = 2
+        val snoozeMaxCount: Int = 2,
+        val stage2UseIndependentAlertPolicy: Boolean = false,
+        val stage2AlarmMode: AlarmScheduler.AlarmMode = AlarmScheduler.AlarmMode.VIBRATE_AND_RING,
+        val stage2VibrationMode: AlarmScheduler.VibrationMode = AlarmScheduler.VibrationMode.PROGRESSIVE,
+        val stage2VibrationIntensity: Int = 7,
+        val stage2RingVolume: Int = 7
     )
 
     // ── 闹钟覆盖层共享状态（保留在本对象，供 LockAlarmOverlayController 通过 internal getter 访问）──
@@ -1111,6 +1116,7 @@ object LockWindowManager {
     val testAlarmMode: AlarmScheduler.AlarmMode? get() = LockAlarmOverlayController.testAlarmMode
     val testRingtoneUri: String? get() = LockAlarmOverlayController.testRingtoneUri
     val testRingVolume: Int? get() = LockAlarmOverlayController.testRingVolume
+    val testStage2AlertPolicy: com.decikeeper.app.manager.StageAlertPolicy? get() = LockAlarmOverlayController.testStage2AlertPolicy
     val testProgressiveMinIntensity: Int? get() = LockAlarmOverlayController.testProgressiveMinIntensity
     val testProgressiveMaxIntensity: Int? get() = LockAlarmOverlayController.testProgressiveMaxIntensity
     val testProgressiveMaxRingVolume: Int? get() = LockAlarmOverlayController.testProgressiveMaxRingVolume

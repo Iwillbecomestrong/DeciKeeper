@@ -11,7 +11,8 @@ class AlarmOverlayPermissionFlowContractTest {
         val fragment = source("app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
 
         assertTrue(fragment.contains("if (ensureAlarmOverlayPermission()) showEditDialog(null)"))
-        assertTrue(fragment.contains("if (ensureAlarmOverlayPermission()) showTestDialog()"))
+        assertFalse("test entry is merged into the unified alarm dialog", fragment.contains("showTestDialog"))
+        assertTrue(fragment.contains("R.id.btn_alarm_edit_test"))
         assertTrue(fragment.contains("if (!ensureAlarmOverlayPermission()) return@setOnClickListener"))
         assertTrue(fragment.contains("if (entry.enabled && !ensureAlarmOverlayPermission())"))
         assertTrue(fragment.contains("Settings.ACTION_MANAGE_OVERLAY_PERMISSION"))

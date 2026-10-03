@@ -285,6 +285,14 @@ internal object LockAlarmOverlayController {
         testAlarmMode = if (isTest) (testCfg?.alarmMode ?: AlarmScheduler.AlarmMode.VIBRATE_AND_RING) else null
         testRingtoneUri = if (isTest) (testCfg?.ringtoneUri) else null
         testRingVolume = if (isTest) (testCfg?.ringVolume) else null
+        testStage2AlertPolicy = if (isTest && testCfg?.stage2UseIndependentAlertPolicy == true) {
+            com.decikeeper.app.manager.StageAlertPolicy(
+                alarmMode = testCfg.stage2AlarmMode,
+                vibrationMode = testCfg.stage2VibrationMode,
+                fixedVibrationIntensity = testCfg.stage2VibrationIntensity,
+                fixedRingVolume = testCfg.stage2RingVolume
+            )
+        } else null
         testProgressiveMinIntensity = if (isTest) (testCfg?.progressiveMinIntensity ?: 1) else null
         testProgressiveMaxIntensity = if (isTest) (testCfg?.progressiveMaxIntensity ?: 10) else null
         testProgressiveMaxRingVolume = if (isTest) (testCfg?.progressiveMaxRingVolume ?: 10) else null
@@ -506,6 +514,9 @@ internal object LockAlarmOverlayController {
     var testRingtoneUri: String? = null
         private set
     var testRingVolume: Int? = null
+        private set
+    /** 测试闹钟勾选了「第二关使用独立提醒设置」时的第二关策略；未勾选为 null。 */
+    var testStage2AlertPolicy: com.decikeeper.app.manager.StageAlertPolicy? = null
         private set
     var testProgressiveMinIntensity: Int? = null
         private set

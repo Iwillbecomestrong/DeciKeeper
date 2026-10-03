@@ -22,12 +22,12 @@ class AlarmReminderRedesignUiContractTest {
     fun testAlarmEditAndDefaultUiConformsToSpec() {
         val fragment = source("src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
         val editXml = source("src/main/res/layout/dialog_alarm_edit.xml")
-        val defaultXml = source("src/main/res/layout/dialog_alarm_default_settings.xml")
+        val reminderView = source("src/main/java/com/decikeeper/app/ui/AlarmReminderSettingsView.kt")
 
         // 1. 渐进文案契约：从最低强度开始，每 30 秒提高 1 级，直到最高强度
         assertTrue(
-            "AlarmFragment must contain progressive 30-second ramp copy",
-            fragment.contains("从最低强度开始，每 30 秒提高 1 级，直到最高强度")
+            "reminder settings view must contain progressive 30-second ramp copy",
+            reminderView.contains("从最低强度开始，每 30 秒提高 1 级，直到最高强度")
         )
 
         // 2. 移除旧的 5 分钟突破 / autoEscalate 文案
@@ -46,10 +46,6 @@ class AlarmReminderRedesignUiContractTest {
         assertTrue(
             "dialog_alarm_edit.xml must use 完成后延迟",
             editXml.contains("完成后延迟")
-        )
-        assertTrue(
-            "dialog_alarm_default_settings.xml must use 完成后延迟",
-            defaultXml.contains("完成后延迟")
         )
     }
 }

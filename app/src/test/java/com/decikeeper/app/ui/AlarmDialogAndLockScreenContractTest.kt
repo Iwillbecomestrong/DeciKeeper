@@ -43,11 +43,9 @@ class AlarmDialogAndLockScreenContractTest {
     }
 
     @Test
-    fun alarmDialogsBothContainCooldownStageControls() {
+    fun unifiedAlarmDialogContainsCooldownStageControls() {
         val editXml = readLayout("dialog_alarm_edit.xml")
-        val testXml = readLayout("dialog_test_alarm.xml")
-        assertTrue("edit dialog must contain stage cooldown", editXml.contains("@+id/et_stage_cooldown"))
-        assertTrue("test dialog must contain stage cooldown", testXml.contains("@+id/et_stage_cooldown"))
+        assertTrue("unified alarm dialog must contain stage cooldown", editXml.contains("@+id/et_stage_cooldown"))
     }
 
     @Test
