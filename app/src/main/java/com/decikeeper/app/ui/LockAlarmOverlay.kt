@@ -32,9 +32,11 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
+import android.os.SystemClock
 import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.WindowManager
@@ -42,6 +44,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -54,6 +57,8 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.AlarmChallengeManager
+import com.decikeeper.app.manager.AlarmEmergencyExitStore
+import com.decikeeper.app.manager.EmergencyExitLongPressTracker
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmWindowManager
@@ -1036,6 +1041,7 @@ internal object LockAlarmOverlayController {
         btnSnooze.setOnClickListener {
             handleAlarmAction(true)
         }
+        bindEmergencyExit(view)
 
         // --- Math ---
         val btnMathSubmit = view.findViewById<Button>(R.id.btn_math_submit)
@@ -3196,6 +3202,9 @@ internal object LockAlarmOverlayController {
         btnSnooze?.visibility = if (canSnooze) View.VISIBLE else View.GONE
         btnSnooze?.isEnabled = canSnooze
         btnSnooze?.text = if (canSnooze) "静音 ${alarmSnoozeMinutes} 分钟（挑战继续）" else "稍后再响 (0)"
+        // 应急退出只在挑战未完成时出现；完成后直接用「关闭闹钟」
+        layoutActions?.rootView?.findViewById<View>(R.id.layout_alarm_emergency_exit)?.visibility =
+            if (forceHide) View.VISIBLE else View.GONE
     }
 
     private var alarmPassthroughRestoreRunnable: Runnable? = null
@@ -3262,6 +3271,133 @@ internal object LockAlarmOverlayController {
         Toast.makeText(ctx, "已静音 ${alarmSnoozeMinutes} 分钟，挑战仍可继续", Toast.LENGTH_SHORT).show()
         Log.i(TAG, "snooze silence started: id=$alarmId source=$source minutes=$alarmSnoozeMinutes challengePreserved=true")
         return true
+    }
+
+    // ---- 应急退出（长按 3 秒 + 窗口内确认；只结束本次响铃，次数规则见 AlarmEmergencyExitPolicy） ----
+
+    private val emergencyExitTracker = EmergencyExitLongPressTracker()
+    private var emergencyExitTicker: Runnable? = null
+
+    private fun emergencyExitAvailable(ctx: Context): Boolean =
+        alarmId <= 0 || AlarmEmergencyExitStore.remaining(ctx) > 0
+
+    private fun refreshEmergencyExitEntry(view: View) {
+        val ctx = view.context
+        val entry = view.findViewById<TextView>(R.id.tv_alarm_emergency_exit)
+        val quota = view.findViewById<TextView>(R.id.tv_alarm_emergency_exit_quota)
+        val isTest = alarmId <= 0
+        val available = emergencyExitAvailable(ctx)
+        entry?.alpha = if (available) 1f else 0.4f
+        quota?.text = when {
+            isTest -> "测试闹钟：应急退出不消耗本月次数"
+            available -> "本月还剩 ${AlarmEmergencyExitStore.remaining(ctx)} 次"
+            AlarmEmergencyExitStore.load(ctx).active == 0 -> "应急退出已在设置中关闭"
+            else -> {
+                val restoreAt = AlarmEmergencyExitStore.nextMonthEffectiveTime(ctx)
+                "本月已用，" +
+                    java.text.SimpleDateFormat("M月d日 HH:mm", java.util.Locale.CHINA).format(java.util.Date(restoreAt)) +
+                    " 恢复"
+            }
+        }
+    }
+
+    private fun cancelEmergencyExitPress(view: View?) {
+        emergencyExitTracker.onUpOrCancel()
+        emergencyExitTicker?.let { LockWindowManager.getAlarmUiHandler().removeCallbacks(it) }
+        emergencyExitTicker = null
+        view?.findViewById<ProgressBar>(R.id.pb_alarm_emergency_exit)?.apply {
+            progress = 0
+            visibility = View.INVISIBLE
+        }
+    }
+
+    /**
+     * 入口只响应真实触摸：没有 onClick，音量/电源键与无障碍点击回放都无法触发。
+     * 提前松手、滑出入口、出现第二根手指都会取消并清零进度。
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun bindEmergencyExit(view: View) {
+        val entry = view.findViewById<TextView>(R.id.tv_alarm_emergency_exit) ?: return
+        val bar = view.findViewById<ProgressBar>(R.id.pb_alarm_emergency_exit)
+        val handler = LockWindowManager.getAlarmUiHandler()
+        cancelEmergencyExitPress(view)
+        refreshEmergencyExitEntry(view)
+
+        view.findViewById<View>(R.id.btn_alarm_emergency_cancel)?.setOnClickListener {
+            view.findViewById<View>(R.id.layout_alarm_emergency_confirm)?.visibility = View.GONE
+        }
+        view.findViewById<View>(R.id.btn_alarm_emergency_confirm)?.setOnClickListener {
+            performEmergencyExit(view)
+        }
+
+        entry.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    refreshEmergencyExitEntry(view)
+                    if (emergencyExitAvailable(view.context)) {
+                        emergencyExitTracker.onDown(SystemClock.uptimeMillis())
+                        bar?.visibility = View.VISIBLE
+                        val ticker = object : Runnable {
+                            override fun run() {
+                                val now = SystemClock.uptimeMillis()
+                                bar?.progress = (emergencyExitTracker.progress(now) * 1000).toInt()
+                                if (emergencyExitTracker.consumeTrigger(now)) {
+                                    cancelEmergencyExitPress(view)
+                                    showEmergencyExitConfirm(view)
+                                } else if (emergencyExitTracker.isPressing) {
+                                    handler.postDelayed(this, 50L)
+                                }
+                            }
+                        }
+                        emergencyExitTicker = ticker
+                        handler.post(ticker)
+                    }
+                }
+                MotionEvent.ACTION_POINTER_DOWN -> cancelEmergencyExitPress(view)
+                MotionEvent.ACTION_MOVE -> {
+                    val inside = event.x >= 0f && event.x <= v.width && event.y >= 0f && event.y <= v.height
+                    if (!inside) cancelEmergencyExitPress(view)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> cancelEmergencyExitPress(view)
+            }
+            true
+        }
+    }
+
+    private fun showEmergencyExitConfirm(view: View) {
+        val ctx = view.context
+        if (!emergencyExitAvailable(ctx)) {
+            refreshEmergencyExitEntry(view)
+            return
+        }
+        val message = if (alarmId <= 0) {
+            "这是测试闹钟，应急退出不会消耗本月次数。\n\n确认后将结束本次测试响铃。"
+        } else {
+            "本月应急退出还剩 ${AlarmEmergencyExitStore.remaining(ctx)} 次。\n\n" +
+                "确认后只结束本次响铃，闹钟设置不变；本月将少 1 次，且不算完成挑战。"
+        }
+        view.findViewById<TextView>(R.id.tv_alarm_emergency_confirm_message)?.text = message
+        view.findViewById<View>(R.id.layout_alarm_emergency_confirm)?.visibility = View.VISIBLE
+    }
+
+    private fun performEmergencyExit(view: View) {
+        val ctx = LockWindowManager.getAlarmContext() ?: return
+        if (!isAlarmOverlayActive.get()) return
+        view.findViewById<View>(R.id.layout_alarm_emergency_confirm)?.visibility = View.GONE
+        val isTest = alarmId <= 0
+        if (!isTest && !AlarmEmergencyExitStore.consumeOne(ctx)) {
+            Toast.makeText(ctx, "本月应急退出次数已用完", Toast.LENGTH_SHORT).show()
+            refreshEmergencyExitEntry(view)
+            return
+        }
+        if (!isTest) {
+            alarmProtectionEventBridge.recordAlarmDismiss(alarmId.toString(), "EMERGENCY_EXIT")
+        }
+        LogExporter.logEvent(
+            "AlarmEmergencyExit",
+            "[USED] alarmId=$alarmId test=$isTest remainingAfter=${if (isTest) -1 else AlarmEmergencyExitStore.remaining(ctx)}"
+        )
+        dismissAlarmOverlay("已应急退出，仅结束本次响铃", false)
     }
 
     private fun handleAlarmAction(snooze: Boolean) {
@@ -3606,6 +3742,7 @@ internal object LockAlarmOverlayController {
         val ctx = LockWindowManager.getAlarmContext() ?: return
 
         stopAlarmIntensityUpdate()
+        cancelEmergencyExitPress(null)
 
         if (snooze && alarmId > 0) {
             AlarmScheduler.scheduleSnooze(ctx, alarmId, alarmSnoozeMinutes)

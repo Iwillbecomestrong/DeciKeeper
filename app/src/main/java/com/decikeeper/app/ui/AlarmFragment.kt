@@ -60,6 +60,8 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.decikeeper.app.R
+import com.decikeeper.app.manager.AlarmEmergencyExitPolicy
+import com.decikeeper.app.manager.AlarmEmergencyExitStore
 import com.decikeeper.app.manager.AlarmOverlayRequirement
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmSystemBackupUseCase
@@ -80,6 +82,7 @@ class AlarmFragment : Fragment() {
     private var pendingRingtoneUri: String? = null
     private var tvSnoozeSummary: TextView? = null
     private var tvKeepaliveSummary: TextView? = null
+    private var tvEmergencyExitSummary: TextView? = null
     private var tvChallengeSummary: TextView? = null
     private var tvUnlockSummary: TextView? = null
     private val alarms = mutableListOf<AlarmScheduler.AlarmEntry>()
@@ -173,6 +176,47 @@ class AlarmFragment : Fragment() {
             hasPromptedKeepaliveInSession = true
             showAlarmKeepAliveGuideDialog()
         }
+    }
+
+    private fun formatEmergencyExitTime(millis: Long): String =
+        java.text.SimpleDateFormat("M月d日 HH:mm", java.util.Locale.CHINA).format(java.util.Date(millis))
+
+    private fun refreshEmergencyExitSummary() {
+        val ctx = context ?: return
+        val state = AlarmEmergencyExitStore.load(ctx)
+        val remaining = AlarmEmergencyExitStore.remaining(ctx)
+        val pending = state.pendingValue
+        tvEmergencyExitSummary?.text = buildString {
+            append("每月 ${state.active} 次 · 本月还剩 $remaining 次")
+            if (pending != null) {
+                append("\n待生效：${formatEmergencyExitTime(state.pendingEffectiveAt)} 起变为 $pending 次")
+            }
+        }
+    }
+
+    /** 调小立即生效；调大（超过基准）登记到下个自然月刷新时刻。 */
+    private fun showEmergencyExitSettingsDialog() {
+        val ctx = requireContext()
+        val current = AlarmEmergencyExitStore.load(ctx).active
+        val values = (AlarmEmergencyExitPolicy.MIN_MONTHLY..AlarmEmergencyExitPolicy.MAX_MONTHLY).toList()
+        val labels = values.map { if (it == 0) "0 次（关闭应急退出）" else "$it 次" }.toTypedArray()
+        AlertDialog.Builder(ctx)
+            .setTitle("应急退出次数 / 月")
+            .setSingleChoiceItems(labels, values.indexOf(current)) { dialog, which ->
+                val requested = values[which]
+                val next = AlarmEmergencyExitStore.requestMonthlyLimit(ctx, requested)
+                val message = when {
+                    next.pendingValue != null ->
+                        "已登记：${formatEmergencyExitTime(next.pendingEffectiveAt)} 起变为 ${next.pendingValue} 次（调大需等下个月生效）"
+                    next.active == current -> "未变化"
+                    else -> "已调整为每月 ${next.active} 次，立即生效"
+                }
+                Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+                refreshEmergencyExitSummary()
+                dialog.dismiss()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun showAlarmKeepAliveGuideDialog() {
@@ -472,6 +516,11 @@ class AlarmFragment : Fragment() {
         }
 
         tvKeepaliveSummary = view.findViewById(R.id.tv_keepalive_summary)
+        tvEmergencyExitSummary = view.findViewById(R.id.tv_emergency_exit_summary)
+        view.findViewById<View>(R.id.layout_alarm_emergency_exit_settings)?.setOnClickListener {
+            showEmergencyExitSettingsDialog()
+        }
+        refreshEmergencyExitSummary()
         tvChallengeSummary = view.findViewById(R.id.tv_challenge_summary)
         tvUnlockSummary = view.findViewById(R.id.tv_unlock_summary)
 
@@ -504,6 +553,7 @@ class AlarmFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        refreshEmergencyExitSummary()
         reloadAlarms()
         activeAlarmRefreshHandler.removeCallbacks(activeAlarmRefreshRunnable)
         activeAlarmRefreshHandler.post(activeAlarmRefreshRunnable)
