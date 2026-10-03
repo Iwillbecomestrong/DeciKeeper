@@ -1091,7 +1091,7 @@ class HomeFragment : Fragment() {
                 infoText += "\n已预支：时长 ${formatMinutesForHome(borrowedMinsFromNext)}min  |  次数 ${formatUsableCountHalfUnits(borrowedCountFromNext)}次"
                 val penaltyMins = borrowedMinsFromNext * 2.0
                 val penaltyCount = borrowedCountFromNext * 2
-                infoText += "\n惩罚扣除 (×2) ：-${formatMinutesForHome(penaltyMins)}min  |  -${formatUsableCountHalfUnits(penaltyCount)}次"
+                infoText += "\n借用扣除 (×2) ：-${formatMinutesForHome(penaltyMins)}min  |  -${formatUsableCountHalfUnits(penaltyCount)}次"
                 val effectiveMins = (nextLimit - penaltyMins).coerceAtLeast(0.0)
                 val effectiveCount = (nextCountLimit - penaltyCount).coerceAtLeast(0)
                 infoText += "\n实际生效：时长 ${formatMinutesForHome(effectiveMins)}min  |  次数 ${formatUsableCountHalfUnits(effectiveCount)}次"
