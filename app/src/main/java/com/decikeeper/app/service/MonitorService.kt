@@ -64,6 +64,7 @@ import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import com.decikeeper.app.data.resolveAccessibilityFailureClass
 import com.decikeeper.app.manager.AppWindowManager
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.DailyBaselineManager
 import com.decikeeper.app.manager.ForegroundEvidence
 import com.decikeeper.app.manager.ForegroundEvidenceDecision
 import com.decikeeper.app.manager.ForegroundEvidencePolicy
@@ -632,22 +633,8 @@ class MonitorService : Service() {
         // 4. Weekly Privilege Limit
         CreditManager.checkAndApplyPendingWeeklyLimit(context)
 
-        // 5. Baseline Update — 🔴 [Fix] 使用业务日替代 DateUtils.isToday（自然日零点）
-        val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-        val lastBaselineTime = prefs.getLong("last_baseline_update_time", 0L)
-        val lastBaselineBizDate = CreditManager.getBusinessDateStringAt(context, lastBaselineTime)
-        val currentBizDate = CreditManager.getBusinessDateString(context)
-
-        if (lastBaselineBizDate != currentBizDate && TimeRuleManager.isAfterRefreshTime(context)) {
-            CreditManager.saveBaselineBlacklist(context)
-            TimeRuleManager.saveBaselineSnapshot(context)
-            // 保护开关（防卸载、小窗增强、开发者选项拦截等）的基准只由 saveBaselineParams 写入；
-            // 漏掉它会让基准在用户当天首次保存规则时才被懒写，把当天手动开启的开关记成基准。
-            TimeRuleManager.saveBaselineParams(context)
-            AppWindowManager.saveBaseline(context)
-            prefs.edit().putLong("last_baseline_update_time", now).apply()
-            Log.i(TAG, "Daily Baseline Snapshot Updated (bizDate=$currentBizDate)")
-        }
+        // 5. Baseline Update — 每日基准由 DailyBaselineManager 幂等写入（Application、主界面也会先到）。
+        DailyBaselineManager.ensureTodaySnapshot(context)
 
         // 6. A11y Health Check — 🔴 [Fix] 使用业务日替代 java.util.Date()（自然日零点）
         try {

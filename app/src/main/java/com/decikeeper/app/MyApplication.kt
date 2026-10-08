@@ -92,6 +92,13 @@ class MyApplication : Application() {
             return
         }
 
+        // 每日基准必须先于任何可能改动保护开关的入口拍好；幂等，同一业务日只会真正写一次。
+        try {
+            com.decikeeper.app.manager.DailyBaselineManager.ensureTodaySnapshot(this)
+        } catch (e: Exception) {
+            Log.w("MyApplication", "ensureTodaySnapshot failed (non-fatal)", e)
+        }
+
         com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "MyApplication.onCreate")
 
         // 🔖 版本指纹 + 新装心跳
