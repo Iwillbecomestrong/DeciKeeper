@@ -1679,7 +1679,6 @@ object LockWindowManager {
     private const val TEMP_ACCESS_DEFAULT_SECONDS = 120
     private const val TEMP_ACCESS_HARD_MAX_SECONDS = 180
     private const val TEMP_ACCESS_COOLDOWN_FREE_SECONDS = 10
-    private const val TEMP_ACCESS_COOLDOWN_SINGLE_RATE_UPPER_SECONDS = 60
     private const val TEMP_ACCESS_EMERGENCY_MIN_COOLDOWN_REQUIRED_SECONDS = 60
     private const val TEMP_ACCESS_EMERGENCY_REUSE_GAP_SECONDS = 60
     private const val TEMP_ACCESS_EXPIRE_RELOCK_RETRY_INTERVAL_MS = 250L
@@ -2832,17 +2831,6 @@ object LockWindowManager {
             }
         )
         return "触发原因: $reasonText"
-    }
-
-    fun updateFreeTimeText(text: String) {
-        val view = mLockView ?: return
-        Handler(Looper.getMainLooper()).post {
-            val subStatus = view.findViewById<TextView>(R.id.tv_sub_status) ?: return@post
-            val curText = subStatus.text?.toString() ?: ""
-            // 替换或追加休息倒计时行
-            val cleaned = curText.replace(Regex("\n?🟢 休息中.*"), "")
-            subStatus.text = if (cleaned.isBlank()) text else "$cleaned\n$text"
-        }
     }
 
     fun showFreeTimeLayout(show: Boolean) {
@@ -4267,26 +4255,11 @@ object LockWindowManager {
 
                 // Calculate free segment seconds
                 val freeSec: Int
-                if (isInRest) {
+                if (!isInDndSegment) {
+                    freeSec = minOf(sec, secondsUntilNextSegmentStart(context, now))
+                } else if (isInRest) {
                     val freeEndMs = CreditManager.getFreeTimeEnd(context)
                     freeSec = minOf(sec, maxOf(0, ((freeEndMs - now + 999) / 1000).toInt()))
-                } else if (!isInDndSegment) {
-                    val nextSeg = TimeRuleManager.getNextSegment(context)
-                    val nextStartMs = if (nextSeg != null) {
-                        val cal = java.util.Calendar.getInstance()
-                        cal.set(java.util.Calendar.HOUR_OF_DAY, nextSeg.startHour)
-                        cal.set(java.util.Calendar.MINUTE, nextSeg.startMinute)
-                        cal.set(java.util.Calendar.SECOND, 0)
-                        cal.set(java.util.Calendar.MILLISECOND, 0)
-                        // 🛡️ [Fix] 跨天处理：如果计算出的时间早于当前时间，加一天
-                        if (cal.timeInMillis < now) {
-                            cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
-                        }
-                        cal.timeInMillis
-                    } else {
-                        now + sec * 1000L
-                    }
-                    freeSec = minOf(sec, maxOf(0, ((nextStartMs - now + 999) / 1000).toInt()))
                 } else {
                     freeSec = 0
                 }
@@ -4312,7 +4285,7 @@ object LockWindowManager {
                     CreditManager.getCoolDownEnd(context),
                     if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L
                 )
-                val coolingAnchorMs = if (isInRest) CreditManager.getFreeTimeEnd(context) else now
+                val coolingAnchorMs = if (isInRest && isInDndSegment) CreditManager.getFreeTimeEnd(context) else now
                 val chargeSnapshot = resolveTemporaryAccessChargeSnapshot(
                     requestedSec = sec,
                     freeSec = freeSec,
@@ -4325,9 +4298,9 @@ object LockWindowManager {
 
                 val isCoolingActive = chargeSnapshot.coolingSec > 0
                 val sb = StringBuilder("扣除详情：\n")
-                if (freeSec > 0) sb.append("• 免费段: ${formatTemporaryAccessSecondsAsMinutes(freeSec)}分钟（不扣时间/次数）\n")
+                if (freeSec > 0) sb.append("• 申请时长超出${if (isInRest) "休息" else "空档"}时段，整段按勿扰计费（不拆免费段）\n")
                 if (dndSec > 0) {
-                    sb.append("• 付费段: ${formatTemporaryAccessSecondsAsMinutes(dndSec)}分钟")
+                    sb.append("• 计费时长: ${formatTemporaryAccessSecondsAsMinutes(chargeSnapshot.dndSec)}分钟")
                     if (isCoolingActive) {
                         sb.append("（冷却期申请 ×2 整单翻倍）")
                     }
@@ -4335,17 +4308,22 @@ object LockWindowManager {
                     sb.append("\n• 次数消耗: ${formatUsableCountHalfUnits(countCost)}次")
                 }
 
-                val remainingSecs = (kotlin.math.round(CreditManager.getRemainingMinutes(context) * 60)).toInt()
-                if (remainingSecs < totalTimeCost) {
-                    sb.append("\n⚠️ 时间额度不足，需借用")
-                }
-                val countRemaining = CreditManager.getRemainingUsableCount(context)
-                if (countRemaining < countCost && countCost > 0) {
-                    val countCanBorrow = CreditManager.canBorrowCountFromNext(context, countCost)
-                    if (countCanBorrow) {
-                        sb.append("\n⚠️ 次数不足，需借用（×2扣除）")
-                    } else {
-                        sb.append("\n⚠️ 次数不足且无法借用")
+                if (!isInDndSegment) {
+                    // 空档期超出：先扣前序结余，不足扣下一勿扰段额度，不算借用；仍不足则无法超出空档期
+                    sb.append("\n💡 先扣前序结余，不足扣下一勿扰段额度（不算借用）")
+                } else {
+                    val remainingSecs = (kotlin.math.round(CreditManager.getRemainingMinutes(context) * 60)).toInt()
+                    if (remainingSecs < totalTimeCost) {
+                        sb.append("\n⚠️ 时间额度不足，需借用")
+                    }
+                    val countRemaining = CreditManager.getRemainingUsableCount(context)
+                    if (countRemaining < countCost && countCost > 0) {
+                        val countCanBorrow = CreditManager.canBorrowCountFromNext(context, countCost)
+                        if (countCanBorrow) {
+                            sb.append("\n⚠️ 次数不足，需借用（×2扣除）")
+                        } else {
+                            sb.append("\n⚠️ 次数不足且无法借用")
+                        }
                     }
                 }
 
@@ -4560,15 +4538,17 @@ object LockWindowManager {
             CreditManager.getCoolDownEnd(context),
             if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L
         )
-        val freeSec: Int = if (isInFreeTime) {
+        // 整段完全落在休息 / 空档期内才免费；超出则整段付费，休息结束后的冷却从休息结束时刻起算，碰到即整段 ×2
+        // 空档期优先于休息判定：空档期内（含空档里的休息）免费窗口都是到下一勿扰时段开始为止
+        val freeSec: Int = if (isInGap) {
+            minOf(seconds, secondsUntilNextSegmentStart(context, now))
+        } else if (isInFreeTime) {
             val freeEndMs = CreditManager.getFreeTimeEnd(context)
             minOf(seconds, maxOf(0, ((freeEndMs - now + 999) / 1000).toInt()))
-        } else if (isInGap) {
-            seconds
         } else {
             0
         }
-        val coolingAnchorMs = if (isInFreeTime) CreditManager.getFreeTimeEnd(context) else now
+        val coolingAnchorMs = if (isInFreeTime && !isInGap) CreditManager.getFreeTimeEnd(context) else now
         val chargeSnapshot = resolveTemporaryAccessChargeSnapshot(
             requestedSec = seconds,
             freeSec = freeSec,
@@ -4620,7 +4600,7 @@ object LockWindowManager {
                         rawSeconds = rawSeconds,
                         maxSeconds = maxSeconds,
                         plan = quotaPlan,
-                        freeSec = freeSec,
+                        freeSec = chargeSnapshot.freeSec,
                         dndSec = chargeSnapshot.dndSec,
                         coolingSec = coolOverlapSec,
                         freeLabel = if (isInFreeTime) "休息时段" else "空档期"
@@ -4701,9 +4681,18 @@ object LockWindowManager {
             dismissLockScreen(LockDismissAuthority.TEMPORARY_ACCESS)
             return
         }
+        // 空档期申请超出空档期（进入下一勿扰时段）：整段计费，先扣前序结余，不足部分扣下一勿扰段额度（不算借用）
+        if (isInGap && chargeSnapshot.dndSec > 0) {
+            if (!CreditManager.consumeGapOverflowCharge(context, effectiveSeconds, countCost)) {
+                rejectTemporaryAccessLifecycle("QUOTA_INSUFFICIENT")
+                Toast.makeText(context, "额度不足，无法超出空档期使用临时解锁", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
         val accessUntil = now + seconds * 1000L
-        val globalCoolSec = TimeRuleManager.getCoolDownRestSeconds(context).let { if (it > 0) it else 60 }
-        val newCooldownUntil = accessUntil + calculateTemporaryReuseCooldownMs(seconds, maxSeconds, globalCoolSec)
+        val globalCoolSec = TimeRuleManager.getCoolDownRestSeconds(context).coerceAtLeast(0)
+        val newCooldownUntil = accessUntil + calculateTemporaryReuseCooldownMs(globalCoolSec)
         val cooldownUntil = maxOf(activeCooldownUntil, newCooldownUntil)
         val cooldownAfterAccessRemainMs = (cooldownUntil - accessUntil).coerceAtLeast(0L)
         val cooldownSeconds = (cooldownAfterAccessRemainMs + 999L) / 1000L
@@ -4817,6 +4806,7 @@ object LockWindowManager {
         totalSegmentBlacklistHits = 0
 
         val freeTag = when {
+            chargeSnapshot.dndSec > 0 -> ""
             !isInDndSegment -> "（空档期免扣额度）"
             isInFreeTime -> "（休息中免扣额度）"
             else -> ""
@@ -4873,22 +4863,23 @@ object LockWindowManager {
         totalSec: Int
     ): Int = calculateWeightedRestCountImpl(freeSec, dndSec, coolOverlapSec, totalSec)
 
-    internal fun calculateTemporaryReuseCooldownMs(
-        seconds: Int,
-        maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS,
-        unifiedCooldownSeconds: Int? = null
-    ): Long {
-        // 🚀 若传入统一冷静期间隙配置（全局参数），直接采用统一冷静期秒数
-        if (unifiedCooldownSeconds != null && unifiedCooldownSeconds > 0) {
-            return unifiedCooldownSeconds * 1000L
-        }
-        val normalized = normalizeTemporaryAccessSeconds(seconds, maxSeconds)
-        val tierThreeSeconds = (normalized - 120).coerceAtLeast(0)
-        val tierTwoSeconds = ((normalized - TEMP_ACCESS_COOLDOWN_SINGLE_RATE_UPPER_SECONDS).coerceIn(0, 60))
-        val tierOneSeconds = normalized.coerceAtMost(TEMP_ACCESS_COOLDOWN_SINGLE_RATE_UPPER_SECONDS)
-        val cooldownSeconds = tierThreeSeconds * 3 + tierTwoSeconds * 2 + tierOneSeconds * 1
-        return cooldownSeconds * 1000L
+    /** 距下一个勿扰时段开始的秒数；没有后续时段时视为无限（整段都在空档期内）。 */
+    internal fun secondsUntilNextSegmentStart(context: Context, now: Long): Int {
+        val nextSeg = TimeRuleManager.getNextSegment(context) ?: return Int.MAX_VALUE
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = now
+        cal.set(java.util.Calendar.HOUR_OF_DAY, nextSeg.startHour)
+        cal.set(java.util.Calendar.MINUTE, nextSeg.startMinute)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        // 跨天处理：算出的时刻早于当前时间则加一天
+        if (cal.timeInMillis < now) cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+        return ((cal.timeInMillis - now + 999) / 1000).toInt().coerceAtLeast(0)
     }
+
+    /** 临时解锁结束后的冷却时长：直接取全局参数「休息冷却」秒数，0 表示无冷却。 */
+    internal fun calculateTemporaryReuseCooldownMs(unifiedCooldownSeconds: Int): Long =
+        unifiedCooldownSeconds.coerceAtLeast(0) * 1000L
 
     internal fun shouldBlockTemporaryAccessByReuseCooldown(
         reuseRemainSeconds: Long,
@@ -6916,13 +6907,11 @@ internal fun resolveTemporaryAccessChargeSnapshot(
 ): TemporaryAccessChargeSnapshot {
     val safeRequested = requestedSec.coerceAtLeast(0)
     val safeFree = freeSec.coerceIn(0, safeRequested)
-    val dndSec = safeRequested - safeFree
 
-    val isInCooling = existingCooldownEndMs > coolingAnchorMs
-
-    if (dndSec <= 0) {
+    // 整段完全落在休息 / 空档期内才免费；一旦超出，整段（含免费窗口内那部分）都按付费计，不拆免费段
+    if (safeFree >= safeRequested) {
         return TemporaryAccessChargeSnapshot(
-            freeSec = safeFree,
+            freeSec = safeRequested,
             dndSec = 0,
             coolingSec = 0,
             normalDndSec = 0,
@@ -6930,6 +6919,9 @@ internal fun resolveTemporaryAccessChargeSnapshot(
             weightedCountHalfUnits = 0
         )
     }
+    val dndSec = safeRequested
+
+    val isInCooling = existingCooldownEndMs > coolingAnchorMs
 
     val multiplier = if (isInCooling) 2 else 1
     val weightedTimeCostSec = dndSec * multiplier
@@ -6937,7 +6929,7 @@ internal fun resolveTemporaryAccessChargeSnapshot(
     val weightedCountHalfUnits = baseHalfUnits * multiplier
 
     return TemporaryAccessChargeSnapshot(
-        freeSec = safeFree,
+        freeSec = 0,
         dndSec = dndSec,
         coolingSec = if (isInCooling) dndSec else 0,
         normalDndSec = if (isInCooling) 0 else dndSec,
