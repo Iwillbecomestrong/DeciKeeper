@@ -2083,7 +2083,8 @@ object LockWindowManager {
         now: Long,
         reason: String
     ): Boolean {
-        val isDndActive = isBlacklistLock && TimeRuleManager.getCurrentSegment(context) != null
+        // 黑名单锁与应用时间窗锁的「回到桌面」都计数，但必须处于勿扰时段内（空档期没有额度可扣）；防卸载锁不计
+        val isDndActive = (isBlacklistLock || _isAppWindowLock.get()) && TimeRuleManager.getCurrentSegment(context) != null
                 && now >= CreditManager.getFreeTimeEnd(context)
         if (!isDndActive) {
             if (DefaultLogDebugConfig.quotaCalculation) {

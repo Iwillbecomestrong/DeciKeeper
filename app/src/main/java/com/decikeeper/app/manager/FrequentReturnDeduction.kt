@@ -20,11 +20,10 @@ internal object FrequentReturnDeduction {
     fun hintText(count: Int, windowStart: Long, now: Long): String? {
         val elapsedMs = now - windowStart
         if (count <= 0 || count >= THRESHOLD || elapsedMs > WINDOW_MS) return null
-        val elapsedSec = (elapsedMs.coerceAtLeast(0L) / 1000L).toInt()
         val remainingSec = ((WINDOW_MS - elapsedMs.coerceAtLeast(0L) + 999L) / 1000L).toInt().coerceAtLeast(0)
         return buildString {
             append("⚠️ ${WINDOW_MS / 1000}秒内已返回桌面 $count/$THRESHOLD 次")
-            append(" · 距首次 ${elapsedSec}s · 窗口剩余 ${remainingSec}s")
+            append(" · 窗口剩余 ${remainingSec}s")
             if (count == THRESHOLD - 1) append("\n再返回 1 次将扣减额度")
         }
     }

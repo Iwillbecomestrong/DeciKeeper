@@ -14,6 +14,17 @@ class ReturnHomePenaltySourceContractTest {
             ?: error("cannot find $path")
 
     @Test
+    fun appWindowLockAlsoCountsWithinDndSegment() {
+        val lockWindow = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
+        val start = lockWindow.indexOf("private fun recordReturnHomePenaltyHit(")
+        val end = lockWindow.indexOf("if (!isDndActive)", start)
+        assertTrue(start >= 0 && end > start)
+        val eligibility = lockWindow.substring(start, end)
+        assertTrue("黑名单锁与应用时间窗锁的返回桌面都应计数", eligibility.contains("isBlacklistLock || _isAppWindowLock.get()"))
+        assertTrue("仅限勿扰时段内计数", eligibility.contains("TimeRuleManager.getCurrentSegment(context) != null"))
+    }
+
+    @Test
     fun onlyExplicitReturnHomeActionOwnsPenaltyCounting() {
         val lockWindow = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
 
