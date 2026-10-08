@@ -33,6 +33,11 @@ class RulesSettingsUiContractTest {
             xml.indexOf("@string/settings_protection_uninstall_perm_title") <
                 xml.indexOf("@string/settings_protection_developer_options_title")
         )
+        // 开发者选项拦截是列表最后一项，排在 OPPO 专享的设备管理器行之后。
+        assertTrue(
+            xml.indexOf("@+id/switch_device_admin_protection") <
+                xml.indexOf("@+id/switch_developer_options_guard")
+        )
         assertFalse(xml.contains("查看日志"))
         assertEquals(1, Regex("android:text=\"导出日志\"").findAll(xml).count())
     }

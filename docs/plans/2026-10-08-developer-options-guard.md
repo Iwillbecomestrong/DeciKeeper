@@ -1,6 +1,6 @@
 # 开发者选项拦截
 
-> 状态：**核心逻辑、识别、设置页开关与文档已实现，全量 JVM 测试通过（1549 项，0 失败）；真机拦截验证待做**。本文不是产品真相；实现并真机验证后，规则回写 `docs/specs/protection.md` §13，决策写入 `HISTORY.md`，再把本文归档到 `docs/archive/plans/`。
+> 状态：**核心逻辑、识别、设置页开关与文档已实现，全量 JVM 测试通过（1548 项，0 失败）；真机拦截验证待做**。本文不是产品真相；实现并真机验证后，规则回写 `docs/specs/protection.md` §13，决策写入 `HISTORY.md`，再把本文归档到 `docs/archive/plans/`。
 
 ## 1. 目标
 
@@ -14,7 +14,7 @@
 - 新增独立保护开关「开发者选项拦截」，依赖无障碍服务。
 - 检测到前台是开发者选项页面时执行 BACK + HOME（与 `PermissionProtection.handleDetection` 同一动作）。
 - 严立宽延三态：`DISABLED` / `ACTIVE` / `PENDING`，开启立即生效，关闭走严格次日延迟，基准为关或适应期内立即关闭。
-- 无障碍不可用时立即关闭并清空 pending，跟随无障碍依赖清理链。
+- 无障碍断开 / 失效时不改写持久化开关与 pending，开关不变，状态文字提示「无障碍未连接，暂未生效」，拦截自然暂停。
 
 **不做（第一版）**：
 - 不自动关闭已开启的 USB 调试 / 无线调试（需 `WRITE_SECURE_SETTINGS`，只能由用户 `adb shell pm grant` 授权，留作第二版可选增强）。
@@ -32,7 +32,7 @@
   2. baseline 中本项本来就是关闭的（恢复基准）。
 - **PENDING 期间仍强制拦截**（`isEnforcing()` 为真）。
 - 到期后下次读状态时落地为 `DISABLED`。
-- 无障碍不可用：立即关闭、清空 pending。
+- 无障碍断开 / 失效：不改写持久化意图（与既有依赖管理一致），开关保持，仅状态文字提示未生效。
 - 开启前必须无障碍服务可用，否则 Toast 提示并不开启（与小窗可见性增强一致）。
 
 ### 3.2 识别
@@ -69,15 +69,15 @@
 | 基准 | `TimeRuleManager` 新增 `getBaselineDeveloperOptionsGuardState`，并在基准快照写入处（与 `is_floating_window_protection_enabled` 同处，约 `TimeRuleManager.kt:2221`）一并写入 |
 | 识别 | 纯函数 `DeveloperOptionsPageMatcher`（输入：包名、类名、标题文字、条目文字集合；输出：是否命中），可 JVM 测试；节点读取在 `ProtectionManager` / 新增 `DeveloperOptionsProtection` 中 |
 | 拦截 | 新增 `DeveloperOptionsProtection`，在 `ProtectionManager.onAccessibilityEvent` 派发；动作参照 `PermissionProtection.handleDetection` |
-| 无障碍依赖清理 | 提供 `disableImmediatelyForAccessibilityUnavailable` 同款接口（有测试）。**当前清理链并未调用任何同类接口**：`AccessibilityDependencyManager.reconcile` 只挂起运行时展示、保留持久化意图，本功能与之一致，无障碍不可用时拦截因收不到事件而自然停止；规格 §7.2/§12.1 中“立即清除”的描述与此存在既有差距，另行处理 |
-| 设置页 | `RulesFragment` 加开关与状态文案；开关放在「加强约束功能」列表「防卸载与防关权限保护」的正下方（用户已确认；OPPO 专享的设备管理器锁行排在它之后，vivo 上它即最后一项）；`docs/specs/protection.md` §12.7 的「四项增强」及其展示顺序改为五项，并同步 `RulesSettingsUiContractTest` |
+| 无障碍断开 / 失效 | 不新增清理：沿用 `a11yInactiveSuffix` 的状态文字提示；`AccessibilityDependencyManager.reconcile` 本就只挂起运行时、保留持久化意图。规格 §7.2 / §12.1 中“立即清除”的描述与实际行为存在既有差距，另行处理 |
+| 设置页 | `RulesFragment` 加开关与状态文案；开关放在「加强约束功能」列表最后一项（用户已确认；OPPO 上排在专享的设备管理器锁行之后）；`docs/specs/protection.md` §12.7 的「四项增强」及其展示顺序改为五项，并同步 `RulesSettingsUiContractTest` |
 | 诊断 | `ProtectionDiagnostics` 输出新管理器状态 |
 | 文档 | `protection.md` §13、`docs/user/permissions.md`、`HISTORY.md` 决策、`.github/SECURITY.md` 第 54 行措辞 |
 
 ## 5. 验收标准
 
 **JVM 测试**：
-- 管理器：初始 `DISABLED`；开启后立即 `ACTIVE` 且 `isEnforcing`；基准为开启时关闭进入 `PENDING` 且仍强制；pending 到期落地 `DISABLED`；基准为关或适应期内关闭立即生效；无障碍不可用立即清空。
+- 管理器：初始 `DISABLED`；开启后立即 `ACTIVE` 且 `isEnforcing`；基准为开启时关闭进入 `PENDING` 且仍强制；pending 到期落地 `DISABLED`；基准为关或适应期内关闭立即生效；重新开启取消 pending；基准快照只记录 ACTIVE。
 - 匹配器：标题带空格 / 不带空格命中；英文标题命中；设置首页含「开发者选项」入口行**不命中**；仅有「USB 调试」单项不命中内容信号；普通第三方包名不命中；`isEnforcing` 为假时不拦截。
 - 设置页契约：开关位置、状态文案、无障碍关闭时不能开启。
 

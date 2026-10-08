@@ -122,19 +122,6 @@ class DeveloperOptionsGuardManagerTest {
     }
 
     @Test
-    fun disableImmediatelyForAccessibilityUnavailable_clearsEverything() {
-        leaveAdaptationPeriod()
-        prefs("decikeeper_rules_baseline").edit().putBoolean(DeveloperOptionsGuardManager.KEY_IS_ENABLED, true).commit()
-        DeveloperOptionsGuardManager.setProtectionEnabled(context, true)
-        DeveloperOptionsGuardManager.setProtectionEnabled(context, false)
-
-        DeveloperOptionsGuardManager.disableImmediatelyForAccessibilityUnavailable(context)
-
-        assertEquals(DeveloperOptionsGuardManager.State.DISABLED, DeveloperOptionsGuardManager.getProtectionState(context))
-        assertEquals(0L, DeveloperOptionsGuardManager.getPendingDisableTime(context))
-    }
-
-    @Test
     fun baselineSnapshotOnlyRecordsActiveState() {
         DeveloperOptionsGuardManager.setProtectionEnabled(context, true)
         assertFalse(TimeRuleManager.getBaselineDeveloperOptionsGuardState(context))

@@ -80,27 +80,6 @@ object DeveloperOptionsGuardManager {
         }
     }
 
-    internal fun disableImmediatelyForAccessibilityUnavailable(
-        context: Context,
-        caller: String = "AccessibilityDependencyManager"
-    ) {
-        val prefs = getPrefs(context)
-        val oldEnabled = prefs.getBoolean(KEY_IS_ENABLED, false)
-        val oldState = getProtectionState(context)
-        val oldPending = getPendingDisableTime(context)
-
-        prefs.edit().putBoolean(KEY_IS_ENABLED, false).apply()
-        ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
-
-        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
-        android.util.Log.w(
-            "ProtectionDiagnostics",
-            "[PROTECTION_FORCE_DISABLE] ${runIdTag}component=developer_options_guard caller=$caller " +
-                    "oldEnabled=$oldEnabled oldState=$oldState oldPending=$oldPending " +
-                    "newEnabled=false newState=${getProtectionState(context)}"
-        )
-    }
-
     fun getPendingDisableTime(context: Context): Long {
         return ConfigPendingManager.getEffectiveTime(context, KEY_PENDING_DISABLE)
     }
