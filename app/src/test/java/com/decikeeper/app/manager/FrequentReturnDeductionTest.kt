@@ -33,7 +33,7 @@ class FrequentReturnDeductionTest {
         val hint = FrequentReturnDeduction.hintText(count = 2, windowStart = 10_000L, now = 22_400L)
         assertNotNull(hint)
         assertTrue(hint!!, hint.contains("已返回桌面 2/5 次"))
-        assertTrue(hint, hint.contains("距首次 12s"))
+        assertFalse(hint, hint.contains("距首次"))
         // 30s 窗口，已过 12.4s，剩余向上取整为 18s
         assertTrue(hint, hint.contains("窗口剩余 18s"))
         assertFalse(hint, hint.contains("再返回"))
@@ -58,7 +58,7 @@ class FrequentReturnDeductionTest {
             windowStart = 0L,
             now = FrequentReturnDeduction.WINDOW_MS
         )!!
-        assertTrue(hint, hint.contains("距首次 30s"))
+        assertFalse(hint, hint.contains("距首次"))
         assertTrue(hint, hint.contains("窗口剩余 0s"))
     }
 
