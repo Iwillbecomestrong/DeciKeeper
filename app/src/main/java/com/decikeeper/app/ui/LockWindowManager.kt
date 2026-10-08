@@ -85,6 +85,7 @@ import com.decikeeper.app.manager.AlarmChallengeManager
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AppWindowManager
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.FrequentReturnDeduction
 import com.decikeeper.app.manager.LockOverlayRestrictionMode
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
@@ -659,14 +660,11 @@ object LockWindowManager {
     var temporaryAccessFinalRelockTargetPkg: String? = null
         private set
 
-    // --- 频繁锁屏惩罚 ---
-    private var mPenaltyWindowStart = 0L           // 当前30秒窗口起始时间
+    // --- 频繁返回扣减（窗口/阈值/时长规则见 FrequentReturnDeduction） ---
+    private var mPenaltyWindowStart = 0L           // 当前窗口起始时间（首次返回桌面）
     private var mPenaltyHitCount = 0               // 当前窗口内返回桌面次数
-    private val PENALTY_WINDOW_MS = 30_000L        // 30秒窗口
-    private val PENALTY_EXTEND_COOL_MS = 30_000L   // 冷却延长 +30s
-    private val PENALTY_DEDUCT_SECS = 30           // 扣除额度 30s
-    private val PENALTY_THRESHOLD = 5              // 触发惩罚的次数
-    private var mPendingPenaltyMessage: String? = null  // 待显示的惩罚弹窗消息（在锁屏View上展示）
+    private var mPendingPenaltyMessage: String? = null  // 第5次点击生成的扣减回执，由点击处理器立即展示
+    private var mPendingReturnHomeAction: (() -> Unit)? = null  // 回执确认后才执行的回桌面动作
 
     // --- 空档期应用时间窗豁免 ---
     private val mGapAppWindowDismissCount = mutableMapOf<String, Int>()
@@ -2044,13 +2042,6 @@ object LockWindowManager {
                 // Repeated-return-home penalty is user-action driven.
                 // Overlay attach/re-attach is a system action and never increments it.
 
-                // 如果有待显示的惩罚弹窗，在锁屏 in-layout overlay 上展示（不会被锁屏遮挡）
-                if (mPendingPenaltyMessage != null) {
-                    penaltyMessage?.text = mPendingPenaltyMessage
-                    penaltyOverlay?.visibility = View.VISIBLE
-                    mPendingPenaltyMessage = null
-                }
-
                 updateStatus(context)
                 startLockRefreshTimer(context)
 
@@ -2102,21 +2093,21 @@ object LockWindowManager {
             return false
         }
 
-        if (now - mPenaltyWindowStart > PENALTY_WINDOW_MS) {
+        if (now - mPenaltyWindowStart > FrequentReturnDeduction.WINDOW_MS) {
             mPenaltyWindowStart = now
             mPenaltyHitCount = 1
             if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] return-home window reset, count=1/$PENALTY_THRESHOLD | reason=$reason")
+                Log.d(TAG, "[Penalty] return-home window reset, count=1/${FrequentReturnDeduction.THRESHOLD} | reason=$reason")
             }
         } else {
             mPenaltyHitCount++
             if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] return-home increment, count=$mPenaltyHitCount/$PENALTY_THRESHOLD | reason=$reason")
+                Log.d(TAG, "[Penalty] return-home increment, count=$mPenaltyHitCount/${FrequentReturnDeduction.THRESHOLD} | reason=$reason")
             }
         }
 
         // Threshold → exactly one transaction per cycle.
-        if (mPenaltyHitCount >= PENALTY_THRESHOLD) {
+        if (mPenaltyHitCount >= FrequentReturnDeduction.THRESHOLD) {
             issuePenaltyTransactionOnce(context, now, reason)
         }
         return true
@@ -2143,54 +2134,36 @@ object LockWindowManager {
         val transactionId = "PENALTY-${now}-${mPenaltyHitCount}"
         val chargeResult = CreditManager.consumePenaltySeconds(
             context = context,
-            penaltySec = PENALTY_DEDUCT_SECS,
+            penaltySec = FrequentReturnDeduction.deductSeconds(isAnyCooling),
             transactionId = transactionId,
             isCooling = isAnyCooling
         )
         if (inCooling) {
             val coolEnd = CreditManager.getCoolDownEnd(context)
-            val newEnd = coolEnd + PENALTY_EXTEND_COOL_MS
+            val newEnd = coolEnd + FrequentReturnDeduction.COOL_EXTEND_MS
             CreditManager.setCoolDownEnd(context, newEnd)
         }
         if (inTempCooling) {
-            temporaryReuseCooldownUntil += PENALTY_EXTEND_COOL_MS
+            temporaryReuseCooldownUntil += FrequentReturnDeduction.COOL_EXTEND_MS
             saveTemporaryAccessState()
         }
 
         // 惩罚事件日志（合并扣费+冷却延长）
-        val coolExtendSec = PENALTY_EXTEND_COOL_MS / 1000
+        val coolExtendSec = FrequentReturnDeduction.COOL_EXTEND_MS / 1000
         // Boundary 4 (T4) — payload-equivalence GREEN 后的退场：
         // 删除 LogExporter 中文 Penalty 调用；retainedEvidence 由 PENALTY payload
         // （11 字段，per REQ-010）取代 — 见 docs/ai/LOG_EVENT_MIGRATION.md row 71
         // `══════ 每日状态播报 ══════` 行的 retainedEvidence 字段。
 
-        mPendingPenaltyMessage = buildString {
-            append("⚠️ 30秒内返回桌面${PENALTY_THRESHOLD}次，触发惩罚\n\n")
-            append("• 扣除时长: ${chargeResult.timeDeductSec}s\n")
-            if (chargeResult.borrowedTimeSec > 0) {
-                if (chargeResult.normalTimeSec > 0) {
-                    append("• 当前额度: ${chargeResult.normalTimeSec}s(×1)\n")
-                }
-                append("• 借用额度: ${chargeResult.borrowedTimeSec}s(×2) → 扣${chargeResult.borrowedTimeCostSec}s\n")
-                append("• 合计消耗额度: ${chargeResult.totalTimeQuotaSec}s\n")
-            } else {
-                append("• 当前额度: ${chargeResult.normalTimeSec}s\n")
-            }
-            if (chargeResult.borrowedCountPrincipalHalfUnits > 0) {
-                append("• 扣除次数: 当前扣除 ${formatUsableCountHalfUnits(chargeResult.currentCountCostHalfUnits)}次\n")
-                append("• 借用下一段次数: ${formatUsableCountHalfUnits(chargeResult.nextCountCostHalfUnits)}次(×2)\n")
-            } else {
-                append("• 扣除次数: ${formatUsableCountHalfUnits(chargeResult.currentCountCostHalfUnits)}次")
-                if (isAnyCooling) append(" (冷却中翻倍)")
-                append("\n")
-            }
-            if (inCooling) {
-                append("\n• 休息冷却期延长: +${coolExtendSec}s\n")
-            }
-            if (inTempCooling) {
-                append("• 临时解锁冷却期延长: +${coolExtendSec}s\n")
-            }
-        }
+        mPendingPenaltyMessage = FrequentReturnDeduction.receiptText(
+            result = chargeResult,
+            isAnyCooling = isAnyCooling,
+            inRestCooling = inCooling,
+            inTempCooling = inTempCooling,
+            coolExtendSec = coolExtendSec,
+            remainingTimeText = "${formatMinutesForLock(CreditManager.getRemainingMinutes(context))}min",
+            remainingCountText = "${formatUsableCountHalfUnits(CreditManager.getRemainingUsableCountHalfUnits(context))}次"
+        )
 
         mPenaltyHitCount = 0
         mPenaltyWindowStart = now
@@ -2537,8 +2510,13 @@ object LockWindowManager {
         tvSurplusBorrowLine = mLockView?.findViewById(R.id.tv_surplus_borrow_line)
         tvRestCountdownInCard = mLockView?.findViewById(R.id.tv_rest_countdown_in_card)
 
+        // 新锁屏视图：丢弃上一个视图遗留的“待回桌面”动作，避免陈旧回执确认后误触发
+        mPendingReturnHomeAction = null
         penaltyOk?.setOnClickListener {
             penaltyOverlay?.visibility = View.GONE
+            val action = mPendingReturnHomeAction
+            mPendingReturnHomeAction = null
+            action?.invoke()
         }
         
         // 顶部下拉手势：仅临时放开焦点拉出通知/状态栏，不降层不透传
@@ -2605,8 +2583,8 @@ object LockWindowManager {
 
         // Setup Listeners with Debounce
 
-        btnBackToHome?.setSafeOnClickListener {
-            // 🏠 “回到桌面”按钮
+        // 🏠 “回到桌面”真正执行体：第5次点击需先确认扣减回执，确认后才调用
+        fun performReturnHome() {
             val now = System.currentTimeMillis()
 
             // 正常模式：给予 3 秒宽限期处理小窗/浮窗
@@ -2618,7 +2596,6 @@ object LockWindowManager {
             setDesktopReturnGrace(now)
             recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
             clearBlacklistHitDebounceForUserAction()
-            recordReturnHomePenaltyHit(context, now, "RETURN_HOME_BUTTON")
             Log.i(
                 "PresenceDiag",
                 "[HOME_CLICK] action=RETURN_HOME_ONLY target=${lastBlockedPackageName ?: "unknown"}"
@@ -2639,7 +2616,21 @@ object LockWindowManager {
                 Log.w(TAG, "[HOME_CLICK] startActivity(Home) failed", e)
             }
         }
-        
+
+        btnBackToHome?.setSafeOnClickListener {
+            // 🏠 “回到桌面”按钮：先记一次返回；第5次会在此刻扣减并当场展示回执，确认后才回桌面
+            recordReturnHomePenaltyHit(context, System.currentTimeMillis(), "RETURN_HOME_BUTTON")
+            val receipt = mPendingPenaltyMessage
+            if (receipt != null) {
+                mPendingPenaltyMessage = null
+                mPendingReturnHomeAction = { performReturnHome() }
+                penaltyMessage?.text = receipt
+                penaltyOverlay?.visibility = View.VISIBLE
+            } else {
+                performReturnHome()
+            }
+        }
+
         // 🌟 纯粹三按钮架构点击逻辑 (Three-Button Architecture)
         // 1. 每周特权常驻按钮：长时间解开任意锁 (120min)
         btnWeeklyPrivilege?.setSafeOnClickListener {
@@ -3012,12 +3003,14 @@ object LockWindowManager {
                 // 惩罚计数可视化（仅 DND 时段活跃时展示）
                 val tvPenaltyHitCount = view.findViewById<TextView>(R.id.tv_penalty_hit_count)
                 val nowPenalty = System.currentTimeMillis()
-                val inPenaltyWindow = nowPenalty - mPenaltyWindowStart <= PENALTY_WINDOW_MS && mPenaltyHitCount > 0
                 val isDndActiveNow = TimeRuleManager.getCurrentSegment(context) != null
                         && System.currentTimeMillis() >= CreditManager.getFreeTimeEnd(context)
-                if (isDndActiveNow && inPenaltyWindow && mPenaltyHitCount < PENALTY_THRESHOLD) {
+                val penaltyHint = if (isDndActiveNow) {
+                    FrequentReturnDeduction.hintText(mPenaltyHitCount, mPenaltyWindowStart, nowPenalty)
+                } else null
+                if (penaltyHint != null) {
                     tvPenaltyHitCount?.visibility = View.VISIBLE
-                    tvPenaltyHitCount?.text = "⚠️ 30秒内返回桌面 ${mPenaltyHitCount}/${PENALTY_THRESHOLD} 次"
+                    tvPenaltyHitCount?.text = penaltyHint
                 } else {
                     tvPenaltyHitCount?.visibility = View.GONE
                 }
@@ -3052,7 +3045,7 @@ object LockWindowManager {
                         // 行5: 惩罚扣除
                         val penaltyMins = borrowedMinsFromNext * 2.0
                         val penaltyCount = borrowedCountFromNext * 2
-                        infoText += "\n惩罚扣除 (×2) ：-${formatMinutesForLock(penaltyMins)}min  |  -${formatUsableCountHalfUnits(penaltyCount)}次"
+                        infoText += "\n借用扣除 (×2) ：-${formatMinutesForLock(penaltyMins)}min  |  -${formatUsableCountHalfUnits(penaltyCount)}次"
                         // 行6: 实际生效
                         val effectiveMins = (nextLimit - penaltyMins).coerceAtLeast(0.0)
                         val effectiveCount = (nextCountLimit - penaltyCount).coerceAtLeast(0)
@@ -3313,6 +3306,18 @@ object LockWindowManager {
         try {
             val now = System.currentTimeMillis()
             val view = mLockView ?: return
+
+            // 0. 频繁返回扣减进度：每 tick 刷新“距首次/窗口剩余”秒数；窗口过期自动隐藏
+            view.findViewById<TextView>(R.id.tv_penalty_hit_count)?.let { hintView ->
+                if (hintView.visibility == View.VISIBLE) {
+                    val hint = FrequentReturnDeduction.hintText(mPenaltyHitCount, mPenaltyWindowStart, now)
+                    if (hint == null) {
+                        hintView.visibility = View.GONE
+                    } else if (hintView.text?.toString() != hint) {
+                        hintView.text = hint
+                    }
+                }
+            }
 
             // 1. 副标题倒计时（每秒更新秒数）：智能合并临时解锁与休息冷却倒计时
             val subStatusView = view.findViewById<TextView>(R.id.tv_sub_status)
@@ -4338,7 +4343,7 @@ object LockWindowManager {
                 if (countRemaining < countCost && countCost > 0) {
                     val countCanBorrow = CreditManager.canBorrowCountFromNext(context, countCost)
                     if (countCanBorrow) {
-                        sb.append("\n⚠️ 次数不足，需借用（×2惩罚）")
+                        sb.append("\n⚠️ 次数不足，需借用（×2扣除）")
                     } else {
                         sb.append("\n⚠️ 次数不足且无法借用")
                     }
@@ -6214,7 +6219,7 @@ object LockWindowManager {
             append("  已预支:        ${fmt(alreadyBorrowedMin)} 分钟  /  ${fmtCount(alreadyBorrowedCountHalfUnits)} 次\n")
             append("─────────────────────\n")
             append("  本次预支:      ${fmt(borrowMins)} 分钟  /  ${fmtCount(weightedCountsHalfUnits)} 次\n")
-            append("  惩罚扣除:      ${fmt(deductMin)} 分钟  /  ${fmtCount(weightedCountsHalfUnits)} 次")
+            append("  借用扣除:      ${fmt(deductMin)} 分钟  /  ${fmtCount(weightedCountsHalfUnits)} 次")
             if (isInRestCooling) append("  [含冷却×2]")
             append("\n")
             append("  预支后剩余:    ${fmt(afterBorrowMin)} 分钟  /  ${fmtCount(afterBorrowCountHalfUnits)} 次\n")
@@ -6226,7 +6231,7 @@ object LockWindowManager {
             append("─────────────────────\n")
             append("▸ 加权明细\n")
             append("  申请 ${requestedSec}s（冷却${coolingOverlapSec}s + 勿扰${dndOverlapSec}s）\n")
-            append("  惩罚 = ×2 × [×2(冷却${coolingOverlapSec}s) + ×1(勿扰${dndOverlapSec}s) + ×0(空档0s)]\n")
+            append("  借用扣除 = ×2 × [×2(冷却${coolingOverlapSec}s) + ×1(勿扰${dndOverlapSec}s) + ×0(空档0s)]\n")
             append("       = 2 × ${coolingOverlapSec * 2 + dndOverlapSec} = ${weightedSec}s\n")
             if (isInRestCooling && coolingOverlapSec > 0) {
                 append("  ⚠️ ${coolingOverlapSec}s 落在冷却期，按 ×2 加权\n")
