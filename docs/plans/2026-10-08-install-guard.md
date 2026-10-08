@@ -1,6 +1,6 @@
 # 安装拦截（拦截对决定守护本身的安装 / 更新）
 
-> 状态：**仅计划，尚未实现；vivo 安装器页面的真机数据尚未取得**。本文不是产品真相；实现并真机验证后，规则回写 `docs/specs/protection.md`，决策写入 `HISTORY.md`（下一个编号 DECISION-43），再把本文归档到 `docs/archive/plans/`。
+> 状态：**核心逻辑、拦截、设置页开关与文档已实现，全量 JVM 测试通过；真机拦截验证待做**。本文不是产品真相；实现并真机验证后，规则回写 `docs/specs/protection.md`，决策写入 `HISTORY.md`（下一个编号 DECISION-43），再把本文归档到 `docs/archive/plans/`。
 
 ## 1. 目标
 
