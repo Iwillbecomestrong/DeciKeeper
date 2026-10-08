@@ -25,7 +25,11 @@ internal object DeveloperOptionsPageMatcher {
     // 开发者选项在各主流 ROM（含 vivo）都由 com.android.settings 承载；权限管理类包不含该页。
     private const val SETTINGS_PACKAGE = "com.android.settings"
 
-    private val TITLES = setOf("开发者选项", "developeroptions", "開發人員選項", "開發者選項")
+    // 含无线调试子页：快捷设置磁贴与直接跳转会绕过开发者选项主页直接落在它上面（vivo V2425A 真机取证 2026-10-08）。
+    private val TITLES = setOf(
+        "开发者选项", "developeroptions", "開發人員選項", "開發者選項",
+        "无线调试", "wirelessdebugging", "無線偵錯"
+    )
 
     // 开发者选项页独有的条目，真机（vivo V2425A）取自 2026-10-08。页面滚动后标题可能不在可见节点中，
     // 凭其中至少两项仍可识别。
