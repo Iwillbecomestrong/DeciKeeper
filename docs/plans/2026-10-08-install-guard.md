@@ -60,13 +60,32 @@ BACK + HOME，与既有拦截一致。用户在手机管家弹出「应用风险
 ### 4.5 设置页位置
 「加强约束功能」列表最后一项，在「开发者选项拦截」之后。需随实现更新规格 §12.7 的增强项数量（五项 → 六项）与 `RulesSettingsUiContractTest`。
 
-## 5. 待取证据（真机，vivo V2425A）
+## 5. 真机证据（vivo V2425A，2026-10-08）
 
-需要 adb 可用时抓取，**只看不点确认**：
-1. 在手机上用文件管理器打开一个决定守护的 APK，停在系统安装器的「更新」确认页；
-2. 记录前台包名、Activity 类名、页面上的应用名与按钮文案节点（`uiautomator dump`）；
-3. 再记录一个**其他应用**的安装页，作为不得误拦的对照；
-4. 记录同一页在「覆盖安装（更新）」与「全新安装」下的文案差异。
+### 5.1 已取得：安装前的风险拦截页
+
+用文件管理器打开决定守护的 APK，先出现的不是普通安装确认页，而是 vivo 的「风险拦截」页（应用未备案时出现，其他未备案应用同样会出现）：
+
+| 项 | 值 |
+| --- | --- |
+| 前台 Activity | `com.android.packageinstaller/com.android.packageinstaller.PackageInterceptActivity` |
+| 应用名节点 | `com.android.packageinstaller:id/tv_app_name`，文字「决定守护」 |
+| 其他节点 | `tv_app_version`=0.3.0、`tv_app_size`=14.50 MB、`tv_caller`=「来自“文件管理”」 |
+| 风险文案 | `tv_risk_title`「无法识别应用核准（备案）情况」；`tv_risk_describe`「未查询到此应用的ICP核准（备案）信息…」 |
+| 按钮 | `android:id/button1`「继续安装」（`vbutton_title`）；`ok_button`「查找类似应用」 |
+
+结论：
+1. 这一页就能稳定识别：包名 `com.android.packageinstaller`，且 `tv_app_name` 文字等于决定守护的应用名。用 `tv_app_name` 比整页文字扫描更窄，不依赖权限列表，也不会因节点多而超预算。
+2. 页面上有「继续安装」，现有防卸载的 `isInstallationFlow` 会把它判为安装流程放行，所以新判定必须**先于**防卸载派发。
+3. 在这一页拦住，用户就走不到后面的真正安装确认页。
+
+### 5.2 仍缺
+
+- 点「继续安装」之后的**真正安装 / 更新确认页**（可能是另一个 Activity）。仅在风险拦截页只在「未备案」时出现的假设不成立、或用户从别的入口直接进入安装确认页时才需要，但仍应取证并一并识别。
+- 其他应用的安装页作为不得误拦的对照（同一风险拦截页上 `tv_app_name` 应是别的应用名）。
+- 同签名覆盖安装（更新）与全新安装的文案差异。
+
+取证约定：只看不点确认；需要点「继续安装」时必须由用户本人操作，并在下一页出现后、点确认前告知。
 
 ## 6. 实现落点（计划）
 
@@ -74,7 +93,7 @@ BACK + HOME，与既有拦截一致。用户在手机管家弹出「应用风险
 | --- | --- |
 | 状态管理 | 新增 `InstallGuardManager`，照搬 `DeveloperOptionsGuardManager` |
 | 基准 | `TimeRuleManager` 新增 `getBaselineInstallGuardState`，并写入 `saveBaselineParams`；契约测试补一条 |
-| 识别 | 纯函数 `InstallPageMatcher` + 拦截类 `InstallProtection`，在 `ProtectionManager.onAccessibilityEvent` 中**先于**防卸载派发 |
+| 识别 | 纯函数 `InstallPageMatcher`（以 `tv_app_name` 等于应用名为主信号，整页文字扫描为兜底）+ 拦截类 `InstallProtection`，在 `ProtectionManager.onAccessibilityEvent` 中**先于**防卸载派发 |
 | 设置页 | `RulesFragment` 开关与状态文案；两个「关闭无障碍」确认弹窗与协同关闭纳入；`ProtectionDiagnostics` 输出 |
 | 文档 | `protection.md` 新增一节，`docs/user/permissions.md`，`HISTORY.md` DECISION-43，`CHANGELOG.md` |
 
