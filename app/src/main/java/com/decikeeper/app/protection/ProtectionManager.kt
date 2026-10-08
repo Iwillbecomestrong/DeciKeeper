@@ -39,6 +39,7 @@ object ProtectionManager {
     private var antiUninstallProtection: AntiUninstallProtection? = null
     private var accessibilityProtection: AccessibilityProtection? = null
     private var permissionProtection: PermissionProtection? = null
+    private var developerOptionsProtection: DeveloperOptionsProtection? = null
 
     /** Only protection surfaces may expose text; other apps still supply foreground package signals. */
     fun shouldInspectContent(context: Context, packageName: String?): Boolean {
@@ -71,6 +72,7 @@ object ProtectionManager {
         antiUninstallProtection = AntiUninstallProtection(context)
         accessibilityProtection = AccessibilityProtection(context)
         permissionProtection = PermissionProtection(context)
+        developerOptionsProtection = DeveloperOptionsProtection(context)
     }
 
 
@@ -100,6 +102,13 @@ object ProtectionManager {
             permissionProtection?.check(service, event, root)
         } catch (e: Exception) {
             android.util.Log.e(com.decikeeper.app.protection.PermissionProtection.TAG, "PermissionProtection Error", e)
+        }
+
+        // 0.5 开发者选项拦截：同样对延迟敏感，对非设置类包名零成本返回。
+        try {
+            developerOptionsProtection?.check(service, event, root)
+        } catch (e: Exception) {
+            android.util.Log.e(com.decikeeper.app.protection.DeveloperOptionsProtection.TAG, "DeveloperOptionsProtection Error", e)
         }
 
         // 1. Accessibility Protection (Highest Priority - prevent disabling self)

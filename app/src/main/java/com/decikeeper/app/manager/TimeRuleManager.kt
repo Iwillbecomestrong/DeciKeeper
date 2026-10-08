@@ -713,6 +713,11 @@ object TimeRuleManager {
             .getBoolean("is_floating_window_protection_enabled", false)
     }
 
+    fun getBaselineDeveloperOptionsGuardState(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+            .getBoolean(DeveloperOptionsGuardManager.KEY_IS_ENABLED, false)
+    }
+
 
     fun getMaxExitsPerSegment(context: Context): Int = 100
     fun getMinutesLimitForSegment(context: Context, segment: TimeSegment): Int = segment.limitMins
@@ -2220,6 +2225,10 @@ object TimeRuleManager {
             putBoolean(
                 "is_floating_window_protection_enabled",
                 FloatingWindowProtectionManager.getProtectionState(context) == FloatingWindowProtectionManager.State.ACTIVE
+            )
+            putBoolean(
+                DeveloperOptionsGuardManager.KEY_IS_ENABLED,
+                DeveloperOptionsGuardManager.getProtectionState(context) == DeveloperOptionsGuardManager.State.ACTIVE
             )
 
             val segJson = activePrefs.getString(KEY_SEGMENTS_JSON, null)
