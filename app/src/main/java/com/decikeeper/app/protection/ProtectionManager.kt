@@ -40,6 +40,7 @@ object ProtectionManager {
     private var accessibilityProtection: AccessibilityProtection? = null
     private var permissionProtection: PermissionProtection? = null
     private var developerOptionsProtection: DeveloperOptionsProtection? = null
+    private var installProtection: InstallProtection? = null
 
     /** Only protection surfaces may expose text; other apps still supply foreground package signals. */
     fun shouldInspectContent(context: Context, packageName: String?): Boolean {
@@ -73,6 +74,7 @@ object ProtectionManager {
         accessibilityProtection = AccessibilityProtection(context)
         permissionProtection = PermissionProtection(context)
         developerOptionsProtection = DeveloperOptionsProtection(context)
+        installProtection = InstallProtection(context)
     }
 
 
@@ -109,6 +111,13 @@ object ProtectionManager {
             developerOptionsProtection?.check(service, event, root)
         } catch (e: Exception) {
             android.util.Log.e(com.decikeeper.app.protection.DeveloperOptionsProtection.TAG, "DeveloperOptionsProtection Error", e)
+        }
+
+        // 0.6 安装拦截：必须先于防卸载派发，防卸载对安装器的「安装 / 更新流程豁免」会把这类页面放行。
+        try {
+            installProtection?.check(service, event, root)
+        } catch (e: Exception) {
+            android.util.Log.e(com.decikeeper.app.protection.InstallProtection.TAG, "InstallProtection Error", e)
         }
 
         // 1. Accessibility Protection (Highest Priority - prevent disabling self)

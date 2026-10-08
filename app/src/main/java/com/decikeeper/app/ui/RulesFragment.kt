@@ -53,6 +53,7 @@ import com.decikeeper.app.manager.ConfigPendingManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.DeveloperOptionsGuardManager
 import com.decikeeper.app.manager.FloatingWindowProtectionManager
+import com.decikeeper.app.manager.InstallGuardManager
 import com.decikeeper.app.manager.GuardFloatingWindowManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
 import com.decikeeper.app.manager.PermissionManager
@@ -221,6 +222,8 @@ class RulesFragment : Fragment() {
     private var tvFloatingWindowProtectionStatus: TextView? = null
     private var switchDeveloperOptionsGuard: Switch? = null
     private var tvDeveloperOptionsGuardStatus: TextView? = null
+    private var switchInstallGuard: Switch? = null
+    private var tvInstallGuardStatus: TextView? = null
     private var cardBasicPermissions: View? = null
     private var tvBasicPermissionsStatus: TextView? = null
     private var tvBasicPermissionsBadge: TextView? = null
@@ -277,12 +280,14 @@ class RulesFragment : Fragment() {
     private var lastSwitchClickTime = 0L
     private var lastFloatingWindowSwitchClickTime = 0L
     private var lastDeveloperOptionsGuardSwitchClickTime = 0L
+    private var lastInstallGuardSwitchClickTime = 0L
     private var lastUninstallAndPermSwitchClickTime = 0L
     private var lastA11yServiceSwitchClickTime = 0L
     private var lastPrivacySpaceGuardSwitchClickTime = 0L
     private var switchUninstallAndPermUiUpdating = false
     private var switchFloatingWindowUiUpdating = false
     private var switchDeveloperOptionsGuardUiUpdating = false
+    private var switchInstallGuardUiUpdating = false
     private var switchA11yServiceUiUpdating = false
     private var switchAlarmPowerOffUiUpdating = false
     private var switchPrivacySpaceGuardUiUpdating = false
@@ -333,6 +338,7 @@ class RulesFragment : Fragment() {
         updateAlarmPowerOffProtectionUI()
         updateFloatingWindowProtectionUI()
         updateDeveloperOptionsGuardUI()
+        updateInstallGuardUI()
         updatePrivacySpaceGuardUI()
         updateUninstallAndPermProtectionUI()
         alarmPrerequisiteDialogRefresh?.invoke()
@@ -379,6 +385,8 @@ class RulesFragment : Fragment() {
         tvFloatingWindowProtectionStatus = view.findViewById(R.id.tv_floating_window_protection_status)
         switchDeveloperOptionsGuard = view.findViewById(R.id.switch_developer_options_guard)
         tvDeveloperOptionsGuardStatus = view.findViewById(R.id.tv_developer_options_guard_status)
+        switchInstallGuard = view.findViewById(R.id.switch_install_guard)
+        tvInstallGuardStatus = view.findViewById(R.id.tv_install_guard_status)
         layoutPrivacySpaceGuard = view.findViewById(R.id.layout_privacy_space_guard)
         dividerPrivacySpaceGuard = view.findViewById(R.id.divider_privacy_space_guard)
         switchPrivacySpaceGuard = view.findViewById(R.id.switch_privacy_space_guard)
@@ -409,6 +417,7 @@ class RulesFragment : Fragment() {
         switchFloatingGuard?.let { setupFloatingGuardSwitch(it) }
         switchFloatingWindowProtection?.let { setupFloatingWindowProtectionSwitch(it) }
         switchDeveloperOptionsGuard?.let { setupDeveloperOptionsGuardSwitch(it) }
+        switchInstallGuard?.let { setupInstallGuardSwitch(it) }
         switchPrivacySpaceGuard?.let { setupPrivacySpaceGuardSwitch(it) }
         switchUninstallAndPermProtection?.let { setupUninstallAndPermProtectionSwitch(it) }
         switchDeviceAdminProtection?.let { setupDeviceAdminProtectionSwitch(it) }
@@ -431,6 +440,7 @@ class RulesFragment : Fragment() {
                 append(getString(R.string.settings_protection_help_floating_window)).append("\n\n")
                 append(getString(R.string.settings_protection_help_uninstall_perm))
                 append("\n\n").append(getString(R.string.settings_protection_help_developer_options))
+                append("\n\n").append(getString(R.string.settings_protection_help_install))
 
                 if (isVivo) {
                     append("\n\n").append(getString(R.string.settings_protection_help_vivo_note))
@@ -503,6 +513,7 @@ class RulesFragment : Fragment() {
             updateEditWindowPolicyUI()
             updateFloatingWindowProtectionUI()
             updateDeveloperOptionsGuardUI()
+            updateInstallGuardUI()
             updatePrivacySpaceGuardUI()
             updateUninstallAndPermProtectionUI()
         }
@@ -928,6 +939,57 @@ class RulesFragment : Fragment() {
         }
     }
 
+    private fun setupInstallGuardSwitch(switchView: Switch) {
+        val ctx = requireContext()
+        updateInstallGuardUI()
+        (switchView.parent as? View)?.setOnClickListener {
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+            }
+        }
+        switchView.setOnCheckedChangeListener { _, checked ->
+            if (switchInstallGuardUiUpdating) return@setOnCheckedChangeListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                switchInstallGuardUiUpdating = true
+                switchView.isChecked = !checked
+                switchInstallGuardUiUpdating = false
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+            val now = System.currentTimeMillis()
+            if (now - lastInstallGuardSwitchClickTime < 1000L) {
+                switchInstallGuardUiUpdating = true
+                switchView.isChecked = !checked
+                switchInstallGuardUiUpdating = false
+                return@setOnCheckedChangeListener
+            }
+            lastInstallGuardSwitchClickTime = now
+
+            if (checked) {
+                if (!isA11yServiceReady(ctx)) {
+                    switchInstallGuardUiUpdating = true
+                    switchView.isChecked = false
+                    switchInstallGuardUiUpdating = false
+                    Toast.makeText(ctx, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    return@setOnCheckedChangeListener
+                }
+                InstallGuardManager.setProtectionEnabled(ctx, true)
+                Toast.makeText(ctx, "安装拦截已开启", Toast.LENGTH_SHORT).show()
+            } else {
+                val isImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || !TimeRuleManager.getBaselineInstallGuardState(ctx)
+                InstallGuardManager.setProtectionEnabled(ctx, false)
+                val message = if (isImmediate) {
+                    if (TimeRuleManager.isInAdaptationPeriod(ctx)) "适应期内，安装拦截已立即关闭"
+                    else "安装拦截已立即关闭（恢复基准）"
+                } else {
+                    "已申请关闭安装拦截（明日生效）"
+                }
+                Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+            }
+            updateInstallGuardUI()
+        }
+    }
+
     private fun setupUninstallAndPermProtectionSwitch(switchView: Switch) {
         val ctx = requireContext()
         updateUninstallAndPermProtectionUI()
@@ -1109,6 +1171,9 @@ class RulesFragment : Fragment() {
         if (DeveloperOptionsGuardManager.getProtectionState(ctx) == DeveloperOptionsGuardManager.State.ACTIVE) {
             DeveloperOptionsGuardManager.setProtectionEnabled(ctx, false)
         }
+        if (InstallGuardManager.getProtectionState(ctx) == InstallGuardManager.State.ACTIVE) {
+            InstallGuardManager.setProtectionEnabled(ctx, false)
+        }
         if (GuardFloatingWindowManager.getProtectionState(ctx) == GuardFloatingWindowManager.State.ACTIVE) {
             GuardFloatingWindowManager.setFloatingGuardEnabled(ctx, false)
         }
@@ -1142,6 +1207,7 @@ class RulesFragment : Fragment() {
         val floatingText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx))
         val privacyText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselinePrivacyProtectionState(ctx))
         val devGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx))
+        val installGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineInstallGuardState(ctx))
         val a11yText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineA11yServiceState(ctx))
 
         val allImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || (
@@ -1150,6 +1216,7 @@ class RulesFragment : Fragment() {
             !TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx) &&
             !TimeRuleManager.getBaselinePrivacyProtectionState(ctx) &&
             !TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx) &&
+            !TimeRuleManager.getBaselineInstallGuardState(ctx) &&
             !TimeRuleManager.getBaselineA11yServiceState(ctx)
         )
 
@@ -1165,6 +1232,7 @@ class RulesFragment : Fragment() {
                 append("  • 小窗可见性增强 → $floatingText\n")
                 append("  • 隐私空间保护 → $privacyText\n")
                 append("  • 开发者选项拦截 → $devGuardText\n")
+                append("  • 安装拦截 → $installGuardText\n")
                 append("  • 闹钟防关机保护 → 立即关闭\n")
                 append("  • 无障碍服务 → $a11yText\n\n")
                 if (allImmediate) {
@@ -1230,6 +1298,7 @@ class RulesFragment : Fragment() {
             updateAlarmPowerOffProtectionUI()
             updateFloatingWindowProtectionUI()
             updateDeveloperOptionsGuardUI()
+            updateInstallGuardUI()
             updatePrivacySpaceGuardUI()
             updateFloatingGuardUI()
             dialog.dismiss()
@@ -1265,6 +1334,7 @@ class RulesFragment : Fragment() {
         val floatingText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx))
         val privacyText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselinePrivacyProtectionState(ctx))
         val devGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx))
+        val installGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineInstallGuardState(ctx))
         val a11yText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineA11yServiceState(ctx))
 
         val allImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || (
@@ -1273,6 +1343,7 @@ class RulesFragment : Fragment() {
             !TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx) &&
             !TimeRuleManager.getBaselinePrivacyProtectionState(ctx) &&
             !TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx) &&
+            !TimeRuleManager.getBaselineInstallGuardState(ctx) &&
             !TimeRuleManager.getBaselineA11yServiceState(ctx)
         )
 
@@ -1289,6 +1360,7 @@ class RulesFragment : Fragment() {
                 append("  • 小窗可见性增强 → $floatingText\n")
                 append("  • 隐私空间保护 → $privacyText\n")
                 append("  • 开发者选项拦截 → $devGuardText\n")
+                append("  • 安装拦截 → $installGuardText\n")
                 append("  • 闹钟防关机保护 → 立即关闭\n")
                 append("  • 无障碍服务 → $a11yText\n\n")
                 if (allImmediate) {
@@ -1350,6 +1422,7 @@ class RulesFragment : Fragment() {
             updateAlarmPowerOffProtectionUI()
             updateFloatingWindowProtectionUI()
             updateDeveloperOptionsGuardUI()
+            updateInstallGuardUI()
             updatePrivacySpaceGuardUI()
             updateFloatingGuardUI()
             dialog.dismiss()
@@ -2579,6 +2652,36 @@ class RulesFragment : Fragment() {
                     if (state == DeveloperOptionsGuardManager.State.PENDING ||
                         (state == DeveloperOptionsGuardManager.State.ACTIVE && inactiveSuffix.isNotEmpty())) R.attr.zzWarning
                     else if (state == DeveloperOptionsGuardManager.State.ACTIVE) R.attr.zzSuccess
+                    else R.attr.zzMuted
+                )
+            )
+        }
+    }
+
+    private fun updateInstallGuardUI() {
+        if (!isAdded) return
+        val ctx = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
+        val state = InstallGuardManager.getProtectionState(ctx)
+        switchInstallGuardUiUpdating = true
+        switchInstallGuard?.isChecked = state == InstallGuardManager.State.ACTIVE
+        switchInstallGuard?.isEnabled = !locked
+        switchInstallGuard?.isClickable = !locked
+        switchInstallGuard?.alpha = if (locked) 0.5f else 1.0f
+        switchInstallGuardUiUpdating = false
+        val inactiveSuffix = a11yInactiveSuffix(ctx)
+        tvInstallGuardStatus?.let {
+            it.text = when (state) {
+                InstallGuardManager.State.ACTIVE -> "状态: 已开启$inactiveSuffix"
+                InstallGuardManager.State.PENDING -> "状态: 待关闭（明日生效）"
+                InstallGuardManager.State.DISABLED -> "状态: 未开启"
+            }
+            it.setTextColor(
+                ThemeManager.getColorAttr(
+                    ctx,
+                    if (state == InstallGuardManager.State.PENDING ||
+                        (state == InstallGuardManager.State.ACTIVE && inactiveSuffix.isNotEmpty())) R.attr.zzWarning
+                    else if (state == InstallGuardManager.State.ACTIVE) R.attr.zzSuccess
                     else R.attr.zzMuted
                 )
             )

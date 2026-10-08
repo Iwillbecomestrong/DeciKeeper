@@ -421,6 +421,16 @@
                     </LinearLayout>
                     <Switch android:id="@+id/switch_developer_options_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
+
+                <!-- 8. 安装拦截（列表最后一项，位于开发者选项拦截之后） -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_install_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_install_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
+                    <Switch android:id="@+id/switch_install_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

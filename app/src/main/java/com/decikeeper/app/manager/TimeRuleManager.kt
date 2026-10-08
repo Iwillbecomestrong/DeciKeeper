@@ -713,6 +713,11 @@ object TimeRuleManager {
             .getBoolean("is_floating_window_protection_enabled", false)
     }
 
+    fun getBaselineInstallGuardState(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+            .getBoolean(InstallGuardManager.KEY_IS_ENABLED, false)
+    }
+
     fun getBaselineDeveloperOptionsGuardState(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
             .getBoolean(DeveloperOptionsGuardManager.KEY_IS_ENABLED, false)
@@ -2233,6 +2238,10 @@ object TimeRuleManager {
             putBoolean(
                 DeveloperOptionsGuardManager.KEY_IS_ENABLED,
                 DeveloperOptionsGuardManager.getProtectionState(context) == DeveloperOptionsGuardManager.State.ACTIVE
+            )
+            putBoolean(
+                InstallGuardManager.KEY_IS_ENABLED,
+                InstallGuardManager.getProtectionState(context) == InstallGuardManager.State.ACTIVE
             )
 
             val segJson = activePrefs.getString(KEY_SEGMENTS_JSON, null)

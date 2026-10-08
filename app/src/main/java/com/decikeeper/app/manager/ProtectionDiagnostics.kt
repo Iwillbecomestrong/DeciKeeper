@@ -120,6 +120,11 @@ object ProtectionDiagnostics {
         val devGuardPending = DeveloperOptionsGuardManager.getPendingDisableTime(appContext)
         val devGuardEnforcing = DeveloperOptionsGuardManager.isEnforcing(appContext)
 
+        // InstallGuardManager
+        val installGuardState = InstallGuardManager.getProtectionState(appContext)
+        val installGuardPending = InstallGuardManager.getPendingDisableTime(appContext)
+        val installGuardEnforcing = InstallGuardManager.isEnforcing(appContext)
+
         // AlarmPowerOffProtectionManager
         val alarmPowerOffEnabled = AlarmPowerOffProtectionManager.isEnabled(appContext)
 
@@ -170,6 +175,10 @@ object ProtectionDiagnostics {
             appendLine("    state=$devGuardState")
             appendLine("    pendingEffectiveTime=$devGuardPending")
             appendLine("    isEnforcing=$devGuardEnforcing")
+            appendLine("InstallGuardManager:")
+            appendLine("    state=$installGuardState")
+            appendLine("    pendingEffectiveTime=$installGuardPending")
+            appendLine("    isEnforcing=$installGuardEnforcing")
             appendLine("AlarmPowerOffProtectionManager:")
             appendLine("    enabled=$alarmPowerOffEnabled")
             appendLine("GuardFloatingWindowManager:")

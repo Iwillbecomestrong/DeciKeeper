@@ -38,6 +38,11 @@ class RulesSettingsUiContractTest {
             xml.indexOf("@+id/switch_device_admin_protection") <
                 xml.indexOf("@+id/switch_developer_options_guard")
         )
+        // 安装拦截排在开发者选项拦截之后，是列表最后一项。
+        assertTrue(
+            xml.indexOf("@+id/switch_developer_options_guard") <
+                xml.indexOf("@+id/switch_install_guard")
+        )
         assertFalse(xml.contains("查看日志"))
         assertEquals(1, Regex("android:text=\"导出日志\"").findAll(xml).count())
     }
@@ -52,6 +57,11 @@ class RulesSettingsUiContractTest {
         // 两个「关闭无障碍」确认弹窗都要列出该项，并把它计入「今日基准全为关闭」的立即解除判定。
         assertEquals(2, source.split("开发者选项拦截 → ").size - 1)
         assertEquals(2, source.split("!TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx) &&").size - 1)
+
+        // 安装拦截同样并入协同关闭与两个确认弹窗。
+        assertTrue(source.substring(start, end).contains("InstallGuardManager.setProtectionEnabled(ctx, false)"))
+        assertEquals(2, source.split("安装拦截 → ").size - 1)
+        assertEquals(2, source.split("!TimeRuleManager.getBaselineInstallGuardState(ctx) &&").size - 1)
     }
 
     @Test
