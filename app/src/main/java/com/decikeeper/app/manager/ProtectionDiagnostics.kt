@@ -115,6 +115,11 @@ object ProtectionDiagnostics {
         val floatProtPending = FloatingWindowProtectionManager.getPendingDisableTime(appContext)
         val floatProtEnforcing = FloatingWindowProtectionManager.isEnforcing(appContext)
 
+        // DeveloperOptionsGuardManager
+        val devGuardState = DeveloperOptionsGuardManager.getProtectionState(appContext)
+        val devGuardPending = DeveloperOptionsGuardManager.getPendingDisableTime(appContext)
+        val devGuardEnforcing = DeveloperOptionsGuardManager.isEnforcing(appContext)
+
         // AlarmPowerOffProtectionManager
         val alarmPowerOffEnabled = AlarmPowerOffProtectionManager.isEnabled(appContext)
 
@@ -161,6 +166,10 @@ object ProtectionDiagnostics {
             appendLine("    persistedEnabled=$floatProtPersisted")
             appendLine("    pendingEffectiveTime=$floatProtPending")
             appendLine("    isEnforcing=$floatProtEnforcing")
+            appendLine("DeveloperOptionsGuardManager:")
+            appendLine("    state=$devGuardState")
+            appendLine("    pendingEffectiveTime=$devGuardPending")
+            appendLine("    isEnforcing=$devGuardEnforcing")
             appendLine("AlarmPowerOffProtectionManager:")
             appendLine("    enabled=$alarmPowerOffEnabled")
             appendLine("GuardFloatingWindowManager:")

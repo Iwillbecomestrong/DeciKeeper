@@ -13,6 +13,7 @@
     <string name="settings_protection_section_summary" translatable="false">以下功能需先开启无障碍服务</string>
     <string name="settings_protection_alarm_title" translatable="false">闹钟防关机保护</string>
     <string name="settings_protection_floating_title" translatable="false">小窗可见性增强</string>
+    <string name="settings_protection_developer_options_title" translatable="false">开发者选项拦截</string>
     <string name="settings_protection_privacy_title" translatable="false">隐私空间保护</string>
     <string name="settings_protection_uninstall_perm_title" translatable="false">防卸载与防关权限保护</string>
     <string name="privacy_space_guard_title" translatable="false">隐私空间保护</string>
@@ -36,6 +37,7 @@
     <string name="settings_protection_help_floating_guard" translatable="false">【桌面守护小浮窗】\n在屏幕边缘常驻微型自律图标，防止后台误划清理导致服务被杀；轻触可展开状态，松手自动靠边吸附。</string>
     <string name="settings_protection_help_floating_window" translatable="false">【小窗可见性增强】\n增强系统小窗或悬浮模式下受限应用的识别与约束（关闭需次日生效）。</string>
     <string name="settings_protection_help_uninstall_perm" translatable="false">【防卸载与防关权限保护】\n拦截进入系统设置的应用管理与权限页面，降低冲动卸载或强停服务的风险（关闭需次日生效）。</string>
+    <string name="settings_protection_help_developer_options" translatable="false">【开发者选项拦截】\n进入系统「开发者选项」（USB 调试、无线调试所在页面）时自动退回桌面，防止临时打开调试后借助电脑绕过保护（关闭需次日生效）。</string>
     <string name="settings_protection_help_vivo_note" translatable="false">【vivo 专属适配】\n• 隐私空间保护：阻止将决定守护移入原子隐私系统，防止保护链被规避（关闭需次日生效）。</string>
     <string name="settings_protection_help_oppo_note" translatable="false">【OPPO 专属适配】\n• 设备管理器防卸载锁：提供系统级底层防卸载增强，防止直接移除应用（解除需手动取消激活）。</string>
 

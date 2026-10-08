@@ -29,8 +29,24 @@ class RulesSettingsUiContractTest {
             xml.indexOf("@string/settings_protection_privacy_title") <
                 xml.indexOf("@string/settings_protection_uninstall_perm_title")
         )
+        assertTrue(
+            xml.indexOf("@string/settings_protection_uninstall_perm_title") <
+                xml.indexOf("@string/settings_protection_developer_options_title")
+        )
         assertFalse(xml.contains("查看日志"))
         assertEquals(1, Regex("android:text=\"导出日志\"").findAll(xml).count())
+    }
+
+    @Test
+    fun developerOptionsGuardFollowsAccessibilityCloseFlow() {
+        val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
+        val start = source.indexOf("private fun submitProtectionDisablesForAccessibility")
+        val end = source.indexOf("private fun showA11yDisableConfirmDialog", start)
+        assertTrue(source.substring(start, end).contains("DeveloperOptionsGuardManager.setProtectionEnabled(ctx, false)"))
+
+        // 两个「关闭无障碍」确认弹窗都要列出该项，并把它计入「今日基准全为关闭」的立即解除判定。
+        assertEquals(2, source.split("开发者选项拦截 → ").size - 1)
+        assertEquals(2, source.split("!TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx) &&").size - 1)
     }
 
     @Test
