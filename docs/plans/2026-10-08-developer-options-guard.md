@@ -1,6 +1,6 @@
 # 开发者选项拦截
 
-> 状态：**规则已与用户确认，真机识别证据已取得；尚未实现**。本文不是产品真相；实现并真机验证后，规则回写 `docs/specs/protection.md` §13，决策写入 `HISTORY.md`，再把本文归档到 `docs/archive/plans/`。
+> 状态：**核心逻辑、识别、设置页开关与文档已实现，全量 JVM 测试通过（1549 项，0 失败）；真机拦截验证待做**。本文不是产品真相；实现并真机验证后，规则回写 `docs/specs/protection.md` §13，决策写入 `HISTORY.md`，再把本文归档到 `docs/archive/plans/`。
 
 ## 1. 目标
 
@@ -41,7 +41,7 @@
 1. 包名属于设置类包（`com.android.settings` 及现有 `PermissionProtection.SETTINGS_PACKAGES`）；
 2. 命中下列任一信号（文案比较时去掉所有空白字符，兼容「USB 调试」「USB调试」、「撤销」「撤消」）：
    - **标题信号**：页面**工具栏标题节点**的文字等于「开发者选项」或 `Developer options`；
-   - **内容信号**：页面同时出现「USB调试」与「无线调试」两个条目；
+   - **内容信号**：页面至少出现两个开发者选项独有条目（USB 调试、无线调试、撤销 USB 调试授权、停用 adb 授权超时功能、选择调试应用、等待调试程序）；列表滚动后标题可能不在可见节点中，靠它兜底；
    - **类名信号**：窗口类名含 `DevelopmentSettings`（AOSP 路径）。
 
 **防误伤红线**：不得用「页面任意位置出现『开发者选项』文字」判定。设置首页 / 系统管理列表里有一行「开发者选项」入口，若按全文匹配会把其父页面也拦住，用户将无法使用设置的其他功能。
@@ -69,8 +69,8 @@
 | 基准 | `TimeRuleManager` 新增 `getBaselineDeveloperOptionsGuardState`，并在基准快照写入处（与 `is_floating_window_protection_enabled` 同处，约 `TimeRuleManager.kt:2221`）一并写入 |
 | 识别 | 纯函数 `DeveloperOptionsPageMatcher`（输入：包名、类名、标题文字、条目文字集合；输出：是否命中），可 JVM 测试；节点读取在 `ProtectionManager` / 新增 `DeveloperOptionsProtection` 中 |
 | 拦截 | 新增 `DeveloperOptionsProtection`，在 `ProtectionManager.onAccessibilityEvent` 派发；动作参照 `PermissionProtection.handleDetection` |
-| 无障碍依赖清理 | 接入 `AccessibilityDependencyManager` 的清理链，调用 `disableImmediatelyForAccessibilityUnavailable` 同款接口 |
-| 设置页 | `RulesFragment` 加开关与状态文案；开关放在「加强约束功能」列表**最后一项**，即「防卸载与防关权限保护」下面（用户已确认）；`docs/specs/protection.md` §12.7 的「四项增强」及其展示顺序改为五项，并同步 `RulesSettingsUiContractTest` |
+| 无障碍依赖清理 | 提供 `disableImmediatelyForAccessibilityUnavailable` 同款接口（有测试）。**当前清理链并未调用任何同类接口**：`AccessibilityDependencyManager.reconcile` 只挂起运行时展示、保留持久化意图，本功能与之一致，无障碍不可用时拦截因收不到事件而自然停止；规格 §7.2/§12.1 中“立即清除”的描述与此存在既有差距，另行处理 |
+| 设置页 | `RulesFragment` 加开关与状态文案；开关放在「加强约束功能」列表「防卸载与防关权限保护」的正下方（用户已确认；OPPO 专享的设备管理器锁行排在它之后，vivo 上它即最后一项）；`docs/specs/protection.md` §12.7 的「四项增强」及其展示顺序改为五项，并同步 `RulesSettingsUiContractTest` |
 | 诊断 | `ProtectionDiagnostics` 输出新管理器状态 |
 | 文档 | `protection.md` §13、`docs/user/permissions.md`、`HISTORY.md` 决策、`.github/SECURITY.md` 第 54 行措辞 |
 
