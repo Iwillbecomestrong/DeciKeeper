@@ -60,7 +60,7 @@ class PermissionProtection(private val context: Context) {
         internal val FAST_SEARCH_APP_NAMES = listOf("决定守护", "DeciKeeper")
 
         // Settings & permission manager packages — only intercept under these
-        private val SETTINGS_PACKAGES = setOf(
+        internal val SETTINGS_PACKAGES = setOf(
             "com.android.settings",
             "com.android.permissioncontroller",
             "com.google.android.permissioncontroller",

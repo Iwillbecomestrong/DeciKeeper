@@ -946,7 +946,7 @@ class AntiUninstallProtection(private val context: Context) {
         }
         
         var detected = false
-        val isLauncher = isLauncherPackage(currentPackage)
+        val isLauncher = isLauncherPackage(currentPackage) || ProtectionManager.isDefaultLauncher(context, currentPackage)
         var blockReason: String? = null
         var blockDetails: String? = null
         
@@ -1107,7 +1107,8 @@ class AntiUninstallProtection(private val context: Context) {
             // CRITICAL FIX: Only scan if it is a MONITORED package.
             // This excludes generic launchers from the "Uninstall" keyword scan.
             
-            val isMonitoredPackage = MONITORED_PACKAGES.any { currentPackage.contains(it) }
+            val isMonitoredPackage = MONITORED_PACKAGES.any { currentPackage.contains(it) } ||
+                ProtectionManager.canRequestUninstall(context, currentPackage)
             val eventText = event.text.toString()
             val eventClass = event.className?.toString() ?: ""
             val isHotWindow = isUninstallHotWindowActive(now)

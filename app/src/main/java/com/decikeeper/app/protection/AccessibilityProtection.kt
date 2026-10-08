@@ -48,7 +48,7 @@ class AccessibilityProtection(private val context: Context) {
             "停止 IronWill", "Stop IronWill", "Turn off IronWill",
             "关闭 IronWill", "关闭IronWill", "Close IronWill"
         )
-        private val RELEVANT_PACKAGES = setOf(
+        internal val RELEVANT_PACKAGES = setOf(
             "com.android.settings",
             "com.android.permissioncontroller",
             "com.google.android.permissioncontroller",

@@ -20,6 +20,8 @@ package com.decikeeper.app.protection
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -38,6 +40,33 @@ object ProtectionManager {
     private var accessibilityProtection: AccessibilityProtection? = null
     private var permissionProtection: PermissionProtection? = null
 
+    /** Only protection surfaces may expose text; other apps still supply foreground package signals. */
+    fun shouldInspectContent(context: Context, packageName: String?): Boolean {
+        if (packageName.isNullOrBlank() || packageName == context.packageName) return false
+        if (packageName == "android" ||
+            packageName in AntiUninstallProtection.MONITORED_PACKAGES ||
+            packageName in AntiUninstallProtection.LAUNCHER_PACKAGES ||
+            packageName in AntiUninstallProtection.PRIVATE_SPACE_PACKAGES ||
+            packageName in AccessibilityProtection.RELEVANT_PACKAGES ||
+            packageName in PermissionProtection.SETTINGS_PACKAGES
+        ) return true
+
+        return isDefaultLauncher(context, packageName) || canRequestUninstall(context, packageName)
+    }
+
+    internal fun isDefaultLauncher(context: Context, packageName: String): Boolean {
+        // Discover the actual launcher, not arbitrary names containing "launcher".
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        return context.packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName == packageName
+    }
+
+    internal fun canRequestUninstall(context: Context, packageName: String): Boolean {
+        val pm = context.packageManager
+        return pm.checkPermission("android.permission.REQUEST_DELETE_PACKAGES", packageName) == PackageManager.PERMISSION_GRANTED ||
+            pm.checkPermission("android.permission.DELETE_PACKAGES", packageName) == PackageManager.PERMISSION_GRANTED
+    }
+
     fun init(context: Context) {
         antiUninstallProtection = AntiUninstallProtection(context)
         accessibilityProtection = AccessibilityProtection(context)
@@ -46,6 +75,7 @@ object ProtectionManager {
 
 
     fun onAccessibilityEvent(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo?) {
+        if (!shouldInspectContent(service, event.packageName?.toString())) return
         // 🚀 [Identity Check] Explicitly ignore self-events to prevent "Self-Locking"
         if (event.packageName == "com.decikeeper.app") {
             return
@@ -58,6 +88,7 @@ object ProtectionManager {
             }
             return
         }
+        if (!shouldInspectContent(service, root.packageName?.toString())) return
 
         if (DEBUG) {
             android.util.Log.d(com.decikeeper.app.protection.AccessibilityProtection.TAG, "[PM] Event: Type=${event.eventType} Pkg=${event.packageName}")

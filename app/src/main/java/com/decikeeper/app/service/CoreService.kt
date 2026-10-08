@@ -734,49 +734,6 @@ class CoreService : AccessibilityService() {
             }
         }.start()
         
-        // 🚀 [Phase 3] 延迟预热全局动作（需要服务完全就绪）
-        // ⚠️ 为避免授权后误触拉下通知栏，此阶段不再触发任何全局动作
-        mHandler.postDelayed({
-            try {
-                Log.d(TAG, "[Warmup] Phase 3: Accessibility node tree traversal...")
-                val root = rootInActiveWindow
-                if (root != null) {
-                    warmupAccessibilityNodeTree(root, 0)
-                    // root.recycle() — handled by warmupAccessibilityNodeTree's finally block
-                }
-                Log.d(TAG, "[Warmup] Phase 3 completed!")
-            } catch (e: Exception) {
-                Log.e(TAG, "Node traversal warmup error (non-fatal)", e)
-            }
-        }, 3000L)
-    }
-
-    /** 轻量遍历 AccessibilityNodeInfo 树，触发 JIT 编译节点访问方法（getChild/text/className 等）。 */
-    private fun warmupAccessibilityNodeTree(node: android.view.accessibility.AccessibilityNodeInfo, depth: Int) {
-        if (depth > 6) {
-            node.recycle()
-            return
-        }
-        try {
-            node.text
-            node.className
-            node.packageName
-            node.contentDescription
-            node.viewIdResourceName
-            node.isClickable
-            node.isEnabled
-            node.isFocusable
-            val count = node.childCount
-            for (i in 0 until minOf(count, 4)) {
-                val child = node.getChild(i) ?: continue
-                warmupAccessibilityNodeTree(child, depth + 1)
-                // child.recycle() — handled by recursive call's finally block
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Node warmup error (non-fatal)", e)
-        } finally {
-            node.recycle()
-        }
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -1016,6 +973,8 @@ class CoreService : AccessibilityService() {
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
 
             val packageName = event.packageName?.toString().orEmpty()
+            // Filter before reading event text/source or requesting a window tree.
+            if (!ProtectionManager.shouldInspectContent(this, packageName)) return
             val className = event.className?.toString().orEmpty()
             val eventText = event.text?.toString().orEmpty()
 
@@ -1127,17 +1086,12 @@ class CoreService : AccessibilityService() {
         
         val packageName = event.packageName?.toString() ?: return
         val eventClassName = event.className?.toString().orEmpty()
-        val eventText = buildString {
-            append(event.text?.joinToString(" ").orEmpty())
-            append(' ')
-            append(event.contentDescription?.toString().orEmpty())
-        }
-
         PwaBypassManager.observeAccessibilitySignal(
             context = context,
             packageName = packageName,
             className = eventClassName,
-            eventText = eventText
+            // Ordinary app text is outside the protection inspection boundary.
+            eventText = ""
         )
 
         if (PwaBypassManager.shouldBypassTopPackage(context, packageName)) {
