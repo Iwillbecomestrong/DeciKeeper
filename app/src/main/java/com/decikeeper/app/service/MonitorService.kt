@@ -1067,7 +1067,7 @@ class MonitorService : Service() {
 
         // 🚀 [Fix] 预计算冷却结束时间并持久化，防止进程被杀后冷却状态丢失
         val coolingSec = TimeRuleManager.getCoolDownRestSeconds(this)
-        val coolingDuration = if (coolingSec > 0) coolingSec * 1000L else 60000L
+        val coolingDuration = coolingSec.coerceAtLeast(0) * 1000L
         CreditManager.setCoolDownEnd(this, endTime + coolingDuration)
 
         // Start Timer to auto-lock when done
@@ -1078,11 +1078,6 @@ class MonitorService : Service() {
             requestedMins = mRestRequestedDurationMins,
             costMins = costMinutes
         )
-        
-        // Show UI feedback（休息倒计时移至副标题显示）
-        if (LockWindowManager.isLocked) {
-            startFreeTimeCountdownUI(duration)
-        }
 
         EventLog.unlockResult(
             traceId = currentTraceId,
@@ -1108,8 +1103,6 @@ class MonitorService : Service() {
             CreditManager.setFreeTimeEnd(this, 0)
         }
         mFreeTimeTimer?.cancel()
-        mFreeTimeCountdownTimer?.cancel()
-        mFreeTimeCountdownTimer = null
 
         // 🚀 [Cooldown Logic Fix]
         // Determine the logical end time of the rest.
@@ -1131,49 +1124,13 @@ class MonitorService : Service() {
         if (mRestStartTime > 0 && mRestTotalCost > 0 && mRestRequestedDurationMins > 0) {
             val usedDuration = now - mRestStartTime
 
-            // 精确到0.1分钟（6秒粒度），向上取整
-            val usedMinutes = kotlin.math.ceil(usedDuration / 6000.0) / 10.0
-            val usedMinutesRounded = kotlin.math.round(usedDuration / 60000.0).toInt().coerceAtLeast(1)
+            // 精确到0.1分钟（6秒粒度），四舍五入（与 CreditManager.getRestRefundPreview 同口径）
+            val usedMinutes = kotlin.math.round(usedDuration / 6000.0) / 10.0
 
             if (usedMinutes < mRestRequestedDurationMins) {
-                // Determine base rate (usually 1.0)
-                val rate = if (mRestRequestedDurationMins > 0) mRestTotalCost / mRestRequestedDurationMins else 1.0
-                var finalCost = usedMinutes * rate
-
-                // 🚀 [Reward] Early Off Logic (0.5x for Last Segment Overlap)
-                // Conditions:
-                // 1. Started in Last Logical Segment
-                // 2. Ended AFTER segment end time
-                try {
-                    val startSeg = TimeRuleManager.getSegmentAt(this, mRestStartTime)
-                    if (startSeg != null) {
-                        // Reconstruct absolute segment end time based on mRestStartTime
-                        val cal = java.util.Calendar.getInstance()
-                        cal.timeInMillis = mRestStartTime
-                        cal.set(java.util.Calendar.HOUR_OF_DAY, startSeg.endHour)
-                        cal.set(java.util.Calendar.MINUTE, startSeg.endMinute)
-                        cal.set(java.util.Calendar.SECOND, 0)
-                        cal.set(java.util.Calendar.MILLISECOND, 0)
-                        val segEndMillis = cal.timeInMillis
-
-                        // Check overlap: If rest ended AFTER segment end
-                        if (now > segEndMillis) {
-                            val overlapMillis = segEndMillis - mRestStartTime
-                            val overlapMins = if (overlapMillis > 0) (overlapMillis / 60000.0).toInt() else 0
-
-                            // Clamping (用整数分钟做阶段奖励计算)
-                            val effectiveOverlap = overlapMins.coerceAtMost(usedMinutesRounded).coerceAtLeast(0)
-                            val effectiveNormal = usedMinutesRounded - effectiveOverlap
-
-                            // Apply 0.5x to overlap (Early Off Reward for ANY segment)
-                            val discountedCost = (effectiveOverlap * rate * 0.5) + (effectiveNormal * rate)
-                            finalCost = discountedCost
-                            Log.i(TAG, "✨ Early Off Bonus (Any Segment): Overlap=${effectiveOverlap}m (0.5x), Normal=${effectiveNormal}m. Cost -> $finalCost")
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error calculating Early Off bonus", e)
-                }
+                // 已用部分按申请时的费率（冷却期申请即 ×2）收费，未用部分全额退还，无折扣
+                val rate = mRestTotalCost / mRestRequestedDurationMins
+                val finalCost = usedMinutes * rate
 
                 val refundAmount = mRestTotalCost - finalCost
 
@@ -1228,7 +1185,7 @@ class MonitorService : Service() {
 
         // 🚀 [Rule] Set Rest Cooling Period（读取用户配置的休息冷却秒数）
         val coolingSec = TimeRuleManager.getCoolDownRestSeconds(this)
-        val coolingDuration = if (coolingSec > 0) coolingSec * 1000L else 60000L
+        val coolingDuration = coolingSec.coerceAtLeast(0) * 1000L
         if (naturalFreedom) {
             CreditManager.setCoolDownEnd(this, 0L)
         } else {
@@ -1285,26 +1242,6 @@ class MonitorService : Service() {
         }.start()
     }
     
-    private var mFreeTimeCountdownTimer: android.os.CountDownTimer? = null
-
-    private fun startFreeTimeCountdownUI(duration: Long) {
-        // UI Update Logic (Simplified)
-        // In real CoreService this updated the LockView text.
-        // LockWindowManager.updateFreeTimeText(...)
-        // We can just rely on the static method in LockWindowManager
-        mFreeTimeCountdownTimer?.cancel()
-        mFreeTimeCountdownTimer = object : android.os.CountDownTimer(duration, 1000) {
-            override fun onTick(millis: Long) {
-                val sec = millis / 1000
-                val min = sec / 60
-                val s = sec % 60
-                LockWindowManager.updateFreeTimeText("🟢 休息中: $min 分 $s 秒")
-            }
-            override fun onFinish() {
-            }
-        }.also { it.start() }
-    }
-
     private var mLastUsedMinuteTime = 0L
     private var mLastWasGap = false
     private var mLastWasRest = false

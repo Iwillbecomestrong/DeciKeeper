@@ -951,7 +951,7 @@ object CreditManager {
 
         val usedRatio = (usedMins / requestedMins).coerceIn(0.0, 1.0)
         val unusedCost = totalCost - (usedMins * (totalCost / requestedMins))
-        val refundRatio = kotlin.math.max(0.75, 1.0 - usedRatio * 0.25)
+        val refundRatio = 1.0
         val refundAmount = kotlin.math.round(unusedCost * refundRatio * 10.0) / 10.0
 
         return RestRefundPreview(
@@ -981,7 +981,7 @@ object CreditManager {
 
         val usedRatio = (usedMins / requestedMins).coerceIn(0.0, 1.0)
         val unused = requestedMins - usedMins
-        val refundRatio = kotlin.math.max(0.75, 1.0 - usedRatio * 0.25)
+        val refundRatio = 1.0
         val refundAmount = kotlin.math.round(unused * refundRatio * 10.0) / 10.0
 
         return RestRefundPreview(
@@ -1615,8 +1615,12 @@ object CreditManager {
             .remove(KEY_PRIVILEGE_SESSION_CHARGED_MINUTES)
             .apply()
 
+        // 特权结束（到时 / 提前结束 / 跨 24:00 截断）统一进入休息冷却；冷却秒数为 0 表示无冷却
+        val cooldownSec = TimeRuleManager.getCoolDownRestSeconds(context).coerceAtLeast(0)
+        setCoolDownEnd(context, if (cooldownSec > 0) effectiveStopAt + cooldownSec * 1000L else 0L)
+
         val usedRatio = if (requestedMins > 0) finalUsage.toDouble() / requestedMins.toDouble() else 0.0
-        val refundRatio = kotlin.math.max(0.75, 1.0 - usedRatio * 0.25)
+        val refundRatio = 1.0
         LogExporter.i("CreditManager", "Weekly Privilege Session Stopped. Used: $finalUsage/$requestedMins mins (${(usedRatio*100).toInt()}%), Refund: ${refundRatio * 100}% of unused.")
         LogExporter.logEvent("Privilege", "[STOP] Weekly privilege stopped: used=$finalUsage/$requestedMins mins (${(usedRatio*100).toInt()}%), refundRatio=${(refundRatio*100).toInt()}%")
         getPrivilegeLogSession(context)?.let { session ->
@@ -3667,6 +3671,104 @@ object CreditManager {
     }
 
     /**
+     * 空档期发起的临时解锁超出空档期、进入下一个勿扰时段时的整段计费。
+     *
+     * 扣费顺序：先用前序结余，不足部分直接扣下一勿扰段自己的额度——此时已进入该时段，不算借用，没有借用翻倍。
+     * 时长与次数任一维度额度不足则整笔拒绝，不写入任何账本，返回 false。
+     *
+     * @param timeSec 已含冷却倍率的整段计费时长（秒）
+     * @param countHalfUnits 已含冷却倍率的整段计费次数（half-unit）
+     */
+    internal fun consumeGapOverflowCharge(context: Context, timeSec: Int, countHalfUnits: Int): Boolean {
+        if (timeSec <= 0 && countHalfUnits <= 0) return true
+        if (TimeRuleManager.getCurrentSegmentIndex(context) != -1) return false
+        val segments = TimeRuleManager.getTimeSegments(context)
+        val nextIndex = TimeRuleManager.getNextSegmentIndex(context)
+        if (nextIndex < 0) return false
+        val nextSeg = segments[nextIndex]
+        if (nextSeg.getEffectiveUsableCountLimit() == 0) return false
+
+        val now = System.currentTimeMillis()
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
+        val targetBizDate = getSegmentBusinessDateString(context, nextSeg)
+        val writes = mutableMapOf<String, Int>()
+
+        // 结算顺序：前序结余按段顺序，最后才是下一勿扰段自己的额度
+        val surplusSegments = mutableListOf<TimeSegment>()
+        if (nextIndex != firstLogicalIndex) {
+            var i = firstLogicalIndex
+            while (i != nextIndex) {
+                val seg = segments[i]
+                if (seg.isActiveToday() && getSegmentBusinessDateString(context, seg) == targetBizDate) {
+                    surplusSegments.add(seg)
+                }
+                i = (i + 1) % segments.size
+                if (i == firstLogicalIndex) break
+            }
+        }
+
+        if (timeSec > 0) {
+            var need = timeSec
+            for (seg in surplusSegments) {
+                if (need <= 0) break
+                val proration = getSegmentProration(context, seg, now)
+                if (!proration.isEligibleForSurplus) continue
+                val duration = seg.getDurationMinutes()
+                val unlimited = duration > 0 && seg.limitMins > duration * 0.5
+                if (unlimited) continue
+                val key = getUsageKeyForSegment(context, seg)
+                val used = prefs.getInt(key, 0)
+                val avail = (Math.round(proration.effectiveLimitMins * 60.0).toInt() - used).coerceAtLeast(0)
+                val take = minOf(avail, need)
+                if (take > 0) {
+                    writes[key] = used + take
+                    need -= take
+                }
+            }
+            if (need > 0 && !isSegmentPrivileged(context, nextIndex)) {
+                val key = getUsageKeyForSegment(context, nextSeg)
+                val used = prefs.getInt(key, 0)
+                val avail = (Math.round(getSegmentEffectiveLimitMinutes(context, nextSeg, now) * 60.0).toInt() - used).coerceAtLeast(0)
+                if (avail < need) return false
+                writes[key] = used + need
+                need = 0
+            }
+        }
+
+        if (countHalfUnits > 0) {
+            var need = countHalfUnits
+            for (seg in surplusSegments) {
+                if (need <= 0) break
+                val proration = getSegmentProration(context, seg, now)
+                if (!proration.isEligibleForSurplus) continue
+                val limit = proration.effectiveUsableCountHalfUnits
+                if (limit <= 0) continue
+                val key = getCountUsageKeyForSegment(context, seg) ?: return false
+                val used = getCurrentSegmentUsableCountUsedHalfUnits(context, seg)
+                val take = minOf((limit - used).coerceAtLeast(0), need)
+                if (take > 0) {
+                    writes[key] = used + take
+                    need -= take
+                }
+            }
+            if (need > 0 && !isSegmentPrivileged(context, nextIndex)) {
+                val key = getCountUsageKeyForSegment(context, nextSeg) ?: return false
+                val used = getCurrentSegmentUsableCountUsedHalfUnits(context, nextSeg)
+                val avail = (getSegmentEffectiveUsableCountLimitHalfUnits(context, nextSeg, now) - used).coerceAtLeast(0)
+                if (avail < need) return false
+                writes[key] = used + need
+            }
+        }
+
+        val edit = prefs.edit()
+        writes.forEach { (k, v) -> edit.putInt(k, v) }
+        edit.apply()
+        LogExporter.i("CreditManager", "[GAP_OVERFLOW_CHARGE] time=${timeSec}s count=${countHalfUnits}hu next=${nextSeg.name} writes=${writes.size}")
+        return true
+    }
+
+    /**
      * 惩罚扣费：时间和次数在同一份原子写中提交，并返回实际拆解结果。
      * 时间维度沿用当前段 → 历史结余 → 未来段的既有顺序；次数维度按
      * 当前段剩余 half-unit 优先，缺口再由下一段按 ×2 偿还，最多 4 个 half-unit。
@@ -3885,14 +3987,7 @@ object CreditManager {
     /**
      * 🟢 [New] 计算提前结束时的比例返还。
      *
-     * 公式：返还比例 = max(75%, 100% - 已用比例 × 25%)
-     * 剩余数量 × 返还比例 = 实际返还数量
-     *
-     * 含义：用越少退越多，用越多退越少（底线 75%）。
-     * 用 1%   → 返还 99% 的剩余
-     * 用 25%  → 返还 94% 的剩余
-     * 用 50%  → 返还 88% 的剩余
-     * 用 100% → 返还 75% 的剩余（触底）
+     * 公式：返还比例恒为 100%，未用部分全额退还（已用部分按实际使用收费）。
      *
      * @param unused 剩余未用的数量（分钟或分值）
      * @param usedRatio 已用比例 [0.0, 1.0]
@@ -3900,7 +3995,7 @@ object CreditManager {
      */
     fun calculateProportionalRefund(unused: Double, usedRatio: Double): Double {
         val clampedRatio = usedRatio.coerceIn(0.0, 1.0)
-        val refundRatio = kotlin.math.max(0.75, 1.0 - clampedRatio * 0.25)
+        val refundRatio = 1.0
         return kotlin.math.round(unused * refundRatio * 10.0) / 10.0
     }
 

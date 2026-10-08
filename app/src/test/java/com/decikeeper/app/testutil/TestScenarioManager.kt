@@ -8761,13 +8761,13 @@ object TestScenarioManager {
         }
 
         // --- 场景 50.5: 超级临时冷却计算仍可独立工作 ---
-        // Expected Input: calculateTemporaryReuseCooldownMs(3)
-        // Expected Output: 0ms（<10s 免冷却）
+        // Expected Input: calculateTemporaryReuseCooldownMs(0)
+        // Expected Output: 0ms（统一冷却为 0 即无冷却）
         log("\n--- 场景 50.5: 超级临时冷却逻辑仍可独立工作 ---")
         run {
-            val cooldownMs = LockWindowManager.calculateTemporaryReuseCooldownMs(3)
+            val cooldownMs = LockWindowManager.calculateTemporaryReuseCooldownMs(0)
             if (cooldownMs == 0L) {
-                log("  ✅ 超级临时冷却支持分段规则，<10s 免冷却")
+                log("  ✅ 统一冷却为 0 时无冷却")
                 passCount++
             } else {
                 log("  ❌ 超级临时冷却计算异常: 预期0, 实际=$cooldownMs")
@@ -10026,40 +10026,22 @@ object TestScenarioManager {
             "输入 135s 应裁剪为 120s，实际=$normalizedHigh"
         )
 
-        // Expected Input: rawSeconds=15
-        // Expected Output: reuseCooldownMs=15000 (1~60秒按1x)
-        val reuseCooldownMs = LockWindowManager.calculateTemporaryReuseCooldownMs(15)
+        // Expected Input: unifiedCooldownSeconds=60
+        // Expected Output: reuseCooldownMs=60000（统一冷却，不随申请时长变化）
+        val reuseCooldownMs = LockWindowManager.calculateTemporaryReuseCooldownMs(60)
         assertPass(
-            reuseCooldownMs == 15000L,
-            "65.2 分段冷却(1~60秒)",
-            "输入 15s 后冷却应为 15s(15000ms)，实际=$reuseCooldownMs"
+            reuseCooldownMs == 60000L,
+            "65.2 统一冷却",
+            "统一冷却 60s 应为 60000ms，实际=$reuseCooldownMs"
         )
 
-        // Expected Input: rawSeconds=70
-        // Expected Output: reuseCooldownMs=80000 (前60秒按1x=60s，60秒后10秒按2x=20s)
-        val reuseCooldownMsLong = LockWindowManager.calculateTemporaryReuseCooldownMs(70)
+        // Expected Input: unifiedCooldownSeconds=0
+        // Expected Output: reuseCooldownMs=0（0 表示无冷却）
+        val reuseCooldownMsZero = LockWindowManager.calculateTemporaryReuseCooldownMs(0)
         assertPass(
-            reuseCooldownMsLong == 80000L,
-            "65.3 分段冷却(>60秒双倍)",
-            "输入 70s 后冷却应为 80s(80000ms)，实际=$reuseCooldownMsLong"
-        )
-
-        // Expected Input: rawSeconds=150
-        // Expected Output: reuseCooldownMs=270000 (2~3分钟段按3x)
-        val reuseCooldownMsMidTier = LockWindowManager.calculateTemporaryReuseCooldownMs(150, 180)
-        assertPass(
-            reuseCooldownMsMidTier == 270000L,
-            "65.4 分段冷却(2~3分钟三倍)",
-            "输入 150s 后冷却应为 270s(270000ms)，实际=$reuseCooldownMsMidTier"
-        )
-
-        // Expected Input: rawSeconds=180
-        // Expected Output: reuseCooldownMs=360000（3分钟 = 6分钟冷却）
-        val reuseCooldownMsThreeMinutes = LockWindowManager.calculateTemporaryReuseCooldownMs(180, 180)
-        assertPass(
-            reuseCooldownMsThreeMinutes == 360000L,
-            "65.5 分段冷却(3分钟六分钟冷却)",
-            "输入 180s 后冷却应为 360s(360000ms)，实际=$reuseCooldownMsThreeMinutes"
+            reuseCooldownMsZero == 0L,
+            "65.3 统一冷却为 0",
+            "统一冷却 0s 应为 0ms，实际=$reuseCooldownMsZero"
         )
 
         // Expected Input: reuseRemain=40s, requested=10s
