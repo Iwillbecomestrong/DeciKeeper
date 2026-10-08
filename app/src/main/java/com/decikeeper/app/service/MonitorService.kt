@@ -641,6 +641,9 @@ class MonitorService : Service() {
         if (lastBaselineBizDate != currentBizDate && TimeRuleManager.isAfterRefreshTime(context)) {
             CreditManager.saveBaselineBlacklist(context)
             TimeRuleManager.saveBaselineSnapshot(context)
+            // 保护开关（防卸载、小窗增强、开发者选项拦截等）的基准只由 saveBaselineParams 写入；
+            // 漏掉它会让基准在用户当天首次保存规则时才被懒写，把当天手动开启的开关记成基准。
+            TimeRuleManager.saveBaselineParams(context)
             AppWindowManager.saveBaseline(context)
             prefs.edit().putLong("last_baseline_update_time", now).apply()
             Log.i(TAG, "Daily Baseline Snapshot Updated (bizDate=$currentBizDate)")
