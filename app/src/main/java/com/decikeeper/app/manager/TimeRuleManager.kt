@@ -718,6 +718,12 @@ object TimeRuleManager {
             .getBoolean(DeveloperOptionsGuardManager.KEY_IS_ENABLED, false)
     }
 
+    /** 仅供一次性修复使用（见 DailyBaselineManager），不要作为常规写入口。 */
+    internal fun repairBaselineDeveloperOptionsGuardState(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+            .edit().putBoolean(DeveloperOptionsGuardManager.KEY_IS_ENABLED, enabled).apply()
+    }
+
 
     fun getMaxExitsPerSegment(context: Context): Int = 100
     fun getMinutesLimitForSegment(context: Context, segment: TimeSegment): Int = segment.limitMins

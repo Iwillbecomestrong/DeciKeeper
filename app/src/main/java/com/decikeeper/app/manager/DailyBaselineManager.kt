@@ -27,6 +27,9 @@ object DailyBaselineManager {
     private const val TAG = "DailyBaselineManager"
     private const val KEY_LAST_BASELINE_TIME = "last_baseline_update_time"
 
+    internal const val REPAIR_PREFS_NAME = "baseline_one_time_repairs"
+    private const val KEY_REPAIR_DEV_GUARD_20261008 = "dev_options_guard_baseline_20261008"
+
     /**
      * 新业务日且已过刷新时刻时写入当天基准。
      *
@@ -38,6 +41,8 @@ object DailyBaselineManager {
      */
     @Synchronized
     fun ensureTodaySnapshot(context: Context): Boolean {
+        repairPollutedDevOptionsGuardBaselineOnce(context)
+
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         val lastBizDate = CreditManager.getBusinessDateStringAt(context, prefs.getLong(KEY_LAST_BASELINE_TIME, 0L))
         val currentBizDate = CreditManager.getBusinessDateString(context)
@@ -55,6 +60,25 @@ object DailyBaselineManager {
         prefs.edit().putLong(KEY_LAST_BASELINE_TIME, System.currentTimeMillis()).apply()
         Log.i(TAG, "Daily Baseline Snapshot Updated (bizDate=$currentBizDate)")
         return true
+    }
+
+    /**
+     * 一次性修复（2026-10-08）：旧版本在用户保存规则时才懒拍保护开关基准，会把当天刚开启的
+     * 「开发者选项拦截」误记成当天基准；升级后当天的每日快照已跑过，新逻辑不会重拍，
+     * 用户就只能等次日才能关闭。用户确认该开关在当天刷新时刻本来是关的，这里只把这一项基准
+     * 清回「关」，且只执行一次。不改开关本身，也不碰其他保护项的基准。
+     *
+     * 发布一个版本之后可整段删除，不要扩展成通用「重置基准」。
+     */
+    private fun repairPollutedDevOptionsGuardBaselineOnce(context: Context) {
+        val repairs = context.getSharedPreferences(REPAIR_PREFS_NAME, Context.MODE_PRIVATE)
+        if (repairs.getBoolean(KEY_REPAIR_DEV_GUARD_20261008, false)) return
+
+        if (TimeRuleManager.getBaselineDeveloperOptionsGuardState(context)) {
+            TimeRuleManager.repairBaselineDeveloperOptionsGuardState(context, false)
+            Log.i(TAG, "One-time repair: cleared polluted developer-options-guard baseline")
+        }
+        repairs.edit().putBoolean(KEY_REPAIR_DEV_GUARD_20261008, true).apply()
     }
 
     private fun applyDuePendingChanges(context: Context) {

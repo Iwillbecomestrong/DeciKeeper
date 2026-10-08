@@ -25,6 +25,7 @@ class DailyBaselineManagerTest {
             DeveloperOptionsGuardManager.PREFS_NAME,
             "pending_config_prefs",
             "decikeeper_rules_baseline",
+            DailyBaselineManager.REPAIR_PREFS_NAME,
             CreditManager.PREFS_NAME
         ).forEach { prefs(it).edit().clear().commit() }
     }
@@ -76,5 +77,41 @@ class DailyBaselineManagerTest {
         DailyBaselineManager.ensureTodaySnapshot(context)
 
         assertFalse(TimeRuleManager.getBaselineDeveloperOptionsGuardState(context))
+    }
+
+    @Test
+    fun oneTimeRepairClearsThePollutedDevOptionsGuardBaselineSoItCanBeRestoredImmediately() {
+        // 旧版本把当天开启的开关误拍进了基准，且当天的每日快照已经跑过（升级后不会重拍）。
+        prefs(CreditManager.PREFS_NAME).edit().putLong("last_baseline_update_time", System.currentTimeMillis()).commit()
+        prefs("decikeeper_rules_baseline").edit()
+            .putBoolean(DeveloperOptionsGuardManager.KEY_IS_ENABLED, true).commit()
+        DeveloperOptionsGuardManager.setProtectionEnabled(context, true)
+
+        DailyBaselineManager.ensureTodaySnapshot(context)
+
+        assertFalse(TimeRuleManager.getBaselineDeveloperOptionsGuardState(context))
+        DeveloperOptionsGuardManager.setProtectionEnabled(context, false)
+        assertEquals(DeveloperOptionsGuardManager.State.DISABLED, DeveloperOptionsGuardManager.getProtectionState(context))
+    }
+
+    @Test
+    fun oneTimeRepairRunsOnlyOnce() {
+        DailyBaselineManager.ensureTodaySnapshot(context) // 第一次入口：修复并写标记
+
+        // 之后若基准确实被正常写成「开」，不得再被修复覆盖。
+        prefs("decikeeper_rules_baseline").edit()
+            .putBoolean(DeveloperOptionsGuardManager.KEY_IS_ENABLED, true).commit()
+        DailyBaselineManager.ensureTodaySnapshot(context)
+
+        assertTrue(TimeRuleManager.getBaselineDeveloperOptionsGuardState(context))
+    }
+
+    @Test
+    fun oneTimeRepairDoesNotTouchTheSwitchItself() {
+        DeveloperOptionsGuardManager.setProtectionEnabled(context, true)
+
+        DailyBaselineManager.ensureTodaySnapshot(context)
+
+        assertEquals(DeveloperOptionsGuardManager.State.ACTIVE, DeveloperOptionsGuardManager.getProtectionState(context))
     }
 }
