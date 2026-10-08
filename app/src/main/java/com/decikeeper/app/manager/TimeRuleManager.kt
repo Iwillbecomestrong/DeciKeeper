@@ -1044,8 +1044,6 @@ object TimeRuleManager {
         newPrivilegeWindowEnd: String = getPrivilegeWindowEnd(context),
         newEditWindowPolicy: String = TimeRuleEditWindowPolicyManager.getPolicy(context).key
     ): AnalysisResult {
-        ensureFreshBaseline(context)
-
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val creditPrefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -2275,25 +2273,7 @@ object TimeRuleManager {
         return cal.timeInMillis
     }
 
-    fun ensureFreshBaseline(context: Context) {
-        val baselinePrefs = context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
-        val lastSnapshot = baselinePrefs.getLong("snapshot_time", 0L)
-        val startOfBusinessDay = getStartOfBusinessDay(context)
-
-        // If snapshot is obsolete (older than today's 06:00)
-        if (lastSnapshot < startOfBusinessDay) {
-            // 1. Ensure Active params are up-to-date (Apply any pending changes that are due)
-            applyPendingToActive(context) 
-            
-            // 2. Snapshot current Active params as today's Baseline
-            saveBaselineParams(context)
-        }
-    }
-
     fun stagePendingRules(context: Context, segments: List<TimeSegment>, coolDown: Int, restCd: Int, gapCd: Int, notifyFar: Int, borrowPercent: Int, strictPenaltySecs: Long = 15, notifyNear: Int = 5): Long {
-        // 🚀 [Baseline] Ensure we have a fresh baseline for comparison
-        ensureFreshBaseline(context)
-
         val isAdaptation = isInAdaptationPeriod(context)
         if (isAdaptation) {
             saveTimeSegments(context, segments)

@@ -122,6 +122,35 @@ class DeveloperOptionsGuardManagerTest {
     }
 
     @Test
+    fun savingRulesDoesNotSnapshotBaseline_soTodaysNewSwitchCanStillBeRestoredImmediately() {
+        leaveAdaptationPeriod()
+        DeveloperOptionsGuardManager.setProtectionEnabled(context, true)
+
+        // 保存时间规则不得补拍基准：基准只在每日刷新时刻与适应期结束时写入。
+        TimeRuleManager.stagePendingRules(context, emptyList(), 60, 60, 60, 5, 50)
+        TimeRuleManager.analyzeAndSaveGlobalParams(
+            context, newRest = 60, newGap = 60, newLockDuration = 15L, newBorrow = 50,
+            newNotifyFar = 5, newNotifyNear = 5, newWeeklyCount = 1, newWeeklyDuration = 480, newRefreshTime = "08:00"
+        )
+        assertFalse(TimeRuleManager.getBaselineDeveloperOptionsGuardState(context))
+
+        DeveloperOptionsGuardManager.setProtectionEnabled(context, false)
+        assertEquals(DeveloperOptionsGuardManager.State.DISABLED, DeveloperOptionsGuardManager.getProtectionState(context))
+    }
+
+    @Test
+    fun afterDailySnapshotClosingBecomesPendingAndStillEnforcing() {
+        leaveAdaptationPeriod()
+        DeveloperOptionsGuardManager.setProtectionEnabled(context, true)
+
+        TimeRuleManager.saveBaselineParams(context) // 次日刷新时刻的每日快照
+        DeveloperOptionsGuardManager.setProtectionEnabled(context, false)
+
+        assertEquals(DeveloperOptionsGuardManager.State.PENDING, DeveloperOptionsGuardManager.getProtectionState(context))
+        assertTrue(DeveloperOptionsGuardManager.isEnforcing(context))
+    }
+
+    @Test
     fun baselineSnapshotOnlyRecordsActiveState() {
         DeveloperOptionsGuardManager.setProtectionEnabled(context, true)
         assertFalse(TimeRuleManager.getBaselineDeveloperOptionsGuardState(context))
