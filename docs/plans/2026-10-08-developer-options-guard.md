@@ -70,7 +70,7 @@
 | 识别 | 纯函数 `DeveloperOptionsPageMatcher`（输入：包名、类名、标题文字、条目文字集合；输出：是否命中），可 JVM 测试；节点读取在 `ProtectionManager` / 新增 `DeveloperOptionsProtection` 中 |
 | 拦截 | 新增 `DeveloperOptionsProtection`，在 `ProtectionManager.onAccessibilityEvent` 派发；动作参照 `PermissionProtection.handleDetection` |
 | 无障碍依赖清理 | 接入 `AccessibilityDependencyManager` 的清理链，调用 `disableImmediatelyForAccessibilityUnavailable` 同款接口 |
-| 设置页 | `RulesFragment` 加开关与状态文案；`docs/specs/protection.md` §12.7 的「四项增强」改为五项并同步 `RulesSettingsUiContractTest` |
+| 设置页 | `RulesFragment` 加开关与状态文案；开关放在「加强约束功能」列表**最后一项**，即「防卸载与防关权限保护」下面（用户已确认）；`docs/specs/protection.md` §12.7 的「四项增强」及其展示顺序改为五项，并同步 `RulesSettingsUiContractTest` |
 | 诊断 | `ProtectionDiagnostics` 输出新管理器状态 |
 | 文档 | `protection.md` §13、`docs/user/permissions.md`、`HISTORY.md` 决策、`.github/SECURITY.md` 第 54 行措辞 |
 
