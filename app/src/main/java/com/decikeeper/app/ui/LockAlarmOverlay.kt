@@ -2843,8 +2843,20 @@ internal object LockAlarmOverlayController {
      * 扫码成功后由 AlarmActivity 调用，让覆盖层显示"挑战完成"状态（关闭/暂停按钮）。
      */
     fun onScanChallengePassed() {
-        if (!isAlarmOverlayActive.get()) return
-        val ctx = LockWindowManager.getAlarmContext() ?: return
+        if (!isAlarmOverlayActive.get()) {
+            // 覆盖层已不活跃时扫码结果会被丢弃（进度不推进），留证便于排查“扫完卡住”。
+            LogExporter.logEvent("AlarmOverlay", "SCAN_PASSED_DROPPED reason=OVERLAY_INACTIVE id=$alarmId")
+            return
+        }
+        val ctx = LockWindowManager.getAlarmContext()
+        if (ctx == null) {
+            LogExporter.logEvent("AlarmOverlay", "SCAN_PASSED_DROPPED reason=NO_ALARM_CONTEXT id=$alarmId")
+            return
+        }
+        LogExporter.logEvent(
+            "AlarmOverlay",
+            "SCAN_PASSED_APPLY id=$alarmId twoStage=$isTwoStageUnlock firstStagePassed=$isAlarmFirstStagePassed"
+        )
 
         // [Fix: scan cutout leak] 扫码通过时，务必取消穿透/开孔的延时恢复任务，彻底退出穿透模式
         alarmPassthroughRestoreRunnable?.let {
