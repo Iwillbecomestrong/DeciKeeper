@@ -287,11 +287,20 @@ object BlacklistStore {
         }
     }
 
-    fun analyzeAndSaveBlacklistApps(context: Context, newApps: Set<String>): AnalysisResult {
+    fun analyzeBlacklistApps(context: Context, newApps: Set<String>): AnalysisResult =
+        analyzeAndSaveBlacklistApps(context, newApps, dryRun = true)
+
+    fun analyzeAndSaveBlacklistApps(
+        context: Context,
+        newApps: Set<String>,
+        dryRun: Boolean = false
+    ): AnalysisResult {
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         
         // 🚀 Adaptation Period: Always Immediate
         if (CreditManager.isInAdaptationPeriod(context)) {
+            if (dryRun) return AnalysisResult.AllImmediate()
+
             val currentBefore = getBlacklistApps(context)
             val activeRemovals = currentBefore.minus(newApps)
             val activeAdditions = newApps.minus(currentBefore)
@@ -351,7 +360,7 @@ object BlacklistStore {
             val baseApps = pendingSetString ?: currentApps
 
             if (currentApps == newApps) {
-                if (hasPendingApps(context)) {
+                if (!dryRun && hasPendingApps(context)) {
                     context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
                     ChangeLogManager.clearPendingLogsForCategory(context, "blacklist")
                 }
@@ -359,7 +368,6 @@ object BlacklistStore {
             }
 
             val effectiveTime = ConfigPendingManager.calculateNextEffectiveTime(context, System.currentTimeMillis())
-            stagePendingBlacklistApps(context, newApps, effectiveTime)
 
             val incrementalAdded = newApps.minus(baseApps)
             val incrementalRemoved = baseApps.minus(newApps)
@@ -381,14 +389,17 @@ object BlacklistStore {
                 delMsgs.add(msg)
                 logItems.add(Triple(msg, true, "blacklist_status_$pkg"))
             }
-            if (logItems.isNotEmpty()) {
-                ChangeLogManager.addEntries(context, "blacklist", logItems)
-            }
             if (delMsgs.isEmpty()) {
                 return AnalysisResult.NoChange
             }
-            val effectiveTimeStr = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(effectiveTime))
-            logBlacklistChanges(context, currentApps, newApps, "延迟生效($effectiveTimeStr)")
+            if (!dryRun) {
+                stagePendingBlacklistApps(context, newApps, effectiveTime)
+                if (logItems.isNotEmpty()) {
+                    ChangeLogManager.addEntries(context, "blacklist", logItems)
+                }
+                val effectiveTimeStr = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(effectiveTime))
+                logBlacklistChanges(context, currentApps, newApps, "延迟生效($effectiveTimeStr)")
+            }
             return AnalysisResult.Mixed(emptyList(), delMsgs, emptyList(), emptyList(), effectiveTime, 0L)
         }
         
@@ -405,69 +416,50 @@ object BlacklistStore {
         val activeRemovals = currentApps.minus(newApps)
 
         // 🔴 记录用户显式移除/重新加入的 App（防止 periodicAutoBlacklistScan 重新加入）
-        val allUserRemoved = baselineRemovals + activeRemovals
-        if (allUserRemoved.isNotEmpty()) {
-            addUserRemovedApps(context, allUserRemoved)
-        }
-        if (baselineAdditions.isNotEmpty() || activeAdditions.isNotEmpty()) {
-            clearUserRemovedApps(context, baselineAdditions + activeAdditions)
+        if (!dryRun) {
+            val allUserRemoved = baselineRemovals + activeRemovals
+            if (allUserRemoved.isNotEmpty()) {
+                addUserRemovedApps(context, allUserRemoved)
+            }
+            if (baselineAdditions.isNotEmpty() || activeAdditions.isNotEmpty()) {
+                clearUserRemovedApps(context, baselineAdditions + activeAdditions)
+            }
         }
 
         if (activeAdditions.isEmpty() && baselineRemovals.isEmpty() && currentApps == newApps) {
-        // 🚀 [Fix] If reverting to active state, clear any pending changes (Cancel Pending)
-        if (hasPendingApps(context)) {
-            context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
-            // 🚀 [Fix] Also clear pending change logs
-            ChangeLogManager.clearPendingLogsForCategory(context, "blacklist")
-        }
+            // 🚀 [Fix] If reverting to active state, clear any pending changes (Cancel Pending)
+            if (!dryRun && hasPendingApps(context)) {
+                context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
+                // 🚀 [Fix] Also clear pending change logs
+                ChangeLogManager.clearPendingLogsForCategory(context, "blacklist")
+            }
             return AnalysisResult.NoChange
         }
         
         // 🚀 Correction Logic: Active = Baseline + Current Proposal
         // Any app in proposal NOT in baseline is an immediate addition.
         // Any app in baseline NOT in proposal is a delayed removal (so it must stay in active).
-        val newActive = baselineApps + newApps
-        prefs.edit().putStringSet(KEY_BLACKLIST_APPS, HashSet(newActive)).apply()
-        cachedBlacklist = newActive
-        
-        // Sync Service Immediate for Additions
-        // Sync Service Immediate for Additions
-        // 🚀 [Fix] Use 'baselineAdditions' which represents strict new additions
-        if (activeAdditions.isNotEmpty() || baselineAdditions.isNotEmpty()) {
-            val intent = android.content.Intent(context, MonitorService::class.java)
-            intent.action = MonitorService.ACTION_REFRESH_RULES
-            context.startService(intent)
-        }
+        if (!dryRun) {
+            val newActive = baselineApps + newApps
+            prefs.edit().putStringSet(KEY_BLACKLIST_APPS, HashSet(newActive)).apply()
+            cachedBlacklist = newActive
+            
+            // Sync Service Immediate for Additions
+            // 🚀 [Fix] Use 'baselineAdditions' which represents strict new additions
+            if (activeAdditions.isNotEmpty() || baselineAdditions.isNotEmpty()) {
+                val intent = android.content.Intent(context, MonitorService::class.java)
+                intent.action = MonitorService.ACTION_REFRESH_RULES
+                context.startService(intent)
+            }
 
-        // 🚀 [ChangeLog] Cleanup History (Partial Revert Support)
-        val restoredApps = newApps.intersect(baselineApps)
-        restoredApps.forEach { pkg ->
-            ChangeLogManager.removePendingEntriesByTag(context, "blacklist", "blacklist_remove_$pkg")
+            // 🚀 [ChangeLog] Cleanup History (Partial Revert Support)
+            val restoredApps = newApps.intersect(baselineApps)
+            restoredApps.forEach { pkg ->
+                ChangeLogManager.removePendingEntriesByTag(context, "blacklist", "blacklist_remove_$pkg")
+            }
         }
 
         if (baselineRemovals.isEmpty()) {
-            // Pure Beneficial (or restoration to baseline) -> Immediate
-            // If we have strictly MORE apps than baseline (or equal), it is Favorable.
-            context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
-            
-            // 🚀 [ChangeLog] Log favorable changes (Additions)
-            // Note: If we are just restoring, we might NOT want to log "Added App (Favorable)" if we just cleared the "Removed App" log.
-            // But if it's a NEW addition (not in baseline), we should log it.
-            // Actually, `sessionAdditions` = New - Baseline. So if we are restoring, `sessionAdditions` is empty!
-            // Wait, if we Restore:
-            // Baseline: {A, B}
-            // Active: {A, B}
-            // User Removes B -> Active {A}, Pending {Remove B}
-            // User Adds B -> New {A, B}
-            // Baseline {A, B}
-            // sessionAdditions = {A,B} - {A,B} = Empty.
-            // sessionRemovals = {A,B} - {A,B} = Empty.
-            // So we enter this block.
-            // `restoredApps` = {A, B}.
-            // We remove "blacklist_remove_B" from entries. Correct.
-            // `immList` comes from `sessionAdditions`. It is empty. So no "Added B" log.
-            // This is PERFECT. It silently cancels out the pending removal.
-            
             val pm = context.packageManager
             // 🚀 Only log if it's a NEW restriction relative to Baseline (True Favorable)
             val trueNewRestrictions = newApps.minus(baselineApps)
@@ -479,13 +471,14 @@ object BlacklistStore {
             }
             
             val msgs = logItems.map { it.first }
-            if (logItems.isNotEmpty()) {
-                 ChangeLogManager.addEntries(context, "blacklist", logItems)
+            if (!dryRun) {
+                context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
+                if (logItems.isNotEmpty()) {
+                    ChangeLogManager.addEntries(context, "blacklist", logItems)
+                }
+                // 变更播报
+                logBlacklistChanges(context, currentApps, newApps, "立即生效")
             }
-            // Note: Reverted logic removed as it was confusing. We use silent cancellation now.
-
-            // 变更播报
-            logBlacklistChanges(context, currentApps, newApps, "立即生效")
             return AnalysisResult.AllImmediate(msgs)
         } else {
             // 🚀 [Diff Base] Comparison for User Feedback (Get Prev Pending BEFORE overwriting)
@@ -495,7 +488,9 @@ object BlacklistStore {
             
             // Mixed/Adverse -> Additions are active (above), Removals are Delayed (Pending)
             val effectiveTime = ConfigPendingManager.calculateNextEffectiveTime(context, System.currentTimeMillis())
-            stagePendingBlacklistApps(context, newApps, effectiveTime)
+            if (!dryRun) {
+                stagePendingBlacklistApps(context, newApps, effectiveTime)
+            }
             
             // 🚀 [Incremental Diff]
             // We compare New vs Base (Last Pending/Active) to see what the user JUST did.
@@ -532,15 +527,8 @@ object BlacklistStore {
             incrementalRemoved.forEach { pkg ->
                 val label = getLabel(pkg)
                 if (!baselineApps.contains(pkg)) {
-                     // It was NOT in baseline (so it was a new addition). Removing it = Reverting to baseline = Restoring.
-                     // Wait, if I added it (above baseline) and now remove it. I am relaxing relative to Previous.
-                     // But strictly, New state == Baseline state (for this app).
-                     // So specific app state is "Restored to Baseline". 
-                     // Therefore Immediate.
                     val msg = "取消解析/撤销新增: $label [恢复]"
                     resMsgs.add(msg)
-                    // Removing the "Added" log if exists? 
-                    // Actually we log "Status: Restored".
                     logItems.add(Triple(msg, false, "blacklist_status_$pkg"))
                 } else {
                     // It WAS in baseline. Removing it -> Looser than Baseline -> Adverse.
@@ -550,18 +538,19 @@ object BlacklistStore {
                 }
             }
             
-            // 🚀 [ChangeLogSync] Batch add with deduplication
-            if (logItems.isNotEmpty()) {
-                ChangeLogManager.addEntries(context, "blacklist", logItems)
-            }
-            
             if (immMsgs.isEmpty() && delMsgs.isEmpty() && resMsgs.isEmpty()) {
                 return AnalysisResult.NoChange
             }
 
-            // 变更播报
-            val effectiveTimeStr = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(effectiveTime))
-            logBlacklistChanges(context, currentApps, newApps, "延迟生效($effectiveTimeStr)")
+            if (!dryRun) {
+                // 🚀 [ChangeLogSync] Batch add with deduplication
+                if (logItems.isNotEmpty()) {
+                    ChangeLogManager.addEntries(context, "blacklist", logItems)
+                }
+                // 变更播报
+                val effectiveTimeStr = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(effectiveTime))
+                logBlacklistChanges(context, currentApps, newApps, "延迟生效($effectiveTimeStr)")
+            }
             return AnalysisResult.Mixed(immMsgs, delMsgs, resMsgs, emptyList(), effectiveTime, 0L)
         }
     }

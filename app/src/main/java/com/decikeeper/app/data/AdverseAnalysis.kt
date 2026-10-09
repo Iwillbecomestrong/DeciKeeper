@@ -19,6 +19,7 @@
 package com.decikeeper.app.data
 
 import android.content.Context
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
@@ -42,6 +43,15 @@ sealed class AnalysisResult {
 object AdverseAnalysis {
 
     fun showAnalysisDialog(context: Context, result: AnalysisResult, onConfirm: () -> Unit) {
+        showAnalysisDialog(context, result, null, onConfirm)
+    }
+
+    fun showAnalysisDialog(
+        context: Context,
+        result: AnalysisResult,
+        onCancel: (() -> Unit)?,
+        onConfirm: () -> Unit
+    ) {
         // 🚀 [Adaptation Period] During Adaptation, ALL changes are immediate. Skip analysis.
         if (TimeRuleManager.isInAdaptationPeriod(context)) {
             AlertDialog.Builder(context)
@@ -143,8 +153,13 @@ object AdverseAnalysis {
             .setCancelable(false)
 
         if (hasDelayed) {
+            val handleCancel = {
+                onCancel?.invoke()
+                Toast.makeText(context, "已取消修改", Toast.LENGTH_SHORT).show()
+            }
             builder.setPositiveButton("确认仍要修改") { _, _ -> onConfirm() }
-            builder.setNegativeButton("取消", null) // Dismiss
+            builder.setNegativeButton("取消") { _, _ -> handleCancel() }
+            builder.setOnCancelListener { handleCancel() }
         } else {
              builder.setPositiveButton("确定") { _, _ -> onConfirm() }
         }

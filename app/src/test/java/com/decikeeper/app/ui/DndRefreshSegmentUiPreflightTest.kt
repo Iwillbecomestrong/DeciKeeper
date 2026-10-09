@@ -32,7 +32,7 @@ import org.junit.Test
  *     `analyzeAndSaveTimeSegments` directly without any
  *     `MinuteBoundary.isSegmentLegal` consultation, so a strict-crossing
  *     segment (e.g. `05:30-22:00` with refresh = `07:00`) bypasses the UI
- *     preflight even though `saveSegmentsImmediately` would later fail at
+ *     preflight even though `applySegmentsUpdate` would later fail at
  *     the backend guard.
  *
  * GREEN after WP-04-T02:
@@ -56,10 +56,10 @@ class DndRefreshSegmentUiPreflightTest {
     /**
      * Lock the no-mutation guarantee: the segment save listener must consult
      * `MinuteBoundary.isSegmentLegal` before invoking
-     * `saveSegmentsImmediately()` in the same `btn_add_segment` add-dialog
+     * `applySegmentsUpdate(` in the same `btn_add_segment` add-dialog
      * positive-action lambda. We assert by code text: within the
      * `setPositiveButton("添加") { ... }` block of `showAddSegmentDialog`,
-     * the validator call must appear before the `saveSegmentsImmediately()`
+     * the validator call must appear before the `applySegmentsUpdate(`
      * call. Comment mentions outside the lambda do not satisfy the contract.
      *
      * This invariant ensures that even if a strict-crossing segment is
@@ -87,10 +87,10 @@ class DndRefreshSegmentUiPreflightTest {
             lambdaStart > 0
         )
 
-        // Find the FIRST `saveSegmentsImmediately()` call after the lambda start.
-        val saveCallIdx = src.indexOf("saveSegmentsImmediately()", lambdaStart)
+        // Find the FIRST `applySegmentsUpdate(` call after the lambda start.
+        val saveCallIdx = src.indexOf("applySegmentsUpdate(", lambdaStart)
         assertTrue(
-            "btn_add_segment positive-action lambda must invoke saveSegmentsImmediately()",
+            "btn_add_segment positive-action lambda must invoke applySegmentsUpdate(",
             saveCallIdx > 0
         )
 

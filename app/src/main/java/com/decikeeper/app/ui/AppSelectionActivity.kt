@@ -25,6 +25,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.decikeeper.app.R
 import com.decikeeper.app.data.AdverseAnalysis
+import com.decikeeper.app.data.AnalysisResult
 import com.decikeeper.app.data.SegmentBlacklist
 import com.decikeeper.app.manager.AlarmChallengeEmergencyWhitelist
 import com.decikeeper.app.manager.ChangeLogManager
@@ -338,9 +339,37 @@ class AppSelectionActivity : AppCompatActivity() {
 
     private fun saveAppSelection() {
         val blockedSet = SegmentBlacklist.toEffectiveBlockedSet(this, listMode, selectedApps.toSet())
-        CreditManager.setBlacklistMode(this, listMode)
-        val result = CreditManager.analyzeAndSaveBlacklistApps(this, blockedSet)
-        AdverseAnalysis.showAnalysisDialog(this, result) { doFinish() }
+        val analysis = CreditManager.analyzeBlacklistApps(this, blockedSet)
+
+        val hasDelayed = when (analysis) {
+            is AnalysisResult.Mixed -> analysis.delayedChanges.isNotEmpty() || analysis.nextWeekChanges.isNotEmpty()
+            is AnalysisResult.AllDelayed -> true
+            else -> false
+        }
+        val isAdaptation = CreditManager.isInAdaptationPeriod(this)
+
+        if (!hasDelayed && !isAdaptation) {
+            CreditManager.setBlacklistMode(this, listMode)
+            val result = CreditManager.analyzeAndSaveBlacklistApps(this, blockedSet)
+            if (result is AnalysisResult.NoChange) {
+                Toast.makeText(this, "设置已保存 (未发生变更)", Toast.LENGTH_SHORT).show()
+            }
+            doFinish()
+            return
+        }
+
+        AdverseAnalysis.showAnalysisDialog(
+            this,
+            analysis,
+            onCancel = {
+                // 不写盘，AdverseAnalysis 会自动弹出“已取消修改”Toast，保留界面
+            },
+            onConfirm = {
+                CreditManager.setBlacklistMode(this, listMode)
+                CreditManager.analyzeAndSaveBlacklistApps(this, blockedSet)
+                doFinish()
+            }
+        )
     }
 
     private fun doFinish() {
