@@ -580,7 +580,9 @@ object LockWindowManager {
         val stage2AlarmMode: AlarmScheduler.AlarmMode = AlarmScheduler.AlarmMode.VIBRATE_AND_RING,
         val stage2VibrationMode: AlarmScheduler.VibrationMode = AlarmScheduler.VibrationMode.PROGRESSIVE,
         val stage2VibrationIntensity: Int = 7,
-        val stage2RingVolume: Int = 7
+        val stage2RingVolume: Int = 7,
+        val stage2ProgressiveMaxRingVolume: Int = 10,
+        val stage2ProgressiveMaxIntensity: Int = 10
     )
 
     // ── 闹钟覆盖层共享状态（保留在本对象，供 LockAlarmOverlayController 通过 internal getter 访问）──

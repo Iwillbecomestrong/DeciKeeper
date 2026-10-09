@@ -29,7 +29,11 @@ internal class AlarmReminderSettingsView(
         val vibrationMode: AlarmScheduler.VibrationMode,
         val vibrationIntensity: Int,
         val ringVolume: Int,
-        val ringtoneUri: String? = null
+        val ringtoneUri: String? = null,
+        /** 渐进模式的「最大声音」（1-10，10 = 不限制）；固定模式下不使用，但两个值始终一并保存。 */
+        val progressiveMaxRingVolume: Int = 10,
+        /** 渐进模式的「最大震动」（1-10，10 = 不限制）；固定模式下不使用，但两个值始终一并保存。 */
+        val progressiveMaxVibrationIntensity: Int = 10
     )
 
     /** 当前模式下哪些子控件需要显示；独立成纯函数便于 JVM 测试。 */
@@ -42,10 +46,22 @@ internal class AlarmReminderSettingsView(
 
     var onPickRingtone: (() -> Unit)? = null
 
+    /** 声音滑块松手时回调当前滑块所代表的档位（1-10，渐进=最大声音），用于试听。 */
+    var onPreviewVolume: ((level: Int) -> Unit)? = null
+
+    /** 震动滑块松手时回调当前滑块所代表的档位（1-10，渐进=最大震动），用于试震。 */
+    var onPreviewVibration: ((level: Int) -> Unit)? = null
+
     private val density = resources.displayMetrics.density
     private var alarmMode = AlarmScheduler.AlarmMode.VIBRATE_AND_RING
     private var vibrationMode = AlarmScheduler.VibrationMode.PROGRESSIVE
     private var ringtoneUri: String? = null
+
+    // 震动、声音滑块在两种强度模式间各复用同一行（渐进=最大值，固定=固定值），两个模式各自的值分开存放。
+    private var fixedRingProgress = 6
+    private var maxRingProgress = 9
+    private var fixedVibrationProgress = 6
+    private var maxVibrationProgress = 9
 
     private val modeControl: SegmentedControl
     private val strengthControl: SegmentedControl
@@ -56,6 +72,8 @@ internal class AlarmReminderSettingsView(
     private val volumeRow: LinearLayout
     private val vibrationSeek: SeekBar
     private val volumeSeek: SeekBar
+    private val volumeLabel: TextView
+    private val vibrationLabel: TextView
     private val vibrationValue: TextView
     private val volumeValue: TextView
 
@@ -82,7 +100,9 @@ internal class AlarmReminderSettingsView(
 
         addView(sectionLabel("提醒强度").also { it.setPadding(0, dp(12), 0, 0) })
         strengthControl = SegmentedControl(listOf("渐进增强", "固定强度")) { index ->
+            commitSeeks()
             vibrationMode = STRENGTHS[index]
+            loadSeeks()
             refreshVisibility()
         }
         addView(strengthControl, params(top = 6))
@@ -95,13 +115,15 @@ internal class AlarmReminderSettingsView(
         addView(progressiveHint, params(top = 8))
 
         vibrationValue = valueLabel()
-        vibrationSeek = themedSeekBar(vibrationValue)
-        vibrationRow = sliderRow("震动", vibrationSeek, vibrationValue)
+        vibrationSeek = themedSeekBar(vibrationValue, previewOnRelease = true, previewIsVibration = true)
+        vibrationLabel = rowLabel("震动")
+        vibrationRow = sliderRow(vibrationLabel, vibrationSeek, vibrationValue)
         addView(vibrationRow, params(top = 8))
 
         volumeValue = valueLabel()
-        volumeSeek = themedSeekBar(volumeValue)
-        volumeRow = sliderRow("声音", volumeSeek, volumeValue)
+        volumeSeek = themedSeekBar(volumeValue, previewOnRelease = true)
+        volumeLabel = rowLabel("声音")
+        volumeRow = sliderRow(volumeLabel, volumeSeek, volumeValue)
         addView(volumeRow, params(top = 4))
 
         setConfig(
@@ -120,22 +142,50 @@ internal class AlarmReminderSettingsView(
         ringtoneUri = config.ringtoneUri
         modeControl.select(MODES.indexOf(alarmMode).coerceAtLeast(0))
         strengthControl.select(STRENGTHS.indexOf(vibrationMode).coerceAtLeast(0))
-        vibrationSeek.progress = (config.vibrationIntensity - 1).coerceIn(0, 9)
-        volumeSeek.progress = (config.ringVolume - 1).coerceIn(0, 9)
-        vibrationValue.text = valueText(vibrationSeek.progress)
-        volumeValue.text = valueText(volumeSeek.progress)
+        fixedVibrationProgress = (config.vibrationIntensity - 1).coerceIn(0, 9)
+        maxVibrationProgress = (config.progressiveMaxVibrationIntensity - 1).coerceIn(0, 9)
+        fixedRingProgress = (config.ringVolume - 1).coerceIn(0, 9)
+        maxRingProgress = (config.progressiveMaxRingVolume - 1).coerceIn(0, 9)
+        loadSeeks()
         renderRingtoneTitle()
         refreshVisibility()
     }
 
-    /** 渐进模式下强度由策略爬升，保存的震动强度固定记 1，与原有存储约定一致。 */
-    fun getConfig(): Config = Config(
-        alarmMode = alarmMode,
-        vibrationMode = vibrationMode,
-        vibrationIntensity = if (vibrationMode == AlarmScheduler.VibrationMode.PROGRESSIVE) 1 else vibrationSeek.progress + 1,
-        ringVolume = volumeSeek.progress + 1,
-        ringtoneUri = ringtoneUri
-    )
+    /** 固定值与渐进最大值始终一并输出，互不覆盖；渐进时爬升由策略负责，固定值只是保留给切回固定模式。 */
+    fun getConfig(): Config {
+        commitSeeks()
+        return Config(
+            alarmMode = alarmMode,
+            vibrationMode = vibrationMode,
+            vibrationIntensity = fixedVibrationProgress + 1,
+            ringVolume = fixedRingProgress + 1,
+            ringtoneUri = ringtoneUri,
+            progressiveMaxRingVolume = maxRingProgress + 1,
+            progressiveMaxVibrationIntensity = maxVibrationProgress + 1
+        )
+    }
+
+    /** 把两个滑块当前位置存回当前模式对应的那个值。 */
+    private fun commitSeeks() {
+        if (vibrationMode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
+            maxVibrationProgress = vibrationSeek.progress
+            maxRingProgress = volumeSeek.progress
+        } else {
+            fixedVibrationProgress = vibrationSeek.progress
+            fixedRingProgress = volumeSeek.progress
+        }
+    }
+
+    /** 按当前模式把对应的值和标签装到同一对滑块上。 */
+    private fun loadSeeks() {
+        val progressive = vibrationMode == AlarmScheduler.VibrationMode.PROGRESSIVE
+        vibrationLabel.text = if (progressive) "最大震动" else "震动"
+        vibrationSeek.progress = if (progressive) maxVibrationProgress else fixedVibrationProgress
+        vibrationValue.text = valueText(vibrationSeek.progress)
+        volumeLabel.text = if (progressive) "最大声音" else "声音"
+        volumeSeek.progress = if (progressive) maxRingProgress else fixedRingProgress
+        volumeValue.text = valueText(volumeSeek.progress)
+    }
 
     fun setRingtone(uri: String?) {
         ringtoneUri = uri
@@ -148,11 +198,11 @@ internal class AlarmReminderSettingsView(
 
     private fun refreshVisibility() {
         val v = resolveVisibility(alarmMode, vibrationMode, showRingtone)
-        // 规格 2.3：被当前模式隐藏的控件保留布局占位（INVISIBLE），切换模式时弹窗高度不跳动。
-        ringtoneRow.visibility = if (v.ringtone) VISIBLE else INVISIBLE
-        progressiveHint.visibility = if (v.progressiveHint) VISIBLE else INVISIBLE
-        vibrationRow.visibility = if (v.vibrationSlider) VISIBLE else INVISIBLE
-        volumeRow.visibility = if (v.volumeSlider) VISIBLE else INVISIBLE
+        // 规格 2.3：被当前模式隐藏的控件直接收起（GONE），下方内容自动上移，不留空白；弹窗在 ScrollView 内，高度变化无碍。
+        ringtoneRow.visibility = if (v.ringtone) VISIBLE else GONE
+        progressiveHint.visibility = if (v.progressiveHint) VISIBLE else GONE
+        vibrationRow.visibility = if (v.vibrationSlider) VISIBLE else GONE
+        volumeRow.visibility = if (v.volumeSlider) VISIBLE else GONE
     }
 
     private fun buildRingtoneRow(): LinearLayout {
@@ -182,16 +232,19 @@ internal class AlarmReminderSettingsView(
         return row
     }
 
-    private fun sliderRow(label: String, seek: SeekBar, value: TextView): LinearLayout =
+    /** 两行滑块的标签等宽（容得下「最大声音」），保证震动与声音滑块左右对齐。 */
+    private fun rowLabel(text: String) = TextView(context).apply {
+        this.text = text
+        textSize = 13f
+        setTextColor(color(R.attr.zzMuted))
+        minWidth = dp(60)
+    }
+
+    private fun sliderRow(label: TextView, seek: SeekBar, value: TextView): LinearLayout =
         LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(TextView(context).apply {
-                text = label
-                textSize = 13f
-                setTextColor(color(R.attr.zzMuted))
-                minWidth = dp(36)
-            })
+            addView(label)
             addView(seek, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
             addView(value)
         }
@@ -204,7 +257,11 @@ internal class AlarmReminderSettingsView(
         gravity = Gravity.END
     }
 
-    private fun themedSeekBar(valueView: TextView) = SeekBar(context).apply {
+    private fun themedSeekBar(
+        valueView: TextView,
+        previewOnRelease: Boolean = false,
+        previewIsVibration: Boolean = false
+    ) = SeekBar(context).apply {
         max = 9
         progressTintList = ColorStateList.valueOf(color(R.attr.zzAccent))
         progressBackgroundTintList = ColorStateList.valueOf(color(R.attr.zzLineStrong))
@@ -214,7 +271,11 @@ internal class AlarmReminderSettingsView(
                 valueView.text = valueText(p)
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {
+                if (!previewOnRelease || sb == null) return
+                val level = sb.progress + 1
+                if (previewIsVibration) onPreviewVibration?.invoke(level) else onPreviewVolume?.invoke(level)
+            }
         })
     }
 
@@ -285,7 +346,10 @@ internal class AlarmReminderSettingsView(
             AlarmScheduler.VibrationMode.FIXED
         )
 
-        /** 渐进：只显示说明；固定：震动滑块在含震动时显示，声音滑块在含铃声时显示。 */
+        /**
+         * 震动滑块在含震动时显示，声音滑块在含铃声时显示；渐进模式下它们分别是「最大震动」「最大声音」，
+         * 固定模式下是「震动」「声音」。渐进另外显示一行说明。
+         */
         fun resolveVisibility(
             alarmMode: AlarmScheduler.AlarmMode,
             vibrationMode: AlarmScheduler.VibrationMode,
@@ -297,8 +361,8 @@ internal class AlarmReminderSettingsView(
             return Visibility(
                 ringtone = showRingtone && hasRing,
                 progressiveHint = progressive,
-                vibrationSlider = !progressive && hasVibration,
-                volumeSlider = !progressive && hasRing
+                vibrationSlider = hasVibration,
+                volumeSlider = hasRing
             )
         }
     }
