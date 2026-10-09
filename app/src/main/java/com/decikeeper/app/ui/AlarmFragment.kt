@@ -47,7 +47,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
-import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Space
 import android.widget.TextView
@@ -1026,9 +1025,7 @@ class AlarmFragment : Fragment() {
         val cbS2Word = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_word)
         val cbS2Cloze = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_cloze)
 
-        val innerLayout = (dialogView as? android.view.ViewGroup)?.let { root ->
-            (root.getChildAt(0) as? ScrollView)?.getChildAt(0) as? LinearLayout
-        }
+        val innerLayout = dialogView.findViewById<LinearLayout>(R.id.layout_alarm_edit_content)
         val layoutStage1Cooldown = dialogView.findViewById<View>(R.id.layout_stage1_cooldown)
         val etEditCooldown = dialogView.findViewById<EditText>(R.id.et_stage_cooldown) ?: EditText(requireContext())
         etEditCooldown.setText((existing?.stageCooldownSeconds ?: AlarmScheduler.getDefaultStageCooldownSeconds(requireContext())).toString())
@@ -1137,7 +1134,7 @@ class AlarmFragment : Fragment() {
             )
         }
         editReminderSection.addView(editS2Reminder, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
-        innerLayout?.addView(editReminderSection)
+        innerLayout.addView(editReminderSection)
 
         fun updateReminderStage2Visibility() {
             val isTwo = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
