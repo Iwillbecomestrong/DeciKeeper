@@ -1507,7 +1507,21 @@ object CreditManager {
         stopWeeklyPrivilegeInternal(context, stopAtMillis)
     }
 
+    /**
+     * 特权结算只能生效一次。「特权是否到期」会被监控线程、界面线程等十几处同时调用，
+     * 到期瞬间多个线程都可能进入结算：没有互斥时，它们都通过「特权还开着吗」的检查，
+     * 同一次特权的分钟就被写进统计两遍（10-06 的特权曾因此在统计里翻倍）。
+     * 锁内重新检查，后到的线程看到已结束就直接返回。
+     */
+    private val privilegeSettleLock = Any()
+
     private fun stopWeeklyPrivilegeInternal(context: Context, stopAtMillis: Long) {
+        synchronized(privilegeSettleLock) {
+            settleWeeklyPrivilegeLocked(context, stopAtMillis)
+        }
+    }
+
+    private fun settleWeeklyPrivilegeLocked(context: Context, stopAtMillis: Long) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_PRIVILEGE_MODE, false)) return
         val privilegeUsageBeforeSettlement = getWeeklyPrivilegeDurationUsed(context)
