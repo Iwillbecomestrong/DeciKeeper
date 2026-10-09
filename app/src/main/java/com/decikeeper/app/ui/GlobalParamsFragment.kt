@@ -18,9 +18,9 @@ import com.decikeeper.app.data.AnalysisResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
+import com.decikeeper.app.manager.PrivilegeWindowPolicy
 import com.decikeeper.app.manager.ProbationManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
-import com.decikeeper.app.data.PrivilegeWindow
 import com.decikeeper.app.manager.TimeRuleManager
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -240,26 +240,25 @@ class GlobalParamsFragment : Fragment() {
                     Pair(v != null && v in 0..600, "每周特权时长不能超过 10 小时 (600 分钟)")
                 })
             }
-            // 特权可用范围必须落在业务日内：开始不早于生效时间，结束晚于开始且最晚 24:00。
-            // 失焦即存时对每一次输入都校验，不合法的输入会被拒绝并还原。
-            val privWindowMessage = { dayStart: String ->
-                "特权可用范围必须在业务日内：开始不早于生效时间 $dayStart，结束晚于开始且最晚 24:00"
-            }
             etPrivWindowStart?.let {
                 setupAutoSave(it, { pendingPrivWindowStart }, { text ->
-                    val dayStart = privilegeWindowBusinessDayStart()
-                    val ok = PrivilegeWindow.parseMinutes(text) != null &&
-                        PrivilegeWindow.isValid(formatTime(text), formatTime(etPrivWindowEnd?.text?.toString()?.trim().orEmpty()), dayStart)
-                    Pair(ok, privWindowMessage(dayStart))
-                }, onValidFormatted = { t -> formatTime(t) })
+                    val error = PrivilegeWindowPolicy.validate(
+                        formatTime(text),
+                        formatTime(etPrivWindowEnd?.text?.toString()?.trim().orEmpty()),
+                        TimeRuleManager.getRefreshTime(context)
+                    )
+                    Pair(error == null, error)
+                }, onValidFormatted = { t -> formatTime(t) }, showErrorDialog = true)
             }
             etPrivWindowEnd?.let {
                 setupAutoSave(it, { pendingPrivWindowEnd }, { text ->
-                    val dayStart = privilegeWindowBusinessDayStart()
-                    val ok = PrivilegeWindow.parseMinutes(text) != null &&
-                        PrivilegeWindow.isValid(formatTime(etPrivWindowStart?.text?.toString()?.trim().orEmpty()), formatTime(text), dayStart)
-                    Pair(ok, privWindowMessage(dayStart))
-                }, onValidFormatted = { t -> formatTime(t) })
+                    val error = PrivilegeWindowPolicy.validate(
+                        formatTime(etPrivWindowStart?.text?.toString()?.trim().orEmpty()),
+                        formatTime(text),
+                        TimeRuleManager.getRefreshTime(context)
+                    )
+                    Pair(error == null, error)
+                }, onValidFormatted = { t -> formatTime(t) }, showErrorDialog = true)
             }
         }
 
@@ -270,7 +269,8 @@ class GlobalParamsFragment : Fragment() {
         editText: EditText,
         getOriginalValue: () -> String,
         validator: (String) -> Pair<Boolean, String?>,
-        onValidFormatted: ((String) -> String)? = null
+        onValidFormatted: ((String) -> String)? = null,
+        showErrorDialog: Boolean = false
     ) {
         editText.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) return@setOnFocusChangeListener
@@ -282,7 +282,16 @@ class GlobalParamsFragment : Fragment() {
 
             val (isValid, errorMsg) = validator(currentText)
             if (!isValid) {
-                Toast.makeText(requireContext(), errorMsg ?: "输入格式不正确", Toast.LENGTH_SHORT).show()
+                if (showErrorDialog) {
+                    // Toast 会截断较长的规则说明，需要完整阅读的校验原因用对话框展示。
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("特权可用范围不合规")
+                        .setMessage(errorMsg ?: "输入格式不正确")
+                        .setPositiveButton("我知道了", null)
+                        .show()
+                } else {
+                    Toast.makeText(requireContext(), errorMsg ?: "输入格式不正确", Toast.LENGTH_SHORT).show()
+                }
                 editText.setText(original)
                 return@setOnFocusChangeListener
             }
@@ -303,11 +312,6 @@ class GlobalParamsFragment : Fragment() {
         }
     }
 
-    /** 特权范围校验用的业务日开始：优先取待生效的生效时间（次日起生效），否则取当前生效时间。 */
-    private fun privilegeWindowBusinessDayStart(): String {
-        val context = requireContext()
-        return TimeRuleManager.getPendingRefreshTime(context) ?: TimeRuleManager.getRefreshTime(context)
-    }
 
     private fun isValidTimeFormat(t: String): Boolean {
         if (!t.contains(":")) return false

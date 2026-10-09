@@ -44,7 +44,6 @@ import com.decikeeper.app.data.AndroidLogcatNormalEventSink
 import com.decikeeper.app.data.DefaultLogDebugConfig
 import com.decikeeper.app.data.DefaultNormalEventRenderer
 import com.decikeeper.app.data.LogExporter
-import com.decikeeper.app.data.PrivilegeWindow
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SegmentAdverseAnalysis
 import com.decikeeper.app.data.SegmentAnalysis
@@ -954,29 +953,36 @@ object TimeRuleManager {
     private const val KEY_PRIVILEGE_WINDOW_END = "privilege_window_end"
 
     /**
-     * 当前生效的特权可用范围（开始, 结束）。
-     * 范围必须落在同一个业务日内：开始不早于业务日开始（生效时间），结束晚于开始、最晚 24:00。
-     * 早于业务日开始的开始值被收窄到业务日开始；仍不合法（如旧版跨午夜范围）时回落到默认范围。
+     * 获取特权可用窗口开始时间 (HH:MM 格式)
+     * 有效开始时间 = max(已存开始时间, 生效时间)；未设置时跟随生效时间。
      */
-    private fun resolvePrivilegeWindow(context: Context): Pair<String, String> {
-        val prefs = getPrefs(context)
-        return PrivilegeWindow.resolve(
-            prefs.getString(KEY_PRIVILEGE_WINDOW_START, null),
-            prefs.getString(KEY_PRIVILEGE_WINDOW_END, null),
-            getRefreshTime(context)
-        )
+    fun getPrivilegeWindowStart(context: Context): String {
+        val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_START, null)
+        return PrivilegeWindowPolicy.effectiveStart(stored, getRefreshTime(context))
     }
 
-    /** 获取特权可用窗口开始时间 (HH:MM 格式)，默认 max("07:00", 业务日开始) */
-    fun getPrivilegeWindowStart(context: Context): String = resolvePrivilegeWindow(context).first
+    /** 已存（未夹紧）的特权开始时间；未设置返回 null。 */
+    fun getStoredPrivilegeWindowStart(context: Context): String? =
+        getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_START, null)
 
-    /** 获取特权可用窗口结束时间 (HH:MM 格式)，默认 "23:00" */
-    fun getPrivilegeWindowEnd(context: Context): String = resolvePrivilegeWindow(context).second
+    /**
+     * 获取特权可用窗口结束时间 (HH:MM 格式)
+     * 默认值："24:00"
+     */
+    fun getPrivilegeWindowEnd(context: Context): String {
+        val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_END, null)
+        if (stored != null) return stored
+        return PrivilegeWindowPolicy.DEFAULT_END
+    }
 
-    /** 特权可用范围的结束时刻（毫秒）：取 [referenceMillis] 所在实际日的范围结束，24:00 即次日 00:00。 */
+    /**
+     * 特权可用范围的结束时刻（毫秒）：取 [referenceMillis] 所在实际日的范围结束，24:00 即次日 00:00。
+     * 旧版已存的跨午夜范围（结束 ≤ 开始，新输入已不允许）按「到当日 24:00」处理，不改用户数据。
+     */
     fun getPrivilegeWindowEndMillis(context: Context, referenceMillis: Long): Long {
-        val endMins = PrivilegeWindow.parseMinutes(getPrivilegeWindowEnd(context))
-            ?: PrivilegeWindow.parseMinutes(PrivilegeWindow.DEFAULT_END)!!
+        val startMins = PrivilegeWindowPolicy.parseMinutes(getPrivilegeWindowStart(context), allowMidnightEnd = false) ?: 0
+        val parsedEnd = PrivilegeWindowPolicy.parseMinutes(getPrivilegeWindowEnd(context), allowMidnightEnd = true) ?: 1440
+        val endMins = if (parsedEnd <= startMins) 1440 else parsedEnd
         return java.util.Calendar.getInstance().run {
             timeInMillis = referenceMillis
             set(java.util.Calendar.HOUR_OF_DAY, 0)
@@ -1016,15 +1022,25 @@ object TimeRuleManager {
      * 判断当前时刻是否在特权可用窗口内（同一实际日内，包含两端）
      */
     fun isInPrivilegeWindow(context: Context, nowMinutes: Int = -1): Boolean {
-        val startMins = PrivilegeWindow.parseMinutes(getPrivilegeWindowStart(context)) ?: return false
-        val endMins = PrivilegeWindow.parseMinutes(getPrivilegeWindowEnd(context)) ?: return false
+        val startStr = getPrivilegeWindowStart(context)
+        val endStr = getPrivilegeWindowEnd(context)
+        val startParts = startStr.split(":")
+        val endParts = endStr.split(":")
+        val startMins = (startParts.getOrNull(0)?.toIntOrNull() ?: 7) * 60 + (startParts.getOrNull(1)?.toIntOrNull() ?: 0)
+        val endMins = (endParts.getOrNull(0)?.toIntOrNull() ?: 24) * 60 + (endParts.getOrNull(1)?.toIntOrNull() ?: 0)
 
         val currentMins = if (nowMinutes >= 0) nowMinutes else {
             val cal = java.util.Calendar.getInstance()
             cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
         }
 
-        return currentMins in startMins..endMins
+        return if (startMins <= endMins) {
+            // 非跨午夜: 例如 08:00 ~ 22:00
+            currentMins in startMins..endMins
+        } else {
+            // 旧版已存的跨午夜范围（新输入已不允许）: 例如 22:00 ~ 08:00 → 22:00~23:59 或 00:00~08:00，不改用户数据，按原样判断
+            currentMins >= startMins || currentMins <= endMins
+        }
     }
 
     /**
@@ -2991,8 +3007,17 @@ object TimeRuleManager {
             )
             return false
         }
+        // 特权开始时间与生效时间相同时视为「跟随」：生效时间变化，特权开始时间同步移动。
+        val oldRefresh = getRefreshTime(context)
+        val storedPrivStart = getStoredPrivilegeWindowStart(context)
+        val followsRefresh = storedPrivStart != null &&
+            PrivilegeWindowPolicy.isFollowingRefresh(storedPrivStart, oldRefresh)
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString("config_refresh_time", time).apply()
+        if (followsRefresh && time != oldRefresh) {
+            getPrefs(context).edit().putString(KEY_PRIVILEGE_WINDOW_START, time).apply()
+            getDeviceProtectedPrefs(context)?.edit()?.putString(KEY_PRIVILEGE_WINDOW_START, time)?.apply()
+        }
         return true
     }
 

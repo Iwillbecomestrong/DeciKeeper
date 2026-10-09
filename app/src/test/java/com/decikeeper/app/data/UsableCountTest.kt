@@ -15,10 +15,15 @@ class UsableCountTest {
         assertEquals(1, CountAction.TEMPORARY_ACCESS.baseHalfUnits)
         assertEquals(2, CountAction.REST.baseHalfUnits)
     }
-    @Test fun automaticRoundsAndHasMinimum() {
-        assertEquals(3, UsableCount.automaticHalfUnits(8))
-        assertEquals(4, UsableCount.automaticHalfUnits(9))
-        assertEquals(2, UsableCount.automaticHalfUnits(3))
+    @Test fun automaticIsLimitDividedByTenRoundedToWholeCountWithMinimumOne() {
+        // 返回半次单位：整数次 * 2
+        assertEquals(2, UsableCount.automaticHalfUnits(3))   // 0.3 -> 0 -> 下限 1 次
+        assertEquals(2, UsableCount.automaticHalfUnits(5))   // 0.5 -> 1
+        assertEquals(2, UsableCount.automaticHalfUnits(14))  // 1.4 -> 1
+        assertEquals(6, UsableCount.automaticHalfUnits(25))  // 2.5 -> 3
+        assertEquals(6, UsableCount.automaticHalfUnits(30))  // 3.0 -> 3
+        assertEquals(8, UsableCount.automaticHalfUnits(35))  // 3.5 -> 4
+        assertEquals(2, UsableCount.automaticHalfUnits(0))
     }
     @Test fun cooldownWeightsOnceAndClampsOverlap() {
         assertEquals(1, UsableCount.weightedHalfUnits(1, 100, 0))

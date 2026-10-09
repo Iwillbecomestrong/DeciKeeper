@@ -1,11 +1,8 @@
 package com.decikeeper.app.manager
 
 import android.content.Context
-import com.decikeeper.app.data.PrivilegeWindow
 import java.util.Calendar
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,50 +32,43 @@ class PrivilegeWindowTest {
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
 
+    private val prefs get() = context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)
+
     @Test
-    fun newInputMustStayInsideTheBusinessDay() {
-        assertTrue(PrivilegeWindow.isValid("07:00", "23:00", "06:00"))
-        assertTrue(PrivilegeWindow.isValid("06:00", "24:00", "06:00"))
-        assertFalse("开始早于业务日开始", PrivilegeWindow.isValid("05:59", "23:00", "06:00"))
-        assertFalse("相等没有可用时间", PrivilegeWindow.isValid("08:00", "08:00", "06:00"))
-        assertFalse("跨午夜不允许", PrivilegeWindow.isValid("22:00", "08:00", "06:00"))
-        assertFalse("24:30 不存在", PrivilegeWindow.isValid("07:00", "24:30", "06:00"))
-        assertFalse("格式错误", PrivilegeWindow.isValid("7", "23:00", "06:00"))
-        assertFalse(PrivilegeWindow.isValid(null, "23:00", "06:00"))
+    fun unsetWindowDefaultsToFollowTheRefreshTimeAndTwentyFourHundred() {
+        assertEquals("未设置：开始跟随生效时间", "06:00", TimeRuleManager.getPrivilegeWindowStart(context))
+        assertEquals("未设置：结束默认 24:00", "24:00", TimeRuleManager.getPrivilegeWindowEnd(context))
     }
 
     @Test
-    fun defaultStartFollowsBusinessDayStart() {
-        assertEquals("07:00" to "23:00", PrivilegeWindow.defaultFor("06:00"))
-        assertEquals("08:00" to "23:00", PrivilegeWindow.defaultFor("08:00"))
-    }
-
-    @Test
-    fun storedStartEarlierThanBusinessDayIsNarrowedNotDropped() {
-        // 旧用户存的是 05:00 ~ 22:00，业务日 06:00 开始：开始收窄，结束保留
-        assertEquals("06:00" to "22:00", PrivilegeWindow.resolve("05:00", "22:00", "06:00"))
-    }
-
-    @Test
-    fun stillInvalidStoredWindowFallsBackToDefault() {
-        // 旧版跨午夜范围
-        assertEquals("07:00" to "23:00", PrivilegeWindow.resolve("22:00", "08:00", "06:00"))
-        // 结束早于业务日开始，收窄后开始晚于结束
-        assertEquals("07:00" to "23:00", PrivilegeWindow.resolve("01:00", "05:00", "06:00"))
-    }
-
-    @Test
-    fun gettersUseResolvedWindow() {
-        assertEquals("07:00", TimeRuleManager.getPrivilegeWindowStart(context))
-        assertEquals("23:00", TimeRuleManager.getPrivilegeWindowEnd(context))
-
+    fun storedWindowIsReadAsIsAndNeverRewritten() {
+        // 用户已存的值更新后不能被改：开始早于生效时间只是「读出来」按生效时间算，存的值原样保留
         TimeRuleManager.setPrivilegeWindow(context, "05:00", "22:00")
         assertEquals("06:00", TimeRuleManager.getPrivilegeWindowStart(context))
         assertEquals("22:00", TimeRuleManager.getPrivilegeWindowEnd(context))
+        assertEquals("05:00", prefs.getString("privilege_window_start", null))
+        assertEquals("22:00", prefs.getString("privilege_window_end", null))
 
-        TimeRuleManager.setPrivilegeWindow(context, "22:00", "08:00")
+        // 用户存的 07:00 ~ 23:00 保持不变（不会被默认的 24:00 覆盖）
+        TimeRuleManager.setPrivilegeWindow(context, "07:00", "23:00")
         assertEquals("07:00", TimeRuleManager.getPrivilegeWindowStart(context))
         assertEquals("23:00", TimeRuleManager.getPrivilegeWindowEnd(context))
+    }
+
+    @Test
+    fun legacyCrossMidnightWindowIsKeptAsStored() {
+        TimeRuleManager.setPrivilegeWindow(context, "22:00", "08:00")
+        assertEquals("22:00", TimeRuleManager.getPrivilegeWindowStart(context))
+        assertEquals("08:00", TimeRuleManager.getPrivilegeWindowEnd(context))
+        assertEquals("22:00", prefs.getString("privilege_window_start", null))
+        assertEquals("08:00", prefs.getString("privilege_window_end", null))
+    }
+
+    @Test
+    fun legacyCrossMidnightWindowEndsAtTwentyFourHundredOfTheDay() {
+        TimeRuleManager.setPrivilegeWindow(context, "22:00", "08:00")
+        val end = TimeRuleManager.getPrivilegeWindowEndMillis(context, at(23, 0))
+        assertEquals(at(0, 0) + 24 * 60 * 60_000L, end)
     }
 
     @Test

@@ -17,9 +17,10 @@ internal object UsableCount {
         return value.multiply(BigDecimal(2)).setScale(0, RoundingMode.HALF_UP).toInt()
     }
 
+    /** 自动次数 = round(休息时长/10)，整数次，下限 1 次；返回半次单位。 */
     fun automaticHalfUnits(limitMins: Int): Int =
-        BigDecimal(limitMins.coerceAtLeast(0)).divide(BigDecimal(5), 8, RoundingMode.HALF_UP)
-            .multiply(BigDecimal(2)).setScale(0, RoundingMode.HALF_UP).toInt().coerceAtLeast(2)
+        BigDecimal(limitMins.coerceAtLeast(0)).divide(BigDecimal(10), 8, RoundingMode.HALF_UP)
+            .setScale(0, RoundingMode.HALF_UP).toInt().coerceAtLeast(1) * 2
 
     fun weightedHalfUnitsOrNull(baseHalfUnits: Int, totalDuration: Long, cooldownOverlap: Long): Int? {
         if (totalDuration <= 0 || baseHalfUnits < 0) return null

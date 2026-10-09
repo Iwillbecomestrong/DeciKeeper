@@ -6937,7 +6937,7 @@ internal fun calculateQuotaCountFromWeightedSeconds(
  * @param borrowPercent  借用比例（百分比，例如 50 表示 50%）
  * @return Pair(maxBorrowMinutes, maxBorrowCount)
  *         - maxBorrowMinutes：精度 0.1，公式 = nextLimitMins × (borrowPercent/100) / 2，half-up
- *         - maxBorrowCount：整数，公式 = nextCountLimit × (borrowPercent/100) / 2，half-up
+ *         - maxBorrowCount：半次单位，还款额度 = floor(nextCountLimit × borrowPercent) 取整到整数次，再除以 2
  *
  * 输入越界保护：负数 / 0 都按 0 处理，避免 UI 显示负值。
  */
