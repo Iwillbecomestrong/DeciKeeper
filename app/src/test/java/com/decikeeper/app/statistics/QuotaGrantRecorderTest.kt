@@ -146,6 +146,52 @@ class QuotaGrantRecorderTest {
     }
 
     @Test
+    fun aStaleMarkerFromTheOldVersionDoesNotSuppressTheMissingGrant() {
+        assumeAwayFromMidnight()
+        installAllDaySegment(limitMins = 30)
+        val segment = TimeRuleManager.getCurrentSegment(context)!!
+        // 旧版先写标记再写账：写账失败会留下「已处理」的假标记（今天「晚上」那笔就是这样丢的）
+        context.getSharedPreferences("rest_stats_grant_marker", Context.MODE_PRIVATE).edit()
+            .putString("last_granted_segment", QuotaGrantRecorder.grantKey(com.decikeeper.app.manager.CreditManager.getBusinessDateString(context), segment))
+            .commit()
+
+        QuotaGrantRecorder.recordIfNewSegment(context)
+
+        assertEquals("假标记不能挡住补记", 1, RestStatsRecorder.getAllRecords(context).count { it.type == RestLedger.TYPE_GRANT })
+    }
+
+    @Test
+    fun doesNotDuplicateAGrantThatIsAlreadyInTheLedger() {
+        assumeAwayFromMidnight()
+        installAllDaySegment(limitMins = 30)
+        val segment = TimeRuleManager.getCurrentSegment(context)!!
+        RestStatsRecorder.record(
+            context = context, type = RestLedger.TYPE_GRANT, typeName = RestLedger.TYPE_NAME_GRANT,
+            costMinutes = -30.0, costCount = -3.0, balanceMinutes = 30.0, balanceCount = 6,
+            timestamp = QuotaGrantRecorder.latestOccurrenceStartMillis(segment, System.currentTimeMillis())
+        )
+
+        // 标记丢了（或换了版本）但账已经在：补记前先查账，不重复记
+        QuotaGrantRecorder.recordIfNewSegment(context)
+        QuotaGrantRecorder.recordIfNewSegment(context)
+
+        assertEquals(1, RestStatsRecorder.getAllRecords(context).count { it.type == RestLedger.TYPE_GRANT })
+    }
+
+    @Test
+    fun theMarkerIsOnlyWrittenAfterTheGrantIsInTheLedger() {
+        assumeAwayFromMidnight()
+        installAllDaySegment(limitMins = 30)
+        val prefs = context.getSharedPreferences("rest_stats_grant_marker", Context.MODE_PRIVATE)
+        assertTrue(prefs.getString("last_granted_segment_v2", null) == null)
+
+        QuotaGrantRecorder.recordIfNewSegment(context)
+
+        assertEquals(1, RestStatsRecorder.getAllRecords(context).count { it.type == RestLedger.TYPE_GRANT })
+        assertTrue("记成功后才有标记", prefs.getString("last_granted_segment_v2", null) != null)
+    }
+
+    @Test
     fun doesNothingOutsideAnySegment() {
         // 没有任何时段配置
         QuotaGrantRecorder.recordIfNewSegment(context)
