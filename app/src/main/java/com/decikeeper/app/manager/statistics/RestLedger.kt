@@ -285,16 +285,27 @@ object RestLedger {
     }
 
     fun reconcileText(summary: LedgerSummary, reconcile: LedgerReconcile): String {
-        val inflow = "${formatAmount(summary.inflowMinutes)}m / ${formatAmount(summary.inflowCount)}次"
-        val outflow = "${formatAmount(summary.outflowMinutes)}m / ${formatAmount(summary.outflowCount)}次"
-        val balance = "${formatAmount(reconcile.balanceMinutes)}m / ${formatAmount(reconcile.balanceCount)}次"
-        return if (reconcile.isBalanced) {
-            "入流 $inflow = 出流 $outflow + 当前结余 $balance ✓（特权不计入）"
-        } else {
-            "入流 $inflow ≠ 出流 $outflow + 当前结余 $balance\n" +
-                "差 ${formatDelta(reconcile.diffMinutes, "m")} / ${formatDelta(reconcile.diffCount, "次")}：" +
-                "正数 = 有额度去向没记进流水，负数 = 有入流没记（特权不计入）"
+        fun pair(minutes: Double, count: Double) = "${formatAmount(minutes)}m / ${formatAmount(count)}次"
+        val inflow = pair(summary.inflowMinutes, summary.inflowCount)
+        val outflow = pair(summary.outflowMinutes, summary.outflowCount)
+        val balance = pair(reconcile.balanceMinutes, reconcile.balanceCount)
+        if (reconcile.isBalanced) {
+            return "入流 $inflow = 出流 $outflow + 当前结余 $balance ✓（特权不计入）"
         }
+        // 右边合计写出来，再说两边差多少，不用带符号的「差」（读着像「再加上就相等」）
+        val rightMinutes = summary.outflowMinutes + reconcile.balanceMinutes
+        val rightCount = summary.outflowCount + reconcile.balanceCount
+        val gap = pair(kotlin.math.abs(reconcile.diffMinutes), kotlin.math.abs(reconcile.diffCount))
+        val hasMore = reconcile.diffMinutes > GAP_EPSILON_MINUTES || reconcile.diffCount > GAP_EPSILON_COUNT
+        val hasLess = reconcile.diffMinutes < -GAP_EPSILON_MINUTES || reconcile.diffCount < -GAP_EPSILON_COUNT
+        val hint = when {
+            hasMore && hasLess -> "时长和次数的偏差方向不同，下面的红字缺口提示可以帮你定位"
+            hasMore -> "入流多了：可能有额度去向没记进流水"
+            else -> "入流少了：可能有入流没记进流水"
+        }
+        return "入流 $inflow\n" +
+            "出流 $outflow + 当前结余 $balance = ${pair(rightMinutes, rightCount)}\n" +
+            "入流 ≠ 出流 + 结余，相差 $gap，$hint（特权不计入）"
     }
 
     /**

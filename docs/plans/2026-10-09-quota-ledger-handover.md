@@ -52,7 +52,8 @@
 - 结算：`resolvePrivilegeSettlementTime`（到期与 24:00 取较早，原来 24:00 分支排在前面，结算拖过午夜会多算）、`clampPrivilegeStopAt`（结算不晚于计划结束）。
 - **可用范围限定在业务日内**：开始不早于生效时间，结束晚于开始、最晚 24:00（`data/PrivilegeWindow.kt`；读取旧值时开始被收窄、跨午夜回落默认；规则参数页失焦即存时严格校验新输入，`GlobalParamsFragment` 里的 `privilegeWindowBusinessDayStart`）。
 - 删除：「反向同步首段」全部残留、申请 / 调整时长处的 24:00 截断。**保留**结算处的 24:00 兜底，只为旧版本持久化的跨午夜会话（`TestScenarioManager` 里还有对应场景）。
-- 历史统计（10/06、10/07 偏高）**不回算**（用户决定「将就」）。原因：当时没有「特权不得早于业务日开始」的约束 + 旧版只计勿扰时段内分钟 + 统计按自然日读业务日的 key。多算 62 分钟的完整成因**没有在真机数据上证实**。
+- 历史统计（10/06、10/07 偏高）**不回算**（用户决定「将就」）。原因：当时没有「特权不得早于业务日开始」的约束 + 旧版只计勿扰时段内分钟 + 统计按自然日读业务日的 key。**多算 62 分钟的根因后来已用真机设置备份证实**（用户 10-09 16:24 导出的 `DeciKeeper_Settings_20261009_162403.json`，`preferenceFiles → decikeeper_ledger → privilege_usage_*`）：10/06 上午 208 + 下午 182 = 390，恰是该次特权覆盖的勿扰分钟（上午 104 + 下午 91）的**两倍**，同一次特权被结算了两遍；10/07 上午 152（08:30 起的上午时段，一遍）、10/03 的 91 + 152（一遍）正常，合计 542 = 9h02m。成因是 `stopWeeklyPrivilegeInternal` 没有互斥，到期瞬间监控线程与界面线程同时结算；**已加锁（`privilegeSettleLock`），单测 `PrivilegeSettleOnceTest`**（并发用例不一定每次都复现旧 bug，幂等用例只证明二次结算为空操作）。
+- **读真机数据的办法**：release 包读不到私有目录；规则页「导出备份」生成的 JSON 含 `privilege_usage_*`、`usage_*` 等键，以及完整的 `restUsageRecords`（额度流水：`type / costMinutes / balanceMinutes …`），可用 `node -e` 读 JSON 逐条核对流水（本环境没有 python）。
 
 ### 3.6 日期口径（用户原则）
 
