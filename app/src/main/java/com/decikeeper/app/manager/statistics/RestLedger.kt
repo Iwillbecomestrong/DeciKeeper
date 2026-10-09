@@ -41,11 +41,11 @@ data class LedgerSummary(
     }
 }
 
-/** 流水列表的一项：一笔记录（带「使用前」），或相邻两笔之间接不上的缺口。 */
+/** 流水列表的一项：一笔记录（带「变动前」），或相邻两笔之间接不上的缺口。 */
 sealed interface LedgerEntry {
     /**
      * @param beforeMinutes 变动前结余 = 变动后结余 + 变动量；借用记录的变动量含下一段预扣，
-     * 无法还原当前段的使用前，为 null（特权是独立池子，同样为 null）。
+     * 无法还原当前段的变动前，为 null（特权是独立池子，同样为 null）。
      */
     data class Row(
         val record: RestUsageRecord,
@@ -54,7 +54,7 @@ sealed interface LedgerEntry {
     ) : LedgerEntry
 
     /**
-     * 上一笔「变动后」与下一笔「使用前」对不上。正数 = 账面少了（有出口没记），负数 = 账面多了（有入流没记）。
+     * 上一笔「变动后」与下一笔「变动前」对不上。正数 = 账面少了（有出口没记），负数 = 账面多了（有入流没记）。
      */
     data class Gap(val missingMinutes: Double, val missingCount: Double) : LedgerEntry
 }
@@ -155,14 +155,14 @@ object RestLedger {
     private const val GAP_EPSILON_MINUTES = 0.05
     private const val GAP_EPSILON_COUNT = 0.01
 
-    /** 这条记录是否参与「变动后 → 下一笔使用前」的连续性核对（特权不动休息额度，不参与）。 */
+    /** 这条记录是否参与「变动后 → 下一笔变动前」的连续性核对（特权不动休息额度，不参与）。 */
     private fun isChained(record: RestUsageRecord): Boolean = record.type != TYPE_PRIVILEGE
 
     private fun beforeOf(record: RestUsageRecord): Pair<Double, Double>? {
         if (!isChained(record)) return null
-        // 旧版借用记录的变动量含下一段预扣却没记提前发放，还原不出使用前
+        // 旧版借用记录的变动量含下一段预扣却没记提前发放，还原不出变动前
         if (isBorrow(record) && !hasAdvance(record)) return null
-        // 使用前 + 提前发放 − 扣除 = 变动后（提前发放只有借用记录有）
+        // 变动前 + 提前发放 − 扣除 = 变动后（提前发放只有借用记录有）
         val advance = if (hasAdvance(record)) record.advancedMinutes else 0.0
         val advanceCount = if (hasAdvance(record)) record.advancedCount else 0.0
         return (record.balanceMinutes + record.costMinutes - advance) to
@@ -170,9 +170,9 @@ object RestLedger {
     }
 
     /**
-     * 把流水（最新在前）整理成列表项：每笔带「使用前」，并在相邻两笔接不上时插入缺口提示。
+     * 把流水（最新在前）整理成列表项：每笔带「变动前」，并在相邻两笔接不上时插入缺口提示。
      *
-     * 缺口 = 较早一笔的「变动后」 − 较新一笔的「使用前」，说明这两笔之间有变动没进流水
+     * 缺口 = 较早一笔的「变动后」 − 较新一笔的「变动前」，说明这两笔之间有变动没进流水
      * （或有一笔算错了）。跨业务日不比较（额度每个业务日重新开始）；借用、特权不参与比较。
      *
      * @param businessDayStartMinutes 业务日分界（距 00:00 的分钟数，生效时间）
@@ -191,7 +191,7 @@ object RestLedger {
             result += LedgerEntry.Row(record, before?.first, before?.second)
             if (!includeGaps) return@forEachIndexed
 
-            // 与「较早的、参与核对的」下一笔比较：这一笔的使用前，应等于它的变动后
+            // 与「较早的、参与核对的」下一笔比较：这一笔的变动前，应等于它的变动后
             if (before == null) return@forEachIndexed
             var olderIndex = index + 1
             while (olderIndex < records.size && !isChained(records[olderIndex])) olderIndex++
@@ -325,7 +325,7 @@ object RestLedger {
     }
 
     /**
-     * 展开后的详情：只写标题行（时间、额度变化、使用前、变动后）看不出来的信息。
+     * 展开后的详情：只写标题行（时间、额度变化、变动前、变动后）看不出来的信息。
      * 返回空 = 没有额外信息，卡片不可展开（简单的扣减不需要再念一遍标题）。
      *
      * 用词与主页、借用确认弹窗一致：本次预支、借用扣除 (×2)、实际生效。

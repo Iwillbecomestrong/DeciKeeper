@@ -476,9 +476,9 @@ class StatsHistoryActivity : AppCompatActivity() {
                 val countDelta = -RestLedger.costCountInTimes(item)
                 val balanceText = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
                 tvCost.text = "${RestLedger.poolLabel(item)} ${RestLedger.formatDelta(quotaDelta, "m")} / 次数 ${RestLedger.formatDelta(countDelta, "次")}"
-                // 左使用前、右变动后；特权是独立池子，不动休息额度，结余没有变化可言
+                // 左变动前、右变动后；特权是独立池子，不动休息额度，结余没有变化可言
                 tvBefore.text = if (entry.beforeMinutes != null && entry.beforeCount != null) {
-                    "使用前: ${RestLedger.formatAmount(entry.beforeMinutes)}m / ${RestLedger.formatAmount(entry.beforeCount)}次"
+                    "变动前: ${RestLedger.formatAmount(entry.beforeMinutes)}m / ${RestLedger.formatAmount(entry.beforeCount)}次"
                 } else ""
                 tvBalance.text = if (item.type == RestLedger.TYPE_PRIVILEGE) "不占用休息额度" else "变动后结余: $balanceText"
 

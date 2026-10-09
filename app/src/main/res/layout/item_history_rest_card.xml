@@ -54,7 +54,7 @@
             android:textSize="10sp" />
     </LinearLayout>
 
-    <!-- 副信息：左使用前，右变动后结余（长文本允许折行，不截断） -->
+    <!-- 副信息：左变动前，右变动后结余（长文本允许折行，不截断） -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

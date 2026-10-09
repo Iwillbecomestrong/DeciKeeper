@@ -159,7 +159,7 @@ class RestLedgerTest {
         assertFalse(summary.inflowShort)
     }
 
-    // ── 使用前 / 缺口提示（用 10-09 真机流水的数字）──────────────────────────────
+    // ── 变动前 / 缺口提示（用 10-09 真机流水的数字）──────────────────────────────
 
     private val zone = java.time.ZoneId.of("Asia/Shanghai")
 
@@ -237,7 +237,7 @@ class RestLedgerTest {
 
     @Test
     fun legacyBorrowRowsWithoutAdvanceAndPrivilegeDoNotTriggerFalseGaps() {
-        // 旧版借用记录没有记提前发放，还原不出使用前，不参与缺口比较
+        // 旧版借用记录没有记提前发放，还原不出变动前，不参与缺口比较
         val borrow = rest("borrow", at(15, 0), cost = 22.0, count = 2.0, afterMinutes = 0.0, afterHalfUnits = 0, type = "REST_BORROW")
         val privilege = rest("priv", at(14, 30), 240.0, 1.0, 99.0, 99, type = "PRIVILEGE")
         val before = rest("before", at(14, 0), 3.0, 0.5, 30.0, 10)
