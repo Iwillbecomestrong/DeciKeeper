@@ -4,12 +4,15 @@ import android.app.AlertDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +29,11 @@ import com.decikeeper.app.manager.statistics.HistoryRecordFilter
 import com.decikeeper.app.manager.statistics.HistoryRecordKind
 import com.decikeeper.app.manager.statistics.HistoryRetention
 import com.decikeeper.app.manager.statistics.HistoryRetentionPolicy
+import com.decikeeper.app.manager.statistics.LedgerEntry
+import com.decikeeper.app.manager.statistics.LedgerFilter
+import com.decikeeper.app.manager.statistics.RestLedger
+import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.ui.ThemeManager
 import com.decikeeper.app.manager.statistics.StatisticsRepository
 
@@ -48,6 +56,8 @@ class StatsHistoryActivity : AppCompatActivity() {
     private lateinit var tabRest: Button
 
     private lateinit var containerAlarm: View
+    private lateinit var btnAlarmRange: Button
+    private lateinit var tvAlarmSummary: TextView
     private lateinit var tvAlarmEmpty: TextView
     private lateinit var rvAlarm: RecyclerView
     private lateinit var alarmAdapter: AlarmHistoryAdapter
@@ -55,11 +65,15 @@ class StatsHistoryActivity : AppCompatActivity() {
     private lateinit var containerRest: View
     private lateinit var tvRestEmpty: TextView
     private lateinit var btnRestRange: Button
+    private lateinit var btnRestFilter: Button
+    private lateinit var tvRestSummary: TextView
     private lateinit var rvRest: RecyclerView
     private lateinit var restAdapter: RestHistoryAdapter
 
-    private var currentTab: String = TAB_ALARM
+    private var currentTab: String = TAB_REST
     private var restDisplayRange: HistoryDisplayRange = HistoryDisplayRange.TODAY
+    private var alarmDisplayRange: HistoryDisplayRange = HistoryDisplayRange.TODAY
+    private var restLedgerFilter: LedgerFilter = LedgerFilter.ALL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(ThemeManager.themeRes(this))
@@ -80,7 +94,7 @@ class StatsHistoryActivity : AppCompatActivity() {
         initViews()
         setupListeners()
 
-        val initialTab = intent.getStringExtra(EXTRA_TARGET_TAB) ?: TAB_ALARM
+        val initialTab = intent.getStringExtra(EXTRA_TARGET_TAB) ?: TAB_REST
         switchTab(initialTab)
     }
 
@@ -92,11 +106,15 @@ class StatsHistoryActivity : AppCompatActivity() {
 
         containerAlarm = findViewById(R.id.container_alarm_history)
         tvAlarmEmpty = findViewById(R.id.tv_alarm_empty)
+        btnAlarmRange = findViewById(R.id.btn_history_alarm_range)
+        tvAlarmSummary = findViewById(R.id.tv_history_alarm_summary)
         rvAlarm = findViewById(R.id.rv_alarm_history)
 
         containerRest = findViewById(R.id.container_rest_history)
         tvRestEmpty = findViewById(R.id.tv_rest_empty)
         btnRestRange = findViewById(R.id.btn_history_rest_range)
+        btnRestFilter = findViewById(R.id.btn_history_rest_filter)
+        tvRestSummary = findViewById(R.id.tv_history_rest_summary)
         rvRest = findViewById(R.id.rv_rest_history)
 
         rvAlarm.layoutManager = LinearLayoutManager(this)
@@ -119,6 +137,8 @@ class StatsHistoryActivity : AppCompatActivity() {
         tabAlarm.setOnClickListener { switchTab(TAB_ALARM) }
         tabRest.setOnClickListener { switchTab(TAB_REST) }
         btnRestRange.setOnClickListener { showRestRangePicker() }
+        btnAlarmRange.setOnClickListener { showAlarmRangePicker() }
+        btnRestFilter.setOnClickListener { showRestFilterPicker() }
     }
 
     private fun switchTab(target: String) {
@@ -145,19 +165,60 @@ class StatsHistoryActivity : AppCompatActivity() {
     }
 
     private fun loadAlarmData() {
-        val records = StatisticsRepository.getAllWakeRecords(this)
+        // 起床属于自然日口径：「今天 / 近 7 天 / 本月」按起床那天的自然日切（额度流水才按业务日切）
+        val records = HistoryRecordFilter.filterWake(StatisticsRepository.getAllWakeRecords(this), alarmDisplayRange)
+        btnAlarmRange.text = "显示范围：${alarmDisplayRange.displayName}"
+        tvAlarmSummary.text = "共 ${records.size} 条（按自然日）"
         alarmAdapter.submitList(records)
+        tvAlarmEmpty.text = if (alarmDisplayRange == HistoryDisplayRange.ALL) "暂无起床打卡记录" else "该范围内暂无起床打卡记录"
         tvAlarmEmpty.isVisible = records.isEmpty()
         rvAlarm.isVisible = records.isNotEmpty()
     }
 
+    private fun showAlarmRangePicker() {
+        val options = HistoryDisplayRange.entries.toTypedArray()
+        val selected = options.indexOf(alarmDisplayRange).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("起床记录显示范围")
+            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
+                alarmDisplayRange = options[which]
+                dialog.dismiss()
+                loadAlarmData()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
     private fun loadRestData() {
-        val records = HistoryRecordFilter.filterQuota(
+        // 额度流水属于时间规则：「今天 / 近 7 天 / 本月」按业务日（生效时间为界）切
+        val businessDayStartMinutes = TimeRuleManager.getRefreshTime(this)
+            .split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 8) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+        val inRange = HistoryRecordFilter.filterQuota(
             StatisticsRepository.getAllRestRecords(this),
-            restDisplayRange
+            restDisplayRange,
+            businessDayStartMinutes = businessDayStartMinutes
+        )
+        // 入流 / 出流汇总只看显示范围，不受类型筛选影响
+        val summary = RestLedger.summarize(inRange)
+        tvRestSummary.text = if (restDisplayRange == HistoryDisplayRange.TODAY) {
+            // 「今天」是单个业务日：入流 = 出流 + 当前结余，直接核对；多日范围里未用完的额度会作废，不套这个公式
+            RestLedger.reconcileText(
+                summary,
+                RestLedger.reconcile(summary, CreditManager.getRemainingMinutes(this), CreditManager.getRemainingUsableCount(this))
+            )
+        } else {
+            RestLedger.summaryText(summary)
+        }
+        val records = RestLedger.filter(inRange, restLedgerFilter)
+        // 只有「全部」才插入缺口提示（相邻两笔必须是真实相邻，筛选后就不相邻了）
+        val entries = RestLedger.buildEntries(
+            records,
+            includeGaps = restLedgerFilter == LedgerFilter.ALL,
+            businessDayStartMinutes = businessDayStartMinutes
         )
         btnRestRange.text = "显示范围：${restDisplayRange.displayName}"
-        restAdapter.submitList(records)
+        btnRestFilter.text = "类型：${restLedgerFilter.displayName}"
+        restAdapter.submitList(entries)
         tvRestEmpty.isVisible = records.isEmpty()
         rvRest.isVisible = records.isNotEmpty()
     }
@@ -169,6 +230,20 @@ class StatsHistoryActivity : AppCompatActivity() {
             .setTitle("额度流水显示范围")
             .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
                 restDisplayRange = options[which]
+                dialog.dismiss()
+                loadRestData()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showRestFilterPicker() {
+        val options = LedgerFilter.entries.toTypedArray()
+        val selected = options.indexOf(restLedgerFilter).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("额度流水类型")
+            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
+                restLedgerFilter = options[which]
                 dialog.dismiss()
                 loadRestData()
             }
@@ -347,84 +422,150 @@ class StatsHistoryActivity : AppCompatActivity() {
     // ==========================================
     private class RestHistoryAdapter(
         private val onDeleteClicked: (RestUsageRecord) -> Unit
-    ) : RecyclerView.Adapter<RestHistoryAdapter.ViewHolder>() {
+    ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-        private var items: List<RestUsageRecord> = emptyList()
+        private var items: List<LedgerEntry> = emptyList()
         private val expandedIds = mutableSetOf<String>()
 
-        fun submitList(newItems: List<RestUsageRecord>) {
+        fun submitList(newItems: List<LedgerEntry>) {
             items = newItems
             notifyDataSetChanged()
         }
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val v = LayoutInflater.from(parent.context).inflate(R.layout.item_history_rest_card, parent, false)
-            return ViewHolder(v)
+        override fun getItemViewType(position: Int): Int =
+            if (items[position] is LedgerEntry.Gap) TYPE_GAP else TYPE_ROW
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val inflater = LayoutInflater.from(parent.context)
+            return if (viewType == TYPE_GAP) {
+                GapViewHolder(inflater.inflate(R.layout.item_history_rest_gap, parent, false))
+            } else {
+                ViewHolder(inflater.inflate(R.layout.item_history_rest_card, parent, false))
+            }
         }
 
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = items[position]
-            val isExpanded = expandedIds.contains(item.id)
-            holder.bind(item, isExpanded, onDeleteClicked) {
-                if (isExpanded) {
-                    expandedIds.remove(item.id)
-                } else {
-                    expandedIds.add(item.id)
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            when (val entry = items[position]) {
+                is LedgerEntry.Gap -> (holder as GapViewHolder).bind(entry)
+                is LedgerEntry.Row -> {
+                    val item = entry.record
+                    val isExpanded = expandedIds.contains(item.id)
+                    (holder as ViewHolder).bind(entry, isExpanded, onDeleteClicked) {
+                        if (isExpanded) {
+                            expandedIds.remove(item.id)
+                        } else {
+                            expandedIds.add(item.id)
+                        }
+                        notifyItemChanged(position)
+                    }
                 }
-                notifyItemChanged(position)
             }
         }
 
         override fun getItemCount(): Int = items.size
 
+        class GapViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            private val tvGap: TextView = view.findViewById(R.id.tv_history_rest_gap)
+
+            fun bind(gap: LedgerEntry.Gap) {
+                tvGap.text = RestLedger.gapText(gap)
+            }
+        }
+
+        private companion object {
+            const val TYPE_ROW = 0
+            const val TYPE_GAP = 1
+        }
+
         class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val badge: TextView = view.findViewById(R.id.tv_history_rest_type_badge)
             private val tvDate: TextView = view.findViewById(R.id.tv_history_rest_date)
             private val tvCost: TextView = view.findViewById(R.id.tv_history_rest_cost)
+            private val tvBefore: TextView = view.findViewById(R.id.tv_history_rest_before)
             private val tvBalance: TextView = view.findViewById(R.id.tv_history_rest_balance)
             private val tvArrow: TextView = view.findViewById(R.id.tv_history_rest_arrow)
-
-            private val layoutDetail: View = view.findViewById(R.id.layout_history_rest_detail)
-            private val tvDetailReason: TextView = view.findViewById(R.id.tv_history_rest_detail_reason)
-            private val tvDetailDuration: TextView = view.findViewById(R.id.tv_history_rest_detail_duration)
-            private val tvDetailCost: TextView = view.findViewById(R.id.tv_history_rest_detail_cost)
-            private val tvDetailBalance: TextView = view.findViewById(R.id.tv_history_rest_detail_balance)
-            private val btnDelete: TextView = view.findViewById(R.id.btn_delete_rest_record)
+            private val layoutDetail: LinearLayout = view.findViewById(R.id.layout_history_rest_detail)
 
             fun bind(
-                item: RestUsageRecord,
+                entry: LedgerEntry.Row,
                 isExpanded: Boolean,
                 onDelete: (RestUsageRecord) -> Unit,
                 onToggle: () -> Unit
             ) {
+                val item = entry.record
                 badge.text = item.typeName
                 tvDate.text = item.dateLabel
 
                 val quotaDelta = -item.costMinutes
-                val countDelta = -item.costCount
-                tvCost.text = "额度 ${formatDelta(quotaDelta, "m")} / 次数 ${formatDelta(countDelta, "次")}"
-                tvBalance.text = "变动后结余: ${item.balanceMinutes.toInt()}m / ${item.balanceCount}次"
+                val countDelta = -RestLedger.costCountInTimes(item)
+                val balanceText = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
+                tvCost.text = "${RestLedger.poolLabel(item)} ${RestLedger.formatDelta(quotaDelta, "m")} / 次数 ${RestLedger.formatDelta(countDelta, "次")}"
+                // 左变动前、右变动后；特权是独立池子，不动休息额度，结余没有变化可言
+                tvBefore.text = if (entry.beforeMinutes != null && entry.beforeCount != null) {
+                    "变动前: ${RestLedger.formatAmount(entry.beforeMinutes)}m / ${RestLedger.formatAmount(entry.beforeCount)}次"
+                } else ""
+                tvBalance.text = if (item.type == RestLedger.TYPE_PRIVILEGE) "不占用休息额度" else "变动后结余: $balanceText"
 
-                tvArrow.text = if (isExpanded) "▲" else "▼"
-                layoutDetail.isVisible = isExpanded
+                // 标题行已经说完的简单记录没有详情，不显示 ▼、点击不展开
+                val lines = RestLedger.detailLines(item)
+                val expandable = lines.isNotEmpty()
+                val open = expandable && isExpanded
+                tvArrow.isVisible = expandable
+                tvArrow.text = if (open) "▲" else "▼"
+                layoutDetail.isVisible = open
+                if (open) renderDetail(lines)
 
-                if (isExpanded) {
-                    tvDetailReason.text = if (item.reason.isNotBlank()) "原因说明: ${item.reason}" else "原因说明: 无"
-                    tvDetailDuration.text = "申请时长: ${item.requestedMinutes}m  |  实际使用: ${item.actualMinutes}m"
-                    tvDetailCost.text = "额度变化: ${formatDelta(quotaDelta, "m")}  |  次数变化: ${formatDelta(countDelta, "次")}"
-                    tvDetailBalance.text = "当前结余: ${item.balanceMinutes.toInt()} 分钟 / ${item.balanceCount} 次"
-                    btnDelete.setOnClickListener { onDelete(item) }
+                itemView.setOnClickListener(if (expandable) View.OnClickListener { onToggle() } else null)
+                // 删除入口：长按任意一条（简单记录没有展开面板，删除统一放长按）
+                itemView.setOnLongClickListener {
+                    onDelete(item)
+                    true
                 }
-
-                itemView.setOnClickListener { onToggle() }
             }
 
-            private fun formatDelta(value: Double, unit: String): String {
-                val amount = if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
-                return when {
-                    value > 0 -> "+${amount}${unit}"
-                    value < 0 -> "${amount}${unit}"
-                    else -> "0${unit}"
+            private fun renderDetail(lines: List<RestLedger.DetailLine>) {
+                layoutDetail.removeAllViews()
+                val context = layoutDetail.context
+                val density = context.resources.displayMetrics.density
+                val textColor = ThemeManager.getColorAttr(context, R.attr.zzText)
+                val mutedColor = ThemeManager.getColorAttr(context, R.attr.zzMuted)
+                val lineColor = ThemeManager.getColorAttr(context, R.attr.zzLine)
+
+                fun cell(text: String, weight: Float, gravity: Int, color: Int, sizeSp: Float, bold: Boolean) = TextView(context).apply {
+                    this.text = text
+                    this.gravity = gravity
+                    setTextColor(color)
+                    textSize = sizeSp
+                    if (bold) setTypeface(typeface, Typeface.BOLD)
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
+                }
+
+                lines.forEach { line ->
+                    if (line.total) {
+                        layoutDetail.addView(View(context).apply {
+                            setBackgroundColor(lineColor)
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1 * density).toInt().coerceAtLeast(1)).apply {
+                                topMargin = (6 * density).toInt()
+                                bottomMargin = (6 * density).toInt()
+                            }
+                        })
+                    }
+                    val color = if (line.muted) mutedColor else textColor
+                    val size = if (line.muted) 11f else 12f
+                    if (line.isFullRow) {
+                        layoutDetail.addView(cell(line.label, 1f, Gravity.START, color, size, false).apply {
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                        })
+                    } else {
+                        // 时长与次数左右并排、同等重要（版式同主页）
+                        layoutDetail.addView(LinearLayout(context).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                            addView(cell(line.label, 1.3f, Gravity.START, color, size, line.total))
+                            addView(cell(line.minutes, 1f, Gravity.END, color, size, line.total))
+                            addView(cell(line.count, 1f, Gravity.END, color, size, line.total))
+                        })
+                    }
                 }
             }
         }

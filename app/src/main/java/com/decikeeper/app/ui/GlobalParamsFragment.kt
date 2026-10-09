@@ -175,7 +175,6 @@ class GlobalParamsFragment : Fragment() {
         }
 
         layoutPrivWindowInputs?.visibility = View.VISIBLE
-        TimeRuleManager.setPrivilegeWindowSynced(context, false)
 
         val btnSave = root.findViewById<View>(R.id.btn_save)
         btnSave?.visibility = View.GONE
@@ -313,6 +312,7 @@ class GlobalParamsFragment : Fragment() {
         }
     }
 
+
     private fun isValidTimeFormat(t: String): Boolean {
         if (!t.contains(":")) return false
         val parts = t.split(":")
@@ -383,7 +383,6 @@ class GlobalParamsFragment : Fragment() {
         val newPrivWindowStart = formatTime(etPrivWindowStart?.text?.toString()?.trim() ?: currentPrivWindowStart)
         val newPrivWindowEnd = formatTime(etPrivWindowEnd?.text?.toString()?.trim() ?: currentPrivWindowEnd)
 
-        TimeRuleManager.setPrivilegeWindowSynced(context, false)
         val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
             EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
         } else {

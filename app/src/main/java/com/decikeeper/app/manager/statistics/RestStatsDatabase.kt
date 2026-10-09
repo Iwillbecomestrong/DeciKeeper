@@ -29,7 +29,9 @@ class RestStatsDatabase(context: Context) : SQLiteOpenHelper(
                 $COLUMN_COST_MINUTES REAL NOT NULL,
                 $COLUMN_COST_COUNT REAL NOT NULL,
                 $COLUMN_BALANCE_MINUTES REAL NOT NULL,
-                $COLUMN_BALANCE_COUNT INTEGER NOT NULL
+                $COLUMN_BALANCE_COUNT INTEGER NOT NULL,
+                $COLUMN_ADVANCED_MINUTES REAL NOT NULL DEFAULT 0,
+                $COLUMN_ADVANCED_COUNT REAL NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
@@ -44,7 +46,12 @@ class RestStatsDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE $TABLE_RECORDS ADD COLUMN $COLUMN_ADVANCED_MINUTES REAL NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE $TABLE_RECORDS ADD COLUMN $COLUMN_ADVANCED_COUNT REAL NOT NULL DEFAULT 0")
+        }
+    }
 
     fun migrateIfNeeded(legacyRecordsProvider: () -> List<RestUsageRecord>) {
         if (isMigrationDone(readableDatabase)) return
@@ -198,6 +205,8 @@ class RestStatsDatabase(context: Context) : SQLiteOpenHelper(
         put(COLUMN_COST_COUNT, costCount)
         put(COLUMN_BALANCE_MINUTES, balanceMinutes)
         put(COLUMN_BALANCE_COUNT, balanceCount)
+        put(COLUMN_ADVANCED_MINUTES, advancedMinutes)
+        put(COLUMN_ADVANCED_COUNT, advancedCount)
     }
 
     private fun android.database.Cursor.toRecord() = RestUsageRecord(
@@ -212,12 +221,14 @@ class RestStatsDatabase(context: Context) : SQLiteOpenHelper(
         costMinutes = getDouble(getColumnIndexOrThrow(COLUMN_COST_MINUTES)),
         costCount = getDouble(getColumnIndexOrThrow(COLUMN_COST_COUNT)),
         balanceMinutes = getDouble(getColumnIndexOrThrow(COLUMN_BALANCE_MINUTES)),
-        balanceCount = getInt(getColumnIndexOrThrow(COLUMN_BALANCE_COUNT))
+        balanceCount = getInt(getColumnIndexOrThrow(COLUMN_BALANCE_COUNT)),
+        advancedMinutes = getDouble(getColumnIndexOrThrow(COLUMN_ADVANCED_MINUTES)),
+        advancedCount = getDouble(getColumnIndexOrThrow(COLUMN_ADVANCED_COUNT))
     )
 
     companion object {
         const val DATABASE_NAME = "rest_stats.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
         private const val TABLE_RECORDS = "rest_records"
         private const val TABLE_META = "metadata"
         private const val MIGRATION_KEY = "legacy_prefs_migrated_v1"
@@ -233,12 +244,14 @@ class RestStatsDatabase(context: Context) : SQLiteOpenHelper(
         private const val COLUMN_COST_COUNT = "cost_count"
         private const val COLUMN_BALANCE_MINUTES = "balance_minutes"
         private const val COLUMN_BALANCE_COUNT = "balance_count"
+        private const val COLUMN_ADVANCED_MINUTES = "advanced_minutes"
+        private const val COLUMN_ADVANCED_COUNT = "advanced_count"
         private const val COLUMN_META_KEY = "meta_key"
         private const val COLUMN_META_VALUE = "meta_value"
         private val ALL_COLUMNS = arrayOf(
             COLUMN_ID, COLUMN_TIMESTAMP, COLUMN_DATE_LABEL, COLUMN_TYPE, COLUMN_TYPE_NAME,
             COLUMN_REASON, COLUMN_REQUESTED, COLUMN_ACTUAL, COLUMN_COST_MINUTES, COLUMN_COST_COUNT,
-            COLUMN_BALANCE_MINUTES, COLUMN_BALANCE_COUNT
+            COLUMN_BALANCE_MINUTES, COLUMN_BALANCE_COUNT, COLUMN_ADVANCED_MINUTES, COLUMN_ADVANCED_COUNT
         )
     }
 }

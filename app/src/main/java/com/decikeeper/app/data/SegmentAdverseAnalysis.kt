@@ -488,6 +488,10 @@ fun getCategorizedSegmentDiff(
              add("休息时长", oldLimit, match.limitMins, base?.limitMins, activeAnalysis.isLimitAdverse)
              add("生效日期", oldDays, TimeRuleManager.formatDays(match.daysOfWeek), base?.let { TimeRuleManager.formatDays(it.daysOfWeek) }, activeAnalysis.isDaysAdverse)
              add("状态", oldStatus, TimeRuleManager.formatEnabled(match.isEnabled), base?.let { TimeRuleManager.formatEnabled(it.isEnabled) }, activeAnalysis.isStatusAdverse)
+             // 次数上限也要列出来：混合保存按这份 diff 决定每个时段「今天生效什么」，
+             // 缺了它，只改次数的时段会被当成没变化，加严的次数也不会立即生效。
+             fun countText(seg: TimeSegment) = formatUsableCountLimit(seg.getEffectiveUsableCountLimitHalfUnits())
+             add("次数上限", countText(old), countText(match), base?.let { countText(it) }, activeAnalysis.isCountLimitAdverse)
         }
 
         // 🆕 [TASK-04] listApps 变化文案（仅在有变化时出现；null ≠ 空列表）。
@@ -509,6 +513,12 @@ fun getCategorizedSegmentDiff(
         }
 
         return diffItems
+    }
+
+    /** half-unit（0.5 次 = 1）显示成「次」：整数不带小数点。 */
+    internal fun formatUsableCountLimit(halfUnits: Int): String {
+        val times = halfUnits / 2.0
+        return if (times % 1.0 == 0.0) "${times.toInt()}次" else "${times}次"
     }
 
     /**

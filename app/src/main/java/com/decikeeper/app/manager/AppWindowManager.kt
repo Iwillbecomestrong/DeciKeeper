@@ -1086,6 +1086,21 @@ object AppWindowManager {
                  clearPartialDelayedDaysForRule(context, targetId)
              }
 
+             // 🚀 [拆分加严与放宽] 同一次修改里既有收紧又有放宽（如允许窗口 21:00-23:30 → 20:30-23:00）：
+             // 收紧的那一半（结束提前）今天就生效，放宽的那一半（开始提前）才进 pending。
+             // 今天生效的窗口 = 现在生效的窗口 ∩ 想要的窗口；「全部次日」策略下一律延后，不拆。
+             if (!forceAllNextDay && oldRule != null && newRule != null && !isMixedAddition && !isMixedDeletion) {
+                 val activeRule = rulesCache.find { it.id == targetId }
+                 val todayRule = activeRule?.let { tightenedTimeWindowForToday(it, newRule) }
+                 if (activeRule != null && todayRule != null) {
+                     updateList(rulesCache, activeRule, todayRule)
+                     saveToPrefs(context)
+                     val immediateLog = "[修改-部分立即] ${newRule.name}\n  • 时间: ${formatTimeRange(activeRule)} -> ${formatTimeRange(todayRule)}（收紧的部分立即生效）"
+                     ChangeLogManager.addEntry(context, CATEGORY_LOG, immediateLog, false, tag = "${targetId}_imm")
+                     Log.i(TAG, "applyChange: Mixed time-window edit. Tightened part applied now: ${formatTimeRange(todayRule)}")
+                 }
+             }
+
              Log.i(TAG, "applyChange: Writing to pending. Description: $logDescription")
              pushUndoSnapshot(context)
              val pending = getPendingRules(context) ?: activeSnapshot.map { it.copy() }.toMutableList() // Copy active if uninit
@@ -1349,6 +1364,19 @@ object AppWindowManager {
         }
 
         return analyzeChange(context, baselineRule ?: oldRule, newRule)
+    }
+
+    /**
+     * 允许窗口「今天」该生效什么：只保留收紧的部分 = 现在生效的窗口 ∩ 想要的窗口。
+     * 没有收紧的部分（想要的窗口完全包含现在的窗口）、窗口跨午夜、交集为空时返回 null（不拆，整体走原有判定）。
+     */
+    internal fun tightenedTimeWindowForToday(active: AppWindowRule, desired: AppWindowRule): AppWindowRule? {
+        if (active.endTime <= active.startTime || desired.endTime <= desired.startTime) return null
+        val start = maxOf(active.startTime, desired.startTime)
+        val end = minOf(active.endTime, desired.endTime)
+        if (start >= end) return null
+        if (start == active.startTime && end == active.endTime) return null
+        return active.copy(startTime = start, endTime = end, packageNames = active.packageNames.toMutableSet())
     }
 
     fun analyzeChange(context: Context, oldRule: AppWindowRule?, newRule: AppWindowRule?): ChangeAnalysis {

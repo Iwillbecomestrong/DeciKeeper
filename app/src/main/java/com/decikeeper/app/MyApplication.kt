@@ -99,6 +99,20 @@ class MyApplication : Application() {
             Log.w("MyApplication", "ensureTodaySnapshot failed (non-fatal)", e)
         }
 
+        // 一次性修正 10/06 被结算两遍而翻倍的特权统计（只改已确认的翻倍值，见 PrivilegeStatsRepair）
+        try {
+            com.decikeeper.app.manager.statistics.PrivilegeStatsRepair.repairOnce(this)
+        } catch (e: Exception) {
+            Log.w("MyApplication", "PrivilegeStatsRepair failed (non-fatal)", e)
+        }
+
+        // 一次性修正今天两笔补记发放存错的「变动后」（只改已确认的错误值，见 LedgerGrantBalanceRepair）
+        try {
+            com.decikeeper.app.manager.statistics.LedgerGrantBalanceRepair.repairOnce(this)
+        } catch (e: Exception) {
+            Log.w("MyApplication", "LedgerGrantBalanceRepair failed (non-fatal)", e)
+        }
+
         com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "MyApplication.onCreate")
 
         // 🔖 版本指纹 + 新装心跳

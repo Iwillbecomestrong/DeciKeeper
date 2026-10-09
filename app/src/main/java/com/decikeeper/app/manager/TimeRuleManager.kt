@@ -319,6 +319,13 @@ object TimeRuleManager {
      *   再推导一次会把刚同步好的 07:15 又改回 07:30。
      */
     fun saveTimeSegments(context: Context, segments: List<TimeSegment>, syncRefreshFromSegments: Boolean = true) {
+        // 时段改动会让当前结余随之变化：前后各取一次结余，有变化记一条「额度重算」流水
+        com.decikeeper.app.manager.statistics.QuotaRecalcRecorder.around(context) {
+            saveTimeSegmentsInternal(context, segments, syncRefreshFromSegments)
+        }
+    }
+
+    private fun saveTimeSegmentsInternal(context: Context, segments: List<TimeSegment>, syncRefreshFromSegments: Boolean) {
         // WP-03-T02 REVISE DA-D1 entry guard: refuse to save if any candidate
         // segment strictly contains the configured refresh time (`start <
         // refresh < end`) or is malformed/out-of-range. Cross-midnight segments
@@ -445,7 +452,6 @@ object TimeRuleManager {
                 propagateRefreshTimeToPendingFiles(context)
             }
         }
-        checkAndSyncPrivilegeWindow(context, segments)
     }
 
     /**
@@ -945,7 +951,6 @@ object TimeRuleManager {
     // 🚀 [NEW] Privilege Usage Time Window Logic
     private const val KEY_PRIVILEGE_WINDOW_START = "privilege_window_start"
     private const val KEY_PRIVILEGE_WINDOW_END = "privilege_window_end"
-    private const val KEY_PRIVILEGE_WINDOW_SYNCED = "is_privilege_window_synced"
 
     /**
      * 获取特权可用窗口开始时间 (HH:MM 格式)
@@ -970,6 +975,25 @@ object TimeRuleManager {
         return PrivilegeWindowPolicy.DEFAULT_END
     }
 
+    /**
+     * 特权可用范围的结束时刻（毫秒）：取 [referenceMillis] 所在实际日的范围结束，24:00 即次日 00:00。
+     * 旧版已存的跨午夜范围（结束 ≤ 开始，新输入已不允许）按「到当日 24:00」处理，不改用户数据。
+     */
+    fun getPrivilegeWindowEndMillis(context: Context, referenceMillis: Long): Long {
+        val startMins = PrivilegeWindowPolicy.parseMinutes(getPrivilegeWindowStart(context), allowMidnightEnd = false) ?: 0
+        val parsedEnd = PrivilegeWindowPolicy.parseMinutes(getPrivilegeWindowEnd(context), allowMidnightEnd = true) ?: 1440
+        val endMins = if (parsedEnd <= startMins) 1440 else parsedEnd
+        return java.util.Calendar.getInstance().run {
+            timeInMillis = referenceMillis
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+            add(java.util.Calendar.MINUTE, endMins)
+            timeInMillis
+        }
+    }
+
     fun setPrivilegeWindow(context: Context, start: String, end: String) {
         getPrefs(context).edit()
             .putString(KEY_PRIVILEGE_WINDOW_START, start)
@@ -979,30 +1003,6 @@ object TimeRuleManager {
             ?.putString(KEY_PRIVILEGE_WINDOW_START, start)
             ?.putString(KEY_PRIVILEGE_WINDOW_END, end)
             ?.apply()
-    }
-
-    fun isPrivilegeWindowSynced(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_PRIVILEGE_WINDOW_SYNCED, false)
-    }
-
-    fun setPrivilegeWindowSynced(context: Context, isSynced: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_PRIVILEGE_WINDOW_SYNCED, isSynced).apply()
-        getDeviceProtectedPrefs(context)?.edit()?.putBoolean(KEY_PRIVILEGE_WINDOW_SYNCED, isSynced)?.apply()
-    }
-
-    /**
-     * 当特权窗口反向同步开启时，根据首段自动更新特权窗口
-     * 特权开始 = 首段结束，特权结束 = 首段开始
-     */
-    fun checkAndSyncPrivilegeWindow(context: Context, segments: List<TimeSegment>) {
-        if (isPrivilegeWindowSynced(context)) {
-            val firstSeg = getLogicalFirstSegment(context, segments)
-            if (firstSeg != null) {
-                val start = String.format("%02d:%02d", firstSeg.endHour, firstSeg.endMinute)
-                val end = String.format("%02d:%02d", firstSeg.startHour, firstSeg.startMinute)
-                setPrivilegeWindow(context, start, end)
-            }
-        }
     }
 
     /**
@@ -1019,8 +1019,7 @@ object TimeRuleManager {
     }
 
     /**
-     * 判断当前时刻是否在特权可用窗口内
-     * 支持跨午夜范围 (如 08:00 ~ 22:00, 也支持 22:00 ~ 08:00)
+     * 判断当前时刻是否在特权可用窗口内（同一实际日内，包含两端）
      */
     fun isInPrivilegeWindow(context: Context, nowMinutes: Int = -1): Boolean {
         val startStr = getPrivilegeWindowStart(context)
@@ -1039,7 +1038,7 @@ object TimeRuleManager {
             // 非跨午夜: 例如 08:00 ~ 22:00
             currentMins in startMins..endMins
         } else {
-            // 跨午夜: 例如 22:00 ~ 08:00 → 22:00~23:59 或 00:00~08:00
+            // 旧版已存的跨午夜范围（新输入已不允许）: 例如 22:00 ~ 08:00 → 22:00~23:59 或 00:00~08:00，不改用户数据，按原样判断
             currentMins >= startMins || currentMins <= endMins
         }
     }
@@ -1882,46 +1881,19 @@ object TimeRuleManager {
              // Re-map strings to tags based on content (Fragile but easy) or Refactor logical flow?
              // Content mapping: "每周特权次数" -> "weekly_privilege"
              
-             val items = delList.map { msg ->
-                 val tag = when {
-                     msg.contains("每周特权") -> "weekly_privilege"
-                     msg.contains("休息冷却") -> "cool_down_rest"
-                     msg.contains("空档冷却") -> "cool_down_gap"
-                     msg.contains("借用比例") -> "borrow_percentage"
-                     msg.contains("临时使用受限应用时长上限") -> "temp_restricted_access_max_seconds"
-                     msg.contains("黑名单惩罚时长") -> "strict_penalty"
-                     msg.contains("生效时间") -> "refresh_time"
-                     msg.contains("远期预警") -> "notify_far"
-                     msg.contains("近期预警") -> "notify_near"
-                     else -> null
-                 }
-                 Triple(msg, true, tag)
-             }
+             val items = delList.map { msg -> Triple(msg, true, globalParamLogTag(msg)) }
              ChangeLogManager.addEntries(context, "global_params", items)
          }
          
          if (resList.isNotEmpty()) {
-             val items = resList.map { msg ->
-                 val tag = when {
-                     msg.contains("每周特权") -> "weekly_privilege"
-                     msg.contains("休息冷却") -> "cool_down_rest"
-                     msg.contains("空档冷却") -> "cool_down_gap"
-                     msg.contains("借用比例") -> "borrow_percentage"
-                     msg.contains("临时使用受限应用时长上限") -> "temp_restricted_access_max_seconds"
-                     msg.contains("黑名单惩罚时长") -> "strict_penalty"
-                     msg.contains("生效时间") -> "refresh_time"
-                     msg.contains("远期预警") -> "notify_far"
-                     msg.contains("近期预警") -> "notify_near"
-                     else -> null
-                 }
-                 Triple(msg, false, tag) // Restored changes are immediate, not pending
-             }
+             // Restored changes are immediate, not pending
+             val items = resList.map { msg -> Triple(msg, false, globalParamLogTag(msg)) }
              ChangeLogManager.addEntries(context, "global_params", items)
          }
          
          if (nextWeekList.isNotEmpty()) {
-              // Weekly Privilege Cycle Increase -> Tag "weekly_privilege"
-              val items = nextWeekList.map { Triple(it, true, "weekly_privilege") }
+              // Weekly Privilege Cycle Increase：次数 / 总时长各用各的标签，互不顶替
+              val items = nextWeekList.map { Triple(it, true, globalParamLogTag(it) ?: "weekly_privilege") }
               ChangeLogManager.addEntries(context, "global_params", items)
           }
 
@@ -1935,6 +1907,26 @@ object TimeRuleManager {
            } else 0L
 
            return AnalysisResult.Mixed(immList, delList, resList, nextWeekList, effectiveTime, nextWeekEffectiveTime)
+    }
+
+    /**
+     * 规则参数修改记录的去重标签：一个参数一条记录，后改的只顶掉同一个参数的旧记录。
+     * 每周特权的次数和总时长是两个参数，必须各用各的标签（`weekly_privilege_` 前缀，
+     * `ChangeLogManager` 按前缀识别每周特权），否则后改的会把先改的那条顶掉。
+     */
+    internal fun globalParamLogTag(message: String): String? = when {
+        message.contains("每周特权次数") -> "weekly_privilege_count"
+        message.contains("每周特权总时长") -> "weekly_privilege_duration"
+        message.contains("每周特权") -> "weekly_privilege"
+        message.contains("休息冷却") -> "cool_down_rest"
+        message.contains("空档冷却") -> "cool_down_gap"
+        message.contains("借用比例") -> "borrow_percentage"
+        message.contains("临时使用受限应用时长上限") -> "temp_restricted_access_max_seconds"
+        message.contains("黑名单惩罚时长") -> "strict_penalty"
+        message.contains("生效时间") -> "refresh_time"
+        message.contains("远期预警") -> "notify_far"
+        message.contains("近期预警") -> "notify_near"
+        else -> null
     }
 
     fun getLogicalFirstSegment(context: Context, segments: List<TimeSegment>? = null): TimeSegment? {
@@ -3166,30 +3158,6 @@ object TimeRuleManager {
             }
         }
         
-        // 🚀 [NEW] Privilege Window Reverse Sync: Update when first segment changes
-        var targetPrivWindowStart = getPrivilegeWindowStart(context)
-        var targetPrivWindowEnd = getPrivilegeWindowEnd(context)
-        var isPrivWindowSyncedLocal = isPrivilegeWindowSynced(context)
-        
-        if (isPrivWindowSyncedLocal) {
-            val firstSeg = getLogicalFirstSegment(context, newSegments)
-            val oldFirstSeg = getLogicalFirstSegment(context, beforeSegments)
-            
-            val hasFirstSegChanged = if (firstSeg != null && oldFirstSeg != null) {
-                firstSeg.endHour != oldFirstSeg.endHour || firstSeg.endMinute != oldFirstSeg.endMinute ||
-                firstSeg.startHour != oldFirstSeg.startHour || firstSeg.startMinute != oldFirstSeg.startMinute
-            } else {
-                firstSeg != null
-            }
-            
-            if (firstSeg != null && hasFirstSegChanged) {
-                targetPrivWindowStart = String.format("%02d:%02d", firstSeg.endHour, firstSeg.endMinute)
-                targetPrivWindowEnd = String.format("%02d:%02d", firstSeg.startHour, firstSeg.startMinute)
-            }
-        }
-        
-        val isPrivWindowChange = targetPrivWindowStart != getPrivilegeWindowStart(context) || targetPrivWindowEnd != getPrivilegeWindowEnd(context)
-
         val isRefreshChange = targetRefresh != curRefresh
         // 🚀 [Fix] Refresh Time Logic: Always Benign/Immediate (User Rule)
         // User requested: "生效时间怎么改都是有利改动".
@@ -3207,8 +3175,6 @@ object TimeRuleManager {
             if (dryRun) return AnalysisResult.AllImmediate()
             saveTimeSegments(context, newSegments)
             if (isRefreshChange) saveRefreshTime(context, targetRefresh)
-            // 🚀 [NEW] Apply privilege window immediately during adaptation
-            if (isPrivWindowChange) setPrivilegeWindow(context, targetPrivWindowStart, targetPrivWindowEnd)
             
             context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).edit().clear().apply()
             
@@ -3281,9 +3247,6 @@ object TimeRuleManager {
             if (isRefreshChange) {
                 delayedMessages.add("生效时间: $curRefresh -> $targetRefresh (统一次日生效)")
             }
-            if (isPrivWindowChange) {
-                delayedMessages.add("特权可用范围: ${getPrivilegeWindowStart(context)}~${getPrivilegeWindowEnd(context)} -> $targetPrivWindowStart~$targetPrivWindowEnd (统一次日生效)")
-            }
 
             if (dryRun) {
                 return AnalysisResult.Mixed(
@@ -3302,10 +3265,6 @@ object TimeRuleManager {
             pendingEdit.putLong("effective_timestamp", effectiveTime)
             if (isRefreshChange) {
                 pendingEdit.putString("config_refresh_time", targetRefresh)
-            }
-            if (isPrivWindowChange) {
-                pendingEdit.putString(KEY_PRIVILEGE_WINDOW_START, targetPrivWindowStart)
-                pendingEdit.putString(KEY_PRIVILEGE_WINDOW_END, targetPrivWindowEnd)
             }
             pendingEdit.apply()
 
@@ -3357,10 +3316,6 @@ object TimeRuleManager {
                 immList.add("生效时间: $curRefresh -> $targetRefresh$suffix")
             }
             
-            // 🚀 [NEW] Privilege Window Sync — always delayed even when triggered by segment sync
-            if (isPrivWindowChange) {
-                immList.add("特权可用范围: ${getPrivilegeWindowStart(context)}~${getPrivilegeWindowEnd(context)} -> $targetPrivWindowStart~$targetPrivWindowEnd (次日生效)")
-            }
 
             if (dryRun) {
                 return AnalysisResult.AllImmediate(immList)
@@ -3375,18 +3330,6 @@ object TimeRuleManager {
                 ChangeLogManager.removePendingEntriesByTag(context, "global_params", "global_param_refresh_time")
                 context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).edit().remove("config_refresh_time").apply()
             }
-
-            if (isPrivWindowChange) {
-                val pendingPrefsForPW = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
-                val pwEffTime = getEffectiveTimestamp(context)
-                pendingPrefsForPW.edit()
-                    .putString(KEY_PRIVILEGE_WINDOW_START, targetPrivWindowStart)
-                    .putString(KEY_PRIVILEGE_WINDOW_END, targetPrivWindowEnd)
-                    .putBoolean("has_pending_changes", true)
-                    .putLong("effective_timestamp", pwEffTime)
-                    .apply()
-            }
-            
                 // 🚀 [Fix] Partial Revert Support (Benign Path)
                 newSegments.forEach { current ->
                     val base = basSegments?.find { baseSeg ->

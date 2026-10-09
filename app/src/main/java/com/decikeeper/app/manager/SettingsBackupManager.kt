@@ -128,8 +128,7 @@ object SettingsBackupManager {
                 "cool_down_rest_seconds", "cool_down_gap_seconds",
                 "borrow_percentage", "notify_advance_minutes",
                 "notify_entry_near_minutes", "temp_restricted_access_max_seconds",
-                "privilege_window_start", "privilege_window_end",
-                "is_privilege_window_synced"
+                "privilege_window_start", "privilege_window_end"
             ),
             "decikeeper_ledger" to listOf(
                 "config_refresh_time", "strict_penalty_duration",
@@ -707,6 +706,8 @@ object SettingsBackupManager {
         put("costCount", costCount)
         put("balanceMinutes", balanceMinutes)
         put("balanceCount", balanceCount)
+        put("advancedMinutes", advancedMinutes)
+        put("advancedCount", advancedCount)
     }
 
     private fun decodeAlarmWakeRecords(array: JSONArray): List<AlarmWakeRecord> {
@@ -753,7 +754,9 @@ object SettingsBackupManager {
                 costMinutes = obj.optDouble("costMinutes", 0.0),
                 costCount = obj.optDouble("costCount", 0.0),
                 balanceMinutes = obj.optDouble("balanceMinutes", 0.0),
-                balanceCount = obj.optInt("balanceCount", 0)
+                balanceCount = obj.optInt("balanceCount", 0),
+                advancedMinutes = obj.optDouble("advancedMinutes", 0.0),
+                advancedCount = obj.optDouble("advancedCount", 0.0)
             )
         }
         return records

@@ -200,7 +200,6 @@ class GlobalParamsActivity : AppCompatActivity() {
             if (checked) syncWithFirstSegment()
         }
         layoutPrivWindowInputs.visibility = android.view.View.VISIBLE
-        TimeRuleManager.setPrivilegeWindowSynced(this, false)
 
         val btnSave = findViewById<android.view.View>(R.id.btn_save)
         if (isLocked) {
@@ -266,7 +265,6 @@ class GlobalParamsActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             TimeRuleManager.setRefreshTimeSynced(this, switchSync?.isChecked == true)
-            TimeRuleManager.setPrivilegeWindowSynced(this, false)
             val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
                 EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
             } else {

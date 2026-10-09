@@ -88,6 +88,8 @@ import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.FrequentReturnDeduction
 import com.decikeeper.app.manager.LockOverlayRestrictionMode
 import com.decikeeper.app.manager.TimeRuleManager
+import com.decikeeper.app.manager.statistics.QuotaGrantRecorder
+import com.decikeeper.app.manager.statistics.RestLedger
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import com.decikeeper.app.manager.getEffectiveUsableCountLimit
 import com.decikeeper.app.manager.resolveAllowedWindowSummaryForDisplay
@@ -3838,7 +3840,7 @@ object LockWindowManager {
                  var totalCost = totalEffectiveSec / 60.0
                  
                  val currentSeg = TimeRuleManager.getCurrentSegment(context)
-                 
+
                          // 🚀 [Reward] Last Segment Completion -> Only charge for remaining time in segment * 0.5x Cost
                  // If this is the last segment AND the rest covers the remaining time (End >= SegEnd)
                  if (currentSeg != null) {
@@ -3872,7 +3874,7 @@ object LockWindowManager {
                              // Apply 0.5x Reward
                              totalCost = calculateTemporaryAccessMinutes((baseCost * 0.5 * 60.0).toInt())
                              totalEffectiveSec = kotlin.math.round(totalCost * 60.0).toInt()
-                             
+
                              Log.i(TAG, "🏆 Last Segment Challenge Completed: Chargeable($chargeableMins) coolOverlapSec=$segCoolOverlapSec baseCost=$baseCost * 0.5 = $totalCost")
                              Toast.makeText(context, "🏆 完成今日任务！仅扣除 $totalCost 分钟 (剩余时段减半)", Toast.LENGTH_SHORT).show()
                          }
@@ -3885,7 +3887,7 @@ object LockWindowManager {
                     mMonitorService?.grantFreeTime((requestedMins * 60 * 1000L).toLong(), requestedMins) // Gap Cost = 1x usually? Or just requestedMins.
                     RestStatsRecorder.record(
                         context = context,
-                        type = "NORMAL",
+                        type = RestLedger.restType(cooling = false, borrowed = false),
                         typeName = "空档期休息",
                         reason = "非规则时段空档期休息",
                         requestedMinutes = requestedMins,
@@ -3931,7 +3933,7 @@ object LockWindowManager {
                          confirmText = "确认开启"
                      ) {
                          val charged = if (plan.needsNextStage) CreditManager.applyTemporaryAccessQuotaPlan(context, plan) else true
-                         if (charged) performGrant(context, requestedMins, totalCost, plan.needsNextStage, countCost, quotaAlreadyDeducted = plan.needsNextStage)
+                         if (charged) performGrant(context, requestedMins, totalCost, plan.needsNextStage, countCost, quotaAlreadyDeducted = plan.needsNextStage, borrowPlan = plan)
                      }
                  } else {
                      performGrant(context, requestedMins, totalCost, false, countCost)
@@ -4766,6 +4768,7 @@ object LockWindowManager {
         }
 
         // 🆕 消耗可用次数（以不可变 chargeSnapshot 结果为唯一事实）
+        var countBorrowedFromNext = false
         if (
             shouldCommitTemporaryAccessCount(
                 quotaAlreadyDeducted = quotaAlreadyDeducted,
@@ -4777,6 +4780,7 @@ object LockWindowManager {
             val countRemaining = CreditManager.getRemainingUsableCount(context) // halfUnits
             if (countRemaining < countCostHalfUnits) {
                 val deficitHalfUnits = countCostHalfUnits - countRemaining
+                countBorrowedFromNext = true
                 CreditManager.borrowCountFromNext(context, deficitHalfUnits)
             }
             CreditManager.consumeUsableCountWeighted(context, countCostHalfUnits)
@@ -4822,6 +4826,45 @@ object LockWindowManager {
         CreditManager.recordTempUnlockEvent(context)
         if (chargeSnapshot.coolingSec > 0 || CreditManager.isCooling(context) || getTemporaryReuseCooldownRemainingSeconds() > 0L) {
             CreditManager.recordCooldownAttemptEvent(context)
+        }
+        if (chargeSnapshot.dndSec > 0) {
+            // 免费的临时解锁（空档期 / 休息中）不动额度，不进流水
+            val touchedCooling = chargeSnapshot.coolingSec > 0
+            val loggedPlan = prechargedPlan?.takeIf { quotaAlreadyDeducted && it.needsNextStage }
+            val borrowedFromNext = loggedPlan != null || nextChargeSecondsForSession > 0 || countBorrowedFromNext
+            // 借用：记这笔造成的总扣减（当前段扣 + 下一段预扣），入流 ≥ 出流的对账才成立
+            val ledgerCostMinutes = when {
+                loggedPlan != null -> (loggedPlan.currentTimeCostSec + loggedPlan.nextTimeCostSec) / 60.0
+                nextChargeSecondsForSession > 0 ->
+                    (currentChargeSecondsForSession + nextChargeSecondsForSession) / 60.0
+                else -> chargeSnapshot.weightedTimeCostSec / 60.0
+            }
+            val ledgerCostCount = when {
+                loggedPlan != null -> (loggedPlan.currentCountCostHalfUnits + loggedPlan.nextCountCostHalfUnits) / 2.0
+                else -> chargeSnapshot.weightedCountHalfUnits / 2.0
+            }
+            val baseReason = if (touchedCooling) "冷却期申请临时解锁（整单×2）" else "申请临时解锁"
+            // 借用 = 提前发放下一段额度再扣除；次数的预扣只有预先计划的路径才知道，其余路径次数不记提前发放
+            val advancedMinutes = when {
+                loggedPlan != null -> loggedPlan.nextTimeCostSec / 60.0
+                else -> nextChargeSecondsForSession / 60.0
+            }
+            val advancedCount = loggedPlan?.let { it.nextCountCostHalfUnits / 2.0 } ?: 0.0
+            RestStatsRecorder.record(
+                context = context,
+                type = RestLedger.tempType(touchedCooling, borrowedFromNext),
+                typeName = RestLedger.tempTypeName(touchedCooling, borrowedFromNext),
+                reason = baseReason,
+                requestedMinutes = seconds / 60.0,
+                actualMinutes = seconds / 60.0,
+                costMinutes = ledgerCostMinutes,
+                costCount = ledgerCostCount,
+                balanceMinutes = CreditManager.getRemainingMinutes(context),
+                balanceCount = CreditManager.getRemainingUsableCount(context),
+                advancedMinutes = advancedMinutes,
+                advancedCount = advancedCount
+            )
+            if (advancedMinutes > 0.0 || advancedCount > 0.0) noteAdvanceForNextSegment(context, advancedMinutes, advancedCount)
         }
         dismissLockScreen(LockDismissAuthority.TEMPORARY_ACCESS)
     }
@@ -6084,7 +6127,8 @@ object LockWindowManager {
         costMins: Double,
         isBorrowed: Boolean,
         countCost: Int = 1,
-        quotaAlreadyDeducted: Boolean = false
+        quotaAlreadyDeducted: Boolean = false,
+        borrowPlan: TemporaryAccessQuotaPlan? = null
     ) {
         // 核心扣费与授权流程
         if (!quotaAlreadyDeducted) CreditManager.consumeMinutes(context, costMins)
@@ -6096,7 +6140,8 @@ object LockWindowManager {
             }
         }
 
-        if (CreditManager.isCooling(context) || getTemporaryReuseCooldownRemainingSeconds() > 0L) {
+        val appliedInCooling = CreditManager.isCooling(context) || getTemporaryReuseCooldownRemainingSeconds() > 0L
+        if (appliedInCooling) {
             CreditManager.recordCooldownAttemptEvent(context)
         }
 
@@ -6114,21 +6159,45 @@ object LockWindowManager {
         val remainCount = CreditManager.getRemainingUsableCount(context)
         LogExporter.i("Rest", "休息: ${requestedMins}min | 扣费=${costMins}min/${countCost}次 | 截止=$untilTime | 剩余=${remainMins}min/${remainCount}次 | 借用=$isBorrowed")
 
+        // 借用：记这笔造成的总扣减（当前段扣 + 下一段预扣），入流 ≥ 出流的对账才成立
+        val loggedPlan = if (isBorrowed) borrowPlan else null
+        val ledgerCostMinutes = loggedPlan?.let { (it.currentTimeCostSec + it.nextTimeCostSec) / 60.0 } ?: costMins
+        // countCost 是 half-unit（0.5 次 = 1），流水统一记「次」
+        val ledgerCostCount = loggedPlan?.let { (it.currentCountCostHalfUnits + it.nextCountCostHalfUnits) / 2.0 }
+            ?: (countCost / 2.0)
+        val baseReason = when {
+            appliedInCooling -> "冷却期申请休息（整单×2）"
+            else -> "常规申请休息"
+        }
+        // 借用 = 提前发放下一段额度再扣除：下一段预扣的部分记为提前发放，下一段发放时只补发剩下的
+        val advancedMinutes = loggedPlan?.let { it.nextTimeCostSec / 60.0 } ?: 0.0
+        val advancedCount = loggedPlan?.let { it.nextCountCostHalfUnits / 2.0 } ?: 0.0
         RestStatsRecorder.record(
             context = context,
-            type = if (isBorrowed) "BORROW" else "NORMAL",
-            typeName = if (isBorrowed) "借用休息" else "常规休息",
-            reason = if (isBorrowed) "预支未来时段额度" else "常规申请休息",
+            type = RestLedger.restType(appliedInCooling, isBorrowed),
+            typeName = RestLedger.restTypeName(appliedInCooling, isBorrowed),
+            reason = baseReason,
             requestedMinutes = requestedMins,
             actualMinutes = requestedMins,
-            costMinutes = costMins,
-            costCount = countCost.toDouble(),
+            costMinutes = ledgerCostMinutes,
+            costCount = ledgerCostCount,
             balanceMinutes = remainMins,
-            balanceCount = remainCount
+            balanceCount = remainCount,
+            advancedMinutes = advancedMinutes,
+            advancedCount = advancedCount
         )
+        if (loggedPlan != null) noteAdvanceForNextSegment(context, advancedMinutes, advancedCount)
 
         val msg = if (isBorrowed) "预支成功！开启休息: $requestedMins 分钟" else "开启休息: $requestedMins 分钟"
         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    /** 借用时下一段被提前发放的额度记下来，下一段发放时只补发剩下的（见 [QuotaGrantRecorder.notePendingAdvance]）。 */
+    private fun noteAdvanceForNextSegment(context: Context, minutes: Double, count: Double) {
+        val segments = TimeRuleManager.getTimeSegments(context)
+        val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
+        if (currentIndex == -1 || segments.isEmpty()) return
+        QuotaGrantRecorder.notePendingAdvance(context, segments[(currentIndex + 1) % segments.size], minutes, count)
     }
 
     private fun showBorrowConfirmDialog(context: Context, requestedMins: Double, totalCost: Double, borrowMins: Double) {
