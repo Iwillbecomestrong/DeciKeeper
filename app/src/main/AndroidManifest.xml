@@ -209,7 +209,7 @@
         <activity
             android:name=".ui.statistics.StatsHistoryActivity"
             android:exported="false"
-            android:label="统计详情流水" />
+            android:label="统计明细" />
 
         <activity
             android:name=".ui.statistics.AppCategoryDetailActivity"

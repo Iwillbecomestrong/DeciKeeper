@@ -42,7 +42,7 @@ class StatisticsFilterBottomSheet(private val context: Context) {
         onRangeSelected: (StatsDateRange) -> Unit
     ) = showRangeSheet(currentRange, includeAll = false) { it?.let(onRangeSelected) }
 
-    /** 统计详情流水用：比统计页多一个「全部」，null 表示全部。 */
+    /** 统计明细用：比统计页多一个「全部」，null 表示全部。 */
     fun showHistoryRangePicker(
         currentRange: StatsDateRange?,
         onRangeSelected: (StatsDateRange?) -> Unit
