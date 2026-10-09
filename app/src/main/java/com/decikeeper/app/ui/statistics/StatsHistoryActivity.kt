@@ -39,7 +39,7 @@ import com.decikeeper.app.manager.statistics.StatisticsRepository
 import com.decikeeper.app.manager.statistics.StatsDateRangeResolver
 
 /**
- * 历史记录中心
+ * 统计详情流水
  * 聚合「起床打卡历史」与「休息额度流水」双页签，支持用户查看全部明细，
  * 并支持手动修正计划/完成时间、删除打卡记录、展开查看流水详情及删除流水。
  */

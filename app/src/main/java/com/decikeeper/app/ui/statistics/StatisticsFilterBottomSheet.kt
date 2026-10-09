@@ -21,6 +21,7 @@ import com.decikeeper.app.data.statistics.WeekdayFilter
 import com.decikeeper.app.manager.statistics.StatisticsRepository
 import com.decikeeper.app.ui.ThemeManager
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -41,7 +42,7 @@ class StatisticsFilterBottomSheet(private val context: Context) {
         onRangeSelected: (StatsDateRange) -> Unit
     ) = showRangeSheet(currentRange, includeAll = false) { it?.let(onRangeSelected) }
 
-    /** 历史记录中心用：比统计页多一个「全部」，null 表示全部。 */
+    /** 统计详情流水用：比统计页多一个「全部」，null 表示全部。 */
     fun showHistoryRangePicker(
         currentRange: StatsDateRange?,
         onRangeSelected: (StatsDateRange?) -> Unit
@@ -76,8 +77,14 @@ class StatisticsFilterBottomSheet(private val context: Context) {
         btnClose.setOnClickListener { dialog.dismiss() }
         if (includeAll) view.findViewById<TextView>(R.id.tv_range_desc).text = "决定“从哪一天看到哪一天”。"
 
+        // 当前已是自定义范围时带入它的起止日期（结束时刻是开区间，减一天才是最后一天）
         var customStart = LocalDate.now().minusDays(18)
         var customEnd = LocalDate.now()
+        if (currentRange is StatsDateRange.Custom) {
+            customStart = Instant.ofEpochMilli(currentRange.startMillis).atZone(zoneId).toLocalDate()
+            customEnd = Instant.ofEpochMilli(currentRange.endMillisExclusive).atZone(zoneId).toLocalDate().minusDays(1)
+                .let { if (it.isBefore(customStart)) customStart else it }
+        }
 
         btnStartDate.text = customStart.format(isoFormatter)
         btnEndDate.text = customEnd.format(isoFormatter)

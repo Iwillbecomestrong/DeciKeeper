@@ -9,7 +9,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 /**
- * 历史记录中心的显示范围与统计页共用 [StatsDateRange]（今天 / 昨天 / 本周 / 上周 / 近 7 天 / 本月 / 上月 / 近 30 天 / 本年 / 自定义）；
+ * 统计详情流水的显示范围与统计页共用 [StatsDateRange]（今天 / 昨天 / 本周 / 上周 / 近 7 天 / 本月 / 上月 / 近 30 天 / 本年 / 自定义）；
  * 历史页另有「全部」，用 null 表示。
  */
 object HistoryRecordFilter {
