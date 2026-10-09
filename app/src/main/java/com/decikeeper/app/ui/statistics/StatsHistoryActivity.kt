@@ -56,6 +56,8 @@ class StatsHistoryActivity : AppCompatActivity() {
     private lateinit var tabRest: Button
 
     private lateinit var containerAlarm: View
+    private lateinit var btnAlarmRange: Button
+    private lateinit var tvAlarmSummary: TextView
     private lateinit var tvAlarmEmpty: TextView
     private lateinit var rvAlarm: RecyclerView
     private lateinit var alarmAdapter: AlarmHistoryAdapter
@@ -68,8 +70,9 @@ class StatsHistoryActivity : AppCompatActivity() {
     private lateinit var rvRest: RecyclerView
     private lateinit var restAdapter: RestHistoryAdapter
 
-    private var currentTab: String = TAB_ALARM
+    private var currentTab: String = TAB_REST
     private var restDisplayRange: HistoryDisplayRange = HistoryDisplayRange.TODAY
+    private var alarmDisplayRange: HistoryDisplayRange = HistoryDisplayRange.TODAY
     private var restLedgerFilter: LedgerFilter = LedgerFilter.ALL
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,7 +94,7 @@ class StatsHistoryActivity : AppCompatActivity() {
         initViews()
         setupListeners()
 
-        val initialTab = intent.getStringExtra(EXTRA_TARGET_TAB) ?: TAB_ALARM
+        val initialTab = intent.getStringExtra(EXTRA_TARGET_TAB) ?: TAB_REST
         switchTab(initialTab)
     }
 
@@ -103,6 +106,8 @@ class StatsHistoryActivity : AppCompatActivity() {
 
         containerAlarm = findViewById(R.id.container_alarm_history)
         tvAlarmEmpty = findViewById(R.id.tv_alarm_empty)
+        btnAlarmRange = findViewById(R.id.btn_history_alarm_range)
+        tvAlarmSummary = findViewById(R.id.tv_history_alarm_summary)
         rvAlarm = findViewById(R.id.rv_alarm_history)
 
         containerRest = findViewById(R.id.container_rest_history)
@@ -132,6 +137,7 @@ class StatsHistoryActivity : AppCompatActivity() {
         tabAlarm.setOnClickListener { switchTab(TAB_ALARM) }
         tabRest.setOnClickListener { switchTab(TAB_REST) }
         btnRestRange.setOnClickListener { showRestRangePicker() }
+        btnAlarmRange.setOnClickListener { showAlarmRangePicker() }
         btnRestFilter.setOnClickListener { showRestFilterPicker() }
     }
 
@@ -159,10 +165,28 @@ class StatsHistoryActivity : AppCompatActivity() {
     }
 
     private fun loadAlarmData() {
-        val records = StatisticsRepository.getAllWakeRecords(this)
+        // 起床属于自然日口径：「今天 / 近 7 天 / 本月」按起床那天的自然日切（额度流水才按业务日切）
+        val records = HistoryRecordFilter.filterWake(StatisticsRepository.getAllWakeRecords(this), alarmDisplayRange)
+        btnAlarmRange.text = "显示范围：${alarmDisplayRange.displayName}"
+        tvAlarmSummary.text = "共 ${records.size} 条（按自然日）"
         alarmAdapter.submitList(records)
+        tvAlarmEmpty.text = if (alarmDisplayRange == HistoryDisplayRange.ALL) "暂无起床打卡记录" else "该范围内暂无起床打卡记录"
         tvAlarmEmpty.isVisible = records.isEmpty()
         rvAlarm.isVisible = records.isNotEmpty()
+    }
+
+    private fun showAlarmRangePicker() {
+        val options = HistoryDisplayRange.entries.toTypedArray()
+        val selected = options.indexOf(alarmDisplayRange).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("起床记录显示范围")
+            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
+                alarmDisplayRange = options[which]
+                dialog.dismiss()
+                loadAlarmData()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun loadRestData() {

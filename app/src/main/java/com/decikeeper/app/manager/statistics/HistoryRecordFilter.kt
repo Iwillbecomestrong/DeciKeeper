@@ -1,5 +1,6 @@
 package com.decikeeper.app.manager.statistics
 
+import com.decikeeper.app.data.statistics.AlarmWakeRecord
 import com.decikeeper.app.data.statistics.RestUsageRecord
 import java.time.Instant
 import java.time.ZoneId
@@ -45,5 +46,32 @@ object HistoryRecordFilter {
         return records
             .filter { it.timestamp >= startMillis && it.timestamp < endMillis }
             .sortedByDescending { it.timestamp }
+    }
+
+    /**
+     * 起床记录属于自然日口径：按日期标签（起床那天的自然日）切，不看业务日。
+     * 日期标签解析失败时退回用完成时间所在的自然日。结果一律按完成时间新的在前（含「全部」）。
+     */
+    fun filterWake(
+        records: List<AlarmWakeRecord>,
+        range: HistoryDisplayRange,
+        nowMillis: Long = System.currentTimeMillis(),
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): List<AlarmWakeRecord> {
+        val newestFirst = records.sortedByDescending { it.completedAt }
+        if (range == HistoryDisplayRange.ALL) return newestFirst
+
+        val today = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate()
+        val startDate = when (range) {
+            HistoryDisplayRange.TODAY -> today
+            HistoryDisplayRange.LAST_7_DAYS -> today.minusDays(6)
+            HistoryDisplayRange.THIS_MONTH -> today.with(TemporalAdjusters.firstDayOfMonth())
+            HistoryDisplayRange.ALL -> return newestFirst
+        }
+        return newestFirst.filter {
+            val date = runCatching { java.time.LocalDate.parse(it.dateLabel) }.getOrNull()
+                ?: Instant.ofEpochMilli(it.completedAt).atZone(zoneId).toLocalDate()
+            !date.isBefore(startDate) && !date.isAfter(today)
+        }
     }
 }

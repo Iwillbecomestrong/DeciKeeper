@@ -58,27 +58,27 @@
         android:paddingBottom="8dp">
 
         <Button
-            android:id="@+id/tab_history_alarm"
+            android:id="@+id/tab_history_rest"
             android:layout_width="0dp"
             android:layout_height="38dp"
             android:layout_weight="1"
             android:layout_marginEnd="6dp"
             android:background="@drawable/bg_zz_option_btn_selected"
             app:backgroundTint="@null"
-            android:text="起床打卡历史"
+            android:text="额度流水"
             android:textColor="#FFFFFF"
             android:textSize="13sp"
             android:textStyle="bold" />
 
         <Button
-            android:id="@+id/tab_history_rest"
+            android:id="@+id/tab_history_alarm"
             android:layout_width="0dp"
             android:layout_height="38dp"
             android:layout_weight="1"
             android:layout_marginStart="6dp"
             android:background="@drawable/bg_zz_option_btn"
             app:backgroundTint="@null"
-            android:text="额度流水"
+            android:text="起床打卡历史"
             android:textColor="?attr/zzText"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -98,10 +98,33 @@
             android:orientation="vertical"
             android:paddingHorizontal="16dp">
 
+            <Button
+                android:id="@+id/btn_history_alarm_range"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingHorizontal="10dp"
+                android:text="显示范围：今天"
+                android:textAllCaps="false"
+                android:textColor="?attr/zzText"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_history_alarm_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:textColor="?attr/zzMuted"
+                android:textSize="12sp" />
+
             <TextView
                 android:id="@+id/tv_alarm_empty"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:gravity="center"
                 android:text="暂无起床打卡记录"
                 android:textColor="?attr/zzMuted"
@@ -111,7 +134,8 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_alarm_history"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:clipToPadding="false"
                 android:paddingBottom="24dp" />
         </LinearLayout>
