@@ -29,12 +29,17 @@ internal fun calculateMaxRawBorrowableMinutes(
     return remainingWeightedSec / safeWeight / 60.0
 }
 
+/**
+ * 次数还款额度（半次单位）：借用比例是上限，下阶段次数 × 比例向下取整到整数次。
+ * 借一还二，整数次的还款额度折半即上一阶段实际可借本金（最小粒度 0.5 次）。
+ */
 internal fun calculateBorrowRepaymentLimitCount(
     nextCountLimit: Int,
     borrowPercent: Int
 ): Int {
     val safePercent = borrowPercent.coerceIn(0, 100)
-    return kotlin.math.floor(nextCountLimit.coerceAtLeast(0) * (safePercent / 100.0) + 0.5).toInt()
+    val wholeCounts = kotlin.math.floor(nextCountLimit.coerceAtLeast(0) * safePercent / 200.0).toInt()
+    return wholeCounts * 2
 }
 
 internal fun canOccupyBorrowRepaymentCount(

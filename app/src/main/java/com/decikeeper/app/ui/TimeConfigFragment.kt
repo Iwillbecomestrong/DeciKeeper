@@ -504,7 +504,7 @@ class TimeConfigFragment : Fragment() {
         }
         fun updateUsableCountHint() {
             val limit = etLimit.text.toString().toIntOrNull() ?: segment.limitMins
-            val defaultCount = maxOf(1, limit / 5)
+            val defaultCount = UsableCount.automaticHalfUnits(limit) / 2
             tvUsableCountHint.text = "留空=自动(默认 " + defaultCount + "次)"
         }
         updateUsableCountHint()
@@ -622,7 +622,7 @@ class TimeConfigFragment : Fragment() {
         etUsableCount.setText("")
         fun updateUsableCountHint() {
             val limit = etLimit.text.toString().toIntOrNull() ?: 30
-            val defaultCount = maxOf(1, limit / 5)
+            val defaultCount = UsableCount.automaticHalfUnits(limit) / 2
             tvUsableCountHint.text = "留空=自动(默认 " + defaultCount + "次)"
         }
         updateUsableCountHint()
