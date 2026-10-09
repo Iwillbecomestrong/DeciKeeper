@@ -20,6 +20,8 @@
 package com.decikeeper.app.manager
 
 import android.content.Context
+import android.content.Intent
+import com.decikeeper.app.service.MonitorService
 
 object EffectiveActivationPolicyManager {
 
@@ -54,6 +56,12 @@ object EffectiveActivationPolicyManager {
         // Policy switch must reconcile pending/active state for DND + AppWindow only.
         TimeRuleManager.recalculatePendingAfterPolicySwitch(context, policy)
         AppWindowManager.recalculatePendingAfterPolicySwitch(context, policy)
+
+        try {
+            val intent = Intent(MonitorService.ACTION_REFRESH_RULES)
+            intent.setPackage(context.packageName)
+            context.sendBroadcast(intent)
+        } catch (_: Exception) {}
     }
 
     fun getPolicyTitle(policy: Policy): String {

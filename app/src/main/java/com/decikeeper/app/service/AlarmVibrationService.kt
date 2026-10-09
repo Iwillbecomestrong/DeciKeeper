@@ -322,7 +322,13 @@ class AlarmVibrationService : Service() {
             alarmMode = LockWindowManager.testAlarmMode ?: entry?.alarmMode ?: AlarmScheduler.getDefaultAlarmMode(this),
             vibrationMode = LockWindowManager.testVibrationMode ?: entry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE,
             fixedVibrationIntensity = LockWindowManager.testVibrationIntensity ?: entry?.vibrationIntensity ?: AlarmScheduler.getDefaultVibrationIntensity(this),
-            fixedRingVolume = LockWindowManager.testRingVolume ?: entry?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(this)
+            fixedRingVolume = LockWindowManager.testRingVolume ?: entry?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(this),
+            progressiveMaxRingVolume = LockWindowManager.testProgressiveMaxRingVolume
+                ?: entry?.progressiveMaxRingVolume
+                ?: AlarmScheduler.getDefaultProgressiveMaxRingVolume(this),
+            progressiveMaxVibrationIntensity = LockWindowManager.testProgressiveMaxIntensity
+                ?: entry?.progressiveMaxIntensity
+                ?: AlarmScheduler.getDefaultProgressiveMaxIntensity(this)
         )
         if (activeChallengeStage <= 1 && !AlarmScheduler.isFirstStagePassed(this)) {
             return stage1
@@ -332,7 +338,9 @@ class AlarmVibrationService : Service() {
                 alarmMode = entry.stage2AlarmMode,
                 vibrationMode = entry.stage2VibrationMode,
                 fixedVibrationIntensity = entry.stage2VibrationIntensity,
-                fixedRingVolume = entry.stage2RingVolume
+                fixedRingVolume = entry.stage2RingVolume,
+                progressiveMaxRingVolume = entry.stage2ProgressiveMaxRingVolume,
+                progressiveMaxVibrationIntensity = entry.stage2ProgressiveMaxIntensity
             )
         } else LockWindowManager.testStage2AlertPolicy
         val useIndependent = entry?.stage2UseIndependentAlertPolicy ?: (stage2 != null)
@@ -367,14 +375,14 @@ class AlarmVibrationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        directBootSession = isUserLockedForDirectBoot()
-        // 从 SharedPreferences 恢复 alertCycleStartTime
-        val savedStartTime = AlarmScheduler.getVibrationStartTime(this)
-        alertCycleStartTime = if (savedStartTime > 0) savedStartTime else System.currentTimeMillis()
-        if (savedStartTime == 0L) {
-            AlarmScheduler.saveVibrationStartTime(this, alertCycleStartTime)
+        // 仅在已有处于活跃状态的闹钟会话（如进程被杀重启恢复）时，从 SharedPreferences 恢复 alertCycleStartTime
+        val savedStartTime = if (AlarmScheduler.isAlarmActive(this)) {
+            AlarmScheduler.getVibrationStartTime(this)
+        } else {
+            0L
         }
-        serviceStartTime = alertCycleStartTime
+        alertCycleStartTime = if (savedStartTime > 0L) savedStartTime else 0L
+        serviceStartTime = if (alertCycleStartTime > 0L) alertCycleStartTime else System.currentTimeMillis()
         // 恢复锁定强度（第一关通过后的半强度值）
         lockedFinalIntensity = AlarmScheduler.getVibrationLockedIntensity(this)
         // 恢复完成后延迟/第一关通过后的最低强度状态，避免服务或进程重启后重新高强度响铃。
@@ -499,6 +507,10 @@ class AlarmVibrationService : Service() {
             return START_STICKY
         }
 
+        val isExistingActiveSession = AlarmScheduler.isAlarmActive(this) && alertCycleStartTime > 0L
+        if (!isExistingActiveSession) {
+            resetAlertCycle()
+        }
         this.alarmId = newAlarmId
         activateAlarm()
         isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
@@ -590,7 +602,8 @@ class AlarmVibrationService : Service() {
         acquireWakeLock()
 
         val finalIntensity = AlarmAlertPolicy.vibrationLevel(currentPolicy, elapsedMs)
-        val amplitude = (finalIntensity * 25.5).toInt().coerceIn(1, 255)
+        // 渐进时按「第 1 档 → 最大震动」铺开的浮点档位换算振幅；界面显示的当前档仍是步号 finalIntensity。
+        val amplitude = AlarmAlertPolicy.vibrationAmplitude(AlarmAlertPolicy.vibrationLevelValue(currentPolicy, elapsedMs))
         val stableAmplitude = amplitude
 
         val audioAttributes = AudioAttributes.Builder()
@@ -609,11 +622,8 @@ class AlarmVibrationService : Service() {
         Log.d(TAG, "Alarm vibration started/restarted (policy=$currentPolicy, intensity=$finalIntensity, amplitude=$stableAmplitude)")
     }
 
-    /** 铃声音量等级(1-10) → MediaPlayer浮点音量，使用三次方曲线拉开低强度差距 */
-    private fun ringVolumeToFloat(level: Int): Float {
-        val v = level.coerceIn(1, 10) / 10f
-        return v * v * v  // 三次方：1→0.001, 2→0.008, 5→0.125, 7→0.343, 10→1.0
-    }
+    /** 铃声音量等级(1-10，渐进时为浮点档位) → MediaPlayer浮点音量，曲线见 [AlarmAlertPolicy.ringGain] */
+    private fun ringVolumeToFloat(level: Float): Float = AlarmAlertPolicy.ringGain(level)
 
     /** 更新铃声强度显示值 + 实际 MediaPlayer 音量（RING_ONLY 和 VIBRATE_AND_RING 都需要） */
     private fun updateRingVolumeDisplay(policy: StageAlertPolicy, elapsedMs: Long) {
@@ -625,7 +635,7 @@ class AlarmVibrationService : Service() {
         }
         val volume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)
         currentDisplayVolume = volume.coerceIn(1, 10)
-        val mpVol = ringVolumeToFloat(currentDisplayVolume)
+        val mpVol = ringVolumeToFloat(AlarmAlertPolicy.ringLevelValue(policy, elapsedMs))
         mediaPlayer?.setVolume(mpVol, mpVol)
         syncVolumeLock()
         Log.d(TAG, "[RING_VOL] display update: policy=$policy, elapsedMs=$elapsedMs, currentDisplayVolume=$currentDisplayVolume, mpVol=$mpVol")
@@ -667,7 +677,7 @@ class AlarmVibrationService : Service() {
 
         try {
             val initialVolume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)
-            val vol = ringVolumeToFloat(initialVolume)
+            val vol = ringVolumeToFloat(AlarmAlertPolicy.ringLevelValue(policy, elapsedMs))
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(this@AlarmVibrationService, uri)
                 setAudioAttributes(

@@ -113,6 +113,8 @@ object SettingsBackupManager {
                 "alarms_json", "alarm_next_id",
                 "snooze_minutes", "max_snooze_count",
                 "default_vibration_intensity",
+                "default_progressive_ring_max", "default_stage2_progressive_ring_max",
+                "default_progressive_vibration_max", "default_stage2_progressive_vibration_max",
                 "default_math_count", "default_poem_count", "default_word_count",
                 "default_unlock_mode",
                 "default_stage1_types", "default_stage2_types"

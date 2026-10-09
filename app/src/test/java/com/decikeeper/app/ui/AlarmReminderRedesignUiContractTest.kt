@@ -48,4 +48,29 @@ class AlarmReminderRedesignUiContractTest {
             editXml.contains("完成后延迟")
         )
     }
+
+    @Test
+    fun testReminderSectionAttachesByIdNotByChildPosition() {
+        val fragment = source("src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
+        val editXml = source("src/main/res/layout/dialog_alarm_edit.xml")
+
+        // 提醒设置卡片必须按 id 挂到弹窗滚动区；按子节点位置找（弹窗顶部有标题）会得到 null，
+        // 再被 ?. 悄悄跳过，整块提醒设置就消失。
+        assertTrue(
+            "dialog_alarm_edit.xml must expose layout_alarm_edit_content for the reminder section",
+            editXml.contains("@+id/layout_alarm_edit_content")
+        )
+        assertTrue(
+            "AlarmFragment must find the content container by id",
+            fragment.contains("findViewById<LinearLayout>(R.id.layout_alarm_edit_content)")
+        )
+        assertFalse(
+            "AlarmFragment must not locate the content container by child position",
+            fragment.contains("getChildAt(0) as? ScrollView")
+        )
+        assertFalse(
+            "reminder section must not be added through a silent null-safe call",
+            fragment.contains("innerLayout?.addView(editReminderSection)")
+        )
+    }
 }

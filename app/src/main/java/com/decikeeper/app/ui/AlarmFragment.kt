@@ -47,7 +47,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
-import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Space
 import android.widget.TextView
@@ -1026,9 +1025,7 @@ class AlarmFragment : Fragment() {
         val cbS2Word = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_word)
         val cbS2Cloze = dialogView.findViewById<android.widget.CheckBox>(R.id.cb_s2_cloze)
 
-        val innerLayout = (dialogView as? android.view.ViewGroup)?.let { root ->
-            (root.getChildAt(0) as? ScrollView)?.getChildAt(0) as? LinearLayout
-        }
+        val innerLayout = dialogView.findViewById<LinearLayout>(R.id.layout_alarm_edit_content)
         val layoutStage1Cooldown = dialogView.findViewById<View>(R.id.layout_stage1_cooldown)
         val etEditCooldown = dialogView.findViewById<EditText>(R.id.et_stage_cooldown) ?: EditText(requireContext())
         etEditCooldown.setText((existing?.stageCooldownSeconds ?: AlarmScheduler.getDefaultStageCooldownSeconds(requireContext())).toString())
@@ -1087,9 +1084,15 @@ class AlarmFragment : Fragment() {
                     vibrationMode = existing?.vibrationMode ?: AlarmScheduler.getDefaultVibrationMode(reminderCtx),
                     vibrationIntensity = existing?.vibrationIntensity ?: AlarmScheduler.getDefaultVibrationIntensity(reminderCtx),
                     ringVolume = existing?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(reminderCtx),
-                    ringtoneUri = existing?.ringtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(reminderCtx)
+                    ringtoneUri = existing?.ringtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(reminderCtx),
+                    progressiveMaxRingVolume = existing?.progressiveMaxRingVolume
+                        ?: AlarmScheduler.getDefaultProgressiveMaxRingVolume(reminderCtx),
+                    progressiveMaxVibrationIntensity = existing?.progressiveMaxIntensity
+                        ?: AlarmScheduler.getDefaultProgressiveMaxIntensity(reminderCtx)
                 )
             )
+            onPreviewVolume = { level -> AlarmVolumePreview.play(reminderCtx, getConfig().ringtoneUri, level) }
+            onPreviewVibration = { level -> AlarmVibrationPreview.play(reminderCtx, level) }
             onPickRingtone = {
                 onRingtonePickedCallback = { uri, _ -> setRingtone(uri) }
                 ringtonePickerLauncher.launch(AlarmRingtonePickerActivity.createIntent(reminderCtx, getConfig().ringtoneUri))
@@ -1132,12 +1135,19 @@ class AlarmFragment : Fragment() {
                     alarmMode = existing?.stage2AlarmMode ?: AlarmScheduler.getDefaultStage2AlarmMode(reminderCtx),
                     vibrationMode = existing?.stage2VibrationMode ?: AlarmScheduler.getDefaultStage2VibrationMode(reminderCtx),
                     vibrationIntensity = existing?.stage2VibrationIntensity ?: AlarmScheduler.getDefaultStage2VibrationIntensity(reminderCtx),
-                    ringVolume = existing?.stage2RingVolume ?: AlarmScheduler.getDefaultStage2RingVolume(reminderCtx)
+                    ringVolume = existing?.stage2RingVolume ?: AlarmScheduler.getDefaultStage2RingVolume(reminderCtx),
+                    progressiveMaxRingVolume = existing?.stage2ProgressiveMaxRingVolume
+                        ?: AlarmScheduler.getDefaultStage2ProgressiveMaxRingVolume(reminderCtx),
+                    progressiveMaxVibrationIntensity = existing?.stage2ProgressiveMaxIntensity
+                        ?: AlarmScheduler.getDefaultStage2ProgressiveMaxIntensity(reminderCtx)
                 )
             )
+            // 第二关卡片没有提示音选择，沿用第一关当前所选。
+            onPreviewVolume = { level -> AlarmVolumePreview.play(reminderCtx, editS1Reminder.getConfig().ringtoneUri, level) }
+            onPreviewVibration = { level -> AlarmVibrationPreview.play(reminderCtx, level) }
         }
         editReminderSection.addView(editS2Reminder, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
-        innerLayout?.addView(editReminderSection)
+        innerLayout.addView(editReminderSection)
 
         fun updateReminderStage2Visibility() {
             val isTwo = rgUnlockMode.checkedRadioButtonId == R.id.rb_unlock_two_stage
@@ -1212,6 +1222,11 @@ class AlarmFragment : Fragment() {
             .setView(dialogView)
             .create()
         editDialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        // 关闭弹窗（保存 / 测试 / 取消 / 点外面）时打断还在播的声音试听并还原闹钟通道音量，同时停掉试震。
+        editDialog.setOnDismissListener {
+            AlarmVolumePreview.stop()
+            AlarmVibrationPreview.stop()
+        }
         editDialog.show()
 
         dialogView.findViewById<TextView>(R.id.tv_alarm_edit_title).text = if (existing == null) "新增闹钟" else "编辑闹钟"
@@ -1308,12 +1323,15 @@ class AlarmFragment : Fragment() {
             val c = requireContext()
             applyGlobalSettings(f)
             val r = f.s1Reminder
-            if (r.vibrationMode == AlarmScheduler.VibrationMode.PROGRESSIVE) {
-                AlarmScheduler.setDefaultProgressiveMaxIntensity(c, 10)
-                AlarmScheduler.setDefaultProgressiveMaxRingVolume(c, 10)
-            } else {
+            // 渐进「最大震动 / 最大声音」与固定值互不覆盖，渐进最大值始终一并存为默认；
+            // 固定震动强度只在固定模式下覆盖默认，避免把旧闹钟里遗留的 1 写成默认。
+            if (r.vibrationMode == AlarmScheduler.VibrationMode.FIXED) {
                 AlarmScheduler.setDefaultVibrationIntensity(c, r.vibrationIntensity)
             }
+            AlarmScheduler.setDefaultProgressiveMaxIntensity(c, r.progressiveMaxVibrationIntensity)
+            AlarmScheduler.setDefaultProgressiveMaxRingVolume(c, r.progressiveMaxRingVolume)
+            AlarmScheduler.setDefaultStage2ProgressiveMaxIntensity(c, f.s2Reminder.progressiveMaxVibrationIntensity)
+            AlarmScheduler.setDefaultStage2ProgressiveMaxRingVolume(c, f.s2Reminder.progressiveMaxRingVolume)
             if (f.mathCount > 0) AlarmScheduler.setDefaultMathCount(c, f.mathCount)
             if (f.poemCount > 0) AlarmScheduler.setDefaultPoemCount(c, f.poemCount)
             if (f.wordCount > 0) AlarmScheduler.setDefaultWordCount(c, f.wordCount)
@@ -1360,8 +1378,8 @@ class AlarmFragment : Fragment() {
                 alarmMode = f.s1Reminder.alarmMode,
                 ringtoneUri = f.s1Reminder.ringtoneUri ?: AlarmScheduler.getDefaultRingtoneUri(c),
                 ringVolume = f.s1Reminder.ringVolume,
-                progressiveMaxIntensity = 10,
-                progressiveMaxRingVolume = 10,
+                progressiveMaxIntensity = f.s1Reminder.progressiveMaxVibrationIntensity,
+                progressiveMaxRingVolume = f.s1Reminder.progressiveMaxRingVolume,
                 stage1CustomBanks = f.s1CustomBanks,
                 stage2CustomBanks = f.s2CustomBanks,
                 snoozeMinutes = f.snoozeMin.coerceAtLeast(1),
@@ -1370,7 +1388,9 @@ class AlarmFragment : Fragment() {
                 stage2AlarmMode = f.s2Reminder.alarmMode,
                 stage2VibrationMode = f.s2Reminder.vibrationMode,
                 stage2VibrationIntensity = f.s2Reminder.vibrationIntensity,
-                stage2RingVolume = f.s2Reminder.ringVolume
+                stage2RingVolume = f.s2Reminder.ringVolume,
+                stage2ProgressiveMaxRingVolume = f.s2Reminder.progressiveMaxRingVolume,
+                stage2ProgressiveMaxIntensity = f.s2Reminder.progressiveMaxVibrationIntensity
             )
             LockWindowManager.setTestAlarmConfig(config)
             // 测试闹钟使用专用 TEST_ALARM_ID=0，与真实闹钟 id 命名空间隔离。
@@ -1420,8 +1440,8 @@ class AlarmFragment : Fragment() {
                     ringtoneUri = r1.ringtoneUri,
                     alarmMode = r1.alarmMode,
                     ringVolume = r1.ringVolume,
-                    progressiveMaxIntensity = 10,
-                    progressiveMaxRingVolume = 10,
+                    progressiveMaxIntensity = r1.progressiveMaxVibrationIntensity,
+                    progressiveMaxRingVolume = r1.progressiveMaxRingVolume,
                     autoEscalate = false,
                     stage1CustomBanks = f.s1CustomBanks,
                     stage2CustomBanks = f.s2CustomBanks,
@@ -1429,7 +1449,9 @@ class AlarmFragment : Fragment() {
                     stage2AlarmMode = r2.alarmMode,
                     stage2VibrationMode = r2.vibrationMode,
                     stage2VibrationIntensity = r2.vibrationIntensity,
-                    stage2RingVolume = r2.ringVolume
+                    stage2RingVolume = r2.ringVolume,
+                    stage2ProgressiveMaxRingVolume = r2.progressiveMaxRingVolume,
+                    stage2ProgressiveMaxIntensity = r2.progressiveMaxVibrationIntensity
                 )
             } else {
                 existing.copy(
@@ -1444,8 +1466,8 @@ class AlarmFragment : Fragment() {
                     ringtoneUri = r1.ringtoneUri,
                     alarmMode = r1.alarmMode,
                     ringVolume = r1.ringVolume,
-                    progressiveMaxIntensity = 10,
-                    progressiveMaxRingVolume = 10,
+                    progressiveMaxIntensity = r1.progressiveMaxVibrationIntensity,
+                    progressiveMaxRingVolume = r1.progressiveMaxRingVolume,
                     autoEscalate = false,
                     stage1CustomBanks = f.s1CustomBanks,
                     stage2CustomBanks = f.s2CustomBanks,
@@ -1453,7 +1475,9 @@ class AlarmFragment : Fragment() {
                     stage2AlarmMode = r2.alarmMode,
                     stage2VibrationMode = r2.vibrationMode,
                     stage2VibrationIntensity = r2.vibrationIntensity,
-                    stage2RingVolume = r2.ringVolume
+                    stage2RingVolume = r2.ringVolume,
+                    stage2ProgressiveMaxRingVolume = r2.progressiveMaxRingVolume,
+                    stage2ProgressiveMaxIntensity = r2.progressiveMaxVibrationIntensity
                 )
             }
             upsertAlarm(entry)

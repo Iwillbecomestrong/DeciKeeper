@@ -7,7 +7,7 @@ import java.io.File
 
 class DefaultAlarmSettingsLayoutContractTest {
     @Test
-    fun ringtoneSettingsKeepTheirLayoutSlotsWhenOptionsChange() {
+    fun hiddenReminderControlsCollapseSoNoBlankGapIsLeftWhenOptionsChange() {
         val cwd = File(System.getProperty("user.dir"))
         val candidates = listOf(
             File(cwd, "src/main/java/com/decikeeper/app/ui/AlarmReminderSettingsView.kt"),
@@ -23,7 +23,7 @@ class DefaultAlarmSettingsLayoutContractTest {
         assertTrue("visibility updater must have a bounded body", end > start)
 
         val body = source.substring(start, end)
-        assertTrue("hidden reminder controls must preserve their layout slots", body.contains("INVISIBLE"))
-        assertFalse("hidden reminder controls must not collapse their layout slots", body.contains("GONE"))
+        assertTrue("hidden reminder controls must collapse so the content below moves up", body.contains("GONE"))
+        assertFalse("hidden reminder controls must not leave blank placeholders", body.contains("INVISIBLE"))
     }
 }
