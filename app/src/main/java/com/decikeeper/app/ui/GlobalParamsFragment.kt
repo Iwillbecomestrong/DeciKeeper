@@ -431,6 +431,13 @@ class GlobalParamsFragment : Fragment() {
                     }
 
                     val title = if (!isAllNextDayPolicy) "⚠️ 包含延后生效项" else "变更生效分析"
+                    val handleCancel = {
+                        TimeRuleManager.revokePendingChanges(context)
+                        CreditManager.clearPendingWeeklyPrivilegeLimit(context)
+                        ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
+                        Toast.makeText(context, "已取消修改", Toast.LENGTH_SHORT).show()
+                        reloadData()
+                    }
                     AlertDialog.Builder(context)
                         .setTitle(title)
                         .setMessage(sb.toString().trim())
@@ -438,13 +445,8 @@ class GlobalParamsFragment : Fragment() {
                         .setPositiveButton("确认仍要修改") { _, _ ->
                             reloadData()
                         }
-                        .setNegativeButton("取消") { _, _ ->
-                            TimeRuleManager.revokePendingChanges(context)
-                            CreditManager.clearPendingWeeklyPrivilegeLimit(context)
-                            ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
-                            Toast.makeText(context, "已取消修改并恢复原值", Toast.LENGTH_SHORT).show()
-                            reloadData()
-                        }
+                        .setNegativeButton("取消") { _, _ -> handleCancel() }
+                        .setOnCancelListener { handleCancel() }
                         .show()
                 } else {
                     val msg = if (result.immediateChanges.isNotEmpty()) {
@@ -457,6 +459,13 @@ class GlobalParamsFragment : Fragment() {
                 }
             }
             is AnalysisResult.AllDelayed -> {
+                val handleCancel = {
+                    TimeRuleManager.revokePendingChanges(context)
+                    CreditManager.clearPendingWeeklyPrivilegeLimit(context)
+                    ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
+                    Toast.makeText(context, "已取消修改", Toast.LENGTH_SHORT).show()
+                    reloadData()
+                }
                 AlertDialog.Builder(context)
                     .setTitle("⚠️ 包含延后生效项")
                     .setMessage("所有修改均属于放宽限制，将在明日生效。")
@@ -464,13 +473,8 @@ class GlobalParamsFragment : Fragment() {
                     .setPositiveButton("确认仍要修改") { _, _ ->
                         reloadData()
                     }
-                    .setNegativeButton("取消") { _, _ ->
-                        TimeRuleManager.revokePendingChanges(context)
-                        CreditManager.clearPendingWeeklyPrivilegeLimit(context)
-                        ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
-                        Toast.makeText(context, "已取消修改并恢复原值", Toast.LENGTH_SHORT).show()
-                        reloadData()
-                    }
+                    .setNegativeButton("取消") { _, _ -> handleCancel() }
+                    .setOnCancelListener { handleCancel() }
                     .show()
             }
         }

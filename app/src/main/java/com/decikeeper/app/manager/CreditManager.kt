@@ -538,6 +538,8 @@ object CreditManager {
         )
     }
 
+    fun analyzeBlacklistApps(context: Context, newApps: Set<String>): AnalysisResult = BlacklistStore.analyzeBlacklistApps(context, newApps)
+
     fun analyzeAndSaveBlacklistApps(context: Context, newApps: Set<String>): AnalysisResult = BlacklistStore.analyzeAndSaveBlacklistApps(context, newApps)
     
     // ==========================================

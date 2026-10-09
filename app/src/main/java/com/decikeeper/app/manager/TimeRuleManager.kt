@@ -3072,7 +3072,14 @@ object TimeRuleManager {
             }
     }
 
-    fun analyzeAndSaveTimeSegments(context: Context, inputSegments: List<TimeSegment>): AnalysisResult {
+    fun analyzeTimeSegments(context: Context, inputSegments: List<TimeSegment>): AnalysisResult =
+        analyzeAndSaveTimeSegments(context, inputSegments, dryRun = true)
+
+    fun analyzeAndSaveTimeSegments(
+        context: Context,
+        inputSegments: List<TimeSegment>,
+        dryRun: Boolean = false
+    ): AnalysisResult {
         // WP-03-T02 DA-D1 entry guard: refuse to save if any candidate
         // segment strictly contains the configured refresh time (`start <
         // refresh < end`). Cross-midnight segments (`end <= start`) are
@@ -3185,6 +3192,7 @@ object TimeRuleManager {
         
         // 🚀 Adaptation Period: Always Immediate
         if (isInAdaptationPeriod(context)) {
+            if (dryRun) return AnalysisResult.AllImmediate()
             saveTimeSegments(context, newSegments)
             if (isRefreshChange) saveRefreshTime(context, targetRefresh)
             // 🚀 [NEW] Apply privilege window immediately during adaptation
@@ -3225,6 +3233,7 @@ object TimeRuleManager {
 
             if (activeJson == newJson) {
                 if (pendingJson != null && pendingJson != newJson) {
+                    if (dryRun) return AnalysisResult.AllImmediate(listOf("✅ 已撤销待生效的勿扰时段变更。"))
                     ChangeLogManager.removePendingEntriesByCategory(context, "segments")
                     val pendingPrefs = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
                     val editor = pendingPrefs.edit()
@@ -3257,18 +3266,34 @@ object TimeRuleManager {
             }
 
             val effectiveTime = getEffectiveTimestamp(context)
+            if (isRefreshChange) {
+                delayedMessages.add("生效时间: $curRefresh -> $targetRefresh (统一次日生效)")
+            }
+            if (isPrivWindowChange) {
+                delayedMessages.add("特权可用范围: ${getPrivilegeWindowStart(context)}~${getPrivilegeWindowEnd(context)} -> $targetPrivWindowStart~$targetPrivWindowEnd (统一次日生效)")
+            }
+
+            if (dryRun) {
+                return AnalysisResult.Mixed(
+                    immediateChanges = emptyList(),
+                    delayedChanges = delayedMessages,
+                    restoredChanges = emptyList(),
+                    nextWeekChanges = emptyList(),
+                    effectiveTime = effectiveTime,
+                    nextWeekEffectiveTime = 0L
+                )
+            }
+
             val pendingEdit = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).edit()
             pendingEdit.putString(KEY_SEGMENTS_JSON, newJson)
             pendingEdit.putBoolean("has_pending_changes", true)
             pendingEdit.putLong("effective_timestamp", effectiveTime)
             if (isRefreshChange) {
                 pendingEdit.putString("config_refresh_time", targetRefresh)
-                delayedMessages.add("生效时间: $curRefresh -> $targetRefresh (统一次日生效)")
             }
             if (isPrivWindowChange) {
                 pendingEdit.putString(KEY_PRIVILEGE_WINDOW_START, targetPrivWindowStart)
                 pendingEdit.putString(KEY_PRIVILEGE_WINDOW_END, targetPrivWindowEnd)
-                delayedMessages.add("特权可用范围: ${getPrivilegeWindowStart(context)}~${getPrivilegeWindowEnd(context)} -> $targetPrivWindowStart~$targetPrivWindowEnd (统一次日生效)")
             }
             pendingEdit.apply()
 
@@ -3295,9 +3320,6 @@ object TimeRuleManager {
         val isAdverse = SegmentAdverseAnalysis.isAdverseRelativeToBaseline(context, newSegments) || isRefreshAdverse
 
         if (!isAdverse) {
-            // ✅ All Immediate Path (Benign or Restoration)
-            saveTimeSegments(context, newSegments)
-            
             // Generate message for All Immediate
             val immList = mutableListOf<String>()
             // 🚀 [Fix] Use Baseline for comparison in Immediate Dialog too
@@ -3319,16 +3341,29 @@ object TimeRuleManager {
 
             // 🚀 [Auto Sync] Handle Immediate Refresh Change
             if (isRefreshChange) {
-                saveRefreshTime(context, targetRefresh)
                 val suffix = if (isRefreshRestored) " [恢复]" else " (有利)"
                 immList.add("生效时间: $curRefresh -> $targetRefresh$suffix")
-                
+            }
+            
+            // 🚀 [NEW] Privilege Window Sync — always delayed even when triggered by segment sync
+            if (isPrivWindowChange) {
+                immList.add("特权可用范围: ${getPrivilegeWindowStart(context)}~${getPrivilegeWindowEnd(context)} -> $targetPrivWindowStart~$targetPrivWindowEnd (次日生效)")
+            }
+
+            if (dryRun) {
+                return AnalysisResult.AllImmediate(immList)
+            }
+
+            // ✅ All Immediate Path (Benign or Restoration)
+            saveTimeSegments(context, newSegments)
+
+            if (isRefreshChange) {
+                saveRefreshTime(context, targetRefresh)
                 // Cleanup Pending
                 ChangeLogManager.removePendingEntriesByTag(context, "global_params", "global_param_refresh_time")
                 context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).edit().remove("config_refresh_time").apply()
             }
-            
-            // 🚀 [NEW] Privilege Window Sync — always delayed even when triggered by segment sync
+
             if (isPrivWindowChange) {
                 val pendingPrefsForPW = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
                 val pwEffTime = getEffectiveTimestamp(context)
@@ -3338,7 +3373,6 @@ object TimeRuleManager {
                     .putBoolean("has_pending_changes", true)
                     .putLong("effective_timestamp", pwEffTime)
                     .apply()
-                immList.add("特权可用范围: ${getPrivilegeWindowStart(context)}~${getPrivilegeWindowEnd(context)} -> $targetPrivWindowStart~$targetPrivWindowEnd (次日生效)")
             }
             
                 // 🚀 [Fix] Partial Revert Support (Benign Path)
@@ -3401,7 +3435,9 @@ object TimeRuleManager {
             
             // 🚀 [Fix] Merge Logic: Clear ALL existing pending segment logs before regenerating
             // Since we are rewriting the full pending segments JSON, the new logs will represent the COMPLETE pending state.
-            ChangeLogManager.removePendingEntriesByCategory(context, "segments")
+            if (!dryRun) {
+                ChangeLogManager.removePendingEntriesByCategory(context, "segments")
+            }
             
             val unmatchedOld = beforeSegments.toMutableList()
             
@@ -3595,7 +3631,7 @@ object TimeRuleManager {
                      val msg = "生效时间: $curRefresh -> $targetRefresh (不利)"
                      delList.add(msg)
                      logItems.add(Triple(msg, true, refreshTag))
-                } else if (saveRefreshTimeValidated(context, targetRefresh, newSegments)) {
+                } else if (!dryRun && saveRefreshTimeValidated(context, targetRefresh, newSegments)) {
                      // 校验对照"即将生效的新时段"，避免被仍在生效的旧时段静默拒绝（详见 saveRefreshTimeValidated）。
                      // 同步刷新所有待生效项的生效时间戳，保证延迟生效表与实际生效时刻一致。
                      propagateRefreshTimeToPendingFiles(context)
@@ -3608,15 +3644,24 @@ object TimeRuleManager {
                      // Cleanup Pending
                      ChangeLogManager.removePendingEntriesByTag(context, "global_params", refreshTag)
                      context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).edit().remove("config_refresh_time").apply()
+                } else if (dryRun) {
+                     val suffix = if (isRefreshRestored) " [恢复]" else " (有利)"
+                     val msg = "生效时间: $curRefresh -> $targetRefresh$suffix"
+                     if (isRefreshRestored) resList.add(msg)
+                     else immList.add(msg)
                 } else {
                      android.util.Log.w("TimeRuleManager", "Mixed path: refresh sync $curRefresh -> $targetRefresh rejected by entry guard, keep $curRefresh")
                 }
             }
             
+            val effectiveTime = getEffectiveTimestamp(context)
+            if (dryRun) {
+                return AnalysisResult.Mixed(immList, delList, resList, emptyList(), effectiveTime, 0L)
+            }
+
             saveTimeSegments(context, hybridSegments, syncRefreshFromSegments = false)
 
             // Stage Pending
-            val effectiveTime = getEffectiveTimestamp(context)
             val pendingPrefs = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
             val pendingEdit = pendingPrefs.edit()
             

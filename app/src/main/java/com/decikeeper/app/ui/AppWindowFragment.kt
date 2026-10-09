@@ -637,6 +637,11 @@ class AppWindowFragment : Fragment() {
         val context = requireContext()
         val refreshTime = TimeRuleManager.getRefreshTime(context)
 
+        val onCancelAction = {
+            refreshList()
+            Toast.makeText(context, "已取消修改", Toast.LENGTH_SHORT).show()
+        }
+
         // 适应期内所有修改均立即生效，但仍使用同一份分析结果描述“加严/放宽/恢复基准”。
         val isAdaptation = CreditManager.isInAdaptationPeriod(context)
         if (isAdaptation) {
@@ -651,7 +656,8 @@ class AppWindowFragment : Fragment() {
                 .setTitle("✅ 适应期 · 立即生效")
                 .setMessage(sb.toString().trim())
                 .setPositiveButton("确定") { _, _ -> onConfirm() }
-                .setNegativeButton("取消") { _, _ -> refreshList() }
+                .setNegativeButton("取消") { _, _ -> onCancelAction() }
+                .setOnCancelListener { onCancelAction() }
                 .show()
             return
         }
@@ -718,7 +724,8 @@ class AppWindowFragment : Fragment() {
             )
             .setMessage(sb.toString().trim())
             .setPositiveButton("确定") { _, _ -> onConfirm() }
-            .setNegativeButton("取消") { _, _ -> refreshList() }
+            .setNegativeButton("取消") { _, _ -> onCancelAction() }
+            .setOnCancelListener { onCancelAction() }
             .show()
     }
 }
