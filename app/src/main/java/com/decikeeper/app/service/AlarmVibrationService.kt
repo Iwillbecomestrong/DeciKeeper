@@ -375,14 +375,14 @@ class AlarmVibrationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        directBootSession = isUserLockedForDirectBoot()
-        // 从 SharedPreferences 恢复 alertCycleStartTime
-        val savedStartTime = AlarmScheduler.getVibrationStartTime(this)
-        alertCycleStartTime = if (savedStartTime > 0) savedStartTime else System.currentTimeMillis()
-        if (savedStartTime == 0L) {
-            AlarmScheduler.saveVibrationStartTime(this, alertCycleStartTime)
+        // 仅在已有处于活跃状态的闹钟会话（如进程被杀重启恢复）时，从 SharedPreferences 恢复 alertCycleStartTime
+        val savedStartTime = if (AlarmScheduler.isAlarmActive(this)) {
+            AlarmScheduler.getVibrationStartTime(this)
+        } else {
+            0L
         }
-        serviceStartTime = alertCycleStartTime
+        alertCycleStartTime = if (savedStartTime > 0L) savedStartTime else 0L
+        serviceStartTime = if (alertCycleStartTime > 0L) alertCycleStartTime else System.currentTimeMillis()
         // 恢复锁定强度（第一关通过后的半强度值）
         lockedFinalIntensity = AlarmScheduler.getVibrationLockedIntensity(this)
         // 恢复完成后延迟/第一关通过后的最低强度状态，避免服务或进程重启后重新高强度响铃。
@@ -507,6 +507,10 @@ class AlarmVibrationService : Service() {
             return START_STICKY
         }
 
+        val isExistingActiveSession = AlarmScheduler.isAlarmActive(this) && alertCycleStartTime > 0L
+        if (!isExistingActiveSession) {
+            resetAlertCycle()
+        }
         this.alarmId = newAlarmId
         activateAlarm()
         isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
