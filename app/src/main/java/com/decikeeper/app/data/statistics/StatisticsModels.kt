@@ -199,7 +199,10 @@ data class RestUsageRecord(
     val costMinutes: Double = 0.0,         // 扣减/变动时长（分钟，正数表示扣减，负数表示退还/发放）
     val costCount: Double = 0.0,           // 扣减次数（单位「次」，支持0.5次，正数表示消耗，负数表示返还/发放）
     val balanceMinutes: Double = 0.0,      // 变动后剩余时长（分钟）
-    val balanceCount: Int = 0              // 变动后剩余次数（half-unit，0.5 次 = 1；换算见 RestLedger.balanceCountInTimes）
+    val balanceCount: Int = 0,             // 变动后剩余次数（half-unit，0.5 次 = 1；换算见 RestLedger.balanceCountInTimes）
+    // 借用提前发放的额度：借用记录里 = 本次提前领取的下一段额度；额度发放记录里 = 该段已被提前发放的部分（净发放 = 本段额度 − 此值）
+    val advancedMinutes: Double = 0.0,
+    val advancedCount: Double = 0.0        // 同上，单位「次」
 )
 
 /**

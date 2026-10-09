@@ -111,26 +111,13 @@ object RestLedger {
         else -> plain
     }
 
-    /** 借用明细：只写真正借了的维度（只借次数就不写时长）。 */
-    fun borrowNote(
-        borrowedTimePrincipalSec: Int,
-        nextTimeCostSec: Int,
-        borrowedCountPrincipalHalfUnits: Int,
-        nextCountCostHalfUnits: Int
-    ): String {
-        val parts = mutableListOf<String>()
-        if (borrowedTimePrincipalSec > 0) {
-            parts += "借时长 ${formatAmount(borrowedTimePrincipalSec / 60.0)} 分钟，下一段预扣 ${formatAmount(nextTimeCostSec / 60.0)} 分钟"
-        }
-        if (borrowedCountPrincipalHalfUnits > 0) {
-            parts += "借次数 ${formatAmount(borrowedCountPrincipalHalfUnits / 2.0)} 次，下一段预扣 ${formatAmount(nextCountCostHalfUnits / 2.0)} 次"
-        }
-        return parts.joinToString("；")
-    }
-
     fun isRestLike(record: RestUsageRecord): Boolean =
         record.type == LEGACY_REST || record.type == LEGACY_BORROW ||
             record.type.startsWith(TYPE_REST) || record.type.startsWith(TYPE_TEMP)
+
+    /** 借用记录：借用时提前发放了下一段的额度（额度发放记录上的同名字段是「已被提前发放的部分」，不算）。 */
+    fun hasAdvance(record: RestUsageRecord): Boolean =
+        isRestLike(record) && (record.advancedMinutes > 0.0 || record.advancedCount > 0.0)
 
     fun isBorrow(record: RestUsageRecord): Boolean =
         record.type == LEGACY_BORROW || record.type.contains(BORROW_SUFFIX)
@@ -144,7 +131,8 @@ object RestLedger {
 
     fun matches(record: RestUsageRecord, filter: LedgerFilter): Boolean = when (filter) {
         LedgerFilter.ALL -> true
-        LedgerFilter.QUOTA_GRANT -> record.type == TYPE_GRANT
+        // 借用时提前发放的下一段额度也是入流，含提前发放的借用记录在「额度发放」里也能看到
+        LedgerFilter.QUOTA_GRANT -> record.type == TYPE_GRANT || hasAdvance(record)
         LedgerFilter.REFUND -> record.type == TYPE_REFUND
         LedgerFilter.RECALC -> record.type == TYPE_RECALC
         LedgerFilter.DEDUCTION -> record.type == TYPE_PENALTY
@@ -172,10 +160,13 @@ object RestLedger {
 
     private fun beforeOf(record: RestUsageRecord): Pair<Double, Double>? {
         if (!isChained(record)) return null
-        // 借用记录的变动量含下一段预扣，不等于当前结余的变化，还原不出使用前
-        if (isBorrow(record)) return null
-        return (record.balanceMinutes + record.costMinutes) to
-            (balanceCountInTimes(record) + costCountInTimes(record))
+        // 旧版借用记录的变动量含下一段预扣却没记提前发放，还原不出使用前
+        if (isBorrow(record) && !hasAdvance(record)) return null
+        // 使用前 + 提前发放 − 扣除 = 变动后（提前发放只有借用记录有）
+        val advance = if (hasAdvance(record)) record.advancedMinutes else 0.0
+        val advanceCount = if (hasAdvance(record)) record.advancedCount else 0.0
+        return (record.balanceMinutes + record.costMinutes - advance) to
+            (balanceCountInTimes(record) + costCountInTimes(record) - advanceCount)
     }
 
     /**
@@ -250,6 +241,11 @@ object RestLedger {
                 isRestLike(record) || record.type == TYPE_PENALTY -> {
                     outMinutes += record.costMinutes
                     outCount += costCountInTimes(record)
+                    // 借用时提前发放的下一段额度是入流；下一段发放记录里只记净发放，合计才等于该段额度
+                    if (hasAdvance(record)) {
+                        inMinutes += record.advancedMinutes
+                        inCount += record.advancedCount
+                    }
                 }
                 record.type == TYPE_RECALC -> {
                     // 重算的时长与次数可能一增一减，各自按正负归入入流 / 出流
@@ -266,6 +262,125 @@ object RestLedger {
             " · 出流 ${formatAmount(summary.outflowMinutes)}m / ${formatAmount(summary.outflowCount)}次"
         return if (summary.inflowShort) "$base\n入流小于出流，记录可能不全（特权不计入）" else "$base（特权不计入）"
     }
+
+    /** 「今天」范围内的核对：入流 = 出流 + 当前结余（额度每个业务日重新开始，所以只在单个业务日里成立）。 */
+    data class LedgerReconcile(
+        val balanceMinutes: Double,
+        val balanceCount: Double,
+        val diffMinutes: Double,
+        val diffCount: Double
+    ) {
+        val isBalanced: Boolean
+            get() = kotlin.math.abs(diffMinutes) < GAP_EPSILON_MINUTES && kotlin.math.abs(diffCount) < GAP_EPSILON_COUNT
+    }
+
+    fun reconcile(summary: LedgerSummary, balanceMinutes: Double, balanceHalfUnits: Int): LedgerReconcile {
+        val balanceCount = balanceHalfUnits / 2.0
+        return LedgerReconcile(
+            balanceMinutes = balanceMinutes,
+            balanceCount = balanceCount,
+            diffMinutes = summary.inflowMinutes - summary.outflowMinutes - balanceMinutes,
+            diffCount = summary.inflowCount - summary.outflowCount - balanceCount
+        )
+    }
+
+    fun reconcileText(summary: LedgerSummary, reconcile: LedgerReconcile): String {
+        val inflow = "${formatAmount(summary.inflowMinutes)}m / ${formatAmount(summary.inflowCount)}次"
+        val outflow = "${formatAmount(summary.outflowMinutes)}m / ${formatAmount(summary.outflowCount)}次"
+        val balance = "${formatAmount(reconcile.balanceMinutes)}m / ${formatAmount(reconcile.balanceCount)}次"
+        return if (reconcile.isBalanced) {
+            "入流 $inflow = 出流 $outflow + 当前结余 $balance ✓（特权不计入）"
+        } else {
+            "入流 $inflow ≠ 出流 $outflow + 当前结余 $balance\n" +
+                "差 ${formatDelta(reconcile.diffMinutes, "m")} / ${formatDelta(reconcile.diffCount, "次")}：" +
+                "正数 = 有额度去向没记进流水，负数 = 有入流没记（特权不计入）"
+        }
+    }
+
+    /**
+     * 详情里的一行。版式照主页：时长与次数左右并排、同等重要（没有的一项也写 `0次`）。
+     * [minutes] 与 [count] 都为空时是整行文字（标题或说明）。
+     */
+    data class DetailLine(
+        val label: String,
+        val minutes: String = "",
+        val count: String = "",
+        /** 合计 / 结论行，加粗并与上面分隔 */
+        val total: Boolean = false,
+        /** 说明小字 */
+        val muted: Boolean = false
+    ) {
+        val isFullRow: Boolean get() = minutes.isEmpty() && count.isEmpty()
+    }
+
+    /**
+     * 展开后的详情：只写标题行（时间、额度变化、使用前、变动后）看不出来的信息。
+     * 返回空 = 没有额外信息，卡片不可展开（简单的扣减不需要再念一遍标题）。
+     *
+     * 用词与主页、借用确认弹窗一致：本次预支、借用扣除 (×2)、实际生效。
+     */
+    fun detailLines(record: RestUsageRecord): List<DetailLine> {
+        fun m(value: Double) = "${formatAmount(value)}m"
+        fun times(value: Double) = "${formatAmount(value)}次"
+        val lines = mutableListOf<DetailLine>()
+        val costM = record.costMinutes
+        val costC = costCountInTimes(record)
+        val advM = record.advancedMinutes
+        val advC = record.advancedCount
+
+        when {
+            record.type == TYPE_PRIVILEGE -> {
+                if (record.reason.isNotBlank()) lines += DetailLine(record.reason)
+                lines += DetailLine("特权时长", minutes = m(costM), total = true)
+                lines += DetailLine("特权是独立池子，不占用休息额度", muted = true)
+            }
+            record.type == TYPE_REFUND -> {
+                lines += DetailLine(record.reason.ifBlank { "提前结束，退还未用额度" })
+                if (record.requestedMinutes > 0.0) {
+                    lines += DetailLine("申请", minutes = m(record.requestedMinutes))
+                    lines += DetailLine("实际用了", minutes = m(record.actualMinutes))
+                }
+                lines += DetailLine("退还未用", minutes = "+${m(-costM)}", count = if (costC == 0.0) "0次" else formatDelta(-costC, "次"), total = true)
+            }
+            record.type == TYPE_GRANT -> {
+                if (record.reason.isNotBlank()) lines += DetailLine(record.reason)
+                if (advM > 0.0 || advC > 0.0) {
+                    val netCount = -costC
+                    lines += DetailLine("总配额", minutes = m(-costM + advM), count = times(netCount + advC))
+                    lines += DetailLine("借用扣除 (×2)", minutes = "-${m(advM)}", count = "-${times(advC)}")
+                    lines += DetailLine("实际生效", minutes = m(-costM), count = times(netCount), total = true)
+                }
+            }
+            hasAdvance(record) -> {
+                val label = if (record.type.startsWith(TYPE_TEMP)) "临时解锁" else "休息"
+                lines += DetailLine("申请$label ${m(record.requestedMinutes)}" + if (isCooling(record)) "（冷却中，整单 ×2）" else "")
+                lines += DetailLine("本阶段扣除", minutes = m(costM - advM), count = times(costC - advC))
+                lines += DetailLine("本次预支", minutes = m(advM / 2.0), count = times(advC / 2.0))
+                lines += DetailLine("借用扣除 (×2)", minutes = "-${m(advM)}", count = "-${times(advC)}")
+                lines += DetailLine("借用提前发放", minutes = "+${m(advM)}", count = "+${times(advC)}")
+                lines += DetailLine("合计扣除", minutes = "-${m(costM)}", count = "-${times(costC)}", total = true)
+                lines += DetailLine("提前发放 = 提前领取下一段额度，用来支付借用扣除", muted = true)
+            }
+            else -> {
+                // 标题行已经说了的（普通扣减的数额）不重复；只留标题看不出来的
+                if (record.reason.isNotBlank() && record.reason !in BOILERPLATE_REASONS) lines += DetailLine(record.reason)
+                if (record.requestedMinutes > 0.0 && isCooling(record)) {
+                    lines += DetailLine("申请 ${m(record.requestedMinutes)}，冷却中整单 ×2，扣除 −${m(costM)}")
+                } else if (record.requestedMinutes > 0.0 && kotlin.math.abs(record.requestedMinutes - costM) > 0.05) {
+                    lines += DetailLine("申请 ${m(record.requestedMinutes)}，扣除 −${m(costM)}")
+                }
+            }
+        }
+        return lines
+    }
+
+    /** 纯文本形式（测试与无障碍朗读用）：每行「标签 时长 次数」。 */
+    fun detailText(record: RestUsageRecord): String = detailLines(record).joinToString("\n") { line ->
+        listOf(line.label, line.minutes, line.count).filter { it.isNotEmpty() }.joinToString(" ")
+    }
+
+    /** 普通休息 / 临时解锁的固定原因：标题行的类型标签已经说明，不再展开重复。 */
+    private val BOILERPLATE_REASONS = setOf("常规申请休息", "申请临时解锁", "冷却期申请休息（整单×2）", "冷却期申请临时解锁（整单×2）")
 
     /** 特权是独立池子，数量标签不叫「额度」，避免和休息额度混淆。 */
     fun poolLabel(record: RestUsageRecord): String =

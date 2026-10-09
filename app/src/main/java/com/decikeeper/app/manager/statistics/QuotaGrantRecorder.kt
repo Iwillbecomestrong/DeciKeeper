@@ -12,11 +12,15 @@ import java.util.Calendar
  * 额度本身是按段配置、读取时推算的，没有真正的"发放"动作；这里只负责在
  * 监控轮询第一次发现处于某个勿扰时段时落一条账，用于和扣减流水对账。
  * 每个业务日内的每个时段只记一次。
+ *
+ * 上一段借用时会提前发放本段的一部分额度（借用扣除 ×2，见 [notePendingAdvance]）；
+ * 这里只补发剩下的，并把已提前发放的部分写进记录，合计才等于本段额度。
  */
 object QuotaGrantRecorder {
 
     private const val PREFS_NAME = "rest_stats_grant_marker"
     private const val KEY_LAST_GRANT = "last_granted_segment"
+    private const val KEY_ADVANCE_PREFIX = "advance|"
 
     /** 监控在熄屏时暂停，发现略有延迟是正常的；超过这个时长才算「补记」。 */
     private const val LATE_DETECTION_MS = 2 * 60_000L
@@ -38,6 +42,32 @@ object QuotaGrantRecorder {
         return cal.timeInMillis
     }
 
+    /**
+     * 借用时，把提前发放给 [segment]（下一段）的额度记下来，等该段发放时扣掉。
+     * 同一时段多次借用累加；只保留当前业务日的记录。
+     *
+     * @param minutes 提前发放的时长（分钟）
+     * @param count 提前发放的次数（单位「次」）
+     */
+    @Synchronized
+    fun notePendingAdvance(context: Context, segment: TimeSegment, minutes: Double, count: Double) {
+        if (minutes <= 0.0 && count <= 0.0) return
+        val businessDate = CreditManager.getBusinessDateString(context)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val key = KEY_ADVANCE_PREFIX + grantKey(businessDate, segment)
+        val (oldMinutes, oldCount) = readAdvance(prefs.getString(key, null))
+        val editor = prefs.edit()
+        prefs.all.keys
+            .filter { it.startsWith(KEY_ADVANCE_PREFIX) && !it.startsWith("$KEY_ADVANCE_PREFIX$businessDate|") }
+            .forEach { editor.remove(it) }
+        editor.putString(key, "${oldMinutes + minutes},${oldCount + count}").apply()
+    }
+
+    private fun readAdvance(raw: String?): Pair<Double, Double> {
+        val parts = raw?.split(",").orEmpty()
+        return (parts.getOrNull(0)?.toDoubleOrNull() ?: 0.0) to (parts.getOrNull(1)?.toDoubleOrNull() ?: 0.0)
+    }
+
     @Synchronized
     fun recordIfNewSegment(context: Context, nowMillis: Long = System.currentTimeMillis()) {
         val segment = TimeRuleManager.getCurrentSegment(context) ?: return
@@ -52,6 +82,15 @@ object QuotaGrantRecorder {
         val grantedHalfUnits = proration.effectiveUsableCountHalfUnits
         if (grantedMinutes <= 0.0 && grantedHalfUnits <= 0) return
 
+        // 上一段借用时已经提前发放的部分：这里只补发剩下的（提前发放不会超过本段额度）
+        val advanceKey = KEY_ADVANCE_PREFIX + key
+        val (pendingMinutes, pendingCount) = readAdvance(prefs.getString(advanceKey, null))
+        if (prefs.contains(advanceKey)) prefs.edit().remove(advanceKey).apply()
+        val advancedMinutes = minOf(pendingMinutes, grantedMinutes)
+        val advancedHalfUnits = minOf(kotlin.math.round(pendingCount * 2).toInt(), grantedHalfUnits)
+        val netMinutes = grantedMinutes - advancedMinutes
+        val netHalfUnits = grantedHalfUnits - advancedHalfUnits
+
         val startMillis = latestOccurrenceStartMillis(segment, nowMillis)
         var balanceMinutes = CreditManager.getRemainingMinutes(context)
         var balanceCount = CreditManager.getRemainingUsableCount(context)
@@ -59,7 +98,7 @@ object QuotaGrantRecorder {
 
         if (nowMillis - startMillis > LATE_DETECTION_MS) {
             // 补记：时段早已开始（如应用刚更新、进程被杀后重启），现在的结余已经包含了之后的使用，
-            // 不能当作「发放后」的结余。按「上一笔流水的变动后 + 本次发放」估算，让流水连得上。
+            // 不能当作「发放后」的结余。按「上一笔流水的变动后 + 本次净发放」估算，让流水连得上。
             val dayStartMinutes = TimeRuleManager.getRefreshTime(context).split(":")
                 .let { (it.getOrNull(0)?.toIntOrNull() ?: 8) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) }
             val previous = RestStatsRecorder.getAllRecords(context).firstOrNull {
@@ -68,8 +107,8 @@ object QuotaGrantRecorder {
                 RestLedger.businessDayOf(it.timestamp, dayStartMinutes) == RestLedger.businessDayOf(startMillis, dayStartMinutes)
             }
             if (previous != null) {
-                balanceMinutes = previous.balanceMinutes + grantedMinutes
-                balanceCount = previous.balanceCount + grantedHalfUnits
+                balanceMinutes = previous.balanceMinutes + netMinutes
+                balanceCount = previous.balanceCount + netHalfUnits
             }
             reason += "（补记：时段开始后才检测到，结余按上一笔流水估算）"
         }
@@ -81,12 +120,14 @@ object QuotaGrantRecorder {
             reason = reason,
             requestedMinutes = 0.0,
             actualMinutes = 0.0,
-            // 成本为负 = 额度增加（与"提前退还"同一符号约定）
-            costMinutes = -grantedMinutes,
-            costCount = -(grantedHalfUnits / 2.0),
+            // 成本为负 = 额度增加（与"提前退还"同一符号约定）；净发放 = 本段额度 − 已提前发放
+            costMinutes = -netMinutes,
+            costCount = -(netHalfUnits / 2.0),
             balanceMinutes = balanceMinutes,
             balanceCount = balanceCount,
-            timestamp = startMillis
+            timestamp = startMillis,
+            advancedMinutes = advancedMinutes,
+            advancedCount = advancedHalfUnits / 2.0
         )
     }
 }

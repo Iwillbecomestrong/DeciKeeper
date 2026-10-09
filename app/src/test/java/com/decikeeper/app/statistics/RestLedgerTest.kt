@@ -3,6 +3,7 @@ package com.decikeeper.app.statistics
 import com.decikeeper.app.data.statistics.RestUsageRecord
 import com.decikeeper.app.manager.statistics.LedgerEntry
 import com.decikeeper.app.manager.statistics.LedgerFilter
+import com.decikeeper.app.manager.statistics.LedgerSummary
 import com.decikeeper.app.manager.statistics.RestLedger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -158,23 +159,6 @@ class RestLedgerTest {
         assertFalse(summary.inflowShort)
     }
 
-    @Test
-    fun borrowNoteOnlyMentionsDimensionsThatWereBorrowed() {
-        // 只借了次数，时长够用：不写“借时长”
-        assertEquals(
-            "借次数 1 次，下一段预扣 2 次",
-            RestLedger.borrowNote(0, 0, 2, 4)
-        )
-        assertEquals(
-            "借时长 1 分钟，下一段预扣 2 分钟",
-            RestLedger.borrowNote(60, 120, 0, 0)
-        )
-        assertEquals(
-            "借时长 1 分钟，下一段预扣 2 分钟；借次数 0.5 次，下一段预扣 1 次",
-            RestLedger.borrowNote(60, 120, 1, 2)
-        )
-    }
-
     // ── 使用前 / 缺口提示（用 10-09 真机流水的数字）──────────────────────────────
 
     private val zone = java.time.ZoneId.of("Asia/Shanghai")
@@ -189,11 +173,17 @@ class RestLedgerTest {
         count: Double,
         afterMinutes: Double,
         afterHalfUnits: Int,
-        type: String = "REST"
+        type: String = "REST",
+        advancedMinutes: Double = 0.0,
+        advancedCount: Double = 0.0,
+        requested: Double = 0.0,
+        reason: String = ""
     ) = RestUsageRecord(
-        id = id, timestamp = ts, dateLabel = "", type = type, typeName = "",
+        id = id, timestamp = ts, dateLabel = "", type = type, typeName = "", reason = reason,
+        requestedMinutes = requested,
         costMinutes = cost, costCount = count,
-        balanceMinutes = afterMinutes, balanceCount = afterHalfUnits
+        balanceMinutes = afterMinutes, balanceCount = afterHalfUnits,
+        advancedMinutes = advancedMinutes, advancedCount = advancedCount
     )
 
     @Test
@@ -246,16 +236,134 @@ class RestLedgerTest {
     }
 
     @Test
-    fun borrowAndPrivilegeRowsDoNotTriggerFalseGaps() {
+    fun legacyBorrowRowsWithoutAdvanceAndPrivilegeDoNotTriggerFalseGaps() {
+        // 旧版借用记录没有记提前发放，还原不出使用前，不参与缺口比较
         val borrow = rest("borrow", at(15, 0), cost = 22.0, count = 2.0, afterMinutes = 0.0, afterHalfUnits = 0, type = "REST_BORROW")
         val privilege = rest("priv", at(14, 30), 240.0, 1.0, 99.0, 99, type = "PRIVILEGE")
         val before = rest("before", at(14, 0), 3.0, 0.5, 30.0, 10)
 
         val entries = RestLedger.buildEntries(listOf(borrow, privilege, before), includeGaps = true, zoneId = zone)
 
-        assertTrue("借用的使用前还原不出来，也不参与缺口比较", entries.none { it is LedgerEntry.Gap })
+        assertTrue(entries.none { it is LedgerEntry.Gap })
         assertNull((entries[0] as LedgerEntry.Row).beforeMinutes)
         assertNull((entries[1] as LedgerEntry.Row).beforeMinutes)
+    }
+
+    // ── 借用 = 提前发放下一段额度再扣除（10 + 15×2 − 40 = 0）────────────────
+
+    /** 11:00 剩 10m / 0.5 次，申请休息 25m（>3 分钟需 1 次）：时长、次数都不够，各预支一半，提前发放 30m / 1 次，总扣 40m / 1.5 次。 */
+    private fun borrowRow() = rest(
+        "borrow", at(11, 0), cost = 40.0, count = 1.5, afterMinutes = 0.0, afterHalfUnits = 0,
+        type = "REST_BORROW", advancedMinutes = 30.0, advancedCount = 1.0, requested = 25.0
+    )
+
+    @Test
+    fun borrowRowChainsFromBalanceBeforePlusAdvanceMinusCost() {
+        val earlier = rest("10:00", at(10, 0), -10.0, -0.5, 10.0, 1, type = "GRANT")
+        val entries = RestLedger.buildEntries(listOf(borrowRow(), earlier), includeGaps = true, zoneId = zone)
+
+        val row = entries.filterIsInstance<LedgerEntry.Row>().first { it.record.id == "borrow" }
+        assertEquals(10.0, row.beforeMinutes!!, 0.0001)
+        assertEquals(0.5, row.beforeCount!!, 0.0001)
+        assertTrue("提前发放让借用行接得上，不再冒缺口", entries.none { it is LedgerEntry.Gap })
+    }
+
+    @Test
+    fun borrowRowCountsAdvanceAsInflowAndFullCostAsOutflowAndMatchesQuotaGrantFilter() {
+        val earlier = rest("10:00", at(10, 0), -10.0, -0.5, 10.0, 1, type = "GRANT")
+        // 12:00 补发：本段额度 60m，已提前发放 30m，净发放 30m
+        val grant = rest("12:00", at(12, 0), -30.0, -2.0, 30.0, 8, type = "GRANT", advancedMinutes = 30.0, advancedCount = 1.0)
+
+        val summary = RestLedger.summarize(listOf(grant, borrowRow(), earlier))
+
+        // 入流 = 10 + 提前发放 30 + 补发 30；出流 = 借用总扣 40
+        assertEquals(70.0, summary.inflowMinutes, 0.0001)
+        assertEquals(40.0, summary.outflowMinutes, 0.0001)
+        assertTrue(RestLedger.matches(borrowRow(), LedgerFilter.QUOTA_GRANT))
+        assertTrue(RestLedger.matches(borrowRow(), LedgerFilter.BORROW))
+    }
+
+    @Test
+    fun reconcileHoldsWhenInflowEqualsOutflowPlusBalance() {
+        val summary = LedgerSummary(70.0, 14.0, 40.0, 4.5)
+
+        val ok = RestLedger.reconcile(summary, balanceMinutes = 30.0, balanceHalfUnits = 19)
+        assertTrue(ok.isBalanced)
+        assertTrue(RestLedger.reconcileText(summary, ok).contains("✓"))
+
+        val off = RestLedger.reconcile(summary, balanceMinutes = 26.0, balanceHalfUnits = 16)
+        assertFalse(off.isBalanced)
+        assertEquals(4.0, off.diffMinutes, 0.0001)
+        assertEquals(1.5, off.diffCount, 0.0001)
+        assertTrue(RestLedger.reconcileText(summary, off).contains("≠"))
+    }
+
+    private fun line(record: RestUsageRecord, label: String) =
+        RestLedger.detailLines(record).first { it.label == label }
+
+    @Test
+    fun borrowDetailMirrorsTheHomePageLayoutWithTimeAndCountSideBySide() {
+        // 剩 10m / 0.5 次，申请 25m（需 1 次）：时长、次数都不够
+        val lines = RestLedger.detailLines(borrowRow())
+
+        assertEquals("申请休息 25m", lines.first().label)
+        with(line(borrowRow(), "本阶段扣除")) { assertEquals("10m", minutes); assertEquals("0.5次", count) }
+        with(line(borrowRow(), "本次预支")) { assertEquals("15m", minutes); assertEquals("0.5次", count) }
+        with(line(borrowRow(), "借用扣除 (×2)")) { assertEquals("-30m", minutes); assertEquals("-1次", count) }
+        with(line(borrowRow(), "借用提前发放")) { assertEquals("+30m", minutes); assertEquals("+1次", count) }
+        with(line(borrowRow(), "合计扣除")) { assertEquals("-40m", minutes); assertEquals("-1.5次", count); assertTrue(total) }
+    }
+
+    @Test
+    fun borrowDetailKeepsTheCountColumnAtZeroWhenOnlyTimeWasBorrowed() {
+        // 剩 10m / 4 次，申请 25m（需 1 次）：次数够，只借时长；次数一列写 0次，和主页一样不省掉
+        val onlyTime = rest(
+            "borrow", at(11, 0), cost = 40.0, count = 1.0, afterMinutes = 0.0, afterHalfUnits = 6,
+            type = "REST_BORROW", advancedMinutes = 30.0, requested = 25.0
+        )
+
+        with(line(onlyTime, "本阶段扣除")) { assertEquals("10m", minutes); assertEquals("1次", count) }
+        with(line(onlyTime, "本次预支")) { assertEquals("15m", minutes); assertEquals("0次", count) }
+        with(line(onlyTime, "借用扣除 (×2)")) { assertEquals("-30m", minutes); assertEquals("-0次", count) }
+        with(line(onlyTime, "合计扣除")) { assertEquals("-40m", minutes); assertEquals("-1次", count) }
+    }
+
+    @Test
+    fun grantDetailMirrorsTheHomePageEffectiveQuota() {
+        val grant = rest("12:00", at(12, 0), -30.0, -3.0, 30.0, 6, type = "GRANT", advancedMinutes = 30.0, advancedCount = 0.0, reason = "进入「午后」时段，领取本时段额度")
+
+        val lines = RestLedger.detailLines(grant)
+
+        assertEquals("进入「午后」时段，领取本时段额度", lines.first().label)
+        with(line(grant, "总配额")) { assertEquals("60m", minutes); assertEquals("3次", count) }
+        with(line(grant, "借用扣除 (×2)")) { assertEquals("-30m", minutes); assertEquals("-0次", count) }
+        with(line(grant, "实际生效")) { assertEquals("30m", minutes); assertEquals("3次", count); assertTrue(total) }
+    }
+
+    @Test
+    fun refundDetailExplainsWhatTheNumbersMean() {
+        val refund = rest("12:00", at(12, 0), -1.1, 0.0, 14.0, 8, type = "REFUND", requested = 2.0, reason = "提前结束休息返还未用额度")
+            .copy(actualMinutes = 0.9)
+
+        assertEquals("2m", line(refund, "申请").minutes)
+        assertEquals("0.9m", line(refund, "实际用了").minutes)
+        with(line(refund, "退还未用")) { assertEquals("+1.1m", minutes); assertEquals("0次", count) }
+    }
+
+    @Test
+    fun simpleRecordsHaveNoDetailBecauseTheTitleLineAlreadySaysItAll() {
+        val plain = rest("r", at(9, 0), 5.0, 0.5, 20.0, 6, requested = 5.0, reason = "常规申请休息")
+        val penalty = rest("p", at(9, 5), 0.5, 0.5, 20.0, 6, type = "PENALTY")
+
+        assertTrue(RestLedger.detailLines(plain).isEmpty())
+        assertTrue(RestLedger.detailLines(penalty).isEmpty())
+    }
+
+    @Test
+    fun coolingRestKeepsADetailBecauseTheDoublingIsNotInTheTitle() {
+        val cooling = rest("c", at(9, 0), 10.0, 1.0, 20.0, 6, type = "REST_COOLING", requested = 5.0, reason = "冷却期申请休息（整单×2）")
+
+        assertEquals("申请 5m，冷却中整单 ×2，扣除 −10m", RestLedger.detailText(cooling))
     }
 
     @Test

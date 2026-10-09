@@ -99,6 +99,53 @@ class QuotaGrantRecorderTest {
     }
 
     @Test
+    fun grantOnlyPaysTheRemainderOfWhatWasAdvancedByABorrow() {
+        assumeAwayFromMidnight()
+        installAllDaySegment(limitMins = 30)
+        val segment = TimeRuleManager.getCurrentSegment(context)!!
+        // 上一段借用时提前发放了本段 10m / 1 次
+        QuotaGrantRecorder.notePendingAdvance(context, segment, minutes = 10.0, count = 1.0)
+
+        QuotaGrantRecorder.recordIfNewSegment(context)
+
+        val grant = RestStatsRecorder.getAllRecords(context).single { it.type == RestLedger.TYPE_GRANT }
+        assertEquals("净发放 = 本段额度 30m − 已提前发放 10m", -20.0, grant.costMinutes, 0.001)
+        assertEquals(10.0, grant.advancedMinutes, 0.001)
+        assertEquals(1.0, grant.advancedCount, 0.001)
+        assertTrue("次数净发放也扣掉了已提前发放的 1 次", -grant.costCount + grant.advancedCount > 0.0)
+    }
+
+    @Test
+    fun theAdvanceIsConsumedByTheFirstGrantOnly() {
+        assumeAwayFromMidnight()
+        installAllDaySegment(limitMins = 30)
+        val segment = TimeRuleManager.getCurrentSegment(context)!!
+        QuotaGrantRecorder.notePendingAdvance(context, segment, minutes = 10.0, count = 0.0)
+        QuotaGrantRecorder.notePendingAdvance(context, segment, minutes = 5.0, count = 0.0)
+
+        QuotaGrantRecorder.recordIfNewSegment(context)
+
+        // 同一时段多次借用累加
+        val grant = RestStatsRecorder.getAllRecords(context).single { it.type == RestLedger.TYPE_GRANT }
+        assertEquals(15.0, grant.advancedMinutes, 0.001)
+        assertEquals(-15.0, grant.costMinutes, 0.001)
+    }
+
+    @Test
+    fun advanceLargerThanTheGrantNeverMakesTheGrantNegative() {
+        assumeAwayFromMidnight()
+        installAllDaySegment(limitMins = 30)
+        val segment = TimeRuleManager.getCurrentSegment(context)!!
+        QuotaGrantRecorder.notePendingAdvance(context, segment, minutes = 99.0, count = 0.0)
+
+        QuotaGrantRecorder.recordIfNewSegment(context)
+
+        val grant = RestStatsRecorder.getAllRecords(context).single { it.type == RestLedger.TYPE_GRANT }
+        assertEquals(0.0, grant.costMinutes, 0.001)
+        assertEquals(30.0, grant.advancedMinutes, 0.001)
+    }
+
+    @Test
     fun doesNothingOutsideAnySegment() {
         // 没有任何时段配置
         QuotaGrantRecorder.recordIfNewSegment(context)

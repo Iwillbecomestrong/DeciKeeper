@@ -4,12 +4,15 @@ import android.app.AlertDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -29,6 +32,7 @@ import com.decikeeper.app.manager.statistics.HistoryRetentionPolicy
 import com.decikeeper.app.manager.statistics.LedgerEntry
 import com.decikeeper.app.manager.statistics.LedgerFilter
 import com.decikeeper.app.manager.statistics.RestLedger
+import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.ui.ThemeManager
 import com.decikeeper.app.manager.statistics.StatisticsRepository
@@ -171,7 +175,16 @@ class StatsHistoryActivity : AppCompatActivity() {
             businessDayStartMinutes = businessDayStartMinutes
         )
         // 入流 / 出流汇总只看显示范围，不受类型筛选影响
-        tvRestSummary.text = RestLedger.summaryText(RestLedger.summarize(inRange))
+        val summary = RestLedger.summarize(inRange)
+        tvRestSummary.text = if (restDisplayRange == HistoryDisplayRange.TODAY) {
+            // 「今天」是单个业务日：入流 = 出流 + 当前结余，直接核对；多日范围里未用完的额度会作废，不套这个公式
+            RestLedger.reconcileText(
+                summary,
+                RestLedger.reconcile(summary, CreditManager.getRemainingMinutes(this), CreditManager.getRemainingUsableCount(this))
+            )
+        } else {
+            RestLedger.summaryText(summary)
+        }
         val records = RestLedger.filter(inRange, restLedgerFilter)
         // 只有「全部」才插入缺口提示（相邻两笔必须是真实相邻，筛选后就不相邻了）
         val entries = RestLedger.buildEntries(
@@ -444,15 +457,10 @@ class StatsHistoryActivity : AppCompatActivity() {
             private val badge: TextView = view.findViewById(R.id.tv_history_rest_type_badge)
             private val tvDate: TextView = view.findViewById(R.id.tv_history_rest_date)
             private val tvCost: TextView = view.findViewById(R.id.tv_history_rest_cost)
+            private val tvBefore: TextView = view.findViewById(R.id.tv_history_rest_before)
             private val tvBalance: TextView = view.findViewById(R.id.tv_history_rest_balance)
             private val tvArrow: TextView = view.findViewById(R.id.tv_history_rest_arrow)
-
-            private val layoutDetail: View = view.findViewById(R.id.layout_history_rest_detail)
-            private val tvDetailReason: TextView = view.findViewById(R.id.tv_history_rest_detail_reason)
-            private val tvDetailDuration: TextView = view.findViewById(R.id.tv_history_rest_detail_duration)
-            private val tvDetailCost: TextView = view.findViewById(R.id.tv_history_rest_detail_cost)
-            private val tvDetailBalance: TextView = view.findViewById(R.id.tv_history_rest_detail_balance)
-            private val btnDelete: TextView = view.findViewById(R.id.btn_delete_rest_record)
+            private val layoutDetail: LinearLayout = view.findViewById(R.id.layout_history_rest_detail)
 
             fun bind(
                 entry: LedgerEntry.Row,
@@ -468,28 +476,73 @@ class StatsHistoryActivity : AppCompatActivity() {
                 val countDelta = -RestLedger.costCountInTimes(item)
                 val balanceText = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
                 tvCost.text = "${RestLedger.poolLabel(item)} ${RestLedger.formatDelta(quotaDelta, "m")} / 次数 ${RestLedger.formatDelta(countDelta, "次")}"
-                // 特权是独立池子，不动休息额度，结余没有变化可言
-                // 其余：写出「使用前」，方便核对是算错了还是漏记了
-                val beforeText = if (entry.beforeMinutes != null && entry.beforeCount != null) {
-                    "使用前: ${RestLedger.formatAmount(entry.beforeMinutes)}m / ${RestLedger.formatAmount(entry.beforeCount)}次\n"
+                // 左使用前、右变动后；特权是独立池子，不动休息额度，结余没有变化可言
+                tvBefore.text = if (entry.beforeMinutes != null && entry.beforeCount != null) {
+                    "使用前: ${RestLedger.formatAmount(entry.beforeMinutes)}m / ${RestLedger.formatAmount(entry.beforeCount)}次"
                 } else ""
-                tvBalance.text = if (item.type == RestLedger.TYPE_PRIVILEGE) "不占用休息额度" else "${beforeText}变动后结余: $balanceText"
+                tvBalance.text = if (item.type == RestLedger.TYPE_PRIVILEGE) "不占用休息额度" else "变动后结余: $balanceText"
 
-                tvArrow.text = if (isExpanded) "▲" else "▼"
-                layoutDetail.isVisible = isExpanded
+                // 标题行已经说完的简单记录没有详情，不显示 ▼、点击不展开
+                val lines = RestLedger.detailLines(item)
+                val expandable = lines.isNotEmpty()
+                val open = expandable && isExpanded
+                tvArrow.isVisible = expandable
+                tvArrow.text = if (open) "▲" else "▼"
+                layoutDetail.isVisible = open
+                if (open) renderDetail(lines)
 
-                if (isExpanded) {
-                    tvDetailReason.text = if (item.reason.isNotBlank()) "原因说明: ${item.reason}" else "原因说明: 无"
-                    tvDetailDuration.text = "申请时长: ${item.requestedMinutes}m  |  实际使用: ${item.actualMinutes}m"
-                    tvDetailCost.text = "额度变化: ${RestLedger.formatDelta(quotaDelta, "m")}  |  次数变化: ${RestLedger.formatDelta(countDelta, "次")}"
-                    val detailBefore = if (entry.beforeMinutes != null && entry.beforeCount != null) {
-                        "使用前 ${RestLedger.formatAmount(entry.beforeMinutes)} 分钟 / ${RestLedger.formatAmount(entry.beforeCount)} 次 → "
-                    } else ""
-                    tvDetailBalance.text = "${detailBefore}变动后 ${RestLedger.formatAmount(item.balanceMinutes)} 分钟 / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))} 次"
-                    btnDelete.setOnClickListener { onDelete(item) }
+                itemView.setOnClickListener(if (expandable) View.OnClickListener { onToggle() } else null)
+                // 删除入口：长按任意一条（简单记录没有展开面板，删除统一放长按）
+                itemView.setOnLongClickListener {
+                    onDelete(item)
+                    true
+                }
+            }
+
+            private fun renderDetail(lines: List<RestLedger.DetailLine>) {
+                layoutDetail.removeAllViews()
+                val context = layoutDetail.context
+                val density = context.resources.displayMetrics.density
+                val textColor = ThemeManager.getColorAttr(context, R.attr.zzText)
+                val mutedColor = ThemeManager.getColorAttr(context, R.attr.zzMuted)
+                val lineColor = ThemeManager.getColorAttr(context, R.attr.zzLine)
+
+                fun cell(text: String, weight: Float, gravity: Int, color: Int, sizeSp: Float, bold: Boolean) = TextView(context).apply {
+                    this.text = text
+                    this.gravity = gravity
+                    setTextColor(color)
+                    textSize = sizeSp
+                    if (bold) setTypeface(typeface, Typeface.BOLD)
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
                 }
 
-                itemView.setOnClickListener { onToggle() }
+                lines.forEach { line ->
+                    if (line.total) {
+                        layoutDetail.addView(View(context).apply {
+                            setBackgroundColor(lineColor)
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1 * density).toInt().coerceAtLeast(1)).apply {
+                                topMargin = (6 * density).toInt()
+                                bottomMargin = (6 * density).toInt()
+                            }
+                        })
+                    }
+                    val color = if (line.muted) mutedColor else textColor
+                    val size = if (line.muted) 11f else 12f
+                    if (line.isFullRow) {
+                        layoutDetail.addView(cell(line.label, 1f, Gravity.START, color, size, false).apply {
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                        })
+                    } else {
+                        // 时长与次数左右并排、同等重要（版式同主页）
+                        layoutDetail.addView(LinearLayout(context).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                            addView(cell(line.label, 1.3f, Gravity.START, color, size, line.total))
+                            addView(cell(line.minutes, 1f, Gravity.END, color, size, line.total))
+                            addView(cell(line.count, 1f, Gravity.END, color, size, line.total))
+                        })
+                    }
+                }
             }
         }
     }

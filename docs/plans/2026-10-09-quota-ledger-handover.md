@@ -119,6 +119,14 @@
 - 注意：`getRemainingMinutes` 内部会触发 `checkDayChange` → `applyPendingToActive` → `saveTimeSegments`，要避免递归和在业务日切换时误记（日切换是额度重新开始，不是重算）；
 - 测试：改某段额度前后结余变化被记录一次；无变化不记；业务日切换不记。
 
+### 5.7a 已实现：借用 = 提前发放再扣除（用户 10-09 讨论定稿；单测全绿，真机未验证）
+
+- 数据：`RestUsageRecord.advancedMinutes` / `advancedCount`（流水库 v2，`RestStatsDatabase.onUpgrade` 加两列，备份 JSON 与旧版 SharedPreferences 都带上）。借用记录里 = 提前发放的下一段额度（= 下一段预扣）；额度发放记录里 = 该段已被提前发放的部分。
+- 写入：`LockWindowManager.performGrant` 与临时解锁两处借用记录写 `advanced*`，并调 `QuotaGrantRecorder.notePendingAdvance` 记下下一段被提前发放了多少；`recordIfNewSegment` 发放时取出，记净发放。
+- 展示：`RestLedger.detailLines`（主页版式）；简单记录空详情 → 不展开；删除改长按；`reconcile` 在「今天」核对 入流 = 出流 + 当前结余。
+- 已知局限：提前结束借用的休息时退还的下一段部分不会回补提前发放；临时解锁非预先计划路径只记时长的提前发放。旧借用记录没有提前发放，使用前不显示。
+- 待真机：做一次时长不够的借用（看 11:00 标题 / 详情、使用前接得上），到下一段看额度发放是否写「实际生效」、汇总 ✓。
+
 ### 5.8 其它可重点怀疑 / 核对的点
 
 1. **借用记录的总扣减口径**：`performGrant` 在 `borrowPlan` 存在时记 `current + next`，但「变动后结余」只反映当前可用，二者对不上是设计如此（见 `RestLedger` 注释）；若用户期望结余能逐笔对上，需要重新设计（例如把下一段预扣单独记一笔）。

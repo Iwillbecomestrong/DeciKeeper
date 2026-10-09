@@ -38,7 +38,9 @@ object RestStatsRecorder {
         costCount: Double = 0.0,
         balanceMinutes: Double = 0.0,
         balanceCount: Int = 0,
-        timestamp: Long = System.currentTimeMillis()
+        timestamp: Long = System.currentTimeMillis(),
+        advancedMinutes: Double = 0.0,
+        advancedCount: Double = 0.0
     ): RestUsageRecord {
         val zoneId = ZoneId.systemDefault()
         val dateLabel = Instant.ofEpochMilli(timestamp).atZone(zoneId).format(dateTimeFormatter)
@@ -56,7 +58,9 @@ object RestStatsRecorder {
             costMinutes = costMinutes,
             costCount = costCount,
             balanceMinutes = balanceMinutes,
-            balanceCount = balanceCount
+            balanceCount = balanceCount,
+            advancedMinutes = advancedMinutes,
+            advancedCount = advancedCount
         )
 
         try {
@@ -109,7 +113,9 @@ object RestStatsRecorder {
                         costMinutes = obj.optDouble("costMinutes", 0.0),
                         costCount = obj.optDouble("costCount", 0.0),
                         balanceMinutes = obj.optDouble("balanceMinutes", 0.0),
-                        balanceCount = obj.optInt("balanceCount", 0)
+                        balanceCount = obj.optInt("balanceCount", 0),
+                        advancedMinutes = obj.optDouble("advancedMinutes", 0.0),
+                        advancedCount = obj.optDouble("advancedCount", 0.0)
                     )
                 )
             }
@@ -230,6 +236,8 @@ object RestStatsRecorder {
             obj.put("costCount", r.costCount)
             obj.put("balanceMinutes", r.balanceMinutes)
             obj.put("balanceCount", r.balanceCount)
+            obj.put("advancedMinutes", r.advancedMinutes)
+            obj.put("advancedCount", r.advancedCount)
             array.put(obj)
         }
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

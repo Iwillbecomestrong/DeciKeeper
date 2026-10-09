@@ -88,6 +88,7 @@ import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.FrequentReturnDeduction
 import com.decikeeper.app.manager.LockOverlayRestrictionMode
 import com.decikeeper.app.manager.TimeRuleManager
+import com.decikeeper.app.manager.statistics.QuotaGrantRecorder
 import com.decikeeper.app.manager.statistics.RestLedger
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import com.decikeeper.app.manager.getEffectiveUsableCountLimit
@@ -4843,33 +4844,27 @@ object LockWindowManager {
                 else -> chargeSnapshot.weightedCountHalfUnits / 2.0
             }
             val baseReason = if (touchedCooling) "冷却期申请临时解锁（整单×2）" else "申请临时解锁"
-            val borrowNote = loggedPlan?.let {
-                RestLedger.borrowNote(
-                    it.borrowedTimePrincipalSec,
-                    it.nextTimeCostSec,
-                    it.borrowedCountPrincipalHalfUnits,
-                    it.nextCountCostHalfUnits
-                )
-            } ?: if (borrowedFromNext) {
-                RestLedger.borrowNote(
-                    borrowedTimePrincipalSec = borrowChargeSecondsForSession / 2,
-                    nextTimeCostSec = nextChargeSecondsForSession,
-                    borrowedCountPrincipalHalfUnits = 0,
-                    nextCountCostHalfUnits = 0
-                )
-            } else ""
+            // 借用 = 提前发放下一段额度再扣除；次数的预扣只有预先计划的路径才知道，其余路径次数不记提前发放
+            val advancedMinutes = when {
+                loggedPlan != null -> loggedPlan.nextTimeCostSec / 60.0
+                else -> nextChargeSecondsForSession / 60.0
+            }
+            val advancedCount = loggedPlan?.let { it.nextCountCostHalfUnits / 2.0 } ?: 0.0
             RestStatsRecorder.record(
                 context = context,
                 type = RestLedger.tempType(touchedCooling, borrowedFromNext),
                 typeName = RestLedger.tempTypeName(touchedCooling, borrowedFromNext),
-                reason = if (borrowNote.isNotEmpty()) "$baseReason；$borrowNote" else baseReason,
+                reason = baseReason,
                 requestedMinutes = seconds / 60.0,
                 actualMinutes = seconds / 60.0,
                 costMinutes = ledgerCostMinutes,
                 costCount = ledgerCostCount,
                 balanceMinutes = CreditManager.getRemainingMinutes(context),
-                balanceCount = CreditManager.getRemainingUsableCount(context)
+                balanceCount = CreditManager.getRemainingUsableCount(context),
+                advancedMinutes = advancedMinutes,
+                advancedCount = advancedCount
             )
+            if (advancedMinutes > 0.0 || advancedCount > 0.0) noteAdvanceForNextSegment(context, advancedMinutes, advancedCount)
         }
         dismissLockScreen(LockDismissAuthority.TEMPORARY_ACCESS)
     }
@@ -6174,29 +6169,35 @@ object LockWindowManager {
             appliedInCooling -> "冷却期申请休息（整单×2）"
             else -> "常规申请休息"
         }
-        val borrowNote = loggedPlan?.let {
-            RestLedger.borrowNote(
-                it.borrowedTimePrincipalSec,
-                it.nextTimeCostSec,
-                it.borrowedCountPrincipalHalfUnits,
-                it.nextCountCostHalfUnits
-            )
-        }.orEmpty()
+        // 借用 = 提前发放下一段额度再扣除：下一段预扣的部分记为提前发放，下一段发放时只补发剩下的
+        val advancedMinutes = loggedPlan?.let { it.nextTimeCostSec / 60.0 } ?: 0.0
+        val advancedCount = loggedPlan?.let { it.nextCountCostHalfUnits / 2.0 } ?: 0.0
         RestStatsRecorder.record(
             context = context,
             type = RestLedger.restType(appliedInCooling, isBorrowed),
             typeName = RestLedger.restTypeName(appliedInCooling, isBorrowed),
-            reason = if (borrowNote.isNotEmpty()) "$baseReason；$borrowNote" else baseReason,
+            reason = baseReason,
             requestedMinutes = requestedMins,
             actualMinutes = requestedMins,
             costMinutes = ledgerCostMinutes,
             costCount = ledgerCostCount,
             balanceMinutes = remainMins,
-            balanceCount = remainCount
+            balanceCount = remainCount,
+            advancedMinutes = advancedMinutes,
+            advancedCount = advancedCount
         )
+        if (loggedPlan != null) noteAdvanceForNextSegment(context, advancedMinutes, advancedCount)
 
         val msg = if (isBorrowed) "预支成功！开启休息: $requestedMins 分钟" else "开启休息: $requestedMins 分钟"
         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    /** 借用时下一段被提前发放的额度记下来，下一段发放时只补发剩下的（见 [QuotaGrantRecorder.notePendingAdvance]）。 */
+    private fun noteAdvanceForNextSegment(context: Context, minutes: Double, count: Double) {
+        val segments = TimeRuleManager.getTimeSegments(context)
+        val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
+        if (currentIndex == -1 || segments.isEmpty()) return
+        QuotaGrantRecorder.notePendingAdvance(context, segments[(currentIndex + 1) % segments.size], minutes, count)
     }
 
     private fun showBorrowConfirmDialog(context: Context, requestedMins: Double, totalCost: Double, borrowMins: Double) {

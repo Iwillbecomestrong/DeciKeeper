@@ -706,6 +706,8 @@ object SettingsBackupManager {
         put("costCount", costCount)
         put("balanceMinutes", balanceMinutes)
         put("balanceCount", balanceCount)
+        put("advancedMinutes", advancedMinutes)
+        put("advancedCount", advancedCount)
     }
 
     private fun decodeAlarmWakeRecords(array: JSONArray): List<AlarmWakeRecord> {
@@ -752,7 +754,9 @@ object SettingsBackupManager {
                 costMinutes = obj.optDouble("costMinutes", 0.0),
                 costCount = obj.optDouble("costCount", 0.0),
                 balanceMinutes = obj.optDouble("balanceMinutes", 0.0),
-                balanceCount = obj.optInt("balanceCount", 0)
+                balanceCount = obj.optInt("balanceCount", 0),
+                advancedMinutes = obj.optDouble("advancedMinutes", 0.0),
+                advancedCount = obj.optDouble("advancedCount", 0.0)
             )
         }
         return records
