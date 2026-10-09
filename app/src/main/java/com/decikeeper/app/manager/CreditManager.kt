@@ -1919,6 +1919,27 @@ object CreditManager {
     }
 
     /**
+     * [getRemainingMinutes] 在时段内的逐段构成（时段名 → 该段计入结余的分钟数），与结余同口径。
+     * 空档期的结余走另一条路径，这里返回 null。供「额度重算」流水说明结余是哪一段变的。
+     */
+    fun getRemainingMinutesBreakdown(context: Context): List<Pair<String, Double>>? {
+        val now = System.currentTimeMillis()
+        val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
+        if (currentIndex == -1) return null
+        val segments = TimeRuleManager.getTimeSegments(context)
+        val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
+        val parts = mutableListOf<Pair<String, Double>>()
+        var i = firstLogicalIndex
+        while (true) {
+            parts += segments[i].name to getSegmentQuotaRemainingSeconds(context, segments, i, currentIndex, now) / 60.0
+            if (i == currentIndex) break
+            i = (i + 1) % segments.size
+            if (i == firstLogicalIndex) break
+        }
+        return parts
+    }
+
+    /**
      * 某一段此刻还能被当作"当前额度/前序结余"消费的秒数。
      *
      * [getRemainingMinutes]（展示结余）与 [consumeSeconds]（扣费）共用同一口径：

@@ -1953,6 +1953,17 @@ object TimeRuleManager {
         context: Context,
         policy: EffectiveActivationPolicyManager.Policy
     ) {
+        // 切换策略会直接改写生效中的时段（改为统一延后会把 active 回滚到基线），不经过 saveTimeSegments，
+        // 结余随之变化也要记一条「额度重算」
+        com.decikeeper.app.manager.statistics.QuotaRecalcRecorder.around(context) {
+            recalculatePendingAfterPolicySwitchInternal(context, policy)
+        }
+    }
+
+    private fun recalculatePendingAfterPolicySwitchInternal(
+        context: Context,
+        policy: EffectiveActivationPolicyManager.Policy
+    ) {
         if (isInAdaptationPeriod(context)) return
 
         // 🟢 [Fix] Ensure fresh data — tests write directly to prefs without invalidating cache.

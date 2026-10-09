@@ -91,6 +91,24 @@ class QuotaRecalcRecorderTest {
     }
 
     @Test
+    fun switchingToAllNextDayRecordsTheRollbackToBaseline() {
+        assumeAwayFromMidnight()
+        CreditManager.markAdaptationEnded(context)
+        context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE).edit()
+            .putString("segments_json", TimeRuleManager.segmentsToJson(listOf(allDay(40)))).commit()
+        install(allDay(limitMins = 20))
+
+        // 统一延后会把生效中的时段回滚到基线，结余随之变化，但不经过 saveTimeSegments
+        TimeRuleManager.recalculatePendingAfterPolicySwitch(
+            context, com.decikeeper.app.manager.EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+        )
+
+        val record = recalcRecords().single()
+        assertTrue(record.reason, record.reason.contains("额度 20 → 40"))
+        assertEquals(CreditManager.getRemainingMinutes(context), record.balanceMinutes, 0.001)
+    }
+
+    @Test
     fun noRecordWhenNothingChanged() {
         assumeAwayFromMidnight()
         install(allDay(limitMins = 30))
@@ -131,10 +149,78 @@ class QuotaRecalcRecorderTest {
     }
 
     @Test
-    fun describeChangeFallsBackToAGenericNoteWhenOnlyTimesOrCountsChanged() {
+    fun describeChangeWritesTimeRangeAndCountChanges() {
         val old = listOf(allDay(30))
-        val new = listOf(allDay(30).copy(endHour = 20))
+        val new = listOf(allDay(30).copy(endHour = 20, endMinute = 0, usableCountLimitHalfUnits = 4))
 
-        assertTrue(QuotaRecalcRecorder.describeChange(old, new).contains("时段设置"))
+        val text = QuotaRecalcRecorder.describeChange(old, new)
+
+        assertTrue(text, text.contains("时间 00:00-23:59 → 00:00-20:00"))
+        assertTrue(text, text.contains("可用次数") && text.contains("→ 2 次"))
+        assertTrue("额度没变不写额度", !text.contains("额度 30"))
+    }
+
+    @Test
+    fun describeChangeExplainsWhyTheBalanceCameBack() {
+        val stamped = allDay(30).copy(lastModified = 1_000L)
+        val cleared = stamped.copy(lastModified = 0L)
+
+        val restored = QuotaRecalcRecorder.describeChange(listOf(stamped), listOf(cleared))
+        val penalized = QuotaRecalcRecorder.describeChange(listOf(cleared), listOf(stamped))
+
+        assertTrue(restored, restored.contains("改动标记被清除") && restored.contains("重新计入"))
+        assertTrue(penalized, penalized.contains("记为今天改动") && penalized.contains("不再滚存"))
+    }
+
+    @Test
+    fun describeChangeNamesAddedRemovedSegmentsAndPositionChange() {
+        val old = listOf(allDay(30), TimeSegment(startHour = 1, endHour = 2, limitMins = 10, name = "夜间"))
+        val new = listOf(allDay(30), TimeSegment(startHour = 3, endHour = 4, limitMins = 15, name = "凌晨"))
+
+        val text = QuotaRecalcRecorder.describeChange(old, new, oldCurrent = "夜间", newCurrent = null)
+
+        assertTrue(text, text.contains("新增「凌晨」03:00-04:00，额度 15 分钟"))
+        assertTrue(text, text.contains("删除「夜间」"))
+        assertTrue(text, text.contains("此刻所在时段由「夜间」变为空档期"))
+    }
+
+    @Test
+    fun balanceShiftNamesTheSegmentsWhoseShareChanged() {
+        val text = QuotaRecalcRecorder.describeBalanceShift(
+            beforeMinutes = 42.1, afterMinutes = 31.0,
+            beforeHalfUnits = 21, afterHalfUnits = 13,
+            beforeBreakdown = listOf("上午" to 0.0, "下午" to 10.1, "晚上" to 32.0),
+            afterBreakdown = listOf("上午" to 0.0, "下午" to 0.0, "晚上" to 31.0)
+        )
+
+        assertTrue(text, text.contains("结余 42.1 → 31 分钟") && text.contains("次数 10.5 → 6.5 次"))
+        assertTrue(text, text.contains("「下午」10.1 → 0 分钟") && text.contains("「晚上」32 → 31 分钟"))
+        assertTrue("没变的段不写", !text.contains("上午"))
+        assertTrue("减少不告警", !text.contains("⚠"))
+    }
+
+    @Test
+    fun balanceShiftFlagsAnIncrease() {
+        val text = QuotaRecalcRecorder.describeBalanceShift(
+            17.0, 27.1, 2, 2,
+            listOf("下午" to 0.0, "晚上" to 17.0), listOf("下午" to 10.1, "晚上" to 17.0)
+        )
+
+        assertTrue(text, text.contains("「下午」0 → 10.1 分钟"))
+        assertTrue(text, text.contains("⚠ 结余增加"))
+    }
+
+    @Test
+    fun balanceShiftWithoutBreakdownSaysWhy() {
+        val text = QuotaRecalcRecorder.describeBalanceShift(5.0, 3.0, 2, 2, null, listOf("全天" to 3.0))
+
+        assertTrue(text, text.contains("空档期结余只含前序时段滚存"))
+    }
+
+    @Test
+    fun describeChangeFallsBackToAGenericNoteWhenNothingIsComparable() {
+        val old = listOf(allDay(30))
+
+        assertTrue(QuotaRecalcRecorder.describeChange(old, old).contains("时段设置"))
     }
 }

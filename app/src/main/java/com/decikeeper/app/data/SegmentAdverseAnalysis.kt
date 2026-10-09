@@ -350,7 +350,10 @@ object SegmentAdverseAnalysis {
             targetLimit, new.name, true, unionDays, targetEnabled,
             usableCountLimitHalfUnits = targetUsableCount,
             listMode = targetListMode,
-            listApps = targetListApps
+            listApps = targetListApps,
+            // 「今天改过」的标记（决定已过时段不滚存、进行中时段按剩余时间折算）必须带上：
+            // 丢掉它会让之前因修改而扣掉的结余又加回来，立即生效的改动只能减少额度。
+            lastModified = new.lastModified
         )
     }
 
