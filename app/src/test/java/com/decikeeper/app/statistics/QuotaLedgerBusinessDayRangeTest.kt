@@ -1,7 +1,7 @@
 package com.decikeeper.app.statistics
 
 import com.decikeeper.app.data.statistics.RestUsageRecord
-import com.decikeeper.app.manager.statistics.HistoryDisplayRange
+import com.decikeeper.app.data.statistics.StatsDateRange
 import com.decikeeper.app.manager.statistics.HistoryRecordFilter
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -30,7 +30,7 @@ class QuotaLedgerBusinessDayRangeTest {
 
         // 现在是 10-09 10:00，业务日是 10-09
         val today = HistoryRecordFilter.filterQuota(
-            all, HistoryDisplayRange.TODAY, millis(9, 10, 0), zone, businessDayStartMinutes = eightAm
+            all, StatsDateRange.Today, millis(9, 10, 0), zone, businessDayStartMinutes = eightAm
         )
         assertEquals(listOf("afterStart"), today.map { it.id })
     }
@@ -44,7 +44,7 @@ class QuotaLedgerBusinessDayRangeTest {
 
         // 现在是 10-09 03:00，业务日还是 10-08（08:00 ~ 次日 08:00）
         val today = HistoryRecordFilter.filterQuota(
-            all, HistoryDisplayRange.TODAY, millis(9, 3, 0), zone, businessDayStartMinutes = eightAm
+            all, StatsDateRange.Today, millis(9, 3, 0), zone, businessDayStartMinutes = eightAm
         )
         assertEquals(setOf("lastNight", "afterStart"), today.map { it.id }.toSet())
     }
@@ -54,7 +54,21 @@ class QuotaLedgerBusinessDayRangeTest {
         val early = record("early", millis(9, 3, 0))
         val all = listOf(early)
 
-        val today = HistoryRecordFilter.filterQuota(all, HistoryDisplayRange.TODAY, millis(9, 10, 0), zone)
+        val today = HistoryRecordFilter.filterQuota(all, StatsDateRange.Today, millis(9, 10, 0), zone)
         assertEquals(listOf("early"), today.map { it.id })
+    }
+
+    @Test
+    fun yesterdayFollowsTheBusinessDay() {
+        val lastNight = record("lastNight", millis(8, 23, 30))   // 10-08 业务日
+        val earlyMorning = record("earlyMorning", millis(9, 3, 0)) // 仍是 10-08 业务日
+        val afterStart = record("afterStart", millis(9, 8, 30))   // 10-09 业务日
+        val dayBefore = record("dayBefore", millis(7, 12, 0))     // 10-07 业务日
+
+        val result = HistoryRecordFilter.filterQuota(
+            listOf(lastNight, earlyMorning, afterStart, dayBefore),
+            StatsDateRange.Yesterday, millis(9, 10, 0), zone, businessDayStartMinutes = eightAm
+        )
+        assertEquals(setOf("lastNight", "earlyMorning"), result.map { it.id }.toSet())
     }
 }

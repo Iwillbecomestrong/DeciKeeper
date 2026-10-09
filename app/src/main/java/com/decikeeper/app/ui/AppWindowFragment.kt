@@ -182,12 +182,10 @@ class AppWindowFragment : Fragment() {
         val isLocked = TimeRuleManager.isTimeRuleEditLocked(ctx)
         if (isLocked) {
             cardPending.visibility = View.VISIBLE
-            cardPending.setCardBackgroundColor(Color.parseColor("#FFF3E0"))
             tvLockoutHint.visibility = View.VISIBLE
             tvLockoutHint.text = TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx)
         } else {
             tvLockoutHint.visibility = View.GONE
-            cardPending.setCardBackgroundColor(Color.parseColor("#FFF8E1"))
         }
         
         // 🚀 [Fix-3] 适应期内所有变更都立即生效，不会有 pending，但仍然检查以防万一

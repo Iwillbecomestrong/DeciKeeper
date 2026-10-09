@@ -24,7 +24,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.decikeeper.app.R
 import com.decikeeper.app.data.statistics.AlarmWakeRecord
 import com.decikeeper.app.data.statistics.RestUsageRecord
-import com.decikeeper.app.manager.statistics.HistoryDisplayRange
+import com.decikeeper.app.data.statistics.StatsDateRange
 import com.decikeeper.app.manager.statistics.HistoryRecordFilter
 import com.decikeeper.app.manager.statistics.HistoryRecordKind
 import com.decikeeper.app.manager.statistics.HistoryRetention
@@ -36,9 +36,10 @@ import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.ui.ThemeManager
 import com.decikeeper.app.manager.statistics.StatisticsRepository
+import com.decikeeper.app.manager.statistics.StatsDateRangeResolver
 
 /**
- * 历史记录中心
+ * 统计明细
  * 聚合「起床打卡历史」与「休息额度流水」双页签，支持用户查看全部明细，
  * 并支持手动修正计划/完成时间、删除打卡记录、展开查看流水详情及删除流水。
  */
@@ -71,8 +72,10 @@ class StatsHistoryActivity : AppCompatActivity() {
     private lateinit var restAdapter: RestHistoryAdapter
 
     private var currentTab: String = TAB_REST
-    private var restDisplayRange: HistoryDisplayRange = HistoryDisplayRange.TODAY
-    private var alarmDisplayRange: HistoryDisplayRange = HistoryDisplayRange.TODAY
+    // 与统计页共用 StatsDateRange；null = 全部
+    private var restDisplayRange: StatsDateRange? = StatsDateRange.Today
+    private var alarmDisplayRange: StatsDateRange? = StatsDateRange.Today
+    private val filterSheet by lazy { StatisticsFilterBottomSheet(this) }
     private var restLedgerFilter: LedgerFilter = LedgerFilter.ALL
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -165,32 +168,25 @@ class StatsHistoryActivity : AppCompatActivity() {
     }
 
     private fun loadAlarmData() {
-        // 起床属于自然日口径：「今天 / 近 7 天 / 本月」按起床那天的自然日切（额度流水才按业务日切）
+        // 起床属于自然日口径：按起床那天的自然日切（额度流水才按业务日切）
         val records = HistoryRecordFilter.filterWake(StatisticsRepository.getAllWakeRecords(this), alarmDisplayRange)
-        btnAlarmRange.text = "显示范围：${alarmDisplayRange.displayName}"
+        btnAlarmRange.text = "显示范围：${rangeLabel(alarmDisplayRange)}"
         tvAlarmSummary.text = "共 ${records.size} 条（按自然日）"
         alarmAdapter.submitList(records)
-        tvAlarmEmpty.text = if (alarmDisplayRange == HistoryDisplayRange.ALL) "暂无起床打卡记录" else "该范围内暂无起床打卡记录"
+        tvAlarmEmpty.text = if (alarmDisplayRange == null) "暂无起床打卡记录" else "该范围内暂无起床打卡记录"
         tvAlarmEmpty.isVisible = records.isEmpty()
         rvAlarm.isVisible = records.isNotEmpty()
     }
 
     private fun showAlarmRangePicker() {
-        val options = HistoryDisplayRange.entries.toTypedArray()
-        val selected = options.indexOf(alarmDisplayRange).coerceAtLeast(0)
-        AlertDialog.Builder(this)
-            .setTitle("起床记录显示范围")
-            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
-                alarmDisplayRange = options[which]
-                dialog.dismiss()
-                loadAlarmData()
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        filterSheet.showHistoryRangePicker(alarmDisplayRange) {
+            alarmDisplayRange = it
+            loadAlarmData()
+        }
     }
 
     private fun loadRestData() {
-        // 额度流水属于时间规则：「今天 / 近 7 天 / 本月」按业务日（生效时间为界）切
+        // 额度流水属于时间规则：按业务日（生效时间为界）切
         val businessDayStartMinutes = TimeRuleManager.getRefreshTime(this)
             .split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 8) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) }
         val inRange = HistoryRecordFilter.filterQuota(
@@ -200,7 +196,7 @@ class StatsHistoryActivity : AppCompatActivity() {
         )
         // 入流 / 出流汇总只看显示范围，不受类型筛选影响
         val summary = RestLedger.summarize(inRange)
-        tvRestSummary.text = if (restDisplayRange == HistoryDisplayRange.TODAY) {
+        tvRestSummary.text = if (restDisplayRange == StatsDateRange.Today) {
             // 「今天」是单个业务日：入流 = 出流 + 当前结余，直接核对；多日范围里未用完的额度会作废，不套这个公式
             RestLedger.reconcileText(
                 summary,
@@ -216,7 +212,7 @@ class StatsHistoryActivity : AppCompatActivity() {
             includeGaps = restLedgerFilter == LedgerFilter.ALL,
             businessDayStartMinutes = businessDayStartMinutes
         )
-        btnRestRange.text = "显示范围：${restDisplayRange.displayName}"
+        btnRestRange.text = "显示范围：${rangeLabel(restDisplayRange)}"
         btnRestFilter.text = "类型：${restLedgerFilter.displayName}"
         restAdapter.submitList(entries)
         tvRestEmpty.isVisible = records.isEmpty()
@@ -224,17 +220,16 @@ class StatsHistoryActivity : AppCompatActivity() {
     }
 
     private fun showRestRangePicker() {
-        val options = HistoryDisplayRange.entries.toTypedArray()
-        val selected = options.indexOf(restDisplayRange).coerceAtLeast(0)
-        AlertDialog.Builder(this)
-            .setTitle("额度流水显示范围")
-            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
-                restDisplayRange = options[which]
-                dialog.dismiss()
-                loadRestData()
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        filterSheet.showHistoryRangePicker(restDisplayRange) {
+            restDisplayRange = it
+            loadRestData()
+        }
+    }
+
+    private fun rangeLabel(range: StatsDateRange?): String {
+        if (range == null) return "全部"
+        val resolved = StatsDateRangeResolver.resolveRange(range)
+        return if (range is StatsDateRange.Custom) "${resolved.displayName} ${resolved.dateSubText}" else resolved.displayName
     }
 
     private fun showRestFilterPicker() {

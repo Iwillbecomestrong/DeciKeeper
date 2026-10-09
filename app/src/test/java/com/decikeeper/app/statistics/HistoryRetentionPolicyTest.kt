@@ -6,7 +6,7 @@ import com.decikeeper.app.manager.statistics.AlarmWakeStatsRecorder
 import com.decikeeper.app.manager.statistics.HistoryRecordKind
 import com.decikeeper.app.manager.statistics.HistoryRetention
 import com.decikeeper.app.manager.statistics.HistoryRetentionPolicy
-import com.decikeeper.app.manager.statistics.HistoryDisplayRange
+import com.decikeeper.app.data.statistics.StatsDateRange
 import com.decikeeper.app.manager.statistics.HistoryRecordFilter
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import org.junit.After
@@ -106,9 +106,9 @@ class HistoryRetentionPolicyTest {
 
         assertEquals(
             listOf(today.id),
-            HistoryRecordFilter.filterQuota(records, HistoryDisplayRange.TODAY, now, zoneId).map { it.id }
+            HistoryRecordFilter.filterQuota(records, StatsDateRange.Today, now, zoneId).map { it.id }
         )
-        assertEquals(2, HistoryRecordFilter.filterQuota(records, HistoryDisplayRange.LAST_7_DAYS, now, zoneId).size)
-        assertEquals(2, HistoryRecordFilter.filterQuota(records, HistoryDisplayRange.ALL, now, zoneId).size)
+        assertEquals(2, HistoryRecordFilter.filterQuota(records, StatsDateRange.Last7Days, now, zoneId).size)
+        assertEquals(2, HistoryRecordFilter.filterQuota(records, null, now, zoneId).size)
     }
 }
