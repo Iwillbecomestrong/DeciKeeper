@@ -949,22 +949,25 @@ object TimeRuleManager {
 
     /**
      * 获取特权可用窗口开始时间 (HH:MM 格式)
-     * 默认值："07:00"
+     * 有效开始时间 = max(已存开始时间, 生效时间)；未设置时跟随生效时间。
      */
     fun getPrivilegeWindowStart(context: Context): String {
         val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_START, null)
-        if (stored != null) return stored
-        return "07:00"
+        return PrivilegeWindowPolicy.effectiveStart(stored, getRefreshTime(context))
     }
+
+    /** 已存（未夹紧）的特权开始时间；未设置返回 null。 */
+    fun getStoredPrivilegeWindowStart(context: Context): String? =
+        getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_START, null)
 
     /**
      * 获取特权可用窗口结束时间 (HH:MM 格式)
-     * 默认值："23:00"
+     * 默认值："24:00"
      */
     fun getPrivilegeWindowEnd(context: Context): String {
         val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_END, null)
         if (stored != null) return stored
-        return "23:00"
+        return PrivilegeWindowPolicy.DEFAULT_END
     }
 
     fun setPrivilegeWindow(context: Context, start: String, end: String) {
@@ -3012,8 +3015,17 @@ object TimeRuleManager {
             )
             return false
         }
+        // 特权开始时间与生效时间相同时视为「跟随」：生效时间变化，特权开始时间同步移动。
+        val oldRefresh = getRefreshTime(context)
+        val storedPrivStart = getStoredPrivilegeWindowStart(context)
+        val followsRefresh = storedPrivStart != null &&
+            PrivilegeWindowPolicy.isFollowingRefresh(storedPrivStart, oldRefresh)
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString("config_refresh_time", time).apply()
+        if (followsRefresh && time != oldRefresh) {
+            getPrefs(context).edit().putString(KEY_PRIVILEGE_WINDOW_START, time).apply()
+            getDeviceProtectedPrefs(context)?.edit()?.putString(KEY_PRIVILEGE_WINDOW_START, time)?.apply()
+        }
         return true
     }
 

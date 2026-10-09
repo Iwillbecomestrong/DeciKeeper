@@ -18,6 +18,7 @@ import com.decikeeper.app.data.AnalysisResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
+import com.decikeeper.app.manager.PrivilegeWindowPolicy
 import com.decikeeper.app.manager.ProbationManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
@@ -242,13 +243,23 @@ class GlobalParamsFragment : Fragment() {
             }
             etPrivWindowStart?.let {
                 setupAutoSave(it, { pendingPrivWindowStart }, { text ->
-                    Pair(isValidTimeFormat(text), "开始时间格式必须为 HH:mm")
-                }, onValidFormatted = { t -> formatTime(t) })
+                    val error = PrivilegeWindowPolicy.validate(
+                        formatTime(text),
+                        formatTime(etPrivWindowEnd?.text?.toString()?.trim().orEmpty()),
+                        TimeRuleManager.getRefreshTime(context)
+                    )
+                    Pair(error == null, error)
+                }, onValidFormatted = { t -> formatTime(t) }, showErrorDialog = true)
             }
             etPrivWindowEnd?.let {
                 setupAutoSave(it, { pendingPrivWindowEnd }, { text ->
-                    Pair(isValidTimeFormat(text), "结束时间格式必须为 HH:mm")
-                }, onValidFormatted = { t -> formatTime(t) })
+                    val error = PrivilegeWindowPolicy.validate(
+                        formatTime(etPrivWindowStart?.text?.toString()?.trim().orEmpty()),
+                        formatTime(text),
+                        TimeRuleManager.getRefreshTime(context)
+                    )
+                    Pair(error == null, error)
+                }, onValidFormatted = { t -> formatTime(t) }, showErrorDialog = true)
             }
         }
 
@@ -259,7 +270,8 @@ class GlobalParamsFragment : Fragment() {
         editText: EditText,
         getOriginalValue: () -> String,
         validator: (String) -> Pair<Boolean, String?>,
-        onValidFormatted: ((String) -> String)? = null
+        onValidFormatted: ((String) -> String)? = null,
+        showErrorDialog: Boolean = false
     ) {
         editText.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) return@setOnFocusChangeListener
@@ -271,7 +283,16 @@ class GlobalParamsFragment : Fragment() {
 
             val (isValid, errorMsg) = validator(currentText)
             if (!isValid) {
-                Toast.makeText(requireContext(), errorMsg ?: "输入格式不正确", Toast.LENGTH_SHORT).show()
+                if (showErrorDialog) {
+                    // Toast 会截断较长的规则说明，需要完整阅读的校验原因用对话框展示。
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("特权可用范围不合规")
+                        .setMessage(errorMsg ?: "输入格式不正确")
+                        .setPositiveButton("我知道了", null)
+                        .show()
+                } else {
+                    Toast.makeText(requireContext(), errorMsg ?: "输入格式不正确", Toast.LENGTH_SHORT).show()
+                }
                 editText.setText(original)
                 return@setOnFocusChangeListener
             }

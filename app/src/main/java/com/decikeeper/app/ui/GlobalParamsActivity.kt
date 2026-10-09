@@ -23,6 +23,7 @@ import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
 import com.decikeeper.app.manager.MinuteBoundary
+import com.decikeeper.app.manager.PrivilegeWindowPolicy
 import com.decikeeper.app.manager.ProbationManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
@@ -260,6 +261,10 @@ class GlobalParamsActivity : AppCompatActivity() {
             }
             newPrivWindowStart = formatTime(newPrivWindowStart)
             newPrivWindowEnd = formatTime(newPrivWindowEnd)
+            PrivilegeWindowPolicy.validate(newPrivWindowStart, newPrivWindowEnd, newRefreshTime)?.let { reason ->
+                AlertDialog.Builder(this).setTitle("特权可用范围不合规").setMessage(reason).setPositiveButton("我知道了", null).show()
+                return@setOnClickListener
+            }
             TimeRuleManager.setRefreshTimeSynced(this, switchSync?.isChecked == true)
             TimeRuleManager.setPrivilegeWindowSynced(this, false)
             val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {

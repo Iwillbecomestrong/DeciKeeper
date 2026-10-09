@@ -62,6 +62,7 @@ import com.decikeeper.app.manager.RecentTasksHideManager
 import com.decikeeper.app.manager.RomPermissionDetector
 import com.decikeeper.app.manager.SettingsBackupManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
+import com.decikeeper.app.manager.PrivilegeWindowPolicy
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.service.MonitorService
 
@@ -580,6 +581,7 @@ class RulesFragment : Fragment() {
                 TimeRuleManager.saveRefreshTime(context, syncedTime)
             }
             updateRefreshTimeUI()
+            if (isChecked) notifyPrivilegeWindowStartConflict(context)
         }
 
         tvRefreshTimeValueRules?.setOnClickListener {
@@ -595,6 +597,18 @@ class RulesFragment : Fragment() {
             }
             showRefreshTimePickerDialog(context)
         }
+    }
+
+    /** 固定的特权开始时间早于新的生效时间时提示：特权将从生效时间起可用（存储值不改）。 */
+    private fun notifyPrivilegeWindowStartConflict(context: Context) {
+        val refresh = TimeRuleManager.getRefreshTime(context)
+        val storedStart = TimeRuleManager.getStoredPrivilegeWindowStart(context)
+        if (!PrivilegeWindowPolicy.conflictsWithRefresh(storedStart, refresh)) return
+        AlertDialog.Builder(context)
+            .setTitle("特权可用范围已调整")
+            .setMessage("特权可用范围的开始时间 $storedStart 早于新的生效时间 $refresh，特权将从生效时间 $refresh 起可用，且不能跨天。")
+            .setPositiveButton("我知道了", null)
+            .show()
     }
 
     private fun showRefreshTimePickerDialog(context: Context) {
@@ -644,6 +658,7 @@ class RulesFragment : Fragment() {
                 TimeRuleManager.saveRefreshTime(context, formatted)
                 updateRefreshTimeUI()
                 Toast.makeText(context, "每日生效时间已更新为 $formatted", Toast.LENGTH_SHORT).show()
+                notifyPrivilegeWindowStartConflict(context)
             }
             .setNegativeButton("取消", null)
             .show()

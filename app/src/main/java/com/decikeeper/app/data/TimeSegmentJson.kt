@@ -133,7 +133,7 @@ data class TimeSegment(
     val daysOfWeek: List<Int>? = null,
     // 🚀 [NEW] Toggle Enable/Disable
     val isEnabled: Boolean = true,
-    // 可用次数上限。-1=自动计算(max(1, limitMins/5))，0=全禁，>0=用户设定
+    // 可用次数上限。-1=自动计算(max(1, round(limitMins/10)) 次)，0=全禁，>0=用户设定
     val usableCountLimitHalfUnits: Int = UsableCount.AUTO_HALF_UNITS,
     // Legacy field retained for old serialized data compatibility.
     val lastModified: Long = 0L,
@@ -234,7 +234,7 @@ data class TimeSegment(
     /**
      * 计算有效可用次数上限。
      * usableCountLimitHalfUnits >= 0 → 使用用户设定值
-     * usableCountLimitHalfUnits == -1 → 自动计算 = max(1, limitMins / 5)
+     * usableCountLimitHalfUnits == -1 → 自动计算 = max(1, round(limitMins / 10)) 次
      */
     fun getEffectiveUsableCountLimitHalfUnits(): Int {
         if (usableCountLimitHalfUnits >= 0) return usableCountLimitHalfUnits
