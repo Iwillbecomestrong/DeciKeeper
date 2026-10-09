@@ -1865,46 +1865,19 @@ object TimeRuleManager {
              // Re-map strings to tags based on content (Fragile but easy) or Refactor logical flow?
              // Content mapping: "每周特权次数" -> "weekly_privilege"
              
-             val items = delList.map { msg ->
-                 val tag = when {
-                     msg.contains("每周特权") -> "weekly_privilege"
-                     msg.contains("休息冷却") -> "cool_down_rest"
-                     msg.contains("空档冷却") -> "cool_down_gap"
-                     msg.contains("借用比例") -> "borrow_percentage"
-                     msg.contains("临时使用受限应用时长上限") -> "temp_restricted_access_max_seconds"
-                     msg.contains("黑名单惩罚时长") -> "strict_penalty"
-                     msg.contains("生效时间") -> "refresh_time"
-                     msg.contains("远期预警") -> "notify_far"
-                     msg.contains("近期预警") -> "notify_near"
-                     else -> null
-                 }
-                 Triple(msg, true, tag)
-             }
+             val items = delList.map { msg -> Triple(msg, true, globalParamLogTag(msg)) }
              ChangeLogManager.addEntries(context, "global_params", items)
          }
          
          if (resList.isNotEmpty()) {
-             val items = resList.map { msg ->
-                 val tag = when {
-                     msg.contains("每周特权") -> "weekly_privilege"
-                     msg.contains("休息冷却") -> "cool_down_rest"
-                     msg.contains("空档冷却") -> "cool_down_gap"
-                     msg.contains("借用比例") -> "borrow_percentage"
-                     msg.contains("临时使用受限应用时长上限") -> "temp_restricted_access_max_seconds"
-                     msg.contains("黑名单惩罚时长") -> "strict_penalty"
-                     msg.contains("生效时间") -> "refresh_time"
-                     msg.contains("远期预警") -> "notify_far"
-                     msg.contains("近期预警") -> "notify_near"
-                     else -> null
-                 }
-                 Triple(msg, false, tag) // Restored changes are immediate, not pending
-             }
+             // Restored changes are immediate, not pending
+             val items = resList.map { msg -> Triple(msg, false, globalParamLogTag(msg)) }
              ChangeLogManager.addEntries(context, "global_params", items)
          }
          
          if (nextWeekList.isNotEmpty()) {
-              // Weekly Privilege Cycle Increase -> Tag "weekly_privilege"
-              val items = nextWeekList.map { Triple(it, true, "weekly_privilege") }
+              // Weekly Privilege Cycle Increase：次数 / 总时长各用各的标签，互不顶替
+              val items = nextWeekList.map { Triple(it, true, globalParamLogTag(it) ?: "weekly_privilege") }
               ChangeLogManager.addEntries(context, "global_params", items)
           }
 
@@ -1918,6 +1891,26 @@ object TimeRuleManager {
            } else 0L
 
            return AnalysisResult.Mixed(immList, delList, resList, nextWeekList, effectiveTime, nextWeekEffectiveTime)
+    }
+
+    /**
+     * 规则参数修改记录的去重标签：一个参数一条记录，后改的只顶掉同一个参数的旧记录。
+     * 每周特权的次数和总时长是两个参数，必须各用各的标签（`weekly_privilege_` 前缀，
+     * `ChangeLogManager` 按前缀识别每周特权），否则后改的会把先改的那条顶掉。
+     */
+    internal fun globalParamLogTag(message: String): String? = when {
+        message.contains("每周特权次数") -> "weekly_privilege_count"
+        message.contains("每周特权总时长") -> "weekly_privilege_duration"
+        message.contains("每周特权") -> "weekly_privilege"
+        message.contains("休息冷却") -> "cool_down_rest"
+        message.contains("空档冷却") -> "cool_down_gap"
+        message.contains("借用比例") -> "borrow_percentage"
+        message.contains("临时使用受限应用时长上限") -> "temp_restricted_access_max_seconds"
+        message.contains("黑名单惩罚时长") -> "strict_penalty"
+        message.contains("生效时间") -> "refresh_time"
+        message.contains("远期预警") -> "notify_far"
+        message.contains("近期预警") -> "notify_near"
+        else -> null
     }
 
     fun getLogicalFirstSegment(context: Context, segments: List<TimeSegment>? = null): TimeSegment? {
