@@ -76,11 +76,11 @@
 
 ### 5.2 原因一：没记进流水的出口
 
-- 设备在 14:38 才装到含「临时解锁流水」的包；此前的包**不记临时解锁**，14:01 那个包更是没有额度流水新功能。14:38 之前的临时解锁、以及之后任何没覆盖到的出口都不会出现在流水里。最可能就是这个，**需要用户回忆 13:16 ~ 14:38 有没有用过临时解锁**，并在新包上复测（做一次临时解锁，看流水是否多一行、前后能否接上）。
+- 设备在 14:38 才装到含「临时解锁流水」的包；此前的包**不记临时解锁**，14:01 那个包更是没有额度流水新功能。14:38 之前的临时解锁、以及之后任何没覆盖到的出口都不会出现在流水里。最可能就是这个，**需要用户回忆 13:16 ~ 14:38 有没有用过临时解锁**（用户 14:50 回复「好像用过临时解锁」，原因一基本坐实；每笔 6m / 0.5 次的具体口径仍待新包复测确认），并在新包上复测（做一次临时解锁，看流水是否多一行、前后能否接上）。
 - 代码里仍然**不进流水**的扣额度路径（查 `consumeMinutes` / `consumeSeconds` / `addUsedMinutes` 调用得出）：
   1. `MonitorService` 约 2380 行 `CreditManager.addUsedMinutes(this, 1)`：监控每分钟对「黑名单但没被拦住」的应用计费 1 分钟（`SegmentBlacklist.shouldBill`），**只扣时长，不扣次数、不写流水**；
-  2. `CreditManager.adjustScheduleRestTime`：闹钟「提前 / 迟到起床」对当前 / 下一段额度的奖惩（加减 usage），不写流水；
-  3. 规则 / 时段被修改后额度重算（`getSegmentProration` 折算），余额会变但没有任何记录。
+  2. ~~`CreditManager.adjustScheduleRestTime`：闹钟起床奖惩~~：**已核对，没有任何调用方（死代码），不会动额度**。**用户决定：闹钟起床的奖惩不属于额度，不记进额度流水**（闹钟 / 起床是自然日口径的另一条线）。若以后真的让它改额度，再另行讨论，不要默认补流水；
+  3. 规则 / 时段被修改后额度重算（`getSegmentProration` 折算 / 改了某段额度），余额会变但没有任何记录。**用户 14:55 要求：加上这个记录**（新增流水类型「额度重算」），**已实现，见 5.7**。
   次数的 1 / 0.5 次缺口说明至少有一部分是**扣次数的出口**（临时解锁、休息、频繁返回扣减）；纯时长的 `addUsedMinutes` 解释不了次数缺口。
 
 ### 5.3 原因二：额度发放的「变动后」不对（已修）
@@ -100,7 +100,26 @@
 2. 若仍出现缺口，缺口大小 + 前后两笔的时间，可以反推漏记的是哪类出口（6m / 0.5 次这类整齐数字优先查临时解锁 / 频繁返回扣减 / 冷却翻倍）；
 3. 决定是否为 `addUsedMinutes` 的每分钟计费、`adjustScheduleRestTime` 补流水类型（需要用户确认口径：它们算「出流」的哪一类？）。
 
-### 5.6 其它可重点怀疑 / 核对的点
+### 5.6 重要线索：临时解锁生效期间可能被「每分钟计费」又扣一次（待验证，未改）
+
+`MonitorService` 约 2378 行：前台应用不被拦（`!shouldBlock`）时，若 `SegmentBlacklist.shouldBill`（黑名单命中 + 在勿扰时段内 + 非自由时间 + 距上次计费 ≥ 60 秒）就 `CreditManager.addUsedMinutes(this, 1)`，只扣 1 分钟时长，不扣次数、不写流水。
+
+- 休息 / 特权期间 `isFreeTime=true`，不会走到计费；**唯一会走到的是「临时解锁生效中」**（`calculateIsBusinessBlocked` 把 `isTemporaryAccess` 算成不拦）。而临时解锁是**申请时一次性按时长预扣**（`focus.md` §4.3），这样同一次临时解锁在使用期间又被每分钟扣 1 分钟，等于**扣两遍**。
+- 与真机缺口吻合：3 分钟的临时解锁 = 预扣 3m + 使用中最多每分钟计费 3m = **6m / 0.5 次**；缺口 12m / 1 次 = 2 次，6m / 0.5 次 = 1 次，合计 3 次 18m / 1.5 次。
+- 规格里没有「每分钟计费」的任何描述（只有 `SegmentBillingTest` 锁住了触发条件），疑似早期「按使用量扣费」模型遗留。**需要用户确认是否是 bug，确认后再删或限制为非临时解锁场景**；修之前先在新包上复测：做一次 3 分钟临时解锁，看额度是否一次性减少 3m 还是 6m。
+
+### 5.7 已实现：额度重算流水（用户要求；单测全绿，真机未验证）
+
+实现：`QuotaRecalcRecorder.around`（包住 `TimeRuleManager.saveTimeSegments`，内部实现拆成 `saveTimeSegmentsInternal`）；`CreditManager.withDayChangeSettlement` 标记业务日切换结算，期间不记；`RestLedger.TYPE_RECALC` / `LedgerFilter.RECALC`（排在提前退还之后）；汇总里时长、次数各自按正负归入入流 / 出流。测试：`QuotaRecalcRecorderTest`、`RestLedgerTest`。以下是当时的设计要点：
+
+时段被修改后（额度上限 / 时段起止 / 修改折算）当前结余会变，应写一条类型「额度重算」的流水，让缺口有出处。设计要点（尚未动手）：
+
+- 类型 `RECALC`，出流 / 入流方向由变化正负决定（结余减少 = 出流，增加 = 入流），汇总里归入对应方向；筛选里加一项「额度重算」（顺序放在额度发放、提前退还之后）；
+- 记录点：`TimeRuleManager.saveTimeSegments` 是时段写入的唯一出口（调用点：适应期立即生效、有利修改立即生效、pending 到期并入、混合保存，见 `TimeRuleManager` 约 2293 / 3143 / 3247 / 3552 行）；在写入前后各取一次 `CreditManager.getRemainingMinutes` / `getRemainingUsableCount`，**有变化才记**，`costMinutes = 变动前 − 变动后`（减少为正），写明「时段 X 额度 a → b」；
+- 注意：`getRemainingMinutes` 内部会触发 `checkDayChange` → `applyPendingToActive` → `saveTimeSegments`，要避免递归和在业务日切换时误记（日切换是额度重新开始，不是重算）；
+- 测试：改某段额度前后结余变化被记录一次；无变化不记；业务日切换不记。
+
+### 5.8 其它可重点怀疑 / 核对的点
 
 1. **借用记录的总扣减口径**：`performGrant` 在 `borrowPlan` 存在时记 `current + next`，但「变动后结余」只反映当前可用，二者对不上是设计如此（见 `RestLedger` 注释）；若用户期望结余能逐笔对上，需要重新设计（例如把下一段预扣单独记一笔）。
 2. **额度发放金额**：`QuotaGrantRecorder` 取 `getSegmentProration(...).effectiveLimitMins`（该段自身额度，不含结余），时间取时段起点；检查跨天段、修改过的段（`lastModified` 折算）、特权段是否记得合理。

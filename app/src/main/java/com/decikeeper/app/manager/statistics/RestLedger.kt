@@ -7,6 +7,7 @@ import com.decikeeper.app.data.statistics.RestUsageRecord
  *
  * 入流（加额度）：[QUOTA_GRANT]、[REFUND]；
  * 出流（减额度）：[NORMAL]、[BORROW]、[COOLING]、[DEDUCTION]；
+ * [RECALC]（时段被修改后结余的变化）按时长、次数各自的正负归入入流或出流；
  * [PRIVILEGE] 是每周特权的独立池子，不参与入流 / 出流对账。
  *
  * 常规 / 借用 / 冷却中针对休息与临时解锁：借用与冷却中可以同时成立，
@@ -16,6 +17,7 @@ enum class LedgerFilter(val displayName: String) {
     ALL("全部"),
     QUOTA_GRANT("额度发放"),
     REFUND("提前退还"),
+    RECALC("额度重算"),
     NORMAL("常规"),
     BORROW("借用"),
     COOLING("冷却中"),
@@ -75,8 +77,10 @@ object RestLedger {
     const val TYPE_PENALTY = "PENALTY"
     const val TYPE_REFUND = "REFUND"
     const val TYPE_PRIVILEGE = "PRIVILEGE"
+    const val TYPE_RECALC = "RECALC"
 
     const val TYPE_NAME_GRANT = "额度发放"
+    const val TYPE_NAME_RECALC = "额度重算"
     const val TYPE_NAME_PENALTY = "频繁返回扣减"
 
     private const val BORROW_SUFFIX = "_BORROW"
@@ -142,6 +146,7 @@ object RestLedger {
         LedgerFilter.ALL -> true
         LedgerFilter.QUOTA_GRANT -> record.type == TYPE_GRANT
         LedgerFilter.REFUND -> record.type == TYPE_REFUND
+        LedgerFilter.RECALC -> record.type == TYPE_RECALC
         LedgerFilter.DEDUCTION -> record.type == TYPE_PENALTY
         LedgerFilter.PRIVILEGE -> record.type == TYPE_PRIVILEGE
         LedgerFilter.NORMAL -> isRestLike(record) && !isBorrow(record) && !isCooling(record)
@@ -230,7 +235,7 @@ object RestLedger {
         }
     }
 
-    /** 入流 = 额度发放 + 提前退还；出流 = 休息 / 临时解锁 / 频繁返回扣减。特权是独立池子，不计入。 */
+    /** 入流 = 额度发放 + 提前退还 + 重算增加；出流 = 休息 / 临时解锁 / 频繁返回扣减 + 重算减少。特权是独立池子，不计入。 */
     fun summarize(records: List<RestUsageRecord>): LedgerSummary {
         var inMinutes = 0.0
         var inCount = 0.0
@@ -245,6 +250,11 @@ object RestLedger {
                 isRestLike(record) || record.type == TYPE_PENALTY -> {
                     outMinutes += record.costMinutes
                     outCount += costCountInTimes(record)
+                }
+                record.type == TYPE_RECALC -> {
+                    // 重算的时长与次数可能一增一减，各自按正负归入入流 / 出流
+                    if (record.costMinutes >= 0.0) outMinutes += record.costMinutes else inMinutes += -record.costMinutes
+                    if (record.costCount >= 0.0) outCount += record.costCount else inCount += -record.costCount
                 }
             }
         }

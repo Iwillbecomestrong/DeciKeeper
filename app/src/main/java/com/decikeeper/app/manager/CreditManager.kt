@@ -2570,6 +2570,21 @@ object CreditManager {
             .edit().putInt(getUsageKeyForSegment(context, matchingSegment), currentUsed + (minutes * 60)).apply()
     }
 
+    /** 业务日切换结算中（pending 并入 active）：此时时段写入是额度重新开始，不是「额度重算」。 */
+    @Volatile
+    internal var isSettlingDayChange = false
+        private set
+
+    internal fun <T> withDayChangeSettlement(block: () -> T): T {
+        val previous = isSettlingDayChange
+        isSettlingDayChange = true
+        try {
+            return block()
+        } finally {
+            isSettlingDayChange = previous
+        }
+    }
+
     private fun checkDayChange(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val lastDate = prefs.getString("record_date_str", "")
@@ -2598,8 +2613,10 @@ object CreditManager {
         // 播报即将生效的延迟变更
         logPendingChangesSummary(context)
 
-        TimeRuleManager.applyPendingToActive(context)
-        applyPendingAppsToActive(context)
+        withDayChangeSettlement {
+            TimeRuleManager.applyPendingToActive(context)
+            applyPendingAppsToActive(context)
+        }
 
         // 跨天后记录新日配额状态
         val newRemaining = getRemainingMinutes(context)

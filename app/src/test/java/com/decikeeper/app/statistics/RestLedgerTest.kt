@@ -101,7 +101,7 @@ class RestLedgerTest {
     @Test
     fun filterOrderPutsInflowFirstThenOutflowThenPrivilege() {
         assertEquals(
-            listOf("全部", "额度发放", "提前退还", "常规", "借用", "冷却中", "频繁返回扣减", "特权"),
+            listOf("全部", "额度发放", "提前退还", "额度重算", "常规", "借用", "冷却中", "频繁返回扣减", "特权"),
             LedgerFilter.entries.map { it.displayName }
         )
     }
@@ -277,6 +277,47 @@ class RestLedgerTest {
         val entries = RestLedger.buildEntries(listOf(newer, older), includeGaps = false, zoneId = zone)
 
         assertTrue(entries.none { it is LedgerEntry.Gap })
+    }
+
+    // ── 额度重算（时段被修改后结余变化的出处）──────────────────────────────
+
+    @Test
+    fun recalcHasItsOwnFilterAfterRefund() {
+        val order = LedgerFilter.entries.toList()
+        assertEquals(order.indexOf(LedgerFilter.REFUND) + 1, order.indexOf(LedgerFilter.RECALC))
+        assertEquals("额度重算", LedgerFilter.RECALC.displayName)
+        assertEquals(setOf(LedgerFilter.RECALC), matching(record("RECALC")))
+    }
+
+    @Test
+    fun recalcSplitsIntoInflowAndOutflowPerDimension() {
+        val summary = RestLedger.summarize(
+            listOf(
+                // 结余减少 10m，次数增加 1 次：时长走出流，次数走入流
+                record("RECALC", costMinutes = 10.0, costCount = -1.0),
+                // 结余增加 4m，次数不变
+                record("RECALC", costMinutes = -4.0, costCount = 0.0)
+            )
+        )
+
+        assertEquals(4.0, summary.inflowMinutes, 0.0001)
+        assertEquals(1.0, summary.inflowCount, 0.0001)
+        assertEquals(10.0, summary.outflowMinutes, 0.0001)
+        assertEquals(0.0, summary.outflowCount, 0.0001)
+    }
+
+    @Test
+    fun recalcChainsLikeAnyOtherBalanceChange() {
+        val rest = rest("rest", at(13, 16), 1.1, 0.5, 45.0, 20)
+        // 14:00 改时段：结余 45m/10 次 → 33m/9 次（减少 12m、1 次）
+        val recalc = rest("recalc", at(14, 0), 12.0, 1.0, 33.0, 18, type = "RECALC")
+
+        val entries = RestLedger.buildEntries(listOf(recalc, rest), includeGaps = true, zoneId = zone)
+
+        val row = entries.filterIsInstance<LedgerEntry.Row>().first { it.record.id == "recalc" }
+        assertEquals(45.0, row.beforeMinutes!!, 0.0001)
+        assertEquals(10.0, row.beforeCount!!, 0.0001)
+        assertTrue("重算记录让链条接上，不再提示缺口", entries.none { it is LedgerEntry.Gap })
     }
 
     @Test

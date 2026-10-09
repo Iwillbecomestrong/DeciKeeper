@@ -320,6 +320,13 @@ object TimeRuleManager {
      *   再推导一次会把刚同步好的 07:15 又改回 07:30。
      */
     fun saveTimeSegments(context: Context, segments: List<TimeSegment>, syncRefreshFromSegments: Boolean = true) {
+        // 时段改动会让当前结余随之变化：前后各取一次结余，有变化记一条「额度重算」流水
+        com.decikeeper.app.manager.statistics.QuotaRecalcRecorder.around(context) {
+            saveTimeSegmentsInternal(context, segments, syncRefreshFromSegments)
+        }
+    }
+
+    private fun saveTimeSegmentsInternal(context: Context, segments: List<TimeSegment>, syncRefreshFromSegments: Boolean) {
         // WP-03-T02 REVISE DA-D1 entry guard: refuse to save if any candidate
         // segment strictly contains the configured refresh time (`start <
         // refresh < end`) or is malformed/out-of-range. Cross-midnight segments
