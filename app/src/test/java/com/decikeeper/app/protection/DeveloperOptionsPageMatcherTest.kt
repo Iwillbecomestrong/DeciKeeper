@@ -67,6 +67,35 @@ class DeveloperOptionsPageMatcherTest {
     }
 
     @Test
+    fun `wireless debugging sub page with real device nodes is matched by its toolbar title`() {
+        // vivo V2425A 真机（2026-10-08）：无线调试子页，快捷设置磁贴与直接跳转会落在这里。
+        val nodes = listOf(
+            PageNode(rowTitleId, "使用“无线调试”"),
+            PageNode(rowTitleId, "设备名称"),
+            PageNode(rowTitleId, "IP 地址和端口"),
+            PageNode(rowTitleId, "使用二维码配对设备"),
+            PageNode(rowTitleId, "使用配对码配对设备"),
+            PageNode(rowTitleId, "已配对的设备"),
+            PageNode(toolbarId, "无线调试")
+        )
+        assertTrue(DeveloperOptionsPageMatcher.matches(settings, vivoHost, nodes))
+    }
+
+    @Test
+    fun `wireless debugging titles in english and traditional chinese are matched`() {
+        listOf("Wireless debugging", "無線偵錯").forEach {
+            val nodes = listOf(PageNode("com.android.settings:id/action_bar_title", it))
+            assertTrue(it, DeveloperOptionsPageMatcher.matches(settings, "com.android.settings.Settings", nodes))
+        }
+    }
+
+    @Test
+    fun `a list row named wireless debugging does not block its parent page`() {
+        val nodes = listOf(PageNode(toolbarId, "系统管理"), PageNode(rowTitleId, "无线调试"))
+        assertFalse(DeveloperOptionsPageMatcher.matches(settings, vivoHost, nodes))
+    }
+
+    @Test
     fun `non settings packages never match`() {
         val nodes = listOf(PageNode(toolbarId, "开发者选项"))
         assertFalse(DeveloperOptionsPageMatcher.matches("com.tencent.mm", vivoHost, nodes))
