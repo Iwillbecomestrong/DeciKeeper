@@ -31,4 +31,12 @@ class EffectiveActivationPolicyUiCopyContractTest {
         assertFalse(layout.contains("添加/删除/减少限制 → 立即生效"))
         assertFalse(layout.contains("增加限制 → 次日 00:00 生效"))
     }
+
+    @Test
+    fun focusRulesTabSelectionRefreshesSubFragments() {
+        val focusRules = source("src/main/java/com/decikeeper/app/ui/FocusRulesFragment.kt")
+        assertTrue(focusRules.contains("refreshTabContent"))
+        assertTrue(focusRules.contains("reloadData"))
+        assertTrue(focusRules.contains("refreshList"))
+    }
 }

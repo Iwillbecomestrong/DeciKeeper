@@ -187,7 +187,15 @@ class RulesSettingsUiContractTest {
     @Test
     fun globalParamsStartAtSameTopInsetAsOtherTimeRulePages() {
         val layout = source("app/src/main/res/layout/activity_global_params_new.xml")
+        val fragmentSource = source("app/src/main/java/com/decikeeper/app/ui/GlobalParamsFragment.kt")
         assertTrue(layout.contains("android:paddingTop=\"0dp\""))
+        assertTrue(layout.contains("规则参数设置"))
+        assertTrue(layout.contains("配置特权、时间范围与生效策略等全局运行参数。"))
+        assertTrue(layout.contains("android:id=\"@+id/btn_save\""))
+        assertTrue(layout.contains("android:visibility=\"gone\""))
+        assertFalse(fragmentSource.contains("setOnApplyWindowInsetsListener"))
+        assertTrue(fragmentSource.contains("setupAutoSave"))
+        assertTrue(fragmentSource.contains("performSave"))
     }
 
     @Test

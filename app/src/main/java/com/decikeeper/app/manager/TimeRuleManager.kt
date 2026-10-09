@@ -1053,8 +1053,12 @@ object TimeRuleManager {
         newTempRestrictedAccessMaxSeconds: Int = getTemporaryRestrictedAccessMaxSeconds(context),
         newPrivilegeWindowStart: String = getPrivilegeWindowStart(context),
         newPrivilegeWindowEnd: String = getPrivilegeWindowEnd(context),
-        newEditWindowPolicy: String = TimeRuleEditWindowPolicyManager.getPolicy(context).key
+        newEditWindowPolicy: String = TimeRuleEditWindowPolicyManager.getPolicy(context).key,
+        newEffectiveActivationPolicy: EffectiveActivationPolicyManager.Policy? = null
     ): AnalysisResult {
+        val curEffectivePolicy = EffectiveActivationPolicyManager.getPolicy(context)
+        val effectivePolicyToApply = newEffectiveActivationPolicy ?: curEffectivePolicy
+        val isEffectivePolicyChanged = (newEffectiveActivationPolicy != null && newEffectiveActivationPolicy != curEffectivePolicy)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val creditPrefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -1078,6 +1082,9 @@ object TimeRuleManager {
                 context,
                 TimeRuleEditWindowPolicyManager.Policy.fromKey(newEditWindowPolicy)
             )
+            if (isEffectivePolicyChanged) {
+                EffectiveActivationPolicyManager.setPolicy(context, effectivePolicyToApply)
+            }
             
             creditPrefs.edit().apply {
                 putLong("strict_penalty_duration", newLockDuration * 1000)
@@ -1212,7 +1219,7 @@ object TimeRuleManager {
         // ...
 
         val isAdaptation = isInAdaptationPeriod(context)
-        val forceAllNextDay = !isAdaptation && (EffectiveActivationPolicyManager.getPolicy(context) == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
+        val forceAllNextDay = !isAdaptation && (effectivePolicyToApply == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
 
         // Helper for Number comparison
         fun checkParam(name: String, current: Int, baseline: Int, new: Int, diffBase: Int, isHigherStricter: Boolean, tag: String, pendingVal: Int, isWeek: Boolean = false) {
@@ -1352,6 +1359,12 @@ object TimeRuleManager {
                     hasNewAdverse = true
                 }
             }
+        }
+
+        if (isEffectivePolicyChanged) {
+            val oldTitle = EffectiveActivationPolicyManager.getPolicyTitle(curEffectivePolicy)
+            val newTitle = EffectiveActivationPolicyManager.getPolicyTitle(effectivePolicyToApply)
+            immList.add("规则生效策略: $oldTitle -> $newTitle (有利)")
         }
         
         // Warnings & Refresh (Always Benign/Immediate - BUT check pending to see if we should skip logging)
@@ -1523,6 +1536,9 @@ object TimeRuleManager {
 
         // 🚀 [Fix] Persist weekly privilege using CreditManager canonical keys
         CreditManager.setWeeklyPrivilegeLimit(context, activeWeekly, activeWeeklyDuration)
+        if (isEffectivePolicyChanged) {
+            EffectiveActivationPolicyManager.setPolicy(context, effectivePolicyToApply)
+        }
 
         // 4. Pending Calculation
         // Pending State = Target (New) State
@@ -1838,6 +1854,10 @@ object TimeRuleManager {
                    ChangeLogManager.addEntries(context, "global_params", items)
                }
                
+               if (immList.isEmpty() && resList.isEmpty()) {
+                   return AnalysisResult.NoChange
+               }
+
                return AnalysisResult.AllImmediate(immList)
          }
 

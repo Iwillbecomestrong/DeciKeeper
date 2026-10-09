@@ -6,20 +6,29 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
 import com.decikeeper.app.R
-import com.decikeeper.app.data.AdverseAnalysis
+import com.decikeeper.app.data.AnalysisResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
 import com.decikeeper.app.manager.ProbationManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-/** 时间规则页的全局参数第三页，复用原全局参数页面的完整编辑逻辑。 */
+/** 时间规则页的规则参数第三页，支持失焦/改完即存与智能分流生效反馈。 */
 class GlobalParamsFragment : Fragment() {
+
+    private var isApplyingValues = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,16 +38,7 @@ class GlobalParamsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val rootView = view.findViewById<View>(R.id.root_global_params)
-        val initialPaddingLeft = rootView.paddingLeft
-        val initialPaddingTop = rootView.paddingTop
-        val initialPaddingRight = rootView.paddingRight
-        val initialPaddingBottom = rootView.paddingBottom
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
-            val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            v.setPadding(initialPaddingLeft, initialPaddingTop + bars.top, initialPaddingRight, initialPaddingBottom + bars.bottom)
-            insets
-        }
+        // 顶部留白统一：作为 FocusRulesFragment 的子 Fragment，不重复绑定系统状态栏 Insets
         setupUI(TimeRuleManager.isTimeRuleEditLocked(requireContext()))
     }
 
@@ -55,6 +55,11 @@ class GlobalParamsFragment : Fragment() {
         setupUI(TimeRuleManager.isTimeRuleEditLocked(context))
     }
 
+    override fun onPause() {
+        super.onPause()
+        view?.findFocus()?.clearFocus()
+    }
+
     fun reloadData() {
         if (isAdded && view != null) setupUI(TimeRuleManager.isTimeRuleEditLocked(requireContext()))
     }
@@ -62,6 +67,8 @@ class GlobalParamsFragment : Fragment() {
     private fun setupUI(isLocked: Boolean = false) {
         val root = view ?: return
         val context = requireContext()
+        isApplyingValues = true
+
         val etRest = root.findViewById<EditText>(R.id.et_cool_down_rest)
         val etGap = root.findViewById<EditText>(R.id.et_cool_down_gap)
         val etBlacklist = root.findViewById<EditText>(R.id.et_cool_down_blacklist)
@@ -73,7 +80,7 @@ class GlobalParamsFragment : Fragment() {
         val etWeeklyPrivilegeDuration = root.findViewById<EditText>(R.id.et_weekly_privilege_duration)
         val etPrivWindowStart = root.findViewById<EditText>(R.id.et_privilege_window_start)
         val etPrivWindowEnd = root.findViewById<EditText>(R.id.et_privilege_window_end)
-        val layoutPrivWindowInputs = root.findViewById<android.widget.LinearLayout>(R.id.layout_privilege_window_inputs)
+        val layoutPrivWindowInputs = root.findViewById<View>(R.id.layout_privilege_window_inputs)
 
         val currentCoolDownRest = TimeRuleManager.getCoolDownRestSeconds(context)
         val currentCoolDownGap = TimeRuleManager.getCoolDownGapSeconds(context)
@@ -103,9 +110,9 @@ class GlobalParamsFragment : Fragment() {
         val pendingPrivWindowEnd = TimeRuleManager.getPendingPrivilegeWindowEnd(context) ?: currentPrivWindowEnd
         val pendingStrict = if (hasPending) TimeRuleManager.getPendingStrictPenaltyDurationSeconds(context) ?: currentStrict else currentStrict
 
-        val rgEffectivePolicy = root.findViewById<android.widget.RadioGroup>(R.id.rg_effective_policy)
-        val rbPolicyFavorable = root.findViewById<android.widget.RadioButton>(R.id.rb_policy_favorable)
-        val rbPolicyAllNextDay = root.findViewById<android.widget.RadioButton>(R.id.rb_policy_all_next_day)
+        val rgEffectivePolicy = root.findViewById<RadioGroup>(R.id.rg_effective_policy)
+        val rbPolicyFavorable = root.findViewById<RadioButton>(R.id.rb_policy_favorable)
+        val rbPolicyAllNextDay = root.findViewById<RadioButton>(R.id.rb_policy_all_next_day)
 
         val currentEffectivePolicy = EffectiveActivationPolicyManager.getPolicy(context)
         if (currentEffectivePolicy == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY) {
@@ -114,109 +121,357 @@ class GlobalParamsFragment : Fragment() {
             rgEffectivePolicy?.check(R.id.rb_policy_favorable)
         }
 
-        etRest.setText(pendingCoolDownRest.toString())
-        etGap.setText(pendingCoolDownGap.toString())
-        etBlacklist.setText(pendingStrict.toString())
-        etBorrowPercent.setText(pendingBorrow.toString())
-        etTempRestrictedAccessMax.setText(formatTemporaryAccessSecondsAsMinutes(pendingTempRestrictedAccessMax))
-        etNotifyEntryFar.setText(currentEntryFar.toString())
-        etNotifyEntryNear.setText(currentEntryNear.toString())
-        etWeeklyPrivilegeCount.setText(pendingPrivilegeCount.toString())
-        etWeeklyPrivilegeDuration.setText(pendingPrivilegeDuration.toString())
-        etPrivWindowStart.setText(pendingPrivWindowStart)
-        etPrivWindowEnd.setText(pendingPrivWindowEnd)
+        etRest?.setText(pendingCoolDownRest.toString())
+        etGap?.setText(pendingCoolDownGap.toString())
+        etBlacklist?.setText(pendingStrict.toString())
+        etBorrowPercent?.setText(pendingBorrow.toString())
+        etTempRestrictedAccessMax?.setText(formatTemporaryAccessSecondsAsMinutes(pendingTempRestrictedAccessMax))
+        etNotifyEntryFar?.setText(currentEntryFar.toString())
+        etNotifyEntryNear?.setText(currentEntryNear.toString())
+        etWeeklyPrivilegeCount?.setText(pendingPrivilegeCount.toString())
+        etWeeklyPrivilegeDuration?.setText(pendingPrivilegeDuration.toString())
+        etPrivWindowStart?.setText(pendingPrivWindowStart)
+        etPrivWindowEnd?.setText(pendingPrivWindowEnd)
 
         if (isLocked) {
-            listOf(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax,
+            listOfNotNull(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax,
                 etNotifyEntryFar, etNotifyEntryNear, etWeeklyPrivilegeCount, etWeeklyPrivilegeDuration,
                 etPrivWindowStart, etPrivWindowEnd).forEach { it.isEnabled = false }
             rbPolicyFavorable?.isEnabled = false
             rbPolicyAllNextDay?.isEnabled = false
             rgEffectivePolicy?.isEnabled = false
+        } else {
+            listOfNotNull(etRest, etGap, etBlacklist, etBorrowPercent, etTempRestrictedAccessMax,
+                etNotifyEntryFar, etNotifyEntryNear, etWeeklyPrivilegeCount, etWeeklyPrivilegeDuration,
+                etPrivWindowStart, etPrivWindowEnd).forEach { it.isEnabled = true }
+            rbPolicyFavorable?.isEnabled = true
+            rbPolicyAllNextDay?.isEnabled = true
+            rgEffectivePolicy?.isEnabled = true
         }
 
-        val cardPending = root.findViewById<androidx.cardview.widget.CardView>(R.id.card_pending_changes)
-        val tvPending = root.findViewById<android.widget.TextView>(R.id.tv_pending_changes)
-        val tvLockout = root.findViewById<android.widget.TextView>(R.id.tv_lockout_hint)
+        val cardPending = root.findViewById<CardView>(R.id.card_pending_changes)
+        val tvPending = root.findViewById<TextView>(R.id.tv_pending_changes)
+        val tvLockout = root.findViewById<TextView>(R.id.tv_lockout_hint)
         if (isLocked) {
-            cardPending.visibility = View.VISIBLE
-            tvLockout.visibility = View.VISIBLE
-            tvLockout.text = TimeRuleEditWindowPolicyManager.getLockoutHintText(context)
+            cardPending?.visibility = View.VISIBLE
+            tvLockout?.visibility = View.VISIBLE
+            tvLockout?.text = TimeRuleEditWindowPolicyManager.getLockoutHintText(context)
         } else {
-            tvLockout.visibility = View.GONE
+            tvLockout?.visibility = View.GONE
         }
         val isAdaptation = TimeRuleManager.isInAdaptationPeriod(context)
         val finalText = ChangeLogManager.getFormattedLogForCategory(context, "global_params").trim()
         if (!isAdaptation && finalText.isNotEmpty()) {
-            cardPending.visibility = View.VISIBLE
-            tvPending.text = finalText
-            cardPending.setOnClickListener {
+            cardPending?.visibility = View.VISIBLE
+            tvPending?.text = finalText
+            cardPending?.setOnClickListener {
                 if (TimeRuleManager.hasPendingRules(context) || CreditManager.hasPendingApps(context)) showPendingRevokeDialog()
             }
-        } else if (!isLocked) cardPending.visibility = View.GONE else tvPending.text = ""
+        } else if (!isLocked) {
+            cardPending?.visibility = View.GONE
+        } else {
+            tvPending?.text = ""
+        }
 
-        layoutPrivWindowInputs.visibility = View.VISIBLE
+        layoutPrivWindowInputs?.visibility = View.VISIBLE
         TimeRuleManager.setPrivilegeWindowSynced(context, false)
 
         val btnSave = root.findViewById<View>(R.id.btn_save)
-        if (isLocked) {
-            btnSave.isEnabled = false
-            btnSave.alpha = 0.5f
+        btnSave?.visibility = View.GONE
+
+        // 绑定自动保存监听器
+        if (!isLocked) {
+            rgEffectivePolicy?.setOnCheckedChangeListener { _, checkedId ->
+                if (isApplyingValues) return@setOnCheckedChangeListener
+                val targetPolicy = if (checkedId == R.id.rb_policy_all_next_day) {
+                    EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+                } else {
+                    EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
+                }
+                if (targetPolicy != EffectiveActivationPolicyManager.getPolicy(requireContext())) {
+                    performSave()
+                }
+            }
+
+            etRest?.let {
+                setupAutoSave(it, { pendingCoolDownRest.toString() }, { text ->
+                    val v = text.toIntOrNull()
+                    Pair(v != null && v >= 0, "统一冷却必须为非负整数")
+                })
+            }
+            etGap?.let {
+                setupAutoSave(it, { pendingCoolDownGap.toString() }, { text ->
+                    val v = text.toIntOrNull()
+                    Pair(v != null && v >= 0, "空档冷却必须为非负整数")
+                })
+            }
+            etBorrowPercent?.let {
+                setupAutoSave(it, { pendingBorrow.toString() }, { text ->
+                    val v = text.toIntOrNull()
+                    Pair(v != null && v in 0..100, "借用比例必须在 0% ~ 100% 之间")
+                })
+            }
+            etTempRestrictedAccessMax?.let {
+                setupAutoSave(it, { formatTemporaryAccessSecondsAsMinutes(pendingTempRestrictedAccessMax) }, { text ->
+                    Pair(isTemporaryAccessMinuteInputValid(text, 3.0), "临时使用受限应用时长上限必须在 0.1~3.0 分钟，最多 1 位小数")
+                })
+            }
+            etNotifyEntryFar?.let {
+                setupAutoSave(it, { currentEntryFar.toString() }, { text ->
+                    val v = text.toIntOrNull()
+                    Pair(v != null && v >= 0, "远期预警时间必须为非负整数")
+                })
+            }
+            etNotifyEntryNear?.let {
+                setupAutoSave(it, { currentEntryNear.toString() }, { text ->
+                    val v = text.toIntOrNull()
+                    Pair(v != null && v >= 0, "近期预警时间必须为非负整数")
+                })
+            }
+            etWeeklyPrivilegeCount?.let {
+                setupAutoSave(it, { pendingPrivilegeCount.toString() }, { text ->
+                    val v = text.toIntOrNull()
+                    Pair(v != null && v in 0..3, "每周特权次数不能超过 3 次")
+                })
+            }
+            etWeeklyPrivilegeDuration?.let {
+                setupAutoSave(it, { pendingPrivilegeDuration.toString() }, { text ->
+                    val v = text.toIntOrNull()
+                    Pair(v != null && v in 0..600, "每周特权时长不能超过 10 小时 (600 分钟)")
+                })
+            }
+            etPrivWindowStart?.let {
+                setupAutoSave(it, { pendingPrivWindowStart }, { text ->
+                    Pair(isValidTimeFormat(text), "开始时间格式必须为 HH:mm")
+                }, onValidFormatted = { t -> formatTime(t) })
+            }
+            etPrivWindowEnd?.let {
+                setupAutoSave(it, { pendingPrivWindowEnd }, { text ->
+                    Pair(isValidTimeFormat(text), "结束时间格式必须为 HH:mm")
+                }, onValidFormatted = { t -> formatTime(t) })
+            }
         }
 
-        btnSave.setOnClickListener {
-            if (isLocked) return@setOnClickListener
-            val newRest = etRest.text.toString().toIntOrNull() ?: currentCoolDownRest
-            val newGap = etGap.text.toString().toIntOrNull() ?: currentCoolDownGap
-            val newLockDuration = etBlacklist.text.toString().toLongOrNull() ?: currentStrict
-            val newBorrow = etBorrowPercent.text.toString().toIntOrNull() ?: currentBorrow
-            val tempMaxRaw = etTempRestrictedAccessMax.text.toString().trim()
-            val newTempRestrictedAccessMax = if (isTemporaryAccessMinuteInputValid(tempMaxRaw, 3.0)) temporaryAccessMinutesToSeconds(tempMaxRaw.toDouble()).coerceIn(1, 180) else -1
-            val newWeeklyCount = etWeeklyPrivilegeCount.text.toString().toIntOrNull() ?: currentPrivilegeCount
-            val newWeeklyDuration = etWeeklyPrivilegeDuration.text.toString().toIntOrNull() ?: currentPrivilegeDuration
-            if (newTempRestrictedAccessMax !in 1..180) {
-                Toast.makeText(context, "临时使用受限应用时长上限必须在 0.1~3.0 分钟，最多 1 位小数", Toast.LENGTH_SHORT).show(); return@setOnClickListener
-            }
-            if (newWeeklyCount > 3) { Toast.makeText(context, "每周特权次数不能超过 3 次", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-            if (newWeeklyDuration > 600) { Toast.makeText(context, "每周特权时长不能超过 10 小时 (600 分钟)", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+        isApplyingValues = false
+    }
 
-            val newNotifyFar = etNotifyEntryFar.text.toString().toIntOrNull() ?: currentEntryFar
-            val newNotifyNear = etNotifyEntryNear.text.toString().toIntOrNull() ?: currentEntryNear
+    private fun setupAutoSave(
+        editText: EditText,
+        getOriginalValue: () -> String,
+        validator: (String) -> Pair<Boolean, String?>,
+        onValidFormatted: ((String) -> String)? = null
+    ) {
+        editText.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) return@setOnFocusChangeListener
+            if (isApplyingValues || !isAdded || view == null) return@setOnFocusChangeListener
+            if (TimeRuleManager.isTimeRuleEditLocked(requireContext())) return@setOnFocusChangeListener
+            val currentText = editText.text.toString().trim()
+            val original = getOriginalValue().trim()
+            if (currentText == original) return@setOnFocusChangeListener
 
-            var newPrivWindowStart = etPrivWindowStart.text.toString().trim()
-            var newPrivWindowEnd = etPrivWindowEnd.text.toString().trim()
-            fun formatTime(t: String): String {
-                if (t.contains(":")) {
-                    val p = t.split(":")
-                    if (p.size == 2) return String.format("%02d:%02d", p[0].toIntOrNull() ?: 0, p[1].toIntOrNull() ?: 0)
-                }
-                return t
+            val (isValid, errorMsg) = validator(currentText)
+            if (!isValid) {
+                Toast.makeText(requireContext(), errorMsg ?: "输入格式不正确", Toast.LENGTH_SHORT).show()
+                editText.setText(original)
+                return@setOnFocusChangeListener
             }
-            newPrivWindowStart = formatTime(newPrivWindowStart)
-            newPrivWindowEnd = formatTime(newPrivWindowEnd)
-            TimeRuleManager.setPrivilegeWindowSynced(context, false)
-            val oldPolicy = EffectiveActivationPolicyManager.getPolicy(context)
-            val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
-                EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+            onValidFormatted?.let { formatFn ->
+                val formatted = formatFn(currentText)
+                if (formatted != currentText) editText.setText(formatted)
+            }
+            performSave()
+        }
+        editText.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
+                actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
+                editText.clearFocus()
+                true
             } else {
-                EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
+                false
             }
-            val policyChanged = oldPolicy != selectedPolicy
-            if (policyChanged) {
-                EffectiveActivationPolicyManager.setPolicy(context, selectedPolicy)
+        }
+    }
+
+    private fun isValidTimeFormat(t: String): Boolean {
+        if (!t.contains(":")) return false
+        val parts = t.split(":")
+        if (parts.size != 2) return false
+        val h = parts[0].toIntOrNull() ?: return false
+        val m = parts[1].toIntOrNull() ?: return false
+        return h in 0..23 && m in 0..59
+    }
+
+    private fun formatTime(t: String): String {
+        if (t.contains(":")) {
+            val parts = t.split(":")
+            if (parts.size == 2) {
+                val h = parts[0].toIntOrNull() ?: 0
+                val m = parts[1].toIntOrNull() ?: 0
+                return String.format("%02d:%02d", h, m)
             }
-            val preservedRefreshTime = TimeRuleManager.getPendingRefreshTime(context) ?: TimeRuleManager.getRefreshTime(context)
-            val result = TimeRuleManager.analyzeAndSaveGlobalParams(
-                context, newRest, newGap, newLockDuration, newBorrow, newNotifyFar, newNotifyNear,
-                newWeeklyCount, newWeeklyDuration, preservedRefreshTime, newTempRestrictedAccessMax,
-                newPrivWindowStart, newPrivWindowEnd
-            )
-            if (policyChanged && result is com.decikeeper.app.data.AnalysisResult.NoChange) {
-                val policyTitle = EffectiveActivationPolicyManager.getPolicyTitle(selectedPolicy)
-                Toast.makeText(context, "设置已保存：生效策略已更新为【$policyTitle】", Toast.LENGTH_SHORT).show()
+        }
+        return t
+    }
+
+    private fun performSave() {
+        if (!isAdded || view == null) return
+        val context = requireContext()
+        if (TimeRuleManager.isTimeRuleEditLocked(context)) return
+
+        val root = view ?: return
+        val etRest = root.findViewById<EditText>(R.id.et_cool_down_rest)
+        val etGap = root.findViewById<EditText>(R.id.et_cool_down_gap)
+        val etBlacklist = root.findViewById<EditText>(R.id.et_cool_down_blacklist)
+        val etBorrowPercent = root.findViewById<EditText>(R.id.et_borrow_percentage)
+        val etTempRestrictedAccessMax = root.findViewById<EditText>(R.id.et_temp_restricted_access_max_seconds)
+        val etNotifyEntryFar = root.findViewById<EditText>(R.id.et_notify_entry_far)
+        val etNotifyEntryNear = root.findViewById<EditText>(R.id.et_notify_entry_near)
+        val etWeeklyPrivilegeCount = root.findViewById<EditText>(R.id.et_weekly_privilege_limit)
+        val etWeeklyPrivilegeDuration = root.findViewById<EditText>(R.id.et_weekly_privilege_duration)
+        val etPrivWindowStart = root.findViewById<EditText>(R.id.et_privilege_window_start)
+        val etPrivWindowEnd = root.findViewById<EditText>(R.id.et_privilege_window_end)
+        val rgEffectivePolicy = root.findViewById<RadioGroup>(R.id.rg_effective_policy)
+
+        val currentCoolDownRest = TimeRuleManager.getCoolDownRestSeconds(context)
+        val currentCoolDownGap = TimeRuleManager.getCoolDownGapSeconds(context)
+        val currentBorrow = TimeRuleManager.getBorrowPercentage(context)
+        val currentTempRestrictedAccessMax = TimeRuleManager.getTemporaryRestrictedAccessMaxSeconds(context)
+        val currentEntryFar = TimeRuleManager.getNotifyEntryFarMinutes(context)
+        val currentEntryNear = TimeRuleManager.getNotifyEntryNearMinutes(context)
+        val currentPrivilegeCount = CreditManager.getWeeklyPrivilegeLimit(context)
+        val currentPrivilegeDuration = CreditManager.getWeeklyPrivilegeDurationLimit(context)
+        val currentPrivWindowStart = TimeRuleManager.getPrivilegeWindowStart(context)
+        val currentPrivWindowEnd = TimeRuleManager.getPrivilegeWindowEnd(context)
+        val currentStrict = TimeRuleManager.getStrictPenaltyDurationSeconds(context)
+
+        val newRest = etRest?.text?.toString()?.toIntOrNull() ?: currentCoolDownRest
+        val newGap = etGap?.text?.toString()?.toIntOrNull() ?: currentCoolDownGap
+        val newLockDuration = etBlacklist?.text?.toString()?.toLongOrNull() ?: currentStrict
+        val newBorrow = etBorrowPercent?.text?.toString()?.toIntOrNull() ?: currentBorrow
+        val tempMaxRaw = etTempRestrictedAccessMax?.text?.toString()?.trim() ?: ""
+        val newTempRestrictedAccessMax = if (isTemporaryAccessMinuteInputValid(tempMaxRaw, 3.0)) {
+            temporaryAccessMinutesToSeconds(tempMaxRaw.toDouble()).coerceIn(1, 180)
+        } else {
+            currentTempRestrictedAccessMax
+        }
+        val newWeeklyCount = etWeeklyPrivilegeCount?.text?.toString()?.toIntOrNull() ?: currentPrivilegeCount
+        val newWeeklyDuration = etWeeklyPrivilegeDuration?.text?.toString()?.toIntOrNull() ?: currentPrivilegeDuration
+        val newNotifyFar = etNotifyEntryFar?.text?.toString()?.toIntOrNull() ?: currentEntryFar
+        val newNotifyNear = etNotifyEntryNear?.text?.toString()?.toIntOrNull() ?: currentEntryNear
+
+        val newPrivWindowStart = formatTime(etPrivWindowStart?.text?.toString()?.trim() ?: currentPrivWindowStart)
+        val newPrivWindowEnd = formatTime(etPrivWindowEnd?.text?.toString()?.trim() ?: currentPrivWindowEnd)
+
+        TimeRuleManager.setPrivilegeWindowSynced(context, false)
+        val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
+            EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+        } else {
+            EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
+        }
+        val preservedRefreshTime = TimeRuleManager.getPendingRefreshTime(context) ?: TimeRuleManager.getRefreshTime(context)
+        val result = TimeRuleManager.analyzeAndSaveGlobalParams(
+            context, newRest, newGap, newLockDuration, newBorrow, newNotifyFar, newNotifyNear,
+            newWeeklyCount, newWeeklyDuration, preservedRefreshTime, newTempRestrictedAccessMax,
+            newPrivWindowStart, newPrivWindowEnd,
+            newEffectiveActivationPolicy = selectedPolicy
+        )
+        handleSaveFeedback(result)
+    }
+
+    private fun handleSaveFeedback(result: AnalysisResult) {
+        if (!isAdded || view == null) return
+        val context = requireContext()
+        if (TimeRuleManager.isInAdaptationPeriod(context)) {
+            Toast.makeText(context, "✅ 设置已保存并立即生效 (适应期)", Toast.LENGTH_SHORT).show()
+            reloadData()
+            return
+        }
+
+        when (result) {
+            is AnalysisResult.NoChange -> {
                 reloadData()
-            } else {
-                AdverseAnalysis.showAnalysisDialog(context, result) { reloadData() }
+            }
+            is AnalysisResult.AllImmediate -> {
+                val msg = if (result.messages.isNotEmpty()) {
+                    "✅ 立即生效:\n" + result.messages.joinToString("\n• ", prefix = "• ")
+                } else {
+                    "✅ 设置已保存并立即生效"
+                }
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                reloadData()
+            }
+            is AnalysisResult.Mixed -> {
+                val isAllNextDayPolicy =
+                    EffectiveActivationPolicyManager.getPolicy(context) == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+                val hasDelayed = result.delayedChanges.isNotEmpty() || result.nextWeekChanges.isNotEmpty()
+
+                if (hasDelayed) {
+                    val sb = StringBuilder()
+                    if (result.immediateChanges.isNotEmpty()) {
+                        sb.append("✅ 立即生效 (有利项):\n")
+                        result.immediateChanges.forEach { sb.append("• $it\n") }
+                        sb.append("\n")
+                    }
+                    if (result.delayedChanges.isNotEmpty()) {
+                        val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(result.effectiveTime))
+                        val delayedTitle = if (isAllNextDayPolicy) {
+                            "🌅 次日 $timeStr 生效 (当前为「统一延后」):\n"
+                        } else {
+                            "🌅 次日 $timeStr 生效 (放宽限制):\n"
+                        }
+                        sb.append(delayedTitle)
+                        result.delayedChanges.forEach { sb.append("• $it\n") }
+                        sb.append("\n")
+                    }
+                    if (result.nextWeekChanges.isNotEmpty()) {
+                        val effTime = if (result.nextWeekEffectiveTime > 0) result.nextWeekEffectiveTime else result.effectiveTime
+                        val dateStr = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(effTime))
+                        sb.append("📅 下周生效 ($dateStr):\n")
+                        result.nextWeekChanges.forEach { sb.append("• $it\n") }
+                    }
+
+                    val title = if (!isAllNextDayPolicy) "⚠️ 包含延后生效项" else "变更生效分析"
+                    AlertDialog.Builder(context)
+                        .setTitle(title)
+                        .setMessage(sb.toString().trim())
+                        .setCancelable(false)
+                        .setPositiveButton("确认仍要修改") { _, _ ->
+                            reloadData()
+                        }
+                        .setNegativeButton("取消") { _, _ ->
+                            TimeRuleManager.revokePendingChanges(context)
+                            CreditManager.clearPendingWeeklyPrivilegeLimit(context)
+                            ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
+                            Toast.makeText(context, "已取消修改并恢复原值", Toast.LENGTH_SHORT).show()
+                            reloadData()
+                        }
+                        .show()
+                } else {
+                    val msg = if (result.immediateChanges.isNotEmpty()) {
+                        "✅ 立即生效:\n" + result.immediateChanges.joinToString("\n• ", prefix = "• ")
+                    } else {
+                        "✅ 设置已保存"
+                    }
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    reloadData()
+                }
+            }
+            is AnalysisResult.AllDelayed -> {
+                AlertDialog.Builder(context)
+                    .setTitle("⚠️ 包含延后生效项")
+                    .setMessage("所有修改均属于放宽限制，将在明日生效。")
+                    .setCancelable(false)
+                    .setPositiveButton("确认仍要修改") { _, _ ->
+                        reloadData()
+                    }
+                    .setNegativeButton("取消") { _, _ ->
+                        TimeRuleManager.revokePendingChanges(context)
+                        CreditManager.clearPendingWeeklyPrivilegeLimit(context)
+                        ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
+                        Toast.makeText(context, "已取消修改并恢复原值", Toast.LENGTH_SHORT).show()
+                        reloadData()
+                    }
+                    .show()
             }
         }
     }
@@ -227,7 +482,8 @@ class GlobalParamsFragment : Fragment() {
             .setMessage("确定要撤销所有尚未生效的不利修改吗？\n撤销后，这些修改将不会在明日生效。")
             .setPositiveButton("确认撤销") { _, _ ->
                 TimeRuleManager.revokePendingChanges(context)
-                CreditManager.revokePendingChanges(context)
+                CreditManager.clearPendingWeeklyPrivilegeLimit(context)
+                ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
                 Toast.makeText(context, "已撤销所有待生效修改", Toast.LENGTH_SHORT).show()
                 reloadData()
             }.setNegativeButton("取消", null).show()

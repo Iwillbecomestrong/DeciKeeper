@@ -17,9 +17,35 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingTop="12dp"
-        android:paddingBottom="72dp">
+        android:paddingBottom="24dp">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:text="规则参数" android:textColor="?attr/zzText" android:textSize="26sp" android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="规则参数设置"
+                    android:textColor="?attr/zzText"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="配置特权、时间范围与生效策略等全局运行参数。"
+                    android:textColor="?attr/zzMuted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
 
         <androidx.cardview.widget.CardView
             android:id="@+id/card_pending_changes"
@@ -150,6 +176,7 @@
             android:text="保存设置"
             android:textAllCaps="false"
             android:textColor="@android:color/white"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:visibility="gone" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
