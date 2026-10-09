@@ -39,6 +39,24 @@ data class LedgerSummary(
     }
 }
 
+/** 流水列表的一项：一笔记录（带「使用前」），或相邻两笔之间接不上的缺口。 */
+sealed interface LedgerEntry {
+    /**
+     * @param beforeMinutes 变动前结余 = 变动后结余 + 变动量；借用记录的变动量含下一段预扣，
+     * 无法还原当前段的使用前，为 null（特权是独立池子，同样为 null）。
+     */
+    data class Row(
+        val record: RestUsageRecord,
+        val beforeMinutes: Double?,
+        val beforeCount: Double?
+    ) : LedgerEntry
+
+    /**
+     * 上一笔「变动后」与下一笔「使用前」对不上。正数 = 账面少了（有出口没记），负数 = 账面多了（有入流没记）。
+     */
+    data class Gap(val missingMinutes: Double, val missingCount: Double) : LedgerEntry
+}
+
 /**
  * 额度流水的口径单一出口：类型归类、次数单位、数值格式化。
  *
@@ -140,6 +158,77 @@ object RestLedger {
 
     /** 变动后结余次数，单位「次」。 */
     fun balanceCountInTimes(record: RestUsageRecord): Double = record.balanceCount / 2.0
+
+    private const val GAP_EPSILON_MINUTES = 0.05
+    private const val GAP_EPSILON_COUNT = 0.01
+
+    /** 这条记录是否参与「变动后 → 下一笔使用前」的连续性核对（特权不动休息额度，不参与）。 */
+    private fun isChained(record: RestUsageRecord): Boolean = record.type != TYPE_PRIVILEGE
+
+    private fun beforeOf(record: RestUsageRecord): Pair<Double, Double>? {
+        if (!isChained(record)) return null
+        // 借用记录的变动量含下一段预扣，不等于当前结余的变化，还原不出使用前
+        if (isBorrow(record)) return null
+        return (record.balanceMinutes + record.costMinutes) to
+            (balanceCountInTimes(record) + costCountInTimes(record))
+    }
+
+    /**
+     * 把流水（最新在前）整理成列表项：每笔带「使用前」，并在相邻两笔接不上时插入缺口提示。
+     *
+     * 缺口 = 较早一笔的「变动后」 − 较新一笔的「使用前」，说明这两笔之间有变动没进流水
+     * （或有一笔算错了）。跨业务日不比较（额度每个业务日重新开始）；借用、特权不参与比较。
+     *
+     * @param businessDayStartMinutes 业务日分界（距 00:00 的分钟数，生效时间）
+     */
+    fun buildEntries(
+        records: List<RestUsageRecord>,
+        includeGaps: Boolean,
+        businessDayStartMinutes: Int = 0,
+        zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()
+    ): List<LedgerEntry> {
+        fun businessDay(ts: Long) = businessDayOf(ts, businessDayStartMinutes, zoneId)
+
+        val result = ArrayList<LedgerEntry>(records.size * 2)
+        records.forEachIndexed { index, record ->
+            val before = beforeOf(record)
+            result += LedgerEntry.Row(record, before?.first, before?.second)
+            if (!includeGaps) return@forEachIndexed
+
+            // 与「较早的、参与核对的」下一笔比较：这一笔的使用前，应等于它的变动后
+            if (before == null) return@forEachIndexed
+            var olderIndex = index + 1
+            while (olderIndex < records.size && !isChained(records[olderIndex])) olderIndex++
+            val older = records.getOrNull(olderIndex) ?: return@forEachIndexed
+            if (businessDay(older.timestamp) != businessDay(record.timestamp)) return@forEachIndexed
+            val missingMinutes = older.balanceMinutes - before.first
+            val missingCount = balanceCountInTimes(older) - before.second
+            if (kotlin.math.abs(missingMinutes) >= GAP_EPSILON_MINUTES || kotlin.math.abs(missingCount) >= GAP_EPSILON_COUNT) {
+                result += LedgerEntry.Gap(missingMinutes, missingCount)
+            }
+        }
+        return result
+    }
+
+    /** 时间戳所属的业务日：分界之前仍算前一天。 */
+    fun businessDayOf(
+        timestamp: Long,
+        businessDayStartMinutes: Int,
+        zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()
+    ): java.time.LocalDate = java.time.Instant.ofEpochMilli(timestamp).atZone(zoneId)
+        .minusMinutes(businessDayStartMinutes.toLong()).toLocalDate()
+
+    /** 缺口提示文案。 */
+    fun gapText(gap: LedgerEntry.Gap): String {
+        val amount = "${formatAmount(kotlin.math.abs(gap.missingMinutes))}m / ${formatAmount(kotlin.math.abs(gap.missingCount))}次"
+        return if (gap.missingMinutes >= 0 && gap.missingCount >= 0) {
+            "⚠ 这两笔之间账面少了 $amount：这段时间有额度变动没进流水（也可能是上一笔结余算错）"
+        } else if (gap.missingMinutes <= 0 && gap.missingCount <= 0) {
+            "⚠ 这两笔之间账面多了 $amount：有额度入账没进流水（也可能是上一笔结余算错）"
+        } else {
+            "⚠ 这两笔之间账面对不上（时长 ${formatDelta(-gap.missingMinutes, "m")}，次数 ${formatDelta(-gap.missingCount, "次")}）"
+        }
+    }
 
     /** 入流 = 额度发放 + 提前退还；出流 = 休息 / 临时解锁 / 频繁返回扣减。特权是独立池子，不计入。 */
     fun summarize(records: List<RestUsageRecord>): LedgerSummary {

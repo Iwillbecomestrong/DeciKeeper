@@ -26,6 +26,7 @@ import com.decikeeper.app.manager.statistics.HistoryRecordFilter
 import com.decikeeper.app.manager.statistics.HistoryRecordKind
 import com.decikeeper.app.manager.statistics.HistoryRetention
 import com.decikeeper.app.manager.statistics.HistoryRetentionPolicy
+import com.decikeeper.app.manager.statistics.LedgerEntry
 import com.decikeeper.app.manager.statistics.LedgerFilter
 import com.decikeeper.app.manager.statistics.RestLedger
 import com.decikeeper.app.manager.TimeRuleManager
@@ -172,9 +173,15 @@ class StatsHistoryActivity : AppCompatActivity() {
         // 入流 / 出流汇总只看显示范围，不受类型筛选影响
         tvRestSummary.text = RestLedger.summaryText(RestLedger.summarize(inRange))
         val records = RestLedger.filter(inRange, restLedgerFilter)
+        // 只有「全部」才插入缺口提示（相邻两笔必须是真实相邻，筛选后就不相邻了）
+        val entries = RestLedger.buildEntries(
+            records,
+            includeGaps = restLedgerFilter == LedgerFilter.ALL,
+            businessDayStartMinutes = businessDayStartMinutes
+        )
         btnRestRange.text = "显示范围：${restDisplayRange.displayName}"
         btnRestFilter.text = "类型：${restLedgerFilter.displayName}"
-        restAdapter.submitList(records)
+        restAdapter.submitList(entries)
         tvRestEmpty.isVisible = records.isEmpty()
         rvRest.isVisible = records.isNotEmpty()
     }
@@ -378,35 +385,60 @@ class StatsHistoryActivity : AppCompatActivity() {
     // ==========================================
     private class RestHistoryAdapter(
         private val onDeleteClicked: (RestUsageRecord) -> Unit
-    ) : RecyclerView.Adapter<RestHistoryAdapter.ViewHolder>() {
+    ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-        private var items: List<RestUsageRecord> = emptyList()
+        private var items: List<LedgerEntry> = emptyList()
         private val expandedIds = mutableSetOf<String>()
 
-        fun submitList(newItems: List<RestUsageRecord>) {
+        fun submitList(newItems: List<LedgerEntry>) {
             items = newItems
             notifyDataSetChanged()
         }
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val v = LayoutInflater.from(parent.context).inflate(R.layout.item_history_rest_card, parent, false)
-            return ViewHolder(v)
+        override fun getItemViewType(position: Int): Int =
+            if (items[position] is LedgerEntry.Gap) TYPE_GAP else TYPE_ROW
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val inflater = LayoutInflater.from(parent.context)
+            return if (viewType == TYPE_GAP) {
+                GapViewHolder(inflater.inflate(R.layout.item_history_rest_gap, parent, false))
+            } else {
+                ViewHolder(inflater.inflate(R.layout.item_history_rest_card, parent, false))
+            }
         }
 
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = items[position]
-            val isExpanded = expandedIds.contains(item.id)
-            holder.bind(item, isExpanded, onDeleteClicked) {
-                if (isExpanded) {
-                    expandedIds.remove(item.id)
-                } else {
-                    expandedIds.add(item.id)
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            when (val entry = items[position]) {
+                is LedgerEntry.Gap -> (holder as GapViewHolder).bind(entry)
+                is LedgerEntry.Row -> {
+                    val item = entry.record
+                    val isExpanded = expandedIds.contains(item.id)
+                    (holder as ViewHolder).bind(entry, isExpanded, onDeleteClicked) {
+                        if (isExpanded) {
+                            expandedIds.remove(item.id)
+                        } else {
+                            expandedIds.add(item.id)
+                        }
+                        notifyItemChanged(position)
+                    }
                 }
-                notifyItemChanged(position)
             }
         }
 
         override fun getItemCount(): Int = items.size
+
+        class GapViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            private val tvGap: TextView = view.findViewById(R.id.tv_history_rest_gap)
+
+            fun bind(gap: LedgerEntry.Gap) {
+                tvGap.text = RestLedger.gapText(gap)
+            }
+        }
+
+        private companion object {
+            const val TYPE_ROW = 0
+            const val TYPE_GAP = 1
+        }
 
         class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val badge: TextView = view.findViewById(R.id.tv_history_rest_type_badge)
@@ -423,11 +455,12 @@ class StatsHistoryActivity : AppCompatActivity() {
             private val btnDelete: TextView = view.findViewById(R.id.btn_delete_rest_record)
 
             fun bind(
-                item: RestUsageRecord,
+                entry: LedgerEntry.Row,
                 isExpanded: Boolean,
                 onDelete: (RestUsageRecord) -> Unit,
                 onToggle: () -> Unit
             ) {
+                val item = entry.record
                 badge.text = item.typeName
                 tvDate.text = item.dateLabel
 
@@ -436,7 +469,11 @@ class StatsHistoryActivity : AppCompatActivity() {
                 val balanceText = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
                 tvCost.text = "${RestLedger.poolLabel(item)} ${RestLedger.formatDelta(quotaDelta, "m")} / 次数 ${RestLedger.formatDelta(countDelta, "次")}"
                 // 特权是独立池子，不动休息额度，结余没有变化可言
-                tvBalance.text = if (item.type == RestLedger.TYPE_PRIVILEGE) "不占用休息额度" else "变动后结余: $balanceText"
+                // 其余：写出「使用前」，方便核对是算错了还是漏记了
+                val beforeText = if (entry.beforeMinutes != null && entry.beforeCount != null) {
+                    "使用前: ${RestLedger.formatAmount(entry.beforeMinutes)}m / ${RestLedger.formatAmount(entry.beforeCount)}次\n"
+                } else ""
+                tvBalance.text = if (item.type == RestLedger.TYPE_PRIVILEGE) "不占用休息额度" else "${beforeText}变动后结余: $balanceText"
 
                 tvArrow.text = if (isExpanded) "▲" else "▼"
                 layoutDetail.isVisible = isExpanded
@@ -445,7 +482,10 @@ class StatsHistoryActivity : AppCompatActivity() {
                     tvDetailReason.text = if (item.reason.isNotBlank()) "原因说明: ${item.reason}" else "原因说明: 无"
                     tvDetailDuration.text = "申请时长: ${item.requestedMinutes}m  |  实际使用: ${item.actualMinutes}m"
                     tvDetailCost.text = "额度变化: ${RestLedger.formatDelta(quotaDelta, "m")}  |  次数变化: ${RestLedger.formatDelta(countDelta, "次")}"
-                    tvDetailBalance.text = "当前结余: ${RestLedger.formatAmount(item.balanceMinutes)} 分钟 / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))} 次"
+                    val detailBefore = if (entry.beforeMinutes != null && entry.beforeCount != null) {
+                        "使用前 ${RestLedger.formatAmount(entry.beforeMinutes)} 分钟 / ${RestLedger.formatAmount(entry.beforeCount)} 次 → "
+                    } else ""
+                    tvDetailBalance.text = "${detailBefore}变动后 ${RestLedger.formatAmount(item.balanceMinutes)} 分钟 / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))} 次"
                     btnDelete.setOnClickListener { onDelete(item) }
                 }
 

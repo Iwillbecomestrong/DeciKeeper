@@ -75,6 +75,30 @@ class QuotaGrantRecorderTest {
     }
 
     @Test
+    fun lateDetectedGrantChainsFromThePreviousRecordInsteadOfUsingTheCurrentBalance() {
+        assumeAwayFromMidnight()
+        installAllDaySegment(limitMins = 30)
+        // 业务日从 00:00 起；上一笔流水正好落在时段开始时刻：变动后 14.1m / 4 次（8 个 half-unit）
+        val startMillis = QuotaGrantRecorder.latestOccurrenceStartMillis(
+            TimeRuleManager.getCurrentSegment(context)!!, System.currentTimeMillis()
+        )
+        RestStatsRecorder.record(
+            context = context, type = RestLedger.TYPE_REST, typeName = "常规休息",
+            costMinutes = 1.0, costCount = 0.5, balanceMinutes = 14.1, balanceCount = 8,
+            timestamp = startMillis
+        )
+
+        // 现在离时段开始已经超过 2 分钟（assumeAwayFromMidnight 保证），按「补记」处理
+        QuotaGrantRecorder.recordIfNewSegment(context)
+
+        val grant = RestStatsRecorder.getAllRecords(context).single { it.type == RestLedger.TYPE_GRANT }
+        val grantedHalfUnits = (-grant.costCount * 2).toInt()
+        assertEquals(14.1 + 30.0, grant.balanceMinutes, 0.001)
+        assertEquals(8 + grantedHalfUnits, grant.balanceCount)
+        assertTrue(grant.reason.contains("补记"))
+    }
+
+    @Test
     fun doesNothingOutsideAnySegment() {
         // 没有任何时段配置
         QuotaGrantRecorder.recordIfNewSegment(context)

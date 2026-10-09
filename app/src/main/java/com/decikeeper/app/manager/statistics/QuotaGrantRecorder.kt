@@ -18,6 +18,9 @@ object QuotaGrantRecorder {
     private const val PREFS_NAME = "rest_stats_grant_marker"
     private const val KEY_LAST_GRANT = "last_granted_segment"
 
+    /** 监控在熄屏时暂停，发现略有延迟是正常的；超过这个时长才算「补记」。 */
+    private const val LATE_DETECTION_MS = 2 * 60_000L
+
     /** 同一业务日内同一时段的唯一标识。 */
     internal fun grantKey(businessDate: String, segment: TimeSegment): String =
         "$businessDate|${segment.startHour}:${segment.startMinute}-${segment.endHour}:${segment.endMinute}|${segment.name}"
@@ -46,22 +49,44 @@ object QuotaGrantRecorder {
 
         val proration = CreditManager.getSegmentProration(context, segment, nowMillis)
         val grantedMinutes = proration.effectiveLimitMins
-        val grantedCount = proration.effectiveUsableCountHalfUnits / 2.0
-        if (grantedMinutes <= 0.0 && grantedCount <= 0.0) return
+        val grantedHalfUnits = proration.effectiveUsableCountHalfUnits
+        if (grantedMinutes <= 0.0 && grantedHalfUnits <= 0) return
+
+        val startMillis = latestOccurrenceStartMillis(segment, nowMillis)
+        var balanceMinutes = CreditManager.getRemainingMinutes(context)
+        var balanceCount = CreditManager.getRemainingUsableCount(context)
+        var reason = "进入「${segment.name}」时段，领取本时段额度"
+
+        if (nowMillis - startMillis > LATE_DETECTION_MS) {
+            // 补记：时段早已开始（如应用刚更新、进程被杀后重启），现在的结余已经包含了之后的使用，
+            // 不能当作「发放后」的结余。按「上一笔流水的变动后 + 本次发放」估算，让流水连得上。
+            val dayStartMinutes = TimeRuleManager.getRefreshTime(context).split(":")
+                .let { (it.getOrNull(0)?.toIntOrNull() ?: 8) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+            val previous = RestStatsRecorder.getAllRecords(context).firstOrNull {
+                it.type != RestLedger.TYPE_PRIVILEGE && it.timestamp <= startMillis
+            }?.takeIf {
+                RestLedger.businessDayOf(it.timestamp, dayStartMinutes) == RestLedger.businessDayOf(startMillis, dayStartMinutes)
+            }
+            if (previous != null) {
+                balanceMinutes = previous.balanceMinutes + grantedMinutes
+                balanceCount = previous.balanceCount + grantedHalfUnits
+            }
+            reason += "（补记：时段开始后才检测到，结余按上一笔流水估算）"
+        }
 
         RestStatsRecorder.record(
             context = context,
             type = RestLedger.TYPE_GRANT,
             typeName = RestLedger.TYPE_NAME_GRANT,
-            reason = "进入「${segment.name}」时段，领取本时段额度",
+            reason = reason,
             requestedMinutes = 0.0,
             actualMinutes = 0.0,
             // 成本为负 = 额度增加（与"提前退还"同一符号约定）
             costMinutes = -grantedMinutes,
-            costCount = -grantedCount,
-            balanceMinutes = CreditManager.getRemainingMinutes(context),
-            balanceCount = CreditManager.getRemainingUsableCount(context),
-            timestamp = latestOccurrenceStartMillis(segment, nowMillis)
+            costCount = -(grantedHalfUnits / 2.0),
+            balanceMinutes = balanceMinutes,
+            balanceCount = balanceCount,
+            timestamp = startMillis
         )
     }
 }

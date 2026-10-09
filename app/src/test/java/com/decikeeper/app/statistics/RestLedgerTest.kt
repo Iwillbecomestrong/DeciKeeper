@@ -1,10 +1,12 @@
 package com.decikeeper.app.statistics
 
 import com.decikeeper.app.data.statistics.RestUsageRecord
+import com.decikeeper.app.manager.statistics.LedgerEntry
 import com.decikeeper.app.manager.statistics.LedgerFilter
 import com.decikeeper.app.manager.statistics.RestLedger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -171,6 +173,110 @@ class RestLedgerTest {
             "借时长 1 分钟，下一段预扣 2 分钟；借次数 0.5 次，下一段预扣 1 次",
             RestLedger.borrowNote(60, 120, 1, 2)
         )
+    }
+
+    // ── 使用前 / 缺口提示（用 10-09 真机流水的数字）──────────────────────────────
+
+    private val zone = java.time.ZoneId.of("Asia/Shanghai")
+
+    private fun at(hour: Int, minute: Int): Long =
+        java.time.ZonedDateTime.of(2026, 10, 9, hour, minute, 0, 0, zone).toInstant().toEpochMilli()
+
+    private fun rest(
+        id: String,
+        ts: Long,
+        cost: Double,
+        count: Double,
+        afterMinutes: Double,
+        afterHalfUnits: Int,
+        type: String = "REST"
+    ) = RestUsageRecord(
+        id = id, timestamp = ts, dateLabel = "", type = type, typeName = "",
+        costMinutes = cost, costCount = count,
+        balanceMinutes = afterMinutes, balanceCount = afterHalfUnits
+    )
+
+    @Test
+    fun rowShowsBalanceBeforeUse() {
+        val record = rest("r", at(14, 14), cost = 1.0, count = 0.5, afterMinutes = 32.0, afterHalfUnits = 17)
+        val row = RestLedger.buildEntries(listOf(record), includeGaps = false, zoneId = zone).single() as LedgerEntry.Row
+
+        assertEquals(33.0, row.beforeMinutes!!, 0.0001)
+        assertEquals(9.0, row.beforeCount!!, 0.0001)
+    }
+
+    @Test
+    fun missingRecordBetweenTwoRowsIsShownAsAGap() {
+        // 13:16 变动后 45m / 10 次；14:14 用了 1m / 0.5 次，变动后 32m / 8.5 次 → 两笔之间少了 12m / 1 次
+        val newer = rest("14:14", at(14, 14), 1.0, 0.5, 32.0, 17)
+        val older = rest("13:16", at(13, 16), 1.1, 0.5, 45.0, 20)
+
+        val entries = RestLedger.buildEntries(listOf(newer, older), includeGaps = true, zoneId = zone)
+
+        assertEquals(3, entries.size)
+        val gap = entries[1] as LedgerEntry.Gap
+        assertEquals(12.0, gap.missingMinutes, 0.0001)
+        assertEquals(1.0, gap.missingCount, 0.0001)
+        assertTrue(RestLedger.gapText(gap).contains("账面少了 12m / 1次"))
+    }
+
+    @Test
+    fun consistentChainHasNoGap() {
+        // 12:48 变动后 46.1m / 10.5 次；13:16 用 1.1m / 0.5 次 → 变动后 45m / 10 次，刚好接上
+        val newer = rest("13:16", at(13, 16), 1.1, 0.5, 45.0, 20)
+        val older = rest("12:48", at(12, 48), 3.0, 0.5, 46.1, 21)
+
+        val entries = RestLedger.buildEntries(listOf(newer, older), includeGaps = true, zoneId = zone)
+
+        assertEquals(2, entries.size)
+        assertTrue(entries.all { it is LedgerEntry.Row })
+    }
+
+    @Test
+    fun grantRowChainsLikeAnyOtherRow() {
+        // 12:00 变动后 14.1m / 4 次；12:45 发放 35m / 7 次 → 变动后 49.1m / 11 次；12:48 用 3m / 0.5 次 → 46.1m / 10.5 次
+        val use = rest("12:48", at(12, 48), 3.0, 0.5, 46.1, 21)
+        val grant = rest("12:45", at(12, 45), -35.0, -7.0, 49.1, 22, type = "GRANT")
+        val refund = rest("12:00", at(12, 0), -1.1, 0.0, 14.1, 8, type = "REFUND")
+
+        val entries = RestLedger.buildEntries(listOf(use, grant, refund), includeGaps = true, zoneId = zone)
+
+        assertEquals(3, entries.size)
+        assertTrue(entries.all { it is LedgerEntry.Row })
+    }
+
+    @Test
+    fun borrowAndPrivilegeRowsDoNotTriggerFalseGaps() {
+        val borrow = rest("borrow", at(15, 0), cost = 22.0, count = 2.0, afterMinutes = 0.0, afterHalfUnits = 0, type = "REST_BORROW")
+        val privilege = rest("priv", at(14, 30), 240.0, 1.0, 99.0, 99, type = "PRIVILEGE")
+        val before = rest("before", at(14, 0), 3.0, 0.5, 30.0, 10)
+
+        val entries = RestLedger.buildEntries(listOf(borrow, privilege, before), includeGaps = true, zoneId = zone)
+
+        assertTrue("借用的使用前还原不出来，也不参与缺口比较", entries.none { it is LedgerEntry.Gap })
+        assertNull((entries[0] as LedgerEntry.Row).beforeMinutes)
+        assertNull((entries[1] as LedgerEntry.Row).beforeMinutes)
+    }
+
+    @Test
+    fun gapsAreNotComparedAcrossBusinessDays() {
+        val today = rest("today", at(9, 30), 1.0, 0.5, 10.0, 4)
+        val yesterday = rest("yesterday", at(23, 30) - 24 * 60 * 60_000L, 1.0, 0.5, 99.0, 40)
+
+        // 业务日 08:00 为界：昨晚 23:30 属于前一个业务日，不与今天 09:30 比较
+        val entries = RestLedger.buildEntries(listOf(today, yesterday), includeGaps = true, businessDayStartMinutes = 8 * 60, zoneId = zone)
+
+        assertTrue(entries.none { it is LedgerEntry.Gap })
+    }
+
+    @Test
+    fun filteredListsNeverShowGaps() {
+        val newer = rest("14:14", at(14, 14), 1.0, 0.5, 32.0, 17)
+        val older = rest("13:16", at(13, 16), 1.1, 0.5, 45.0, 20)
+
+        val entries = RestLedger.buildEntries(listOf(newer, older), includeGaps = false, zoneId = zone)
+
+        assertTrue(entries.none { it is LedgerEntry.Gap })
     }
 
     @Test
