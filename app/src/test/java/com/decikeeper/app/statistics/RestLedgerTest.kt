@@ -295,7 +295,11 @@ class RestLedgerTest {
         assertFalse(off.isBalanced)
         assertEquals(4.0, off.diffMinutes, 0.0001)
         assertEquals(1.5, off.diffCount, 0.0001)
-        assertTrue(RestLedger.reconcileText(summary, off).contains("≠"))
+        val text = RestLedger.reconcileText(summary, off)
+        assertTrue(text.contains("入流 ≠ 出流 + 结余，相差 4m / 1.5次"))
+        assertTrue("右边合计写出来，不用带符号的差", text.contains("出流 40m / 4.5次 + 当前结余 26m / 8次 = 66m / 12.5次"))
+        assertTrue(text.contains("入流多了"))
+        assertFalse(text.contains("差 +"))
     }
 
     private fun line(record: RestUsageRecord, label: String) =
