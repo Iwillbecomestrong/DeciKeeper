@@ -60,6 +60,7 @@ import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.data.TimeSegment
 import com.decikeeper.app.manager.expiry.ExpiryCoordinator
 import com.decikeeper.app.manager.expiry.ExpiryReason
+import com.decikeeper.app.manager.statistics.QuotaGrantRecorder
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import com.decikeeper.app.data.resolveAccessibilityFailureClass
 import com.decikeeper.app.manager.AppWindowManager
@@ -1678,6 +1679,11 @@ class MonitorService : Service() {
         val privilegeJustEnded = wasPrivilegeActiveLastPoll && !isPrivilege
         wasPrivilegeActiveLastPoll = isPrivilege
         val isDndLocked = isInSegment && !isFreeTime
+
+        // 进入新的勿扰时段 → 记一条「额度发放」流水（每个时段每个业务日只记一次，失败不影响监控）
+        if (isInSegment) {
+            runCatching { QuotaGrantRecorder.recordIfNewSegment(this, now) }
+        }
 
         // 🚀 [Unified Expiry] 特权到期 → 统一通过 ExpiryCoordinator 评估，不直接硬锁
         if (privilegeJustEnded) {

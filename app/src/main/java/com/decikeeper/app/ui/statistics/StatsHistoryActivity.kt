@@ -26,6 +26,9 @@ import com.decikeeper.app.manager.statistics.HistoryRecordFilter
 import com.decikeeper.app.manager.statistics.HistoryRecordKind
 import com.decikeeper.app.manager.statistics.HistoryRetention
 import com.decikeeper.app.manager.statistics.HistoryRetentionPolicy
+import com.decikeeper.app.manager.statistics.LedgerFilter
+import com.decikeeper.app.manager.statistics.RestLedger
+import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.ui.ThemeManager
 import com.decikeeper.app.manager.statistics.StatisticsRepository
 
@@ -55,11 +58,14 @@ class StatsHistoryActivity : AppCompatActivity() {
     private lateinit var containerRest: View
     private lateinit var tvRestEmpty: TextView
     private lateinit var btnRestRange: Button
+    private lateinit var btnRestFilter: Button
+    private lateinit var tvRestSummary: TextView
     private lateinit var rvRest: RecyclerView
     private lateinit var restAdapter: RestHistoryAdapter
 
     private var currentTab: String = TAB_ALARM
     private var restDisplayRange: HistoryDisplayRange = HistoryDisplayRange.TODAY
+    private var restLedgerFilter: LedgerFilter = LedgerFilter.ALL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(ThemeManager.themeRes(this))
@@ -97,6 +103,8 @@ class StatsHistoryActivity : AppCompatActivity() {
         containerRest = findViewById(R.id.container_rest_history)
         tvRestEmpty = findViewById(R.id.tv_rest_empty)
         btnRestRange = findViewById(R.id.btn_history_rest_range)
+        btnRestFilter = findViewById(R.id.btn_history_rest_filter)
+        tvRestSummary = findViewById(R.id.tv_history_rest_summary)
         rvRest = findViewById(R.id.rv_rest_history)
 
         rvAlarm.layoutManager = LinearLayoutManager(this)
@@ -119,6 +127,7 @@ class StatsHistoryActivity : AppCompatActivity() {
         tabAlarm.setOnClickListener { switchTab(TAB_ALARM) }
         tabRest.setOnClickListener { switchTab(TAB_REST) }
         btnRestRange.setOnClickListener { showRestRangePicker() }
+        btnRestFilter.setOnClickListener { showRestFilterPicker() }
     }
 
     private fun switchTab(target: String) {
@@ -152,11 +161,19 @@ class StatsHistoryActivity : AppCompatActivity() {
     }
 
     private fun loadRestData() {
-        val records = HistoryRecordFilter.filterQuota(
+        // 额度流水属于时间规则：「今天 / 近 7 天 / 本月」按业务日（生效时间为界）切
+        val businessDayStartMinutes = TimeRuleManager.getRefreshTime(this)
+            .split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 8) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+        val inRange = HistoryRecordFilter.filterQuota(
             StatisticsRepository.getAllRestRecords(this),
-            restDisplayRange
+            restDisplayRange,
+            businessDayStartMinutes = businessDayStartMinutes
         )
+        // 入流 / 出流汇总只看显示范围，不受类型筛选影响
+        tvRestSummary.text = RestLedger.summaryText(RestLedger.summarize(inRange))
+        val records = RestLedger.filter(inRange, restLedgerFilter)
         btnRestRange.text = "显示范围：${restDisplayRange.displayName}"
+        btnRestFilter.text = "类型：${restLedgerFilter.displayName}"
         restAdapter.submitList(records)
         tvRestEmpty.isVisible = records.isEmpty()
         rvRest.isVisible = records.isNotEmpty()
@@ -169,6 +186,20 @@ class StatsHistoryActivity : AppCompatActivity() {
             .setTitle("额度流水显示范围")
             .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
                 restDisplayRange = options[which]
+                dialog.dismiss()
+                loadRestData()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showRestFilterPicker() {
+        val options = LedgerFilter.entries.toTypedArray()
+        val selected = options.indexOf(restLedgerFilter).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("额度流水类型")
+            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
+                restLedgerFilter = options[which]
                 dialog.dismiss()
                 loadRestData()
             }
@@ -401,9 +432,11 @@ class StatsHistoryActivity : AppCompatActivity() {
                 tvDate.text = item.dateLabel
 
                 val quotaDelta = -item.costMinutes
-                val countDelta = -item.costCount
-                tvCost.text = "额度 ${formatDelta(quotaDelta, "m")} / 次数 ${formatDelta(countDelta, "次")}"
-                tvBalance.text = "变动后结余: ${item.balanceMinutes.toInt()}m / ${item.balanceCount}次"
+                val countDelta = -RestLedger.costCountInTimes(item)
+                val balanceText = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
+                tvCost.text = "${RestLedger.poolLabel(item)} ${RestLedger.formatDelta(quotaDelta, "m")} / 次数 ${RestLedger.formatDelta(countDelta, "次")}"
+                // 特权是独立池子，不动休息额度，结余没有变化可言
+                tvBalance.text = if (item.type == RestLedger.TYPE_PRIVILEGE) "不占用休息额度" else "变动后结余: $balanceText"
 
                 tvArrow.text = if (isExpanded) "▲" else "▼"
                 layoutDetail.isVisible = isExpanded
@@ -411,21 +444,12 @@ class StatsHistoryActivity : AppCompatActivity() {
                 if (isExpanded) {
                     tvDetailReason.text = if (item.reason.isNotBlank()) "原因说明: ${item.reason}" else "原因说明: 无"
                     tvDetailDuration.text = "申请时长: ${item.requestedMinutes}m  |  实际使用: ${item.actualMinutes}m"
-                    tvDetailCost.text = "额度变化: ${formatDelta(quotaDelta, "m")}  |  次数变化: ${formatDelta(countDelta, "次")}"
-                    tvDetailBalance.text = "当前结余: ${item.balanceMinutes.toInt()} 分钟 / ${item.balanceCount} 次"
+                    tvDetailCost.text = "额度变化: ${RestLedger.formatDelta(quotaDelta, "m")}  |  次数变化: ${RestLedger.formatDelta(countDelta, "次")}"
+                    tvDetailBalance.text = "当前结余: ${RestLedger.formatAmount(item.balanceMinutes)} 分钟 / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))} 次"
                     btnDelete.setOnClickListener { onDelete(item) }
                 }
 
                 itemView.setOnClickListener { onToggle() }
-            }
-
-            private fun formatDelta(value: Double, unit: String): String {
-                val amount = if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
-                return when {
-                    value > 0 -> "+${amount}${unit}"
-                    value < 0 -> "${amount}${unit}"
-                    else -> "0${unit}"
-                }
             }
         }
     }

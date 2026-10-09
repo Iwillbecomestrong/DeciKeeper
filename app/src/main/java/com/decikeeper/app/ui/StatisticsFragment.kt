@@ -24,6 +24,7 @@ import com.decikeeper.app.data.statistics.ResolvedDateRange
 import com.decikeeper.app.data.statistics.StatsDateRange
 import com.decikeeper.app.data.statistics.StatsSection
 import com.decikeeper.app.data.statistics.StatisticsUiState
+import com.decikeeper.app.manager.statistics.RestLedger
 import com.decikeeper.app.manager.statistics.StatisticsRepository
 import com.decikeeper.app.manager.statistics.StatsDateRangeResolver
 import com.decikeeper.app.ui.statistics.AppCategoryDetailActivity
@@ -440,7 +441,7 @@ class StatisticsFragment : Fragment() {
 
         StatisticsChartRenderer.renderRestChart(chartBar, chartLine, summary, uiState.restMetric, ctx)
 
-        tvChartNote.text = "三者都属于“休息/放开规则”的出口，因此放在同一张图里。\n横轴不超过 12 个数据点时使用堆叠柱状图；超过 12 个数据点后改为累加折线/堆叠面积：底层休息，中层临时解锁，顶层特权。月视角按天保留数据，因此通常会直接显示这种累加趋势。"
+        tvChartNote.text = "三者都属于“休息/放开规则”的出口，因此放在同一张图里。\n横轴不超过 12 个数据点时使用堆叠柱状图；超过 12 个数据点后改为累加折线/堆叠面积：底层休息，中层临时解锁，顶层特权。月视角按天保留数据，因此通常会直接显示这种累加趋势。\n日期口径：按业务日统计。业务日从「生效时间」开始、到次日生效时间结束，与休息额度、特权额度的刷新一致，所以生效时间之前的凌晨使用算前一天。"
 
         layoutAppsExtra.isVisible = false
         layoutAlarmExtra.isVisible = false
@@ -468,9 +469,13 @@ class StatisticsFragment : Fragment() {
                 type.text = rec.typeName
                 reason.text = if (rec.reason.isNotBlank()) rec.reason else "申请 ${rec.requestedMinutes}m"
                 val minuteDelta = -rec.costMinutes
-                val countDelta = -rec.costCount
-                cost.text = "额度 ${formatQuotaDelta(minuteDelta, "m")} / 次数 ${formatQuotaDelta(countDelta, "次")}"
-                balance.text = "变动后结余 ${rec.balanceMinutes.toInt()}m / ${rec.balanceCount}次"
+                val countDelta = -RestLedger.costCountInTimes(rec)
+                cost.text = "${RestLedger.poolLabel(rec)} ${RestLedger.formatDelta(minuteDelta, "m")} / 次数 ${RestLedger.formatDelta(countDelta, "次")}"
+                balance.text = if (rec.type == RestLedger.TYPE_PRIVILEGE) {
+                    "不占用休息额度"
+                } else {
+                    "变动后结余 ${RestLedger.formatAmount(rec.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(rec))}次"
+                }
                 layoutRestRecentList.addView(v)
             }
         }
@@ -485,15 +490,6 @@ class StatisticsFragment : Fragment() {
         cardSecondary.isVisible = true
         tvSecondaryTitle.text = "冷却中再次申请"
         tvSecondaryDesc.text = "冷却中的再次申请不是一次成功出口，因此不叠进休息图，只单独记录次数。"
-    }
-
-    private fun formatQuotaDelta(value: Double, unit: String): String {
-        val amount = if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
-        return when {
-            value > 0 -> "+${amount}${unit}"
-            value < 0 -> "${amount}${unit}"
-            else -> "0${unit}"
-        }
     }
 
     // ==========================================
@@ -847,11 +843,13 @@ class StatisticsFragment : Fragment() {
         chartLine.isVisible = true
         StatisticsChartRenderer.renderAlarmChart(chartLine, summary, uiState.alarmView, ctx)
 
-        tvChartNote.text = if (isTime) {
+        val alarmNote = if (isTime) {
             "时刻图：实线/主柱显示一阶段完成时刻，虚线/半透明柱显示计划响铃时刻。两线间距即为起床拖延时间。"
         } else {
             "耗时图：堆叠显示一阶段解除耗时与完整流程耗时（分钟）。柱越高代表今早起床唤醒越艰难。"
         }
+        tvChartNote.text = alarmNote +
+            "\n日期口径：按自然日统计（00:00 ~ 24:00），与闹钟的计划响铃时间一致。"
 
         layoutAppsExtra.isVisible = false
         layoutAlarmExtra.isVisible = true

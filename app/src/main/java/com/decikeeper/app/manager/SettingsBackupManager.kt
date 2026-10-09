@@ -126,8 +126,7 @@ object SettingsBackupManager {
                 "cool_down_rest_seconds", "cool_down_gap_seconds",
                 "borrow_percentage", "notify_advance_minutes",
                 "notify_entry_near_minutes", "temp_restricted_access_max_seconds",
-                "privilege_window_start", "privilege_window_end",
-                "is_privilege_window_synced"
+                "privilege_window_start", "privilege_window_end"
             ),
             "decikeeper_ledger" to listOf(
                 "config_refresh_time", "strict_penalty_duration",

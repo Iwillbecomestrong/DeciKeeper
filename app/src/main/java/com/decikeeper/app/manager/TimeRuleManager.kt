@@ -44,6 +44,7 @@ import com.decikeeper.app.data.AndroidLogcatNormalEventSink
 import com.decikeeper.app.data.DefaultLogDebugConfig
 import com.decikeeper.app.data.DefaultNormalEventRenderer
 import com.decikeeper.app.data.LogExporter
+import com.decikeeper.app.data.PrivilegeWindow
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SegmentAdverseAnalysis
 import com.decikeeper.app.data.SegmentAnalysis
@@ -445,7 +446,6 @@ object TimeRuleManager {
                 propagateRefreshTimeToPendingFiles(context)
             }
         }
-        checkAndSyncPrivilegeWindow(context, segments)
     }
 
     /**
@@ -945,26 +945,40 @@ object TimeRuleManager {
     // 🚀 [NEW] Privilege Usage Time Window Logic
     private const val KEY_PRIVILEGE_WINDOW_START = "privilege_window_start"
     private const val KEY_PRIVILEGE_WINDOW_END = "privilege_window_end"
-    private const val KEY_PRIVILEGE_WINDOW_SYNCED = "is_privilege_window_synced"
 
     /**
-     * 获取特权可用窗口开始时间 (HH:MM 格式)
-     * 默认值："07:00"
+     * 当前生效的特权可用范围（开始, 结束）。
+     * 范围必须落在同一个业务日内：开始不早于业务日开始（生效时间），结束晚于开始、最晚 24:00。
+     * 早于业务日开始的开始值被收窄到业务日开始；仍不合法（如旧版跨午夜范围）时回落到默认范围。
      */
-    fun getPrivilegeWindowStart(context: Context): String {
-        val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_START, null)
-        if (stored != null) return stored
-        return "07:00"
+    private fun resolvePrivilegeWindow(context: Context): Pair<String, String> {
+        val prefs = getPrefs(context)
+        return PrivilegeWindow.resolve(
+            prefs.getString(KEY_PRIVILEGE_WINDOW_START, null),
+            prefs.getString(KEY_PRIVILEGE_WINDOW_END, null),
+            getRefreshTime(context)
+        )
     }
 
-    /**
-     * 获取特权可用窗口结束时间 (HH:MM 格式)
-     * 默认值："23:00"
-     */
-    fun getPrivilegeWindowEnd(context: Context): String {
-        val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_END, null)
-        if (stored != null) return stored
-        return "23:00"
+    /** 获取特权可用窗口开始时间 (HH:MM 格式)，默认 max("07:00", 业务日开始) */
+    fun getPrivilegeWindowStart(context: Context): String = resolvePrivilegeWindow(context).first
+
+    /** 获取特权可用窗口结束时间 (HH:MM 格式)，默认 "23:00" */
+    fun getPrivilegeWindowEnd(context: Context): String = resolvePrivilegeWindow(context).second
+
+    /** 特权可用范围的结束时刻（毫秒）：取 [referenceMillis] 所在实际日的范围结束，24:00 即次日 00:00。 */
+    fun getPrivilegeWindowEndMillis(context: Context, referenceMillis: Long): Long {
+        val endMins = PrivilegeWindow.parseMinutes(getPrivilegeWindowEnd(context))
+            ?: PrivilegeWindow.parseMinutes(PrivilegeWindow.DEFAULT_END)!!
+        return java.util.Calendar.getInstance().run {
+            timeInMillis = referenceMillis
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+            add(java.util.Calendar.MINUTE, endMins)
+            timeInMillis
+        }
     }
 
     fun setPrivilegeWindow(context: Context, start: String, end: String) {
@@ -976,30 +990,6 @@ object TimeRuleManager {
             ?.putString(KEY_PRIVILEGE_WINDOW_START, start)
             ?.putString(KEY_PRIVILEGE_WINDOW_END, end)
             ?.apply()
-    }
-
-    fun isPrivilegeWindowSynced(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_PRIVILEGE_WINDOW_SYNCED, false)
-    }
-
-    fun setPrivilegeWindowSynced(context: Context, isSynced: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_PRIVILEGE_WINDOW_SYNCED, isSynced).apply()
-        getDeviceProtectedPrefs(context)?.edit()?.putBoolean(KEY_PRIVILEGE_WINDOW_SYNCED, isSynced)?.apply()
-    }
-
-    /**
-     * 当特权窗口反向同步开启时，根据首段自动更新特权窗口
-     * 特权开始 = 首段结束，特权结束 = 首段开始
-     */
-    fun checkAndSyncPrivilegeWindow(context: Context, segments: List<TimeSegment>) {
-        if (isPrivilegeWindowSynced(context)) {
-            val firstSeg = getLogicalFirstSegment(context, segments)
-            if (firstSeg != null) {
-                val start = String.format("%02d:%02d", firstSeg.endHour, firstSeg.endMinute)
-                val end = String.format("%02d:%02d", firstSeg.startHour, firstSeg.startMinute)
-                setPrivilegeWindow(context, start, end)
-            }
-        }
     }
 
     /**
@@ -1016,29 +1006,18 @@ object TimeRuleManager {
     }
 
     /**
-     * 判断当前时刻是否在特权可用窗口内
-     * 支持跨午夜范围 (如 08:00 ~ 22:00, 也支持 22:00 ~ 08:00)
+     * 判断当前时刻是否在特权可用窗口内（同一实际日内，包含两端）
      */
     fun isInPrivilegeWindow(context: Context, nowMinutes: Int = -1): Boolean {
-        val startStr = getPrivilegeWindowStart(context)
-        val endStr = getPrivilegeWindowEnd(context)
-        val startParts = startStr.split(":")
-        val endParts = endStr.split(":")
-        val startMins = (startParts.getOrNull(0)?.toIntOrNull() ?: 7) * 60 + (startParts.getOrNull(1)?.toIntOrNull() ?: 0)
-        val endMins = (endParts.getOrNull(0)?.toIntOrNull() ?: 24) * 60 + (endParts.getOrNull(1)?.toIntOrNull() ?: 0)
+        val startMins = PrivilegeWindow.parseMinutes(getPrivilegeWindowStart(context)) ?: return false
+        val endMins = PrivilegeWindow.parseMinutes(getPrivilegeWindowEnd(context)) ?: return false
 
         val currentMins = if (nowMinutes >= 0) nowMinutes else {
             val cal = java.util.Calendar.getInstance()
             cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
         }
 
-        return if (startMins <= endMins) {
-            // 非跨午夜: 例如 08:00 ~ 22:00
-            currentMins in startMins..endMins
-        } else {
-            // 跨午夜: 例如 22:00 ~ 08:00 → 22:00~23:59 或 00:00~08:00
-            currentMins >= startMins || currentMins <= endMins
-        }
+        return currentMins in startMins..endMins
     }
 
     /**
@@ -3127,30 +3106,6 @@ object TimeRuleManager {
             }
         }
         
-        // 🚀 [NEW] Privilege Window Reverse Sync: Update when first segment changes
-        var targetPrivWindowStart = getPrivilegeWindowStart(context)
-        var targetPrivWindowEnd = getPrivilegeWindowEnd(context)
-        var isPrivWindowSyncedLocal = isPrivilegeWindowSynced(context)
-        
-        if (isPrivWindowSyncedLocal) {
-            val firstSeg = getLogicalFirstSegment(context, newSegments)
-            val oldFirstSeg = getLogicalFirstSegment(context, beforeSegments)
-            
-            val hasFirstSegChanged = if (firstSeg != null && oldFirstSeg != null) {
-                firstSeg.endHour != oldFirstSeg.endHour || firstSeg.endMinute != oldFirstSeg.endMinute ||
-                firstSeg.startHour != oldFirstSeg.startHour || firstSeg.startMinute != oldFirstSeg.startMinute
-            } else {
-                firstSeg != null
-            }
-            
-            if (firstSeg != null && hasFirstSegChanged) {
-                targetPrivWindowStart = String.format("%02d:%02d", firstSeg.endHour, firstSeg.endMinute)
-                targetPrivWindowEnd = String.format("%02d:%02d", firstSeg.startHour, firstSeg.startMinute)
-            }
-        }
-        
-        val isPrivWindowChange = targetPrivWindowStart != getPrivilegeWindowStart(context) || targetPrivWindowEnd != getPrivilegeWindowEnd(context)
-
         val isRefreshChange = targetRefresh != curRefresh
         // 🚀 [Fix] Refresh Time Logic: Always Benign/Immediate (User Rule)
         // User requested: "生效时间怎么改都是有利改动".
@@ -3167,8 +3122,6 @@ object TimeRuleManager {
         if (isInAdaptationPeriod(context)) {
             saveTimeSegments(context, newSegments)
             if (isRefreshChange) saveRefreshTime(context, targetRefresh)
-            // 🚀 [NEW] Apply privilege window immediately during adaptation
-            if (isPrivWindowChange) setPrivilegeWindow(context, targetPrivWindowStart, targetPrivWindowEnd)
             
             context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).edit().clear().apply()
             
@@ -3245,11 +3198,6 @@ object TimeRuleManager {
                 pendingEdit.putString("config_refresh_time", targetRefresh)
                 delayedMessages.add("生效时间: $curRefresh -> $targetRefresh (统一次日生效)")
             }
-            if (isPrivWindowChange) {
-                pendingEdit.putString(KEY_PRIVILEGE_WINDOW_START, targetPrivWindowStart)
-                pendingEdit.putString(KEY_PRIVILEGE_WINDOW_END, targetPrivWindowEnd)
-                delayedMessages.add("特权可用范围: ${getPrivilegeWindowStart(context)}~${getPrivilegeWindowEnd(context)} -> $targetPrivWindowStart~$targetPrivWindowEnd (统一次日生效)")
-            }
             pendingEdit.apply()
 
             ChangeLogManager.removePendingEntriesByCategory(context, "segments")
@@ -3309,18 +3257,6 @@ object TimeRuleManager {
             }
             
             // 🚀 [NEW] Privilege Window Sync — always delayed even when triggered by segment sync
-            if (isPrivWindowChange) {
-                val pendingPrefsForPW = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
-                val pwEffTime = getEffectiveTimestamp(context)
-                pendingPrefsForPW.edit()
-                    .putString(KEY_PRIVILEGE_WINDOW_START, targetPrivWindowStart)
-                    .putString(KEY_PRIVILEGE_WINDOW_END, targetPrivWindowEnd)
-                    .putBoolean("has_pending_changes", true)
-                    .putLong("effective_timestamp", pwEffTime)
-                    .apply()
-                immList.add("特权可用范围: ${getPrivilegeWindowStart(context)}~${getPrivilegeWindowEnd(context)} -> $targetPrivWindowStart~$targetPrivWindowEnd (次日生效)")
-            }
-            
                 // 🚀 [Fix] Partial Revert Support (Benign Path)
                 newSegments.forEach { current ->
                     val base = basSegments?.find { baseSeg ->

@@ -189,15 +189,17 @@ data class RestUsageRecord(
     val id: String,
     val timestamp: Long,
     val dateLabel: String,                 // 格式如 "2026-09-09 11:30"
-    val type: String,                      // "NORMAL", "BORROW", "PRIVILEGE", "PENALTY", "REFUND"
-    val typeName: String,                  // "常规休息", "借用休息", "周特权", "惩罚扣除", "提前退还"
+    // 当前类型：REST / TEMP（可带 _BORROW、_COOLING 标记）/ GRANT / PRIVILEGE / PENALTY / REFUND
+    // 旧版休息记录为 NORMAL / BORROW（costCount 误存 half-unit，由 RestLedger 读取时换算）
+    val type: String,
+    val typeName: String,                  // "常规休息", "借用休息", "临时解锁", "额度发放", "周特权", "频繁返回扣减", "提前退还"
     val reason: String = "",               // 具体原因描述
     val requestedMinutes: Double = 0.0,    // 申请/设定时长（分钟）
     val actualMinutes: Double = 0.0,       // 实际使用时长（分钟）
-    val costMinutes: Double = 0.0,         // 扣减/变动时长（分钟，正数表示扣减，负数表示退还）
-    val costCount: Double = 0.0,           // 扣减次数（支持0.5次，正数表示消耗，负数表示返还）
+    val costMinutes: Double = 0.0,         // 扣减/变动时长（分钟，正数表示扣减，负数表示退还/发放）
+    val costCount: Double = 0.0,           // 扣减次数（单位「次」，支持0.5次，正数表示消耗，负数表示返还/发放）
     val balanceMinutes: Double = 0.0,      // 变动后剩余时长（分钟）
-    val balanceCount: Int = 0              // 变动后剩余次数
+    val balanceCount: Int = 0              // 变动后剩余次数（half-unit，0.5 次 = 1；换算见 RestLedger.balanceCountInTimes）
 )
 
 /**

@@ -7557,23 +7557,15 @@ object TestScenarioManager {
             assertPass(false, "41.1 非跨午夜范围异常", e.message ?: "unknown")
         }
 
-        // --- Test 41.2: isInPrivilegeWindow 跨午夜范围 ---
-        log("\n--- Test 41.2: 跨午夜范围判断 ---")
+        // --- Test 41.2: 跨午夜（结束不晚于开始）的范围不合法，回落到默认范围 ---
+        log("\n--- Test 41.2: 跨午夜范围回落默认 ---")
         try {
-            // 设置窗口 22:00 ~ 08:00 (跨午夜)
             TimeRuleManager.setPrivilegeWindow(context, "22:00", "08:00")
-            val inWindow23 = TimeRuleManager.isInPrivilegeWindow(context, 1380) // 23:00 -> in
-            val inWindow3 = TimeRuleManager.isInPrivilegeWindow(context, 180) // 03:00 -> in
-            val inWindow12 = TimeRuleManager.isInPrivilegeWindow(context, 720) // 12:00 -> out
-            val inWindow22 = TimeRuleManager.isInPrivilegeWindow(context, 1320) // 22:00 -> in (边界)
-            val inWindow8 = TimeRuleManager.isInPrivilegeWindow(context, 480) // 08:00 -> in (边界)
-            assertPass(inWindow23, "41.2a 23:00在22-08跨夜范围内", "应为true")
-            assertPass(inWindow3, "41.2b 03:00在22-08跨夜范围内", "应为true")
-            assertPass(!inWindow12, "41.2c 12:00不在22-08跨夜范围内", "应为false")
-            assertPass(inWindow22, "41.2d 22:00在22-08边界内", "应为true")
-            assertPass(inWindow8, "41.2e 08:00在22-08边界内", "应为true")
+            assertPass(TimeRuleManager.getPrivilegeWindowStart(context) == "07:00", "41.2a 非法范围开始回落默认", "实际=${TimeRuleManager.getPrivilegeWindowStart(context)}")
+            assertPass(TimeRuleManager.getPrivilegeWindowEnd(context) == "23:00", "41.2b 非法范围结束回落默认", "实际=${TimeRuleManager.getPrivilegeWindowEnd(context)}")
+            assertPass(!TimeRuleManager.isInPrivilegeWindow(context, 180), "41.2c 03:00不在默认范围内", "应为false")
         } catch (e: Exception) {
-            assertPass(false, "41.2 跨午夜范围异常", e.message ?: "unknown")
+            assertPass(false, "41.2 跨午夜范围回落异常", e.message ?: "unknown")
         }
 
         // --- Test 41.3: calculateWeeklyPrivilegeEffectiveMinutes 使用特权窗口 ---
@@ -7616,44 +7608,11 @@ object TestScenarioManager {
             assertPass(false, "41.3 特权窗口限制异常", e.message ?: "unknown")
         }
 
-        // --- Test 41.4: 反向同步标志位 ---
-        log("\n--- Test 41.4: 反向同步标志位 ---")
-        try {
-            TimeRuleManager.setPrivilegeWindowSynced(context, true)
-            assertPass(TimeRuleManager.isPrivilegeWindowSynced(context), "41.4a 设置同步=true")
-            TimeRuleManager.setPrivilegeWindowSynced(context, false)
-            assertPass(!TimeRuleManager.isPrivilegeWindowSynced(context), "41.4b 设置同步=false")
-        } catch (e: Exception) {
-            assertPass(false, "41.4 同步标志位异常", e.message ?: "unknown")
-        }
-
-        // --- Test 41.5: checkAndSyncPrivilegeWindow ---
-        log("\n--- Test 41.5: 反向同步首段自动更新 ---")
-        try {
-            TimeRuleManager.setPrivilegeWindowSynced(context, true)
-            // 创建测试时段: 22:00 ~ 08:00
-            val testSeg = TimeSegment(
-                startHour = 22, startMinute = 0,
-                endHour = 8, endMinute = 0,
-                limitMins = 10,
-                name = "测试同步段"
-            )
-            TimeRuleManager.checkAndSyncPrivilegeWindow(context, listOf(testSeg))
-            val syncedStart = TimeRuleManager.getPrivilegeWindowStart(context)
-            val syncedEnd = TimeRuleManager.getPrivilegeWindowEnd(context)
-            // 反向: 特权开始=首段结束(08:00), 特权结束=首段开始(22:00)
-            assertPass(syncedStart == "08:00", "41.5a 同步后开始=08:00", "实际=$syncedStart")
-            assertPass(syncedEnd == "22:00", "41.5b 同步后结束=22:00", "实际=$syncedEnd")
-        } catch (e: Exception) {
-            assertPass(false, "41.5 反向同步异常", e.message ?: "unknown")
-        }
-
         // --- Cleanup ---
         if (origStart != null) prefs.edit().putString("privilege_window_start", origStart).apply()
         else prefs.edit().remove("privilege_window_start").apply()
         if (origEnd != null) prefs.edit().putString("privilege_window_end", origEnd).apply()
         else prefs.edit().remove("privilege_window_end").apply()
-        TimeRuleManager.setPrivilegeWindowSynced(context, false)
 
         log("\n✅ 测试 #41 完成: 特权可用时间范围测试")
     }

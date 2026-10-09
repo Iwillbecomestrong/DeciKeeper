@@ -199,7 +199,6 @@ class GlobalParamsActivity : AppCompatActivity() {
             if (checked) syncWithFirstSegment()
         }
         layoutPrivWindowInputs.visibility = android.view.View.VISIBLE
-        TimeRuleManager.setPrivilegeWindowSynced(this, false)
 
         val btnSave = findViewById<android.view.View>(R.id.btn_save)
         if (isLocked) {
@@ -260,8 +259,10 @@ class GlobalParamsActivity : AppCompatActivity() {
             }
             newPrivWindowStart = formatTime(newPrivWindowStart)
             newPrivWindowEnd = formatTime(newPrivWindowEnd)
+            if (!com.decikeeper.app.data.PrivilegeWindow.isValid(newPrivWindowStart, newPrivWindowEnd, newRefreshTime)) {
+                Toast.makeText(this, "特权可用范围必须在业务日内：开始不早于生效时间 $newRefreshTime，结束晚于开始且最晚 24:00", Toast.LENGTH_LONG).show(); return@setOnClickListener
+            }
             TimeRuleManager.setRefreshTimeSynced(this, switchSync?.isChecked == true)
-            TimeRuleManager.setPrivilegeWindowSynced(this, false)
             val oldPolicy = EffectiveActivationPolicyManager.getPolicy(this)
             val selectedPolicy = if (rgEffectivePolicy?.checkedRadioButtonId == R.id.rb_policy_all_next_day) {
                 EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY

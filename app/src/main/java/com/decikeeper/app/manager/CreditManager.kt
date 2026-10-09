@@ -41,6 +41,8 @@ import com.decikeeper.app.data.TimeSegment
 import com.decikeeper.app.data.UsableCountLedgerMigration
 import com.decikeeper.app.data.buildSurplusSnapshotIdentity
 import com.decikeeper.app.data.formatUsableCountHalfUnits
+import com.decikeeper.app.data.clampPrivilegeStopAt
+import com.decikeeper.app.data.resolvePrivilegeSettlementTime
 import com.decikeeper.app.data.resolveRefundSegmentIndex
 import com.decikeeper.app.service.MonitorService
 import com.decikeeper.app.ui.LifecycleCooldownSettlement
@@ -55,6 +57,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
+import com.decikeeper.app.manager.statistics.RestLedger
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
 
 
@@ -1298,11 +1301,7 @@ object CreditManager {
         if (startTs <= 0L || endTs <= 0L) return false
 
         val midnightTs = getNextMidnightMillis(startTs)
-        val shouldStopAt = when {
-            nowMillis >= midnightTs -> midnightTs
-            nowMillis >= endTs -> endTs
-            else -> null
-        } ?: return false
+        val shouldStopAt = resolvePrivilegeSettlementTime(endTs, midnightTs, nowMillis) ?: return false
 
         stopWeeklyPrivilegeInternal(context, shouldStopAt)
         return true
@@ -1328,7 +1327,7 @@ object CreditManager {
      * 规则：
      * - 仅允许在【特权可用时间范围】内使用；范围外返回 0
      * - 不能超过本周剩余可用时长
-     * - 若申请时长会跨越 24:00，则自动截断到 24:00
+     * - 申请时长超出范围结束时，自动截断到范围结束（范围不跨午夜，所以也不会越过 24:00）
      */
     fun calculateWeeklyPrivilegeEffectiveMinutes(
         context: Context,
@@ -1346,55 +1345,13 @@ object CreditManager {
         // 🚀 [NEW] Check Privilege Usage Time Window (replaces old refreshTime check)
         if (!TimeRuleManager.isInPrivilegeWindow(context, currentMins)) return 0
 
-        val nextMidnightMillis = Calendar.getInstance().run {
-            timeInMillis = nowMillis
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            add(Calendar.DAY_OF_YEAR, 1)
-            timeInMillis
-        }
-
-        val millisUntilMidnight = (nextMidnightMillis - nowMillis).coerceAtLeast(0L)
-        // ceil minutes: 23:59:30 -> 1 分钟（到 24:00 结束）
-        val minutesUntilMidnight = ((millisUntilMidnight + 60_000L - 1) / 60_000L).toInt().coerceAtLeast(0)
-
-        // 🚀 [Rule] Auto-Truncate at Privilege Window End (Privilege must end exactly at boundary)
-        val windowEndStr = TimeRuleManager.getPrivilegeWindowEnd(context)
-        val endParts = windowEndStr.split(":")
-        val endH = endParts.getOrNull(0)?.toIntOrNull() ?: 23
-        val endM = endParts.getOrNull(1)?.toIntOrNull() ?: 59
-        val windowEndMins = endH * 60 + endM
-        
-        val windowStartStr = TimeRuleManager.getPrivilegeWindowStart(context)
-        val startParts = windowStartStr.split(":")
-        val startH = startParts.getOrNull(0)?.toIntOrNull() ?: 8
-        val startM = startParts.getOrNull(1)?.toIntOrNull() ?: 0
-        val windowStartMins = startH * 60 + startM
-            
-        val targetWindowEndMillis = Calendar.getInstance().run {
-            timeInMillis = nowMillis
-            set(Calendar.HOUR_OF_DAY, endH)
-            set(Calendar.MINUTE, endM)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            
-            // Adjust day for Cross-Midnight Window (e.g. 22:00 - 08:00)
-            if (windowStartMins > windowEndMins) {
-                // If we are in the "Night" part (e.g. 23:00), the end is "Tomorrow 08:00"
-                if (currentMins >= windowStartMins) {
-                    add(Calendar.DAY_OF_YEAR, 1)
-                }
-                // If we are in the "Morning" part (e.g. 05:00), the end is "Today 08:00" (Default)
-            }
-            timeInMillis
-        }
-        
-        val millisUntilWindowEnd = (targetWindowEndMillis - nowMillis).coerceAtLeast(0L)
+        // 🚀 [Rule] 申请时即按可用范围结束截断（特权必须恰好在范围结束处结束）。
+        // 范围在同一实际日内（结束晚于开始、最晚 24:00），不会越过午夜，无需另做 24:00 截断；
+        // 被截掉的部分不扣本周特权时长。
+        val millisUntilWindowEnd = (TimeRuleManager.getPrivilegeWindowEndMillis(context, nowMillis) - nowMillis).coerceAtLeast(0L)
         val minutesUntilWindowEnd = ((millisUntilWindowEnd + 60_000L - 1) / 60_000L).toInt().coerceAtLeast(0)
 
-        return minOf(requestedMinutes, remainingDur, minutesUntilMidnight, minutesUntilWindowEnd)
+        return minOf(requestedMinutes, remainingDur, minutesUntilWindowEnd)
     }
 
     fun startWeeklyPrivilege(context: Context, requestedMinutes: Int): Boolean {
@@ -1416,7 +1373,7 @@ object CreditManager {
         
         val now = System.currentTimeMillis()
 
-        // 🚀 [Rule] 仅允许在特权可用时间范围内使用，且不能跨越 24:00。
+        // 🚀 [Rule] 仅允许在特权可用时间范围内使用，申请时已按范围结束截断。
         val effectiveMinutes = calculateWeeklyPrivilegeEffectiveMinutes(context, requestedMinutes, now)
         if (effectiveMinutes <= 0) {
             val windowStart = TimeRuleManager.getPrivilegeWindowStart(context)
@@ -1425,17 +1382,7 @@ object CreditManager {
             return rejectWeeklyPrivilegeStart(context, "WINDOW_OR_QUOTA_UNAVAILABLE")
         }
 
-        val nextMidnightMillis = Calendar.getInstance().run {
-            timeInMillis = now
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            add(Calendar.DAY_OF_YEAR, 1)
-            timeInMillis
-        }
-
-        val endMillis = minOf(now + (effectiveMinutes * 60 * 1000L), nextMidnightMillis)
+        val endMillis = now + (effectiveMinutes * 60 * 1000L)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         
         prefs.edit()
@@ -1485,9 +1432,9 @@ object CreditManager {
         LogExporter.i("Privilege", "💎 申请特权 | minutes=$effectiveMinutes | until=$untilStr | remainingQuota=${"%.0f".format(remainingQuota)}min")
         RestStatsRecorder.record(
             context = context,
-            type = "PRIVILEGE",
+            type = RestLedger.TYPE_PRIVILEGE,
             typeName = "周特权",
-            reason = "每周专属特权时段",
+            reason = "每周特权池扣减，不占用休息额度",
             requestedMinutes = effectiveMinutes.toDouble(),
             actualMinutes = effectiveMinutes.toDouble(),
             costMinutes = effectiveMinutes.toDouble(),
@@ -1523,17 +1470,9 @@ object CreditManager {
 
         val oldDuration = prefs.getInt(KEY_PRIVILEGE_SESSION_DURATION, 0)
         val durationDiff = newDurationMinutes - oldDuration
-        val now = System.currentTimeMillis()
-        val nextMidnightMillis = Calendar.getInstance().run {
-            timeInMillis = now
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            add(Calendar.DAY_OF_YEAR, 1)
-            timeInMillis
-        }
-        val newEndMillis = minOf(sessionStart + (newDurationMinutes * 60 * 1000L), nextMidnightMillis)
+        // 调整后的结束也不能超过特权可用范围的结束（范围不跨午夜，同时也就不会越过 24:00）
+        val windowEndMillis = TimeRuleManager.getPrivilegeWindowEndMillis(context, sessionStart)
+        val newEndMillis = minOf(sessionStart + (newDurationMinutes * 60 * 1000L), windowEndMillis)
 
         if (durationDiff > 0) {
             addWeeklyPrivilegeDurationUsedAt(context, sessionStart, durationDiff)
@@ -1580,7 +1519,8 @@ object CreditManager {
             KEY_PRIVILEGE_SESSION_CHARGED_MINUTES,
             if (wasPreDeducted) requestedMins else 0
         )
-        val effectiveStopAt = stopAtMillis.coerceAtLeast(startTs)
+        // 结算被推迟时也不能把特权时长算过计划结束时刻
+        val effectiveStopAt = clampPrivilegeStopAt(stopAtMillis, startTs, requestedMins)
 
         // Calculate actually used minutes (ceil)
         val elapsedMillis = (effectiveStopAt - startTs).coerceAtLeast(0)
@@ -1642,10 +1582,10 @@ object CreditManager {
     }
 
     /**
-     * 记录特权时长到“休息时长”统计：
-     * - 仅统计落在勿扰时段的分钟
-     * - 空闲(Gap)时段忽略
-     * - 分别计入各自时段
+     * 记录特权时长到统计（统计图只看各出口每天用了多少时间，所以整段特权都计入）：
+     * - 落在勿扰时段内的分钟，计入各自时段的 key；
+     * - 落在空档期的分钟，按小时计入 `seg_<小时>_gap` key（小时视图仍能归到正确的小时）；
+     * - 按业务日归属（与休息、临时解锁的统计同口径）；特权范围在业务日内，一次特权不会拆到两个业务日。
      */
     fun recordPrivilegeRestUsage(context: Context, startTs: Long, stopTs: Long) {
         if (stopTs <= startTs) return
@@ -1655,12 +1595,16 @@ object CreditManager {
 
         var cursor = startTs
         while (cursor < stopTs) {
+            val dateStr = getBusinessDateStringAt(context, cursor)
             val segment = TimeRuleManager.getSegmentAt(context, cursor)
-            if (segment != null) {
-                val segKey = generateSegmentKey(segment)
-                val usageKey = getPrivilegeUsageKeyByTimestamp(context, segKey, cursor)
-                usageToAdd[usageKey] = (usageToAdd[usageKey] ?: 0) + 1
+            val suffix = if (segment != null) {
+                generateSegmentKey(segment)
+            } else {
+                val hour = Calendar.getInstance().apply { timeInMillis = cursor }.get(Calendar.HOUR_OF_DAY)
+                "seg_${hour}_gap"
             }
+            val usageKey = "privilege_usage_${dateStr}_$suffix"
+            usageToAdd[usageKey] = (usageToAdd[usageKey] ?: 0) + 1
             cursor += 60_000L
         }
 
@@ -1949,56 +1893,62 @@ object CreditManager {
         // Cross-day segments reliably use segment-aware keys for consistent read/write.
         var i = firstLogicalIndex
         while (true) {
-            val seg = segments[i]
-
-            // Skip inactive segments for rollover calculation
-            if (!seg.isActiveToday()) {
-                if (i == currentIndex) break
-                i = (i + 1) % segments.size
-                if (i == firstLogicalIndex) break
-                continue
-            }
-
-
-            // 只滚存同一业务天的段，跨物理午夜后明天的段不应加入
-            val currentBizDate = getSegmentBusinessDateString(context, segments[currentIndex])
-            if (getSegmentBusinessDateString(context, seg) != currentBizDate) {
-                if (i == currentIndex) break
-                i = (i + 1) % segments.size
-                if (i == firstLogicalIndex) break
-                continue
-            }
-            val usedSeconds = getUsedSecondsForSegment(context, seg)
-            // Privilege Check: override limit if privileged
-            val isPrivileged = isSegmentPrivileged(context, i)
-            val proration = getSegmentProration(context, seg, now)
-            val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else Math.round(proration.effectiveLimitMins * 60.0).toInt()
-
-            // Calculate remaining for this specific segment
-            var segRemainingSeconds = (effectiveLimitSeconds - usedSeconds).coerceAtLeast(0)
-
-            if (i != currentIndex && !proration.isEligibleForSurplus) {
-                LogExporter.i("CreditManager", "getRemainingMinutes: skip seg=${seg.name} because it was changed after its occurrence ended")
-                segRemainingSeconds = 0
-            }
-
-            // Flush unlimited segments (no carryover)
-            if (i != currentIndex) {
-                val segDuration = seg.getDurationMinutes()
-                val isEffectivelyUnlimited = isPrivileged ||
-                                              (segDuration > 0 && seg.limitMins > segDuration * 0.5)
-                if (isEffectivelyUnlimited) {
-                    segRemainingSeconds = 0
-                }
-            }
-
-            totalRemainingSeconds += segRemainingSeconds
+            totalRemainingSeconds += getSegmentQuotaRemainingSeconds(context, segments, i, currentIndex, now)
 
             if (i == currentIndex) break
             i = (i + 1) % segments.size
             if (i == firstLogicalIndex) break
         }
         return totalRemainingSeconds / 60.0
+    }
+
+    /**
+     * 某一段此刻还能被当作"当前额度/前序结余"消费的秒数。
+     *
+     * [getRemainingMinutes]（展示结余）与 [consumeSeconds]（扣费）共用同一口径：
+     * 否则扣费会吃掉展示里已被排除的段（跨业务日、改动后失去结余资格、无限额段），
+     * 出现"结余 20m，休息 20m，结余却还剩 3m"的账面错位。
+     */
+    private fun getSegmentQuotaRemainingSeconds(
+        context: Context,
+        segments: List<TimeSegment>,
+        index: Int,
+        currentIndex: Int,
+        now: Long
+    ): Int {
+        val seg = segments[index]
+
+        // Skip inactive segments for rollover calculation
+        if (!seg.isActiveToday()) return 0
+
+        // 只滚存同一业务天的段，跨物理午夜后明天的段不应加入
+        val currentBizDate = getSegmentBusinessDateString(context, segments[currentIndex])
+        if (getSegmentBusinessDateString(context, seg) != currentBizDate) return 0
+
+        val usedSeconds = getUsedSecondsForSegment(context, seg)
+        // Privilege Check: override limit if privileged
+        val isPrivileged = isSegmentPrivileged(context, index)
+        val proration = getSegmentProration(context, seg, now)
+        val effectiveLimitSeconds = if (isPrivileged) 9999 * 60 else Math.round(proration.effectiveLimitMins * 60.0).toInt()
+
+        // Calculate remaining for this specific segment
+        var segRemainingSeconds = (effectiveLimitSeconds - usedSeconds).coerceAtLeast(0)
+
+        if (index != currentIndex && !proration.isEligibleForSurplus) {
+            LogExporter.i("CreditManager", "getRemainingMinutes: skip seg=${seg.name} because it was changed after its occurrence ended")
+            segRemainingSeconds = 0
+        }
+
+        // Flush unlimited segments (no carryover)
+        if (index != currentIndex) {
+            val segDuration = seg.getDurationMinutes()
+            val isEffectivelyUnlimited = isPrivileged ||
+                                          (segDuration > 0 && seg.limitMins > segDuration * 0.5)
+            if (isEffectivelyUnlimited) {
+                segRemainingSeconds = 0
+            }
+        }
+        return segRemainingSeconds
     }
     
     fun getAllPreviousSegmentsRemainingMinutes(context: Context): Double {
@@ -2751,11 +2701,6 @@ object CreditManager {
     }
 
     // [Privilege Stats] Separate key prefix to avoid contaminating normal quota usage_* keys
-    private fun getPrivilegeUsageKeyByTimestamp(context: Context, segmentKey: String, timestamp: Long): String {
-        val dateStr = getBusinessDateStringAt(context, timestamp)
-        return "privilege_usage_${dateStr}_${segmentKey}"
-    }
-
     private fun getTodayPrivilegeUsageKey(context: Context, segmentKey: String): String {
         val dateStr = getBusinessDateString(context)
         return "privilege_usage_${dateStr}_${segmentKey}"
@@ -3584,7 +3529,9 @@ object CreditManager {
         val currentLimitSeconds = currentSeg.limitMins * 60
 
         val currentBorrowed = getBorrowedSecondsForSegment(context, currentSeg)
-        val currentAvail = (currentLimitSeconds - currentUsed).coerceAtLeast(0)
+        // 与 getRemainingMinutes 同一口径（含改动折算），扣多少展示结余就少多少
+        val consumeNow = System.currentTimeMillis()
+        val currentAvail = getSegmentQuotaRemainingSeconds(context, segments, currentIndex, currentIndex, consumeNow)
 
         // 🆕 记录消耗前的剩余时间用于变化播报
         val beforeRemainingMins = getRemainingMinutes(context)
@@ -3626,18 +3573,12 @@ object CreditManager {
         var i = firstLogicalIndex
         while (i != currentIndex && remaining > 0) {
             val seg = segments[i]
-            val key = generateSegmentKey(seg)
-
-            if (!seg.isActiveToday()) {
-                i = (i + 1) % segments.size
-                if (i == firstLogicalIndex) break
-                continue
-            }
 
             // 🚀 使用 getUsageKeyForSegment 确保跨天段读写 key 一致
             val usageKey = getUsageKeyForSegment(context, seg)
             val used = prefs.getInt(usageKey, 0)
-            val avail = (seg.limitMins * 60 - used).coerceAtLeast(0)
+            // 只扣展示里算作结余的段（跨业务日 / 失去结余资格 / 无限额段不参与）
+            val avail = getSegmentQuotaRemainingSeconds(context, segments, i, currentIndex, consumeNow)
 
             if (avail > 0) {
                 val take = minOf(avail, remaining)
@@ -3959,9 +3900,9 @@ object CreditManager {
             )
             RestStatsRecorder.record(
                 context = context,
-                type = "PENALTY",
-                typeName = "违规惩罚",
-                reason = "频繁触发防沉迷或多次锁屏扣减",
+                type = RestLedger.TYPE_PENALTY,
+                typeName = RestLedger.TYPE_NAME_PENALTY,
+                reason = "30 秒内多次点击「返回桌面」，触发频繁返回扣减",
                 requestedMinutes = result.timeDeductSec / 60.0,
                 actualMinutes = 0.0,
                 costMinutes = result.totalTimeQuotaSec / 60.0,
