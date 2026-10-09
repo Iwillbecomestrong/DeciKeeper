@@ -295,7 +295,9 @@ internal object LockAlarmOverlayController {
                 alarmMode = testCfg.stage2AlarmMode,
                 vibrationMode = testCfg.stage2VibrationMode,
                 fixedVibrationIntensity = testCfg.stage2VibrationIntensity,
-                fixedRingVolume = testCfg.stage2RingVolume
+                fixedRingVolume = testCfg.stage2RingVolume,
+                progressiveMaxRingVolume = testCfg.stage2ProgressiveMaxRingVolume,
+                progressiveMaxVibrationIntensity = testCfg.stage2ProgressiveMaxIntensity
             )
         } else null
         testProgressiveMinIntensity = if (isTest) (testCfg?.progressiveMinIntensity ?: 1) else null

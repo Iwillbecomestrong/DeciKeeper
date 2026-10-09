@@ -14,12 +14,49 @@ class AlarmReminderSettingsViewTest {
         AlarmReminderSettingsView.resolveVisibility(mode, vib, showRingtone)
 
     @Test
-    fun `progressive mode shows only the hint and no sliders`() {
+    fun `progressive vibrate and ring shows the hint plus max vibration and max volume sliders`() {
         val v = visibility(AlarmMode.VIBRATE_AND_RING, VibrationMode.PROGRESSIVE)
 
         assertTrue(v.progressiveHint)
-        assertFalse(v.vibrationSlider)
+        assertTrue("渐进模式下震动滑块作为「最大震动」", v.vibrationSlider)
+        assertTrue("渐进模式下声音滑块作为「最大声音」", v.volumeSlider)
+    }
+
+    @Test
+    fun `progressive vibrate only shows only the max vibration slider`() {
+        val v = visibility(AlarmMode.VIBRATE_ONLY, VibrationMode.PROGRESSIVE)
+
+        assertTrue(v.progressiveHint)
+        assertTrue(v.vibrationSlider)
         assertFalse(v.volumeSlider)
+    }
+
+    @Test
+    fun `progressive ring only shows only the max volume slider`() {
+        val v = visibility(AlarmMode.RING_ONLY, VibrationMode.PROGRESSIVE)
+
+        assertFalse(v.vibrationSlider)
+        assertTrue(v.volumeSlider)
+    }
+
+    @Test
+    fun `progressive and fixed show the same slider rows`() {
+        for (mode in AlarmMode.values()) {
+            val progressive = visibility(mode, VibrationMode.PROGRESSIVE)
+            val fixed = visibility(mode, VibrationMode.FIXED)
+            assertEquals(fixed.vibrationSlider, progressive.vibrationSlider)
+            assertEquals(fixed.volumeSlider, progressive.volumeSlider)
+        }
+    }
+
+    @Test
+    fun `sliders reuse one row each and relabel per strength mode`() {
+        val src = source("app/src/main/java/com/decikeeper/app/ui/AlarmReminderSettingsView.kt")
+
+        assertEquals(1, Regex("""volumeRow = sliderRow\(""").findAll(src).count())
+        assertEquals(1, Regex("""vibrationRow = sliderRow\(""").findAll(src).count())
+        assertTrue(src.contains("\"最大声音\""))
+        assertTrue(src.contains("\"最大震动\""))
     }
 
     @Test

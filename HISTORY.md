@@ -7,6 +7,14 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-44] 渐进提醒新增「最大声音」「最大震动」上限，只设最大值；隐藏的控件收起不留空隙（2026-10-09）
+
+- **背景**：声音增益是 `(档/10)^3`，真机实测第 2 档已能听到、第 3 档已很响，渐进 1→10 对声音偏陡，后几档只是更吵，「温和唤醒」失效。2026-09-08 提醒重设计曾停用旧的 `progressiveMax*` 设置并不再暴露为 UI。
+- **决策**：① 渐进模式新增「最大声音」（1–10，默认 10），10 步每步 30 秒仍保留，均匀铺在 Level 1 与最大声音之间，第 k 步有效档位 `1 + (max − 1)(k − 1)/9`；② 只影响渐进爬升，不碰固定模式；先做声音，随后应用户要求补上「最大震动」（振幅同样按 `1 + (max − 1)(k − 1)/9` 铺开）；③ 不设最小值（起步始终 Level 1）；④ 第一关、第二关各有一份，沿用「默认设置 + 单个闹钟可改」；⑤ 声音滑块松手试听约 2 秒、震动滑块松手试震约 0.8 秒（振幅换算与真实震动共用 `AlarmAlertPolicy.vibrationAmplitude`），声音试听期间复用 `AlarmStreamVolumeLock` 把闹钟通道锁到 80%，与真实响铃一致。
+- **有意回退**：这是对 09-08「不再暴露为 UI 设置」的有意回退，仅限声音上限一项；`autoEscalate`、`progressiveMin/MaxIntensity` 仍停用。
+- **反转 §2.3**：原规定“切换时弹窗高度必须稳定、隐藏控件用 `INVISIBLE` 占位、不得 `GONE`”；用户觉得空隙难看，要求自动填补，故改为隐藏控件直接收起（`GONE`），对应契约测试 `DefaultAlarmSettingsLayoutContractTest` 同步翻转。弹窗在 `ScrollView` 内，高度变化无碍。
+- **防坑警告**：持久化使用**新键**（声音：`progressiveRingMax`、`stage2ProgressiveRingMax`、`default_progressive_ring_max`、`default_stage2_progressive_ring_max`；震动：`progressiveVibrationMax`、`stage2ProgressiveVibrationMax`、`default_progressive_vibration_max`、`default_stage2_progressive_vibration_max`），不得读回旧键 `progressiveMaxRingVolume` / `progressiveMaxIntensity` / `default_progressive_max_ring` / `default_progressive_max_intensity`，否则早期版本遗留的非 10 值会让旧闹钟突然变轻；默认 10 必须与改动前逐位等价；渐进的最大值与固定值始终一并保存、互不覆盖，渐进模式不再把震动强度强制记成 1。
+
 ### [DECISION-43] 安装拦截：拦在安装器的风险拦截页，先于防卸载派发（2026-10-08）
 
 - **背景**：开发者选项拦截堵住了 adb 装包，但仍可把改动过的安装包用文件管理器打开、经系统安装器覆盖安装，同签名更新保留全部数据。
