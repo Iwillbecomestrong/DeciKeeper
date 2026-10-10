@@ -5,9 +5,12 @@ import com.decikeeper.app.data.statistics.RestUsageRecord
 /**
  * 额度流水的类型筛选。
  *
- * 入流（加额度）：[QUOTA_GRANT]、[REFUND]；
- * 出流（减额度）：[NORMAL]、[BORROW]、[COOLING]、[DEDUCTION]；
- * [RECALC]（时段被修改后结余的变化）按时长、次数各自的正负归入入流或出流；
+ * 先按去向分：[INFLOW] 入流（额度增加）、[OUTFLOW] 出流（额度减少），再按类型细分。
+ * 入流 = [QUOTA_GRANT]、[REFUND]、[RECALC_INCREASE]，以及借用时提前发放了下一段额度的借用记录；
+ * 出流 = 休息 / 临时解锁（[NORMAL]、[BORROW]、[COOLING]）、[DEDUCTION]、[RECALC_DECREASE]，
+ * 只有真的减少了额度才算（空档期 / 休息中的免费操作不动额度，不算出流）。
+ * 「额度重算」按结余的实际变化划分：时长或次数增加归 [RECALC_INCREASE]，减少归 [RECALC_DECREASE]，
+ * 一增一减的重算两边都能筛到。
  * [PRIVILEGE] 是每周特权的独立池子，不参与入流 / 出流对账。
  *
  * 常规 / 借用 / 冷却中针对休息与临时解锁：借用与冷却中可以同时成立，
@@ -15,13 +18,16 @@ import com.decikeeper.app.data.statistics.RestUsageRecord
  */
 enum class LedgerFilter(val displayName: String) {
     ALL("全部"),
+    INFLOW("入流（额度增加）"),
+    OUTFLOW("出流（额度减少）"),
     QUOTA_GRANT("额度发放"),
     REFUND("提前退还"),
-    RECALC("额度重算"),
+    RECALC_INCREASE("重算增加"),
     NORMAL("常规"),
     BORROW("借用"),
     COOLING("冷却中"),
     DEDUCTION("频繁返回扣减"),
+    RECALC_DECREASE("重算减少"),
     PRIVILEGE("特权")
 }
 
@@ -131,10 +137,16 @@ object RestLedger {
 
     fun matches(record: RestUsageRecord, filter: LedgerFilter): Boolean = when (filter) {
         LedgerFilter.ALL -> true
+        LedgerFilter.INFLOW -> flowOf(record).let { it.inMinutes > FLOW_EPSILON || it.inCount > FLOW_EPSILON } ||
+            record.type == TYPE_GRANT || record.type == TYPE_REFUND
+        LedgerFilter.OUTFLOW -> flowOf(record).let { it.outMinutes > FLOW_EPSILON || it.outCount > FLOW_EPSILON }
         // 借用时提前发放的下一段额度也是入流，含提前发放的借用记录在「额度发放」里也能看到
         LedgerFilter.QUOTA_GRANT -> record.type == TYPE_GRANT || hasAdvance(record)
         LedgerFilter.REFUND -> record.type == TYPE_REFUND
-        LedgerFilter.RECALC -> record.type == TYPE_RECALC
+        LedgerFilter.RECALC_INCREASE -> record.type == TYPE_RECALC &&
+            (record.costMinutes < -FLOW_EPSILON || costCountInTimes(record) < -FLOW_EPSILON)
+        LedgerFilter.RECALC_DECREASE -> record.type == TYPE_RECALC &&
+            (record.costMinutes > FLOW_EPSILON || costCountInTimes(record) > FLOW_EPSILON)
         LedgerFilter.DEDUCTION -> record.type == TYPE_PENALTY
         LedgerFilter.PRIVILEGE -> record.type == TYPE_PRIVILEGE
         LedgerFilter.NORMAL -> isRestLike(record) && !isBorrow(record) && !isCooling(record)
@@ -226,6 +238,36 @@ object RestLedger {
         }
     }
 
+    private const val FLOW_EPSILON = 0.0001
+
+    /** 一条流水的入流 / 出流（时长分钟、次数「次」），汇总与筛选共用，保证两边口径一致。 */
+    private class Flow(val inMinutes: Double, val inCount: Double, val outMinutes: Double, val outCount: Double)
+
+    private val NO_FLOW = Flow(0.0, 0.0, 0.0, 0.0)
+
+    private fun flowOf(record: RestUsageRecord): Flow = when {
+        record.type == TYPE_GRANT || record.type == TYPE_REFUND ->
+            Flow(-record.costMinutes, -costCountInTimes(record), 0.0, 0.0)
+        // 借用时提前发放的下一段额度是入流；下一段发放记录里只记净发放，合计才等于该段额度
+        isRestLike(record) || record.type == TYPE_PENALTY -> Flow(
+            if (hasAdvance(record)) record.advancedMinutes else 0.0,
+            if (hasAdvance(record)) record.advancedCount else 0.0,
+            record.costMinutes,
+            costCountInTimes(record)
+        )
+        // 重算的时长与次数可能一增一减，各自按正负归入入流 / 出流
+        record.type == TYPE_RECALC -> {
+            val count = costCountInTimes(record)
+            Flow(
+                if (record.costMinutes < 0.0) -record.costMinutes else 0.0,
+                if (count < 0.0) -count else 0.0,
+                if (record.costMinutes >= 0.0) record.costMinutes else 0.0,
+                if (count >= 0.0) count else 0.0
+            )
+        }
+        else -> NO_FLOW
+    }
+
     /** 入流 = 额度发放 + 提前退还 + 重算增加；出流 = 休息 / 临时解锁 / 频繁返回扣减 + 重算减少。特权是独立池子，不计入。 */
     fun summarize(records: List<RestUsageRecord>): LedgerSummary {
         var inMinutes = 0.0
@@ -233,26 +275,11 @@ object RestLedger {
         var outMinutes = 0.0
         var outCount = 0.0
         records.forEach { record ->
-            when {
-                record.type == TYPE_GRANT || record.type == TYPE_REFUND -> {
-                    inMinutes += -record.costMinutes
-                    inCount += -costCountInTimes(record)
-                }
-                isRestLike(record) || record.type == TYPE_PENALTY -> {
-                    outMinutes += record.costMinutes
-                    outCount += costCountInTimes(record)
-                    // 借用时提前发放的下一段额度是入流；下一段发放记录里只记净发放，合计才等于该段额度
-                    if (hasAdvance(record)) {
-                        inMinutes += record.advancedMinutes
-                        inCount += record.advancedCount
-                    }
-                }
-                record.type == TYPE_RECALC -> {
-                    // 重算的时长与次数可能一增一减，各自按正负归入入流 / 出流
-                    if (record.costMinutes >= 0.0) outMinutes += record.costMinutes else inMinutes += -record.costMinutes
-                    if (record.costCount >= 0.0) outCount += record.costCount else inCount += -record.costCount
-                }
-            }
+            val flow = flowOf(record)
+            inMinutes += flow.inMinutes
+            inCount += flow.inCount
+            outMinutes += flow.outMinutes
+            outCount += flow.outCount
         }
         return LedgerSummary(inMinutes, inCount, outMinutes, outCount)
     }

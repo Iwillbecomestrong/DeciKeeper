@@ -32,8 +32,14 @@ class RestLedgerTest {
         balanceCount = balanceCount
     )
 
+    /** 按类型细分的筛选命中（去向筛选 INFLOW / OUTFLOW 另有专门用例）。 */
     private fun matching(record: RestUsageRecord): Set<LedgerFilter> =
-        LedgerFilter.entries.filter { it != LedgerFilter.ALL && RestLedger.matches(record, it) }.toSet()
+        LedgerFilter.entries.filter { it !in flowFilters && RestLedger.matches(record, it) }.toSet()
+
+    private val flowFilters = setOf(LedgerFilter.ALL, LedgerFilter.INFLOW, LedgerFilter.OUTFLOW)
+
+    private fun flows(record: RestUsageRecord): Set<LedgerFilter> =
+        flowFilters.filter { it != LedgerFilter.ALL && RestLedger.matches(record, it) }.toSet()
 
     @Test
     fun typesComposeFromKindAndFlags() {
@@ -102,7 +108,10 @@ class RestLedgerTest {
     @Test
     fun filterOrderPutsInflowFirstThenOutflowThenPrivilege() {
         assertEquals(
-            listOf("全部", "额度发放", "提前退还", "额度重算", "常规", "借用", "冷却中", "频繁返回扣减", "特权"),
+            listOf(
+                "全部", "入流（额度增加）", "出流（额度减少）",
+                "额度发放", "提前退还", "重算增加", "常规", "借用", "冷却中", "频繁返回扣减", "重算减少", "特权"
+            ),
             LedgerFilter.entries.map { it.displayName }
         )
     }
@@ -394,11 +403,67 @@ class RestLedgerTest {
     // ── 额度重算（时段被修改后结余变化的出处）──────────────────────────────
 
     @Test
-    fun recalcHasItsOwnFilterAfterRefund() {
-        val order = LedgerFilter.entries.toList()
-        assertEquals(order.indexOf(LedgerFilter.REFUND) + 1, order.indexOf(LedgerFilter.RECALC))
-        assertEquals("额度重算", LedgerFilter.RECALC.displayName)
-        assertEquals(setOf(LedgerFilter.RECALC), matching(record("RECALC")))
+    fun recalcIsSplitByWhatActuallyChanged() {
+        val increase = record("RECALC", costMinutes = -4.0, costCount = 0.0)
+        val decrease = record("RECALC", costMinutes = 10.0, costCount = 0.0)
+        val mixed = record("RECALC", costMinutes = 10.0, costCount = -1.0)
+
+        assertEquals(setOf(LedgerFilter.RECALC_INCREASE), matching(increase))
+        assertEquals(setOf(LedgerFilter.RECALC_DECREASE), matching(decrease))
+        // 时长减少、次数增加：两边都能筛到
+        assertEquals(setOf(LedgerFilter.RECALC_INCREASE, LedgerFilter.RECALC_DECREASE), matching(mixed))
+    }
+
+    @Test
+    fun inflowFilterCollectsEveryWayQuotaGrows() {
+        assertEquals(setOf(LedgerFilter.INFLOW), flows(record("GRANT", costMinutes = -30.0, costCount = -3.0)))
+        assertEquals(setOf(LedgerFilter.INFLOW), flows(record("REFUND", costMinutes = -5.0)))
+        assertEquals(setOf(LedgerFilter.INFLOW), flows(record("RECALC", costMinutes = -4.0)))
+        // 一增一减的重算，入流出流都有
+        assertEquals(
+            setOf(LedgerFilter.INFLOW, LedgerFilter.OUTFLOW),
+            flows(record("RECALC", costMinutes = 10.0, costCount = -1.0))
+        )
+    }
+
+    @Test
+    fun outflowFilterOnlyCountsRealReductions() {
+        assertEquals(setOf(LedgerFilter.OUTFLOW), flows(record("REST", costMinutes = 10.0, costCount = 0.5)))
+        assertEquals(setOf(LedgerFilter.OUTFLOW), flows(record("PENALTY", costMinutes = 0.5, costCount = 0.5)))
+        assertEquals(setOf(LedgerFilter.OUTFLOW), flows(record("RECALC", costMinutes = 3.0)))
+        // 空档期 / 休息中的免费操作不动额度
+        assertEquals(emptySet<LedgerFilter>(), flows(record("REST", costMinutes = 0.0, costCount = 0.0)))
+        // 特权是独立池子
+        assertEquals(emptySet<LedgerFilter>(), flows(record("PRIVILEGE", costMinutes = 60.0, costCount = 1.0)))
+    }
+
+    @Test
+    fun borrowCountsAsOutflowAndAlsoAsInflowThroughAdvance() {
+        val borrow = record("REST_BORROW", costMinutes = 20.0, costCount = 1.0).copy(
+            advancedMinutes = 10.0,
+            advancedCount = 1.0
+        )
+        assertEquals(setOf(LedgerFilter.INFLOW, LedgerFilter.OUTFLOW), flows(borrow))
+    }
+
+    @Test
+    fun flowFiltersAgreeWithSummary() {
+        val all = listOf(
+            record("GRANT", costMinutes = -30.0, costCount = -3.0),
+            record("REST", costMinutes = 10.0, costCount = 0.5),
+            record("RECALC", costMinutes = -4.0),
+            record("RECALC", costMinutes = 6.0),
+            record("REFUND", costMinutes = -2.0)
+        )
+        val inflow = RestLedger.summarize(RestLedger.filter(all, LedgerFilter.INFLOW))
+        val outflow = RestLedger.summarize(RestLedger.filter(all, LedgerFilter.OUTFLOW))
+        val total = RestLedger.summarize(all)
+
+        // 去向筛选各自只剩一个方向，汇总与整体一致
+        assertEquals(0.0, inflow.outflowMinutes, 0.0001)
+        assertEquals(0.0, outflow.inflowMinutes, 0.0001)
+        assertEquals(total.inflowMinutes, inflow.inflowMinutes, 0.0001)
+        assertEquals(total.outflowMinutes, outflow.outflowMinutes, 0.0001)
     }
 
     @Test
