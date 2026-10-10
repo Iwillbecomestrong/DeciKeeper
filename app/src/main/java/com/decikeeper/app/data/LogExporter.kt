@@ -102,6 +102,25 @@ object LogExporter {
         deleteStaleLegacyLog(appCtx)
     }
 
+    /** 每个进程写一次启动行（版本、机型、系统），进入 A 级永久账本。 */
+    fun logProcessStart(context: Context) {
+        val version = try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        } catch (_: Exception) {
+            null
+        }
+        logEvent(
+            com.decikeeper.app.logging.ProcessStartLine.TAG,
+            com.decikeeper.app.logging.ProcessStartLine.format(
+                versionName = version,
+                manufacturer = android.os.Build.MANUFACTURER ?: "unknown",
+                model = android.os.Build.MODEL ?: "unknown",
+                androidRelease = android.os.Build.VERSION.RELEASE ?: "unknown",
+                sdkInt = android.os.Build.VERSION.SDK_INT
+            )
+        )
+    }
+
     /** 同步落盘缓冲中的日志，供导出、崩溃、服务销毁和系统内存紧张时调用。 */
     fun flush() {
         tieredWriter?.flush()

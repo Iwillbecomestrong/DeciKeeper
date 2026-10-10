@@ -84,6 +84,7 @@ import com.decikeeper.app.util.DiagnosticCompressor
 import com.decikeeper.app.util.DiagnosticTimestampFormatter
 import com.decikeeper.app.util.FgBypassStableKey
 import com.decikeeper.app.util.FgGuardStableKey
+import com.decikeeper.app.logging.LastForegroundEvidence
 import com.decikeeper.app.util.ForegroundNormalEventBridge
 import com.decikeeper.app.util.ForegroundNormalEventStateTracker
 import com.decikeeper.app.util.ForegroundReportFormatter
@@ -3657,6 +3658,8 @@ class MonitorService : Service() {
 
         val gate = foregroundReportGate
         val decision = gate.evaluate(c, outcome, nowMs)
+        // 仅供日志使用：给 LOCK_RESULT 等 A 级事件附上一行"为什么"，业务代码不读取。
+        LastForegroundEvidence.update(outcome.effectivePackageName, mLastTopEvidence.name, outcome.businessReason)
         emitForegroundStateClosureOrTransition(
             packageName = outcome.effectivePackageName ?: "NONE",
             stateKey = listOf(
@@ -3666,7 +3669,12 @@ class MonitorService : Service() {
                 outcome.allowanceState
             ).joinToString("|"),
             hasFullDiagnostic = decision.emission == ForegroundReportEmission.FULL,
-            nowMs = nowMs
+            nowMs = nowMs,
+            stateFields = linkedMapOf(
+                "action" to outcome.businessAction.name,
+                "reason" to outcome.businessReason,
+                "allowance" to outcome.allowanceState
+            )
         )
         foregroundNormalEventBridge.emitDecision(
             cycle = c,
@@ -3703,7 +3711,8 @@ class MonitorService : Service() {
         packageName: String,
         stateKey: String,
         hasFullDiagnostic: Boolean,
-        nowMs: Long
+        nowMs: Long,
+        stateFields: Map<String, String> = emptyMap()
     ) {
         foregroundNormalEventStateTracker.observe(
             stateKey = stateKey,
@@ -3711,7 +3720,8 @@ class MonitorService : Service() {
             isDesktop = CreditManager.isLauncher(packageName),
             hasFullDiagnostic = hasFullDiagnostic,
             nowMs = nowMs,
-            clock = SystemEventClock
+            clock = SystemEventClock,
+            stateFields = stateFields
         ).forEach(foregroundNormalEventLogger::emit)
     }
 

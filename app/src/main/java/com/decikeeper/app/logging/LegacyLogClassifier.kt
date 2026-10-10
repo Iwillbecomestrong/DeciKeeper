@@ -85,6 +85,7 @@ object LegacyLogClassifier {
     }
 
     private fun route(tag: String, message: String): LogRoute = when {
+        tag == ProcessStartLine.TAG -> LogRoute(LogTier.A, LogModule.SYS)
         tag in alarmScheduleTags -> LogRoute(LogTier.A, LogModule.ALARM_SCHEDULE)
         tag == "AlarmOverlay" -> LogRoute(LogTier.B, LogModule.ALARM_CHALLENGE)
         tag == "AntiUninstall" ->

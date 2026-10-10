@@ -286,6 +286,7 @@ class MyApplication : Application() {
 
         // 🚀 [Log] Initialize LogExporter with app context for disk-persistent logging
         LogExporter.init(this)
+        LogExporter.logProcessStart(this)
 
         // 🚀 启动时清理无障碍保护模块历史脏 key
         // 历史版本曾在 ConfigPendingManager 中写入 "a11y_service_self_pending"

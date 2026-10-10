@@ -12,6 +12,7 @@ import com.decikeeper.app.data.ForegroundReportAssessmentFactory
 import com.decikeeper.app.data.ForegroundReportDecision
 import com.decikeeper.app.data.ForegroundReportEmission
 import com.decikeeper.app.data.ForegroundReportOutcome
+import com.decikeeper.app.logging.LastForegroundEvidence
 import com.decikeeper.app.data.ForegroundReportTrigger
 import com.decikeeper.app.data.ForegroundSourceSnapshot
 import com.decikeeper.app.data.ForegroundSourceStatus
@@ -146,20 +147,26 @@ class ForegroundNormalEventStateTracker {
     private var activeStateKey: String? = null
     private var activePackage: String? = null
     private var activeIsDesktop: Boolean = false
+    private var activeStateFields: Map<String, String> = emptyMap()
     private var startedAtMs: Long = 0L
     private var suppressedCount: Long = 0L
 
+    /**
+     * [stateFields] 只用于补充 FG_END 的可读字段（动作、原因等），不参与状态键比较，
+     * 因此不会改变运行段的划分。
+     */
     fun observe(
         stateKey: String,
         packageName: String,
         isDesktop: Boolean,
         hasFullDiagnostic: Boolean,
         nowMs: Long,
-        clock: EventClock
+        clock: EventClock,
+        stateFields: Map<String, String> = emptyMap()
     ): List<NormalEventDraft> {
         val previousKey = activeStateKey
         if (previousKey == null) {
-            start(stateKey, packageName, isDesktop, nowMs)
+            start(stateKey, packageName, isDesktop, nowMs, stateFields)
             return emptyList()
         }
 
@@ -174,11 +181,12 @@ class ForegroundNormalEventStateTracker {
             events += NormalEvents.create(
                 type = "FG_END",
                 clock = clock,
-                fields = linkedMapOf(
-                    "foreground" to previousPackage,
-                    "dwellMs" to (nowMs - startedAtMs).coerceAtLeast(0L).toString(),
-                    "suppressedCount" to suppressedCount.toString()
-                )
+                fields = linkedMapOf<String, String>().apply {
+                    put("foreground", previousPackage)
+                    put("dwellMs", (nowMs - startedAtMs).coerceAtLeast(0L).toString())
+                    put("suppressedCount", suppressedCount.toString())
+                    putAll(activeStateFields)
+                }
             )
         }
         if (!hasFullDiagnostic && activeIsDesktop != isDesktop) {
@@ -188,14 +196,21 @@ class ForegroundNormalEventStateTracker {
                 clock = clock
             )
         }
-        start(stateKey, packageName, isDesktop, nowMs)
+        start(stateKey, packageName, isDesktop, nowMs, stateFields)
         return events
     }
 
-    private fun start(stateKey: String, packageName: String, isDesktop: Boolean, nowMs: Long) {
+    private fun start(
+        stateKey: String,
+        packageName: String,
+        isDesktop: Boolean,
+        nowMs: Long,
+        stateFields: Map<String, String>
+    ) {
         activeStateKey = stateKey
         activePackage = packageName
         activeIsDesktop = isDesktop
+        activeStateFields = stateFields
         startedAtMs = nowMs
         suppressedCount = 0L
     }
@@ -217,7 +232,8 @@ class ForegroundLockResultSettlementTracker {
         reason: String,
         duplicate: Boolean,
         clock: EventClock,
-        failureClass: String? = null
+        failureClass: String? = null,
+        evidence: String? = null
     ): NormalEventDraft? {
         if (requestId.isNullOrBlank() || decisionRef.isNullOrBlank()) return null
         if (!settledRequestIds.add(requestId)) return null
@@ -229,6 +245,7 @@ class ForegroundLockResultSettlementTracker {
             reason = reason,
             duplicate = duplicate,
             failureClass = failureClass,
+            evidence = evidence,
             clock = clock
         )
     }
@@ -338,6 +355,7 @@ class ForegroundNormalEventBridge(
             reason = reason,
             duplicate = duplicate,
             failureClass = failureClass,
+            evidence = LastForegroundEvidence.render(),
             clock = clock
         )?.let(emit)
     }
@@ -526,7 +544,8 @@ object ForegroundReportFormatter {
         reason: String,
         duplicate: Boolean,
         clock: EventClock,
-        failureClass: String? = null
+        failureClass: String? = null,
+        evidence: String? = null
     ): NormalEventDraft = NormalEvents.create(
         type = "LOCK_RESULT",
         clock = clock,
@@ -538,6 +557,7 @@ object ForegroundReportFormatter {
             put("reason", reason)
             put("duplicate", duplicate.toString())
             failureClass?.let { put("failureClass", it) }
+            evidence?.let { put("evidence", it) }
         }
     )
 
