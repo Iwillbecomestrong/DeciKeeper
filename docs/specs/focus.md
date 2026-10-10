@@ -165,7 +165,7 @@
 
 ### 3.3A 扣费与展示结余同口径
 
-- 扣费（`consumeSeconds`）与展示结余（`getRemainingMinutes`）必须共用 `getSegmentQuotaRemainingSeconds`：跨业务日、改动后失去结余资格、无限额的时段既不计入结余，也不能被扣费扣到。扣多少，展示的结余就少多少。
+- 扣费（`consumeSeconds`）与展示结余（`getRemainingMinutes`）必须共用 `getSegmentQuotaRemainingSeconds`：跨业务日、启用得太晚而不能滚存（见 6.1）、无限额的时段既不计入结余，也不能被扣费扣到。扣多少，展示的结余就少多少。
 - 提前结束 / 自然进入空档期时，未用时长按申请时的费率全额退还、已用部分不退，口径见 `MonitorService.endFreeTimeEarly`，本节不改。
 
 ### 3.4 确认前必须展示真实成本
