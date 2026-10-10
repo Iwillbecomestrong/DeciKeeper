@@ -16,7 +16,6 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.service.MonitorService
 import com.decikeeper.app.ui.LockWindowManager
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.io.PrintStream
 import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.After
@@ -39,7 +38,6 @@ import org.robolectric.annotation.Config
 class HeartbeatDivergenceTest {
 
     private lateinit var logCapture: ByteArrayOutputStream
-    private lateinit var logFile: File
     private lateinit var service: MonitorService
 
     // Reflection handles for MonitorService private fields
@@ -65,8 +63,7 @@ class HeartbeatDivergenceTest {
     fun setUp() {
         // Initialize LogExporter so logEvent writes to filesDir
         LogExporter.init(RuntimeEnvironment.getApplication())
-        logFile = File(RuntimeEnvironment.getApplication().filesDir, "ironwill_event_log.txt")
-        logFile.delete()
+        LogExporter.clearLogsForTesting()
 
         // Capture Log.w output via ShadowLog.stream
         logCapture = ByteArrayOutputStream()
@@ -106,7 +103,7 @@ class HeartbeatDivergenceTest {
         healthTickField.set(service, 299)
 
         logCapture.reset()
-        logFile.delete()
+        LogExporter.clearLogsForTesting()
         runnable.run()
 
         var heartbeat = readHeartbeatLog()
@@ -122,7 +119,7 @@ class HeartbeatDivergenceTest {
         healthTickField.set(service, 299)
 
         logCapture.reset()
-        logFile.delete()
+        LogExporter.clearLogsForTesting()
         runnable.run()
 
         heartbeat = readHeartbeatLog()
@@ -138,7 +135,7 @@ class HeartbeatDivergenceTest {
         healthTickField.set(service, 299)
 
         logCapture.reset()
-        logFile.delete()
+        LogExporter.clearLogsForTesting()
         runnable.run()
 
         heartbeat = readHeartbeatLog()
@@ -154,7 +151,7 @@ class HeartbeatDivergenceTest {
         healthTickField.set(service, 299)
 
         logCapture.reset()
-        logFile.delete()
+        LogExporter.clearLogsForTesting()
         runnable.run()
 
         heartbeat = readHeartbeatLog()
@@ -169,12 +166,12 @@ class HeartbeatDivergenceTest {
     /** Clear ShadowLog stream buffer + heartbeat log file + reset health tick */
     private fun clearState() {
         logCapture.reset()
-        logFile.delete()
+        LogExporter.clearLogsForTesting()
         // After each run the runnable sets mHealthTickCount = 0, so re-arm
     }
 
     private fun readHeartbeatLog(): String =
-        if (logFile.exists()) logFile.readText() else ""
+        LogExporter.readTimeline().lines.joinToString("\n")
 
     private fun getIsLockedAtomic(): AtomicBoolean =
         isLockedAtomicField.get(LockWindowManager) as AtomicBoolean

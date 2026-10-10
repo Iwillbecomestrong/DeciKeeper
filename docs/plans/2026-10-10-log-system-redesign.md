@@ -160,12 +160,14 @@
 ```
 filesDir/
   log/
-    journal.log          # A 级，独立配额，约 4MB
-    trace/               # B 级，分片滚动，合计约 6MB
-      trace-000.log
-      trace-001.log ...
+    journal/             # A 级，分片滚动，合计约 4MB（每片 512KB）
+      journal-000001.log ...
+    trace/               # B 级，分片滚动，合计约 6MB（每片 1MB）
+      trace-000001.log ...
   crash_log.txt          # 沿用
 ```
+
+实现代码在 `com.decikeeper.app.logging` 包（不叫 `log`，因为仓库 `.gitignore` 忽略所有 `log/` 目录）。
 
 - 总预算与现状一致，不超过 10MB。账本很小（旧日志 A 级两天约 250KB），因此 4MB 够用数月；其余给诊断分片。
 - **不再整文件截断。** 分片写满后直接删除最老整片，不再 `readLines` 后整体重写。

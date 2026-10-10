@@ -22,6 +22,15 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.FileProvider
+import com.decikeeper.app.logging.EventRegistry
+import com.decikeeper.app.logging.ExecutorLogScheduler
+import com.decikeeper.app.logging.LegacyLogClassifier
+import com.decikeeper.app.logging.LegacyLogDecision
+import com.decikeeper.app.logging.LogTier
+import com.decikeeper.app.logging.LogTime
+import com.decikeeper.app.logging.LogTimeline
+import com.decikeeper.app.logging.SegmentedLogStore
+import com.decikeeper.app.logging.TieredLogWriter
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
@@ -52,7 +61,6 @@ object LogExporter {
     // 开源版开发者反馈邮箱
     const val DEFAULT_RECIPIENT = "cyz200303@163.com"
     private const val INTERNAL_LOG_FILENAME = "ironwill_event_log.txt"
-    private const val MAX_LOG_FILE_SIZE = 10 * 1024 * 1024L // 10MB, 增加日志容量以保存更长时间记录
     private val NORMAL_EVENT_HEADER = Regex(
         "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[[^]]+] eventId=\\S+"
     )
@@ -62,10 +70,52 @@ object LogExporter {
     @Volatile
     private var appContext: Context? = null
 
-    private val internalLogFileWriter = InternalLogFileWriter(MAX_LOG_FILE_SIZE, ::truncateLogFile)
-    
+    /** 旧版单文件日志升级后只读保留的天数，超过则删除。 */
+    private const val LEGACY_LOG_RETENTION_MS = 3L * 24 * 60 * 60 * 1000
+
+    private const val JOURNAL_SEGMENT_BYTES = 512L * 1024
+    private const val JOURNAL_MAX_BYTES = 4L * 1024 * 1024
+    private const val TRACE_SEGMENT_BYTES = 1024L * 1024
+    private const val TRACE_MAX_BYTES = 6L * 1024 * 1024
+
+    private val scheduler by lazy { ExecutorLogScheduler() }
+
+    /** A 级永久账本与 B 级近期诊断的分层写入器，init 后可用。 */
+    @Volatile
+    private var tieredWriter: TieredLogWriter? = null
+
+    @Volatile
+    private var journalStore: SegmentedLogStore? = null
+
+    @Volatile
+    private var traceStore: SegmentedLogStore? = null
+
     fun init(context: Context) {
-        appContext = context.applicationContext
+        val appCtx = context.applicationContext
+        appContext = appCtx
+        val logDir = File(appCtx.filesDir, "log")
+        val journal = SegmentedLogStore(File(logDir, "journal"), "journal", JOURNAL_SEGMENT_BYTES, JOURNAL_MAX_BYTES)
+        val trace = SegmentedLogStore(File(logDir, "trace"), "trace", TRACE_SEGMENT_BYTES, TRACE_MAX_BYTES)
+        journalStore = journal
+        traceStore = trace
+        tieredWriter = TieredLogWriter(journal, trace, scheduler)
+        deleteStaleLegacyLog(appCtx)
+    }
+
+    /** 同步落盘缓冲中的日志，供导出、崩溃、服务销毁和系统内存紧张时调用。 */
+    fun flush() {
+        tieredWriter?.flush()
+    }
+
+    private fun deleteStaleLegacyLog(ctx: Context) {
+        try {
+            val legacy = File(ctx.filesDir, INTERNAL_LOG_FILENAME)
+            if (legacy.exists() && System.currentTimeMillis() - legacy.lastModified() > LEGACY_LOG_RETENTION_MS) {
+                legacy.delete()
+            }
+        } catch (_: Exception) {
+            // 清理失败不影响日志功能。
+        }
     }
 
     /**
@@ -88,54 +138,7 @@ object LogExporter {
      * so a legacy line that happens to carry a `LOCK-…` token still gets dropped —
      * the explicit classifier always wins.
      */
-    private val exportDropPatterns = listOf(
-        // Task 1 — foreground polling/raw retired sites
-        Regex("""\[DETECT\]"""),
-        Regex("""\[MINI_WINDOW_FALLBACK\]"""),
-        Regex("""\[EVENT\] type=APP_STATE"""),
-        Regex("""FG pkg="""),
-        Regex("""FG_SUMMARY"""),
-        Regex("""\[EVENT\] type=NAVIGATION"""),
-        Regex("""\[FG_BYPASS_DIAG\]"""),
-        Regex("""\[SHOULD_BLOCK_DIAG\]"""),
-        Regex("""\[EVENT\] type=BLOCK_DECISION"""),
-        Regex("""\[FG_GUARD_DIAG\]"""),
-        Regex("""\[VIS_CHECK_DIAG\]"""),
-        Regex("""\[EVENT\] type=VIS_DECISION"""),
-        // Task 2 — MonitorService seven-line evidence block + `[锁机]` + `[RESTORE_REQUEST]`
-        Regex("""前台结论:"""),
-        Regex("""^[^|]*Accessibility:\s+(?:可用|不可用)"""),
-        Regex("""UsageEvents:\s+#1"""),
-        Regex("""UsageStats:\s+#1"""),
-        Regex("""内部状态:"""),
-        Regex("""判断理由:"""),
-        Regex("""锁机上下文:"""),
-        Regex("""\[锁机\]"""),
-        Regex("""\[RESTORE_REQUEST\]"""),
-        Regex("""\[AUTO_RELEASE\]"""),
-        // Task 3 — lock/temp lifecycle duplicates
-        Regex("""LockScreen: 解锁:"""),
-        Regex("""LockScreen: 🏠 回到桌面:"""),
-        Regex("""TempAccess: 临时解锁:"""),
-        // Task 4 — quota UI ticks + consumption/penalty step traces + daily status header
-        Regex("""\[BORROW_UI_DEBUG\]"""),
-        Regex("""\[TIME_CONSUME\]"""),
-        Regex("""\[STEP1\]"""),
-        Regex("""\[STEP2\]"""),
-        Regex("""\[STEP3\]"""),
-        Regex("""\[DONE\] penalty applied"""),
-        Regex("""══════ 每日状态播报 ══════"""),
-        // Task 5 — alarm/protection raw lifecycle + heartbeats + service lifecycle
-        Regex("""💓 心跳"""),
-        Regex("""AlarmWindowManager: ring show=true"""),
-        Regex("""LockWindowManager: snooze action=\S+"""),
-        Regex("""CoreService: onServiceConnected"""),
-        Regex("""CoreService: onUnbind"""),
-        Regex("""CoreService: onRebind"""),
-        // Pre-existing Task 1/3 drops retained for completeness
-        Regex("""TemporaryAccess: \[FINAL_RELOCK_SUCCEEDED] cleared flag"""),
-        Regex("""LockScreen: \[REASSERT]""")
-    )
+    private val exportDropPatterns = LegacyLogClassifier.dropPatterns
 
     /** 正向保留模式：包含 traceId 前缀（如 `LOCK-`）的行强制保留 */
     private val exportKeepPatterns = listOf(
@@ -388,22 +391,11 @@ object LogExporter {
                 }
             }
             
-            // 2. Write IronWill Internal Event Log (Persisted to disk, survives Force Stop)
-            val rawInternalLog = if (durationMillis != null && durationMillis > 0) {
-                readInternalLogFiltered(durationMillis)
-            } else {
-                readInternalLog()
-            }
-            val internalLog = compactLogsForExport(rawInternalLog.lines()).joinToString("\n") + "\n"
-            val lineCount = internalLog.lines().filter { it.isNotBlank() }.size
-            val timeRangeLabel = if (durationMillis != null && durationMillis > 0) {
-                " (最近 ${durationMillis / 1000}s)"
-            } else {
-                ""
-            }
-            writer.write("=== IRONWILL INTERNAL LOG ($lineCount lines$timeRangeLabel) ===\n")
-            writer.write(internalLog)
-            writer.write("=== END INTERNAL LOG ===\n")
+            // 2. Write the A/B log timeline (persisted to disk, survives Force Stop)
+            val hasDuration = durationMillis != null && durationMillis > 0
+            val startMs = if (hasDuration) System.currentTimeMillis() - durationMillis!! else Long.MIN_VALUE
+            val timeRangeLabel = if (hasDuration) " (最近 ${durationMillis!! / 1000}s)" else ""
+            writeLogSections(writer, startMs, Long.MAX_VALUE, timeRangeLabel)
             writer.flush()
             writer.close()
             
@@ -454,13 +446,8 @@ object LogExporter {
                 }
             }
 
-            // 2. Write IronWill Internal Event Log with time range filtering
-            val rawInternalLog = readInternalLogFilteredInRange(startTimeMillis, endTimeMillis)
-            val internalLog = compactLogsForExport(rawInternalLog.lines()).joinToString("\n") + "\n"
-            val lineCount = internalLog.lines().filter { it.isNotBlank() }.size
-            writer.write("=== IRONWILL INTERNAL LOG ($lineCount lines, $startLabel ~ $endLabel, ${durationSec}s) ===\n")
-            writer.write(internalLog)
-            writer.write("=== END INTERNAL LOG ===\n")
+            // 2. Write the A/B log timeline with time range filtering
+            writeLogSections(writer, startTimeMillis, endTimeMillis, ", $startLabel ~ $endLabel, ${durationSec}s")
             writer.flush()
             writer.close()
 
@@ -640,14 +627,20 @@ object LogExporter {
     fun w(tag: String, message: String) = logEvent(tag, message)
     fun d(tag: String, message: String) = logEvent(tag, message)
 
+    /**
+     * 旧式字符串日志。在写入时按 tag 与消息分流：已退役的标签直接丢弃（C 级），
+     * 低频关键 tag 进永久账本（A 级），其余进近期诊断（B 级）。
+     */
     fun logEvent(tag: String, message: String) {
         try {
-            val ctx = appContext ?: return
-            val timestamp = SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US).format(Date())
-            val entry = "$timestamp $tag: $message\n"
-            val logFile = File(ctx.filesDir, INTERNAL_LOG_FILENAME)
-            
-            internalLogFileWriter.append(logFile, entry)
+            val writer = tieredWriter ?: return
+            when (val decision = LegacyLogClassifier.classify(tag, message)) {
+                LegacyLogDecision.Drop -> Unit
+                is LegacyLogDecision.Keep -> {
+                    val entry = "${LogTime.format(System.currentTimeMillis())} $tag: $message\n"
+                    writer.append(decision.route.tier, entry)
+                }
+            }
         } catch (e: Exception) {
             // 日志写入失败不应影响主逻辑
             Log.e(TAG, "logEvent write failed: ${e.message}")
@@ -657,31 +650,61 @@ object LogExporter {
     /**
      * Persists a normal event in one write. Its renderer has already supplied the full-date
      * header and any atomic body block, so adding another timestamp or tag would duplicate facts.
+     * The tier comes from [EventRegistry]; unregistered types fall back to the diagnostic tier.
      */
     private fun persistNormalEvent(record: RenderedNormalEvent) {
         try {
-            val ctx = appContext ?: return
-            val logFile = File(ctx.filesDir, INTERNAL_LOG_FILENAME)
-
-            val entry = if (record.text.endsWith('\n')) record.text else "${record.text}\n"
-            internalLogFileWriter.append(logFile, entry)
+            val writer = tieredWriter ?: return
+            writer.append(EventRegistry.route(record.event.draft.type).tier, record.text)
         } catch (e: Exception) {
             Log.e(TAG, "normal event write failed: ${e.message}")
         }
     }
-    
-    /** 读取磁盘上的内部日志内容 */
-    private fun readInternalLog(): String {
-        val ctx = appContext ?: return "[WARN] LogExporter not initialized (appContext is null)\n"
-        val logFile = File(ctx.filesDir, INTERNAL_LOG_FILENAME)
-        return if (logFile.exists()) {
-            try {
-                logFile.readText()
-            } catch (e: Exception) {
-                "[ERROR] Failed to read internal log: ${e.message}\n"
-            }
-        } else {
-            "[INFO] No internal log file found (first run?)\n"
+
+    /**
+     * 把永久账本与近期诊断合并成一条 A/B 时间线。导出和测试共用，
+     * 读取前先同步落盘，保证刚写入的记录也在其中。
+     */
+    internal fun readTimeline(startMs: Long = Long.MIN_VALUE, endMs: Long = Long.MAX_VALUE): com.decikeeper.app.logging.LogTimelineExport {
+        flush()
+        val journal = journalStore?.readLines() ?: emptyList()
+        val trace = traceStore?.readLines() ?: emptyList()
+        return LogTimeline.merge(journal, trace, startMs, endMs)
+    }
+
+    /** 仅供测试：清空两层日志存储，使每个用例只读到自己写入的记录。 */
+    internal fun clearLogsForTesting() {
+        tieredWriter?.flush()
+        journalStore?.clear()
+        traceStore?.clear()
+    }
+
+    /** 读取旧版单文件日志中落在范围内的完整记录（升级前残留，只读，3 天后删除）。 */
+    private fun readLegacyLines(startMs: Long, endMs: Long): List<String> {
+        val ctx = appContext ?: return emptyList()
+        val legacy = File(ctx.filesDir, INTERNAL_LOG_FILENAME)
+        if (!legacy.exists()) return emptyList()
+        return try {
+            val reference = if (startMs == Long.MIN_VALUE) System.currentTimeMillis() - LEGACY_LOG_RETENTION_MS else startMs
+            filterInternalLogLinesInRange(legacy.readLines(), reference, endMs)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** 写出导出文件里的日志部分：A/B 时间线，其后是旧版残留日志（如有）。 */
+    private fun writeLogSections(writer: FileWriter, startMs: Long, endMs: Long, label: String) {
+        val timeline = readTimeline(startMs, endMs)
+        writer.write("=== IRONWILL INTERNAL LOG (${timeline.lines.size} lines$label) ===\n")
+        LogTimeline.headerLines(timeline).forEach { writer.write(it + "\n") }
+        timeline.lines.forEach { writer.write(it + "\n") }
+        writer.write("=== END INTERNAL LOG ===\n")
+
+        val legacy = compactLogsForExport(readLegacyLines(startMs, endMs)).filter { it.isNotBlank() }
+        if (legacy.isNotEmpty()) {
+            writer.write("\n=== LEGACY LOG (旧版本升级前残留，只读) ===\n")
+            legacy.forEach { writer.write(it + "\n") }
+            writer.write("=== END LEGACY LOG ===\n")
         }
     }
 
@@ -725,41 +748,6 @@ object LogExporter {
         null
     }
     
-    /** 
-     * 按时间过滤读取内部日志 - 只返回指定时间范围内的日志
-     * 日志格式: "MM-dd HH:mm:ss.SSS TAG: message"
-     * 
-     * 策略：从文件末尾倒序读取，保留最近 N 毫秒的日志
-     */
-    private fun readInternalLogFiltered(durationMillis: Long): String {
-        val ctx = appContext ?: return "[WARN] LogExporter not initialized (appContext is null)\n"
-        val logFile = File(ctx.filesDir, INTERNAL_LOG_FILENAME)
-        if (!logFile.exists()) {
-            return "[INFO] No internal log file found (first run?)\n"
-        }
-        
-        try {
-            val allLines = logFile.readLines()
-            val cutoffTime = System.currentTimeMillis() - durationMillis
-            val filteredLines = filterInternalLogLinesInRange(allLines, cutoffTime, Long.MAX_VALUE)
-            val totalLines = allLines.size
-            
-            val keptLines = filteredLines.size
-            
-            if (keptLines == 0) {
-                return "[INFO] No log entries within the specified time range (total $totalLines lines)\n"
-            }
-            
-            val result = StringBuilder()
-            result.append("[INFO] Filtered: kept $keptLines of $totalLines lines\n")
-            filteredLines.forEach { result.append(it).append("\n") }
-            return result.toString()
-            
-        } catch (e: Exception) {
-            return "[ERROR] Failed to read/filter internal log: ${e.message}\n"
-        }
-    }
-
     /**
      * 按时间过滤读取崩溃日志 - 只返回指定时间范围内的 crash 条目
      *
@@ -825,36 +813,6 @@ object LogExporter {
 
         } catch (e: Exception) {
             return "[ERROR] Failed to read/filter crash log: ${e.message}\n"
-        }
-    }
-
-    /**
-     * 按时间范围过滤读取内部日志 - 只返回 [startTimeMillis, endTimeMillis] 区间内的日志
-     */
-    private fun readInternalLogFilteredInRange(startTimeMillis: Long, endTimeMillis: Long): String {
-        val ctx = appContext ?: return "[WARN] LogExporter not initialized (appContext is null)\n"
-        val logFile = File(ctx.filesDir, INTERNAL_LOG_FILENAME)
-        if (!logFile.exists()) {
-            return "[INFO] No internal log file found (first run?)\n"
-        }
-
-        try {
-            val allLines = logFile.readLines()
-            val filteredLines = filterInternalLogLinesInRange(allLines, startTimeMillis, endTimeMillis)
-            val totalLines = allLines.size
-
-            val keptLines = filteredLines.size
-            if (keptLines == 0) {
-                return "[INFO] No log entries within the specified time range (total $totalLines lines)\n"
-            }
-
-            val result = StringBuilder()
-            result.append("[INFO] Filtered: kept $keptLines of $totalLines lines\n")
-            filteredLines.forEach { result.append(it).append("\n") }
-            return result.toString()
-
-        } catch (e: Exception) {
-            return "[ERROR] Failed to read/filter internal log: ${e.message}\n"
         }
     }
 

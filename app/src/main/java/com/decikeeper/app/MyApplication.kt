@@ -76,6 +76,17 @@ class MyApplication : Application() {
         }
     }
 
+    // 系统回收内存或应用退到后台时同步落盘日志缓冲，降低进程被杀时丢失最近几秒日志的概率。
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        LogExporter.flush()
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        LogExporter.flush()
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
