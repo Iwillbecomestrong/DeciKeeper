@@ -212,7 +212,7 @@ object PermissionManager {
             val now = System.currentTimeMillis()
             val stats = usageStatsManager?.queryUsageStats(
                 android.app.usage.UsageStatsManager.INTERVAL_DAILY,
-                now - 60 * 1000,
+                now - 24 * 60 * 60 * 1000L,
                 now
             )
             !stats.isNullOrEmpty()

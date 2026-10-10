@@ -37,7 +37,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1"
-                android:text="权限与系统设置"
+                android:text="基础权限与系统设置"
                 android:textColor="?attr/zzText"
                 android:textSize="18sp"
                 android:textStyle="bold" />
