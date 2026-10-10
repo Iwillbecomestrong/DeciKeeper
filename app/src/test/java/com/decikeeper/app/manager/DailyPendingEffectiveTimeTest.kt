@@ -106,4 +106,31 @@ class DailyPendingEffectiveTimeTest {
         assertEquals(tomorrowRefresh(), pendingPrefs.getLong("effective_timestamp", 0L))
         assertEquals("每周特权自己仍是下周一", nextMondayAfterNow(), CreditManager.getPendingWeeklyPrivilegeEffectiveTime(context))
     }
+
+    @Test
+    fun allNextDayDelaysWeeklyPrivilegeTightenToNextMonday() {
+        // 统一延后：每周特权加严也要等下周一（各参数按自己的下一个生效周期）
+        EffectiveActivationPolicyManager.setPolicy(context, EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
+        CreditManager.setWeeklyPrivilegeLimit(context, 3, CreditManager.getWeeklyPrivilegeDurationLimit(context))
+        TimeRuleManager.saveBaselineParams(context)
+        val count0 = CreditManager.getWeeklyPrivilegeLimit(context)
+
+        TimeRuleManager.analyzeAndSaveGlobalParams(
+            context,
+            newRest = TimeRuleManager.getCoolDownRestSeconds(context),
+            newGap = TimeRuleManager.getCoolDownGapSeconds(context),
+            newLockDuration = TimeRuleManager.getStrictPenaltyDurationSeconds(context),
+            newBorrow = TimeRuleManager.getBorrowPercentage(context),
+            newNotifyFar = TimeRuleManager.getNotifyAdvanceMinutes(context),
+            newNotifyNear = TimeRuleManager.getNotifyEntryNearMinutes(context),
+            newWeeklyCount = count0 - 1,
+            newWeeklyDuration = CreditManager.getWeeklyPrivilegeDurationLimit(context),
+            newRefreshTime = TimeRuleManager.getRefreshTime(context)
+        )
+
+        assertEquals("加严也不立即生效", count0, CreditManager.getWeeklyPrivilegeLimit(context))
+        assertTrue(CreditManager.hasPendingWeeklyPrivilegeLimit(context))
+        assertEquals(count0 - 1, CreditManager.getPendingWeeklyPrivilegeLimit(context))
+        assertEquals(nextMondayAfterNow(), CreditManager.getPendingWeeklyPrivilegeEffectiveTime(context))
+    }
 }

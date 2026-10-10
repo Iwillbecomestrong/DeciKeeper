@@ -1239,12 +1239,14 @@ object TimeRuleManager {
                  return
             }
 
-            if (forceAllNextDay && !isWeek) {
+            if (forceAllNextDay) {
+                // 统一延后：加严放宽都延后，各参数按自己的下一个生效周期（日参数次日、每周特权下周一）
                 if (new != current) {
                     anyAdverseRemaining = true
                     hasNewAdverse = true
                     if (diffBase != new) {
-                        delList.add("$name: $diffBase -> $new (次日生效)")
+                        if (isWeek) nextWeekList.add("$name: $diffBase -> $new (下周生效)")
+                        else delList.add("$name: $diffBase -> $new (次日生效)")
                     }
                 } else if (pendingVal != current) {
                     resList.add("$name: $diffBase -> $new [恢复]")
@@ -1549,7 +1551,12 @@ object TimeRuleManager {
         val existingPendingWeeklyCount = if (existingWeeklyPending) CreditManager.getPendingWeeklyPrivilegeLimit(context) else null
         val existingPendingWeeklyDuration = if (existingWeeklyPending) CreditManager.getPendingWeeklyPrivilegeDurationLimit(context) else null
         val existingPendingWeeklyEffective = CreditManager.getPendingWeeklyPrivilegeEffectiveTime(context)
-        val weeklyPendingRequested = newWeeklyCount > basWeekly || newWeeklyDuration > basWeeklyDuration
+        // 统一延后下每周特权加严也要等下周一；其余策略只有放宽才挂 pending
+        val weeklyPendingRequested = if (forceAllNextDay) {
+            newWeeklyCount != curWeekly || newWeeklyDuration != curWeeklyDuration
+        } else {
+            newWeeklyCount > basWeekly || newWeeklyDuration > basWeeklyDuration
+        }
         val weeklyPendingEffectiveTime = if (weeklyPendingRequested) {
             if (existingPendingWeeklyCount == newWeeklyCount &&
                 existingPendingWeeklyDuration == newWeeklyDuration &&
