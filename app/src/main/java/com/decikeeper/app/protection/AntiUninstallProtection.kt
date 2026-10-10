@@ -43,13 +43,10 @@ class AntiUninstallProtection(private val context: Context) {
     companion object {
         const val TAG = "AntiUninstall"
 
-        private const val EVENT_LOG_THROTTLE_MS = 1000L
         private const val CHECK_LOG_THROTTLE_MS = 800L
         private const val NODE_SCAN_MAX_NODES = 256
         private const val NODE_SCAN_MAX_DURATION_MS = 40L
         private const val EXIT_ACTION_DEBOUNCE_MS = 500L
-        private var lastEventLogTime = 0L
-        private var lastEventLogPackage: String? = null
         private var lastCheckLogTime = 0L
         
         // Global dialog state shared across protection modules.
@@ -609,15 +606,6 @@ class AntiUninstallProtection(private val context: Context) {
         // without returning early (privacy suite is still authoritative here).
         if (!antiUninstallEnforcing) {
             Log.d(TAG, "[Skip] Protection disabled")
-        }
-
-        // 🔍 [Internal Log] 记录事件到内存缓冲区（用于日志导出）
-        // Diagnostic event log is gated by anti-uninstall execution; the privacy
-        // toggle MUST NOT authorize this log.
-        if (antiUninstallEnforcing &&
-            event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            shouldLogEvent(currentPackage, now)) {
-            LogExporter.logEvent(TAG, "[Event] Pkg=$currentPackage Class=${event.className} Text=${event.text}")
         }
 
         // 1. Safe App Checks
@@ -1971,18 +1959,6 @@ class AntiUninstallProtection(private val context: Context) {
         
         // If here, Node and Parent(s) are NOT clickable.
         // It is likely a Static TextView in a Message Dialog.
-        return true
-    }
-
-    private fun isMonitoredPackage(pkg: String): Boolean {
-        return MONITORED_PACKAGES.any { pkg.startsWith(it) }
-    }
-
-    private fun shouldLogEvent(pkg: String, now: Long): Boolean {
-        if (!isMonitoredPackage(pkg)) return false
-        if (pkg == lastEventLogPackage && now - lastEventLogTime < EVENT_LOG_THROTTLE_MS) return false
-        lastEventLogPackage = pkg
-        lastEventLogTime = now
         return true
     }
 }

@@ -3221,22 +3221,6 @@ class MonitorService : Service() {
                     mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
                     foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp, eventClass)
                 }
-
-                // [Diagnostics-only] 诊断小窗生命周期事件
-                if (eventPkg.isNotBlank() && (type == MOVE_TO_FG || type == ACTIVITY_RESUMED || type == MOVE_TO_BG || type == ACTIVITY_PAUSED || type == ACTIVITY_STOPPED)) {
-                    val eventName = when (type) {
-                        MOVE_TO_FG -> "MOVE_TO_FOREGROUND"
-                        MOVE_TO_BG -> "MOVE_TO_BACKGROUND"
-                        ACTIVITY_RESUMED -> "ACTIVITY_RESUMED"
-                        ACTIVITY_PAUSED -> "ACTIVITY_PAUSED"
-                        ACTIVITY_STOPPED -> "ACTIVITY_STOPPED"
-                        else -> "UNKNOWN"
-                    }
-                    if (SegmentBlacklist.shouldLock(this, eventPkg)) {
-                        Log.d(TAG, "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
-                        LogExporter.logEvent("PresenceDiag", "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
-                    }
-                }
             }
 
             // 检测前台事件：MOVE_TO_FOREGROUND(1) 或 ACTIVITY_RESUMED(15)
