@@ -283,6 +283,35 @@ class SegmentListAdverseTest {
         assertTrue("stale 包不可展示不能算被移除；添加 gamma → 加严 → 有利立即", !adverse)
     }
 
+    /**
+     * 白名单从 5 个改成一个都不选：存储的是「有效黑名单」（补集），新名单 = 旧名单 + 那 5 个，
+     * 旧名单里另有 2 个已卸载 / 无入口的包用户操作不到，补集重算后自然消失。
+     * 这是纯加严，不能被判成「有增有减」的不利变更。
+     */
+    @Test
+    fun bothLists_droppedUnselectablePackages_notCountedAsRemoval() {
+        val oldList = listOf("com.example.a", "com.example.b", "com.removed.stale1", "com.removed.stale2")
+        val newList = listOf("com.example.a", "com.example.b", "com.example.w1", "com.example.w2", "com.example.w3", "com.example.w4", "com.example.w5")
+        val adverse = SegmentAdverseAnalysis.classifyListAppsAdverseCore(
+            makeSegment(oldList),
+            makeSegment(newList),
+            oldEffective = null,
+            selectable = { set -> set.filter { it.startsWith("com.example.") }.toSet() }
+        )
+        assertTrue("只丢了不可操作的包、其余只增 → 加严 → 有利", !adverse)
+    }
+
+    @Test
+    fun bothLists_realRemoval_stillAdverse() {
+        val adverse = SegmentAdverseAnalysis.classifyListAppsAdverseCore(
+            makeSegment(listOf("com.example.a", "com.example.b")),
+            makeSegment(listOf("com.example.a")),
+            oldEffective = null,
+            selectable = { set -> set.filter { it.startsWith("com.example.") }.toSet() }
+        )
+        assertTrue("真正移除了可操作的应用 → 放松 → 不利", adverse)
+    }
+
     @Test
     fun restoreToGlobal_fromNonEmptyList_isAdverse() {
         val adverse = SegmentAdverseAnalysis.classifyListAppsAdverseCore(

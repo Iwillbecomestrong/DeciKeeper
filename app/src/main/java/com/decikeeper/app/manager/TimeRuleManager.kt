@@ -1239,12 +1239,14 @@ object TimeRuleManager {
                  return
             }
 
-            if (forceAllNextDay && !isWeek) {
+            if (forceAllNextDay) {
+                // 统一延后：加严放宽都延后，各参数按自己的下一个生效周期（日参数次日、每周特权下周一）
                 if (new != current) {
                     anyAdverseRemaining = true
                     hasNewAdverse = true
                     if (diffBase != new) {
-                        delList.add("$name: $diffBase -> $new (次日生效)")
+                        if (isWeek) nextWeekList.add("$name: $diffBase -> $new (下周生效)")
+                        else delList.add("$name: $diffBase -> $new (次日生效)")
                     }
                 } else if (pendingVal != current) {
                     resList.add("$name: $diffBase -> $new [恢复]")
@@ -1549,7 +1551,12 @@ object TimeRuleManager {
         val existingPendingWeeklyCount = if (existingWeeklyPending) CreditManager.getPendingWeeklyPrivilegeLimit(context) else null
         val existingPendingWeeklyDuration = if (existingWeeklyPending) CreditManager.getPendingWeeklyPrivilegeDurationLimit(context) else null
         val existingPendingWeeklyEffective = CreditManager.getPendingWeeklyPrivilegeEffectiveTime(context)
-        val weeklyPendingRequested = newWeeklyCount > basWeekly || newWeeklyDuration > basWeeklyDuration
+        // 统一延后下每周特权加严也要等下周一；其余策略只有放宽才挂 pending
+        val weeklyPendingRequested = if (forceAllNextDay) {
+            newWeeklyCount != curWeekly || newWeeklyDuration != curWeeklyDuration
+        } else {
+            newWeeklyCount > basWeekly || newWeeklyDuration > basWeeklyDuration
+        }
         val weeklyPendingEffectiveTime = if (weeklyPendingRequested) {
             if (existingPendingWeeklyCount == newWeeklyCount &&
                 existingPendingWeeklyDuration == newWeeklyDuration &&
@@ -1623,7 +1630,9 @@ object TimeRuleManager {
              // 🚀 [Fix] Use appropriate effective time based on what's pending
              // If only weekly privilege is pending (no daily adverse changes), keep next Monday's time
              // Otherwise use tomorrow's time
-             val hasDailyAdverse = delList.isNotEmpty()
+             // 已挂着的勿扰时段待生效（pending 里有时段 JSON）同样属于日修改，不能被每周特权的下周一顶掉
+             val hasDailyAdverse = delList.isNotEmpty() ||
+                 context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).contains(KEY_SEGMENTS_JSON)
              val finalEffectiveTime = if (weeklyPendingRequested && !hasDailyAdverse) {
                  weeklyPendingEffectiveTime
              } else {
@@ -2523,9 +2532,25 @@ object TimeRuleManager {
         }
     }
 
+    /**
+     * 勿扰时段与日参数的待生效时间是「最后一次修改后的次日刷新点」，每周特权才是下周一。
+     * 两者共用 pending 里的同一个 effective_timestamp，历史上每周特权的下周一会把日修改顶掉；
+     * 这里把比「最后一次日修改的次日刷新点」更晚的时间戳改回来（只提前、不推后）。
+     */
+    internal fun healDailyPendingEffectiveTime(context: Context) {
+        val pending = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
+        if (!pending.getBoolean("has_pending_changes", false)) return
+        val stored = pending.getLong("effective_timestamp", 0L)
+        if (stored <= 0L) return
+        val lastDailyChangeAt = ChangeLogManager.latestDailyPendingTimestamp(context) ?: return
+        val daily = ConfigPendingManager.calculateNextEffectiveTime(context, lastDailyChangeAt)
+        if (stored > daily) pending.edit().putLong("effective_timestamp", daily).apply()
+    }
+
     fun applyPendingToActive(context: Context, force: Boolean = false) {
         val pendingPrefs = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
         if (!pendingPrefs.getBoolean("has_pending_changes", false)) return
+        healDailyPendingEffectiveTime(context)
 
         // 🟢 Check Effective Time
         val effectiveTime = pendingPrefs.getLong("effective_timestamp", 0L)

@@ -41,6 +41,15 @@ object ChangeLogManager {
         return tag?.startsWith(WEEKLY_PRIVILEGE_TAG_PREFIX) == true
     }
 
+    /** 勿扰时段 / 规则参数里还没生效的日修改（不含每周特权）最后一次保存的时间；没有则 null。 */
+    internal fun latestDailyPendingTimestamp(context: Context): Long? =
+        getAllEntries(context)
+            .filter {
+                (it.category == "segments" || it.category == "global_params") &&
+                    it.isAdverse && !it.isApplied && !isWeeklyPrivilegeTag(it.tag)
+            }
+            .maxOfOrNull { it.timestamp }
+
     data class ChangeLogEntry(
         val id: String,           // Unique ID (timestamp + random)
         val category: String,     // "global_params", "segments", "blacklist"
@@ -279,6 +288,7 @@ object ChangeLogManager {
                 val appWindowPending = context.getSharedPreferences("app_window_pending", Context.MODE_PRIVATE)
                 storedEffTime = appWindowPending.getLong("effective_timestamp", 0L)
             } else {
+                 TimeRuleManager.healDailyPendingEffectiveTime(context)
                  val pendingPrefs = context.getSharedPreferences("decikeeper_rules_pending", Context.MODE_PRIVATE)
                  storedEffTime = pendingPrefs.getLong("effective_timestamp", 0L)
             }
