@@ -286,6 +286,15 @@ object RestLedger {
         }
     }
 
+    /** 类型弹窗左列（入流）下的细分类型。 */
+    val inflowTypeFilters = listOf(LedgerFilter.QUOTA_GRANT, LedgerFilter.REFUND, LedgerFilter.RECALC_INCREASE)
+
+    /** 类型弹窗右列（出流）下的细分类型。 */
+    val outflowTypeFilters = listOf(
+        LedgerFilter.NORMAL, LedgerFilter.BORROW, LedgerFilter.COOLING,
+        LedgerFilter.DEDUCTION, LedgerFilter.RECALC_DECREASE
+    )
+
     /** 分栏对照用：入流在左、出流在右；两边都不动额度的（免费休息、特权等）只计数。一增一减的重算两栏都有。 */
     class FlowColumns(val inflow: List<RestUsageRecord>, val outflow: List<RestUsageRecord>, val neither: Int)
 

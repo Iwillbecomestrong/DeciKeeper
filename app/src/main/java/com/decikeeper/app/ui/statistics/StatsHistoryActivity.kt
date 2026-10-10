@@ -318,18 +318,59 @@ class StatsHistoryActivity : AppCompatActivity() {
         return if (range is StatsDateRange.Custom) "${resolved.displayName} ${resolved.dateSubText}" else resolved.displayName
     }
 
+    /**
+     * 类型弹窗：左列入流、右列出流（与分栏对照一致），列头可点 = 选这一整个方向；
+     * 「全部」「特权」不分方向，放在最上面。
+     */
     private fun showRestFilterPicker() {
-        val options = LedgerFilter.entries.toTypedArray()
-        val selected = options.indexOf(restLedgerFilter).coerceAtLeast(0)
-        AlertDialog.Builder(this)
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_ledger_filter, null)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("额度流水类型")
-            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
-                restLedgerFilter = options[which]
-                dialog.dismiss()
-                loadRestData()
-            }
+            .setView(view)
             .setNegativeButton("取消", null)
-            .show()
+            .create()
+
+        fun optionButton(filter: LedgerFilter, label: String, header: Boolean): Button {
+            val selected = restLedgerFilter == filter
+            return androidx.appcompat.widget.AppCompatButton(this).apply {
+                text = label
+                isAllCaps = false
+                textSize = if (header) 13f else 12f
+                if (header) setTypeface(typeface, Typeface.BOLD)
+                setBackgroundResource(if (selected) R.drawable.bg_zz_option_btn_selected else R.drawable.bg_zz_option_btn)
+                setTextColor(if (selected) Color.WHITE else ThemeManager.getColorAttr(this@StatsHistoryActivity, R.attr.zzText))
+                // 半栏宽度放不下的长名字自动缩小，不截断
+                androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                    this, 9, textSize.toInt(), 1, android.util.TypedValue.COMPLEX_UNIT_PX
+                )
+                maxLines = 1
+                setOnClickListener {
+                    restLedgerFilter = filter
+                    dialog.dismiss()
+                    loadRestData()
+                }
+            }
+        }
+
+        fun lp(first: Boolean, weighted: Boolean = false) = LinearLayout.LayoutParams(
+            if (weighted) 0 else ViewGroup.LayoutParams.MATCH_PARENT,
+            (40 * resources.displayMetrics.density).toInt(),
+            if (weighted) 1f else 0f
+        ).apply { if (!first) { if (weighted) marginStart = (8 * resources.displayMetrics.density).toInt() else topMargin = (6 * resources.displayMetrics.density).toInt() } }
+
+        val top = view.findViewById<LinearLayout>(R.id.row_ledger_filter_top)
+        top.addView(optionButton(LedgerFilter.ALL, LedgerFilter.ALL.displayName, false), lp(true, true))
+        top.addView(optionButton(LedgerFilter.PRIVILEGE, LedgerFilter.PRIVILEGE.displayName, false), lp(false, true))
+
+        val colIn = view.findViewById<LinearLayout>(R.id.col_ledger_filter_in)
+        colIn.addView(optionButton(LedgerFilter.INFLOW, "入流 · 全部", true), lp(true))
+        RestLedger.inflowTypeFilters.forEach { colIn.addView(optionButton(it, it.displayName, false), lp(false)) }
+
+        val colOut = view.findViewById<LinearLayout>(R.id.col_ledger_filter_out)
+        colOut.addView(optionButton(LedgerFilter.OUTFLOW, "出流 · 全部", true), lp(true))
+        RestLedger.outflowTypeFilters.forEach { colOut.addView(optionButton(it, it.displayName, false), lp(false)) }
+
+        dialog.show()
     }
 
     private fun showRetentionSettingsDialog() {

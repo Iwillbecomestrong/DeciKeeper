@@ -484,6 +484,16 @@ class RestLedgerTest {
     }
 
     @Test
+    fun filterPickerColumnsCoverEveryFilterExactlyOnce() {
+        val shown = listOf(LedgerFilter.ALL, LedgerFilter.PRIVILEGE, LedgerFilter.INFLOW, LedgerFilter.OUTFLOW) +
+            RestLedger.inflowTypeFilters + RestLedger.outflowTypeFilters
+        assertEquals(LedgerFilter.entries.toSet(), shown.toSet())
+        assertEquals("不重复", shown.size, shown.toSet().size)
+        // 左列的细分类型都属于入流，右列的都属于出流
+        assertTrue(RestLedger.inflowTypeFilters.none { it in RestLedger.outflowTypeFilters })
+    }
+
+    @Test
     fun flowAmountTextShowsOnlyTheNonZeroParts() {
         assertEquals("+4次", RestLedger.flowAmountText(0.0, 4.0))
         assertEquals("-3m / -1次", RestLedger.flowAmountText(-3.0, -1.0))
