@@ -21,6 +21,7 @@ import com.decikeeper.app.data.statistics.WeekdayFilter
 import com.decikeeper.app.manager.statistics.StatisticsRepository
 import com.decikeeper.app.ui.ThemeManager
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -39,6 +40,18 @@ class StatisticsFilterBottomSheet(private val context: Context) {
     fun showRangePicker(
         currentRange: StatsDateRange,
         onRangeSelected: (StatsDateRange) -> Unit
+    ) = showRangeSheet(currentRange, includeAll = false) { it?.let(onRangeSelected) }
+
+    /** 统计明细用：比统计页多一个「全部」，null 表示全部。 */
+    fun showHistoryRangePicker(
+        currentRange: StatsDateRange?,
+        onRangeSelected: (StatsDateRange?) -> Unit
+    ) = showRangeSheet(currentRange, includeAll = true, onRangeSelected = onRangeSelected)
+
+    private fun showRangeSheet(
+        currentRange: StatsDateRange?,
+        includeAll: Boolean,
+        onRangeSelected: (StatsDateRange?) -> Unit
     ) {
         val dialog = BottomSheetDialog(context)
         val view = LayoutInflater.from(context).inflate(R.layout.sheet_stats_date_range, null)
@@ -53,6 +66,7 @@ class StatisticsFilterBottomSheet(private val context: Context) {
         val btnLastMonth = view.findViewById<Button>(R.id.opt_range_last_month)
         val btnLast30 = view.findViewById<Button>(R.id.opt_range_last_30)
         val btnThisYear = view.findViewById<Button>(R.id.opt_range_this_year)
+        val btnAll = view.findViewById<Button>(R.id.opt_range_all)
         val btnCustom = view.findViewById<Button>(R.id.opt_range_custom)
         val customBox = view.findViewById<LinearLayout>(R.id.layout_custom_date_box)
         val btnStartDate = view.findViewById<Button>(R.id.btn_custom_start_date)
@@ -61,9 +75,16 @@ class StatisticsFilterBottomSheet(private val context: Context) {
         val btnClose = view.findViewById<TextView>(R.id.btn_close_range_sheet)
 
         btnClose.setOnClickListener { dialog.dismiss() }
+        if (includeAll) view.findViewById<TextView>(R.id.tv_range_desc).text = "决定“从哪一天看到哪一天”。"
 
+        // 当前已是自定义范围时带入它的起止日期（结束时刻是开区间，减一天才是最后一天）
         var customStart = LocalDate.now().minusDays(18)
         var customEnd = LocalDate.now()
+        if (currentRange is StatsDateRange.Custom) {
+            customStart = Instant.ofEpochMilli(currentRange.startMillis).atZone(zoneId).toLocalDate()
+            customEnd = Instant.ofEpochMilli(currentRange.endMillisExclusive).atZone(zoneId).toLocalDate().minusDays(1)
+                .let { if (it.isBefore(customStart)) customStart else it }
+        }
 
         btnStartDate.text = customStart.format(isoFormatter)
         btnEndDate.text = customEnd.format(isoFormatter)
@@ -120,8 +141,19 @@ class StatisticsFilterBottomSheet(private val context: Context) {
             StatsDateRange.ThisYear to btnThisYear
         )
 
-        val isPreset = rangeButtons.keys.any { it == currentRange }
-        customBox.isVisible = !isPreset
+        val isAll = includeAll && currentRange == null
+        val isCustom = currentRange is StatsDateRange.Custom
+        customBox.isVisible = isCustom
+
+        btnAll.isVisible = includeAll
+        btnAll.backgroundTintList = null
+        btnAll.setBackgroundResource(if (isAll) R.drawable.bg_zz_primary_btn else R.drawable.bg_zz_option_btn)
+        btnAll.setTextColor(if (isAll) Color.WHITE else ThemeManager.getColorAttr(context, R.attr.zzText))
+        btnAll.paint.isFakeBoldText = true
+        btnAll.setOnClickListener {
+            onRangeSelected(null)
+            dialog.dismiss()
+        }
 
         rangeButtons.forEach { (range, btn) ->
             val isSel = range == currentRange
@@ -137,15 +169,15 @@ class StatisticsFilterBottomSheet(private val context: Context) {
         }
 
         btnCustom.backgroundTintList = null
-        btnCustom.setBackgroundResource(if (!isPreset) R.drawable.bg_zz_primary_btn else R.drawable.bg_zz_option_btn)
-        btnCustom.setTextColor(if (!isPreset) Color.WHITE else ThemeManager.getColorAttr(context, R.attr.zzText))
+        btnCustom.setBackgroundResource(if (isCustom) R.drawable.bg_zz_primary_btn else R.drawable.bg_zz_option_btn)
+        btnCustom.setTextColor(if (isCustom) Color.WHITE else ThemeManager.getColorAttr(context, R.attr.zzText))
         btnCustom.paint.isFakeBoldText = true
 
         btnCustom.setOnClickListener {
             customBox.isVisible = true
             btnCustom.setBackgroundResource(R.drawable.bg_zz_primary_btn)
             btnCustom.setTextColor(Color.WHITE)
-            rangeButtons.values.forEach { b ->
+            (rangeButtons.values + btnAll).forEach { b ->
                 b.setBackgroundResource(R.drawable.bg_zz_option_btn)
                 b.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzText))
             }
