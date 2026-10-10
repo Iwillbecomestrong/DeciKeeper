@@ -6,11 +6,12 @@ import com.decikeeper.app.data.statistics.RestUsageRecord
  * 额度流水的类型筛选。
  *
  * 先按去向分：[INFLOW] 入流（额度增加）、[OUTFLOW] 出流（额度减少），再按类型细分。
- * 入流 = [QUOTA_GRANT]、[REFUND]、[RECALC_INCREASE]，以及借用时提前发放了下一段额度的借用记录；
+ * 入流 = [QUOTA_GRANT]、[REFUND]、[RECALC_INCREASE]；
  * 出流 = 休息 / 临时解锁（[NORMAL]、[BORROW]、[COOLING]）、[DEDUCTION]、[RECALC_DECREASE]，
  * 只有真的减少了额度才算（空档期 / 休息中的免费操作不动额度，不算出流）。
  * 「额度重算」按结余的实际变化划分：时长或次数增加归 [RECALC_INCREASE]，减少归 [RECALC_DECREASE]，
- * 一增一减的重算两边都能筛到。
+ * 一增一减的重算两边都能筛到，列表里按筛选的方向只显示对应那一项的变动（见 [displayedDelta]）。
+ * 借用记录是出流：借用时提前发放的下一段额度只在顶部汇总里记入流（为了对账），不单独出现在入流列表里。
  * [PRIVILEGE] 是每周特权的独立池子，不参与入流 / 出流对账。
  *
  * 常规 / 借用 / 冷却中针对休息与临时解锁：借用与冷却中可以同时成立，
@@ -137,11 +138,10 @@ object RestLedger {
 
     fun matches(record: RestUsageRecord, filter: LedgerFilter): Boolean = when (filter) {
         LedgerFilter.ALL -> true
-        LedgerFilter.INFLOW -> flowOf(record).let { it.inMinutes > FLOW_EPSILON || it.inCount > FLOW_EPSILON } ||
-            record.type == TYPE_GRANT || record.type == TYPE_REFUND
+        LedgerFilter.INFLOW -> record.type == TYPE_GRANT || record.type == TYPE_REFUND ||
+            (record.type == TYPE_RECALC && flowOf(record).let { it.inMinutes > FLOW_EPSILON || it.inCount > FLOW_EPSILON })
         LedgerFilter.OUTFLOW -> flowOf(record).let { it.outMinutes > FLOW_EPSILON || it.outCount > FLOW_EPSILON }
-        // 借用时提前发放的下一段额度也是入流，含提前发放的借用记录在「额度发放」里也能看到
-        LedgerFilter.QUOTA_GRANT -> record.type == TYPE_GRANT || hasAdvance(record)
+        LedgerFilter.QUOTA_GRANT -> record.type == TYPE_GRANT
         LedgerFilter.REFUND -> record.type == TYPE_REFUND
         LedgerFilter.RECALC_INCREASE -> record.type == TYPE_RECALC &&
             (record.costMinutes < -FLOW_EPSILON || costCountInTimes(record) < -FLOW_EPSILON)
@@ -266,6 +266,60 @@ object RestLedger {
             )
         }
         else -> NO_FLOW
+    }
+
+    /**
+     * 列表里这一笔「额度变化」该显示多少：(时长分钟, 次数「次」)，增加为正、减少为负。
+     * 一增一减的重算，在入流类筛选下只显示增加的那一项，出流类筛选下只显示减少的那一项，
+     * 另一项记 0；其余记录、其余筛选照实显示。
+     */
+    fun displayedDelta(record: RestUsageRecord, filter: LedgerFilter): Pair<Double, Double> {
+        val minutes = -record.costMinutes
+        val count = -costCountInTimes(record)
+        if (record.type != TYPE_RECALC) return minutes to count
+        return when (filter) {
+            LedgerFilter.INFLOW, LedgerFilter.RECALC_INCREASE ->
+                minutes.coerceAtLeast(0.0) to count.coerceAtLeast(0.0)
+            LedgerFilter.OUTFLOW, LedgerFilter.RECALC_DECREASE ->
+                minutes.coerceAtMost(0.0) to count.coerceAtMost(0.0)
+            else -> minutes to count
+        }
+    }
+
+    /** 分栏对照用：入流在左、出流在右；两边都不动额度的（免费休息、特权等）只计数。一增一减的重算两栏都有。 */
+    class FlowColumns(val inflow: List<RestUsageRecord>, val outflow: List<RestUsageRecord>, val neither: Int)
+
+    fun splitByFlow(records: List<RestUsageRecord>): FlowColumns {
+        val inflow = records.filter { matches(it, LedgerFilter.INFLOW) }
+        val outflow = records.filter { matches(it, LedgerFilter.OUTFLOW) }
+        val neither = records.count { !matches(it, LedgerFilter.INFLOW) && !matches(it, LedgerFilter.OUTFLOW) }
+        return FlowColumns(inflow, outflow, neither)
+    }
+
+    /** 一栏里各条「列表上显示的变动」的合计（取绝对值）：(时长分钟, 次数)。与栏里逐条显示的数对得上。 */
+    fun columnTotal(records: List<RestUsageRecord>, direction: LedgerFilter): Pair<Double, Double> {
+        var minutes = 0.0
+        var count = 0.0
+        records.forEach {
+            val (m, c) = displayedDelta(it, direction)
+            minutes += kotlin.math.abs(m)
+            count += kotlin.math.abs(c)
+        }
+        return minutes to count
+    }
+
+    /** 借用时提前发放的下一段额度合计（只计入顶部对账的入流，不在入流栏里逐条列出）。 */
+    fun advanceTotal(records: List<RestUsageRecord>): Pair<Double, Double> =
+        records.filter { hasAdvance(it) }.let { list ->
+            list.sumOf { it.advancedMinutes } to list.sumOf { it.advancedCount }
+        }
+
+    /** 分栏卡片上的金额：只写不为 0 的一项（都为 0 写 0m）；入流带 +，出流带 −。 */
+    fun flowAmountText(minutes: Double, count: Double): String {
+        val parts = mutableListOf<String>()
+        if (kotlin.math.abs(minutes) >= FLOW_EPSILON) parts += formatDelta(minutes, "m")
+        if (kotlin.math.abs(count) >= FLOW_EPSILON) parts += formatDelta(count, "次")
+        return if (parts.isEmpty()) "0m" else parts.joinToString(" / ")
     }
 
     /** 入流 = 额度发放 + 提前退还 + 重算增加；出流 = 休息 / 临时解锁 / 频繁返回扣减 + 重算减少。特权是独立池子，不计入。 */

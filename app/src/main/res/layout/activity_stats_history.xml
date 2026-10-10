@@ -182,6 +182,43 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
+            <!-- 视图切换：分栏对照（入流在左、出流在右）/ 逐笔列表 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_rest_view_split"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_zz_option_btn_selected"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="分栏对照"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
+
+                <Button
+                    android:id="@+id/btn_rest_view_list"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_zz_option_btn"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="逐笔列表"
+                    android:textAllCaps="false"
+                    android:textColor="?attr/zzText"
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/tv_history_rest_summary"
                 android:layout_width="match_parent"
@@ -208,6 +245,98 @@
                 android:layout_weight="1"
                 android:clipToPadding="false"
                 android:paddingBottom="24dp" />
+
+            <!-- 分栏对照：左入流、右出流，各自滚动 -->
+            <LinearLayout
+                android:id="@+id/split_rest_history"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tv_split_in_header"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_zz_column_header"
+                        android:padding="10dp"
+                        android:textColor="?attr/zzText"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_split_in_empty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:padding="16dp"
+                        android:text="没有入流记录"
+                        android:textColor="?attr/zzMuted"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_rest_inflow"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:clipToPadding="false"
+                        android:paddingBottom="24dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tv_split_out_header"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_zz_column_header"
+                        android:padding="10dp"
+                        android:textColor="?attr/zzText"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_split_out_empty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:padding="16dp"
+                        android:text="没有出流记录"
+                        android:textColor="?attr/zzMuted"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_rest_outflow"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:clipToPadding="false"
+                        android:paddingBottom="24dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_split_note"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingVertical="4dp"
+                android:textColor="?attr/zzMuted"
+                android:textSize="11sp"
+                android:visibility="gone" />
         </LinearLayout>
     </FrameLayout>
 </LinearLayout>

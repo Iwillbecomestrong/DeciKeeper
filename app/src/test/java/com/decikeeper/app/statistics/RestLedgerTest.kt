@@ -288,7 +288,10 @@ class RestLedgerTest {
         // 入流 = 10 + 提前发放 30 + 补发 30；出流 = 借用总扣 40
         assertEquals(70.0, summary.inflowMinutes, 0.0001)
         assertEquals(40.0, summary.outflowMinutes, 0.0001)
-        assertTrue(RestLedger.matches(borrowRow(), LedgerFilter.QUOTA_GRANT))
+        // 借用是出流：提前发放只在汇总里记入流，不出现在入流 / 额度发放列表里
+        assertFalse(RestLedger.matches(borrowRow(), LedgerFilter.QUOTA_GRANT))
+        assertFalse(RestLedger.matches(borrowRow(), LedgerFilter.INFLOW))
+        assertTrue(RestLedger.matches(borrowRow(), LedgerFilter.OUTFLOW))
         assertTrue(RestLedger.matches(borrowRow(), LedgerFilter.BORROW))
     }
 
@@ -438,12 +441,54 @@ class RestLedgerTest {
     }
 
     @Test
-    fun borrowCountsAsOutflowAndAlsoAsInflowThroughAdvance() {
+    fun borrowIsOnlyListedAsOutflow() {
         val borrow = record("REST_BORROW", costMinutes = 20.0, costCount = 1.0).copy(
             advancedMinutes = 10.0,
             advancedCount = 1.0
         )
-        assertEquals(setOf(LedgerFilter.INFLOW, LedgerFilter.OUTFLOW), flows(borrow))
+        assertEquals(setOf(LedgerFilter.OUTFLOW), flows(borrow))
+    }
+
+    @Test
+    fun mixedRecalcShowsOnlyTheMatchingDimensionPerDirection() {
+        // 时长减少 10m、次数增加 1 次
+        val mixed = record("RECALC", costMinutes = 10.0, costCount = -1.0)
+
+        assertEquals(0.0 to 1.0, RestLedger.displayedDelta(mixed, LedgerFilter.INFLOW))
+        assertEquals(0.0 to 1.0, RestLedger.displayedDelta(mixed, LedgerFilter.RECALC_INCREASE))
+        assertEquals(-10.0 to 0.0, RestLedger.displayedDelta(mixed, LedgerFilter.OUTFLOW))
+        assertEquals(-10.0 to 0.0, RestLedger.displayedDelta(mixed, LedgerFilter.RECALC_DECREASE))
+        assertEquals(-10.0 to 1.0, RestLedger.displayedDelta(mixed, LedgerFilter.ALL))
+        // 非重算记录照实显示
+        assertEquals(-10.0 to -0.5, RestLedger.displayedDelta(record("REST", costMinutes = 10.0, costCount = 0.5), LedgerFilter.OUTFLOW))
+    }
+
+    @Test
+    fun splitColumnsPutInflowLeftOutflowRight() {
+        val grant = record("GRANT", costMinutes = -30.0, costCount = -3.0)
+        val rest = record("REST", costMinutes = 10.0, costCount = 0.5)
+        val borrow = record("REST_BORROW", costMinutes = 20.0, costCount = 1.0).copy(advancedMinutes = 10.0, advancedCount = 1.0)
+        val mixed = record("RECALC", costMinutes = 10.0, costCount = -1.0)
+        val freeRest = record("REST", costMinutes = 0.0, costCount = 0.0)
+        val privilege = record("PRIVILEGE", costMinutes = 60.0)
+
+        val columns = RestLedger.splitByFlow(listOf(grant, rest, borrow, mixed, freeRest, privilege))
+
+        assertEquals(listOf(grant, mixed), columns.inflow)
+        assertEquals(listOf(rest, borrow, mixed), columns.outflow)
+        assertEquals("免费休息与特权不进任何一栏，只计数", 2, columns.neither)
+        // 栏头合计 = 栏里逐条显示的数：混合重算入流栏只算次数 +1，出流栏只算时长 10
+        assertEquals(30.0 to 4.0, RestLedger.columnTotal(columns.inflow, LedgerFilter.INFLOW))
+        assertEquals(40.0 to 1.5, RestLedger.columnTotal(columns.outflow, LedgerFilter.OUTFLOW))
+        assertEquals(10.0 to 1.0, RestLedger.advanceTotal(listOf(grant, rest, borrow)))
+    }
+
+    @Test
+    fun flowAmountTextShowsOnlyTheNonZeroParts() {
+        assertEquals("+4次", RestLedger.flowAmountText(0.0, 4.0))
+        assertEquals("-3m / -1次", RestLedger.flowAmountText(-3.0, -1.0))
+        assertEquals("-10m", RestLedger.flowAmountText(-10.0, 0.0))
+        assertEquals("0m", RestLedger.flowAmountText(0.0, 0.0))
     }
 
     @Test
