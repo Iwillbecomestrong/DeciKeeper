@@ -3279,50 +3279,16 @@ class MonitorService : Service() {
             }
         }
 
-        // [Diagnostics-only] Section III: RAW UsageEvents 诊断 (180s 窗口观察)
-        val diagEvents180 = try { usm.queryEvents(time - 180000L, time) } catch (_: Exception) { null }
-        val shouldLogRawEvents = !foundRelevantEvent || calculatedTop == null || mLastTopPackage == "com.anthropic.claude"
-        val eventsDiag = ForegroundDiagnosticTracker.analyzeAndLogUsageEvents(
-            checkedAtMs = time,
-            events180s = diagEvents180,
-            businessWindowMs = 30000L,
-            diagnosticWindowMs = 180000L,
-            eventsBusinessResult = if (foundRelevantEvent) calculatedTop else null,
-            shouldLogRawEvents = shouldLogRawEvents
-        )
-
         fun traceAndReturn(
             result: String?,
             evidence: TopPackageEvidence,
-            finalReason: String
+            @Suppress("UNUSED_PARAMETER") finalReason: String
         ): String? {
             mLastTopEvidence = evidence
             mLastTopResolvedAt = time
-            val statsSummary = ForegroundDiagnosticTracker.lastUsageStatsDiagSummary
-            val a11ySnapshot = CoreService.captureWindowSnapshot(time)
-            val a11yVisiblePkgs = a11ySnapshot.packages.ifEmpty { CoreService.lastVisiblePackagesFromWindows }
-            val a11yClaudeVisible = a11yVisiblePkgs.contains("com.anthropic.claude")
-
-            ForegroundDiagnosticTracker.logResolveTrace(
-                checkedAtMs = time,
-                result = result,
-                selectedSource = evidence.name,
-                eventsBusinessResult = if (foundRelevantEvent) calculatedTop else null,
-                eventsDiagnosticLastFgPkg = eventsDiag.diagnosticLastFgPkg,
-                eventsDiagnosticLastFgAgeMs = eventsDiag.diagnosticLastFgAgeMs,
-                usageStatsRawClaudePresent = statsSummary?.claudePresentInRaw ?: false,
-                usageStatsClaudeAccepted = statsSummary?.claudeAccepted ?: false,
-                usageStatsClaudeRejectReason = statsSummary?.claudeRejectReason ?: "NOT_QUERIED",
-                a11yClaudeVisible = a11yClaudeVisible,
-                a11yLastEventPkg = CoreService.diagnosticsLastEligibleEventPackage,
-                cachePkg = mLastTopPackage,
-                cacheAgeMs = if (mLastTopResolvedAt > 0) time - mLastTopResolvedAt else -1L,
-                finalReason = finalReason
-            )
-
-            if (result == null) {
-                ForegroundDiagnosticTracker.logRawAccessibilityEvidence("FOREGROUND_RESOLVER_NULL")
-            }
+            // 不输出日志，仅保留窗口快照采集：它会刷新 CoreService.lastVisiblePackagesFromWindows，
+            // 该缓存被前台可见性判定读取，删除调用会改变业务时序。
+            CoreService.captureWindowSnapshot(time)
 
             return result
         }
@@ -3508,14 +3474,6 @@ class MonitorService : Service() {
         }
         mLastStatsQueryFinishedAtMs = System.currentTimeMillis()
         if (stats.isNullOrEmpty()) {
-            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
-                now = now,
-                rawStats = stats,
-                recentActive = emptyList(),
-                selectedPkg = null,
-                carrierNoisePackages = usageCarrierNoisePackages,
-                isLauncher = { CreditManager.isLauncher(it) }
-            )
             // [Diagnostics-only] UsageStats returned nothing
             pushUsageStatsSnapshotToCycle(
                 packageName = null, eventTimeMs = 0L,
@@ -3547,14 +3505,6 @@ class MonitorService : Service() {
         }
 
         if (recentActive.isEmpty()) {
-            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
-                now = now,
-                rawStats = stats,
-                recentActive = emptyList(),
-                selectedPkg = null,
-                carrierNoisePackages = usageCarrierNoisePackages,
-                isLauncher = { CreditManager.isLauncher(it) }
-            )
             return null
         }
 
@@ -3576,14 +3526,6 @@ class MonitorService : Service() {
             .maxByOrNull(timeSelector)
 
         if (nonLauncher != null) {
-            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
-                now = now,
-                rawStats = stats,
-                recentActive = recentActive,
-                selectedPkg = nonLauncher.packageName,
-                carrierNoisePackages = usageCarrierNoisePackages,
-                isLauncher = { CreditManager.isLauncher(it) }
-            )
             mLastTopUsageStatTs = timeSelector(nonLauncher)
             // [Diagnostics-only] push real UsageStats snapshot. Sort newest-first so
             // take(3) returns the actual 3 most recent candidates, not 3 arbitrary entries.
@@ -3621,14 +3563,6 @@ class MonitorService : Service() {
         mLastTopUsageStatTs = fallback?.let { timeSelector(it) } ?: 0L
 
         if (fallback != null) {
-            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
-                now = now,
-                rawStats = stats,
-                recentActive = recentActive,
-                selectedPkg = fallback.packageName,
-                carrierNoisePackages = usageCarrierNoisePackages,
-                isLauncher = { CreditManager.isLauncher(it) }
-            )
             // [Diagnostics-only] push UsageStats snapshot for fallback. Sorted.
             val candidates = recentActive
                 .sortedByDescending { timeSelector(it) }
