@@ -84,7 +84,10 @@ import com.decikeeper.app.util.DiagnosticCompressor
 import com.decikeeper.app.util.DiagnosticTimestampFormatter
 import com.decikeeper.app.util.FgBypassStableKey
 import com.decikeeper.app.util.FgGuardStableKey
+import com.decikeeper.app.logging.IntervalSampler
 import com.decikeeper.app.logging.LastForegroundEvidence
+import com.decikeeper.app.logging.RecentSampleLog
+import com.decikeeper.app.util.ForegroundDecisionRetention
 import com.decikeeper.app.util.ForegroundNormalEventBridge
 import com.decikeeper.app.util.ForegroundNormalEventStateTracker
 import com.decikeeper.app.util.ForegroundReportFormatter
@@ -306,6 +309,9 @@ class MonitorService : Service() {
     private val foregroundNormalEventBridge by lazy {
         ForegroundNormalEventBridge(SystemEventClock, foregroundNormalEventLogger::emit)
     }
+    private val foregroundDecisionRetention = ForegroundDecisionRetention()
+    // 前台采样：5 秒一条，只保留最近 3 分钟，仅供事后取证，业务代码不读取。
+    private val foregroundSampler = IntervalSampler(RecentSampleLog.SAMPLE_INTERVAL_MS)
     private val foregroundNormalEventStateTracker = ForegroundNormalEventStateTracker()
 
     // [Diagnostics-only] real query wall-clock timestamps captured around the
@@ -3658,8 +3664,15 @@ class MonitorService : Service() {
 
         val gate = foregroundReportGate
         val decision = gate.evaluate(c, outcome, nowMs)
+        // 只算一次：状态跟踪器与输出器必须对"这份完整报告是否真的输出"看法一致，
+        // 否则被丢弃的报告会让桌面切换的转换行也跟着丢失。
+        val retainFull = decision.emission != ForegroundReportEmission.FULL ||
+            foregroundDecisionRetention.shouldRetain(decision, c)
         // 仅供日志使用：给 LOCK_RESULT 等 A 级事件附上一行"为什么"，业务代码不读取。
         LastForegroundEvidence.update(outcome.effectivePackageName, mLastTopEvidence.name, outcome.businessReason)
+        if (foregroundSampler.tryAcquire(nowMs)) {
+            LogExporter.logRecentSample(nowMs, foregroundSampleBody(c, outcome))
+        }
         emitForegroundStateClosureOrTransition(
             packageName = outcome.effectivePackageName ?: "NONE",
             stateKey = listOf(
@@ -3668,7 +3681,7 @@ class MonitorService : Service() {
                 outcome.businessReason,
                 outcome.allowanceState
             ).joinToString("|"),
-            hasFullDiagnostic = decision.emission == ForegroundReportEmission.FULL,
+            hasFullDiagnostic = decision.emission == ForegroundReportEmission.FULL && retainFull,
             nowMs = nowMs,
             stateFields = linkedMapOf(
                 "action" to outcome.businessAction.name,
@@ -3683,7 +3696,8 @@ class MonitorService : Service() {
             selectedSource = mLastTopEvidence.name,
             requestId = currentTraceId,
             traceId = currentTraceId,
-            transition = foregroundTransition(c.previousForegroundPackageName, outcome.effectivePackageName)
+            transition = foregroundTransition(c.previousForegroundPackageName, outcome.effectivePackageName),
+            retainFull = retainFull
         )
         if (decision.emission == ForegroundReportEmission.NONE) return  // compact route already evaluated
         // R1-4: use decision.sourceProblemStartedAtMs as the single source of
@@ -3723,6 +3737,15 @@ class MonitorService : Service() {
             clock = SystemEventClock,
             stateFields = stateFields
         ).forEach(foregroundNormalEventLogger::emit)
+    }
+
+    /** 单行前台采样：前台包、来源、动作、原因，以及三个来源各自的状态。 */
+    private fun foregroundSampleBody(cycle: ForegroundDiagnosticCycle, outcome: ForegroundReportOutcome): String {
+        fun status(source: ForegroundSourceSnapshot): String =
+            source.status.name + (source.unavailableReason?.takeIf { it.isNotBlank() }?.let { "($it)" } ?: "")
+        return "[FG_SAMPLE] fg=${outcome.effectivePackageName ?: "NONE"} src=${mLastTopEvidence.name} " +
+            "action=${outcome.businessAction.name} reason=${outcome.businessReason} allowance=${outcome.allowanceState} " +
+            "events=${status(cycle.usageEvents)} stats=${status(cycle.usageStats)} a11y=${status(cycle.accessibility)}"
     }
 
     /** A real existing pre-cycle package becomes a transition only when it actually changed. */

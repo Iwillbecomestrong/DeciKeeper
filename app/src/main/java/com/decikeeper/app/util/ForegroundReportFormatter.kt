@@ -288,7 +288,9 @@ class ForegroundNormalEventBridge(
         selectedSource: String,
         requestId: String?,
         traceId: String?,
-        transition: ForegroundTransition?
+        transition: ForegroundTransition?,
+        /** 为 false 时丢弃这份完整报告（由 [ForegroundDecisionRetention] 判定为不值得长期保留）。 */
+        retainFull: Boolean = true
     ) {
         if (decision.emission == ForegroundReportEmission.CONTINUING_CONFLICT_SUMMARY) return
         val reference = lastFullReference
@@ -305,6 +307,7 @@ class ForegroundNormalEventBridge(
             selected.packageName == packageName
 
         if (decision.emission == ForegroundReportEmission.NONE && !compactEligible) return
+        if (decision.emission == ForegroundReportEmission.FULL && !compactEligible && !retainFull) return
 
         val full = reportFrom(cycle, outcome, selectedSource, requestId, traceId, transition)
         val report = if (compactEligible) {

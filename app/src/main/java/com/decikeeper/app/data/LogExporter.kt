@@ -29,6 +29,7 @@ import com.decikeeper.app.logging.LegacyLogDecision
 import com.decikeeper.app.logging.LogTier
 import com.decikeeper.app.logging.LogTime
 import com.decikeeper.app.logging.LogTimeline
+import com.decikeeper.app.logging.RecentSampleLog
 import com.decikeeper.app.logging.SegmentedLogStore
 import com.decikeeper.app.logging.TieredLogWriter
 import java.io.File
@@ -90,6 +91,14 @@ object LogExporter {
     @Volatile
     private var traceStore: SegmentedLogStore? = null
 
+    /** 最近 3 分钟前台采样，导出时并入 B 分区。 */
+    @Volatile
+    private var recentSamples: RecentSampleLog? = null
+
+    // 采样每条约 200 字节，两个 8KB 分片足够覆盖 3 分钟并自动淘汰更旧的。
+    private const val SAMPLE_SEGMENT_BYTES = 8L * 1024
+    private const val SAMPLE_MAX_BYTES = 16L * 1024
+
     fun init(context: Context) {
         val appCtx = context.applicationContext
         appContext = appCtx
@@ -99,6 +108,9 @@ object LogExporter {
         journalStore = journal
         traceStore = trace
         tieredWriter = TieredLogWriter(journal, trace, scheduler)
+        recentSamples = RecentSampleLog(
+            SegmentedLogStore(File(logDir, "recent"), "sample", SAMPLE_SEGMENT_BYTES, SAMPLE_MAX_BYTES)
+        )
         deleteStaleLegacyLog(appCtx)
     }
 
@@ -119,6 +131,15 @@ object LogExporter {
                 sdkInt = android.os.Build.VERSION.SDK_INT
             )
         )
+    }
+
+    /** 写入一条前台采样（5 秒一条，只保留最近 3 分钟）。日志失败不影响业务。 */
+    fun logRecentSample(nowMs: Long, body: String) {
+        try {
+            recentSamples?.append(nowMs, body)
+        } catch (e: Exception) {
+            Log.e(TAG, "recent sample write failed: ${e.message}")
+        }
     }
 
     /** 同步落盘缓冲中的日志，供导出、崩溃、服务销毁和系统内存紧张时调用。 */
@@ -687,7 +708,7 @@ object LogExporter {
     internal fun readTimeline(startMs: Long = Long.MIN_VALUE, endMs: Long = Long.MAX_VALUE): com.decikeeper.app.logging.LogTimelineExport {
         flush()
         val journal = journalStore?.readLines() ?: emptyList()
-        val trace = traceStore?.readLines() ?: emptyList()
+        val trace = (traceStore?.readLines() ?: emptyList()) + (recentSamples?.readRecentLines() ?: emptyList())
         return LogTimeline.merge(journal, trace, startMs, endMs)
     }
 
@@ -696,6 +717,7 @@ object LogExporter {
         tieredWriter?.flush()
         journalStore?.clear()
         traceStore?.clear()
+        recentSamples?.clear()
     }
 
     /** 读取旧版单文件日志中落在范围内的完整记录（升级前残留，只读，3 天后删除）。 */
