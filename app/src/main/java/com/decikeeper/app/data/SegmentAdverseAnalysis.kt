@@ -172,19 +172,24 @@ object SegmentAdverseAnalysis {
         val oldEffective = if (context != null && oldSeg != null && oldSeg.listApps == null) {
             SegmentBlacklist.effectiveList(context, oldSeg)
         } else null // null = 无法计算基准（context 缺失时仅"脱钩"分支受影响）
-        return classifyListAppsAdverseCore(oldSeg, newSeg, oldEffective) { oldEff ->
-            if (context == null) {
-                oldEff // 无 context：不额外过滤（保持原"双非 null 无需 context"语义）
-            } else {
-                // [FIX 2026-08-14 用户报告] 名单页只展示有启动入口的应用；全局黑名单里
-                // 无入口/已卸载的包无法被勾选（全选/反选后必然丢失），不能作为"被移除"
-                // 的基准——否则在全局基础上添加应用会被误判为放松→延迟生效。
-                oldEff.filter { pkg ->
-                    runCatching { context.packageManager.getLaunchIntentForPackage(pkg) != null }
-                        .getOrDefault(false)
-                }.toSet()
-            }
-        }
+        return classifyListAppsAdverseCore(oldSeg, newSeg, oldEffective, listSelectable(context))
+    }
+
+    /**
+     * 名单里「用户在名单页能操作到」的子集：有启动入口、且不在硬剔除里。
+     * 已卸载 / 无入口的包用户勾不到也取消不了（白名单模式存的是补集，换一次勾选就会丢掉它们），
+     * 不能算成「移除」，否则一次纯加严（如白名单从 5 个改成一个都不选）会被判成「有增有减」。
+     * context 缺失时不过滤。
+     */
+    private fun listSelectable(context: Context?): (Set<String>) -> Set<String> {
+        if (context == null) return { it }
+        // [FIX 2026-08-14 用户报告] 名单页只展示有启动入口的应用；全局黑名单里
+        // 无入口/已卸载的包无法被勾选（全选/反选后必然丢失），不能作为"被移除"
+        // 的基准——否则在全局基础上添加应用会被误判为放松→延迟生效。
+        val launchable = SegmentBlacklist.allLaunchablePackages(context)
+        // 取不到可启动应用全集（包可见性受限等）时无法判断谁不可操作，保守不过滤。
+        if (launchable.isEmpty()) return { it }
+        return { set -> set.filter { it in launchable && !SegmentBlacklist.isHardExempt(context, it) }.toSet() }
     }
 
     /**
@@ -221,8 +226,8 @@ object SegmentAdverseAnalysis {
         }
 
         // 两者都非 null：集合语义比较（前三分支已排除所有含 null 的情形）。
-        val oldSet = oldList.toSet()
-        val newSet = newList!!.toSet()
+        val oldSet = selectable(oldList.toSet())
+        val newSet = selectable(newList!!.toSet())
         return !newSet.containsAll(oldSet) // 有删或混合 → 不利
     }
 
@@ -496,7 +501,7 @@ fun getCategorizedSegmentDiff(
 
         // 🆕 [TASK-04] listApps 变化文案（仅在有变化时出现；null ≠ 空列表）。
         if (old != null && old.listApps != match.listApps) {
-            val listMsg = buildListAppsDiffMessage(old.listApps, match.listApps)
+            val listMsg = buildListAppsDiffMessage(old.listApps, match.listApps, listSelectable(context))
             if (listMsg != null) {
                 val isRestoredList = base != null && match.listApps == base.listApps
                 val isListAdv = if (isRestoredList) false else classifyListAppsAdverse(context, old, match)
@@ -525,7 +530,11 @@ fun getCategorizedSegmentDiff(
      * 🆕 [TASK-04] 生成 listApps 变化的差异文案（风格对齐现有 diff 项）。
      * 返回 null 表示集合相同（仅顺序/重复变化）→ 不产生文案。
      */
-    private fun buildListAppsDiffMessage(oldList: List<String>?, newList: List<String>?): String? {
+    private fun buildListAppsDiffMessage(
+        oldList: List<String>?,
+        newList: List<String>?,
+        selectable: (Set<String>) -> Set<String> = { it }
+    ): String? {
         if (oldList == null && newList == null) return null
         if (oldList == null) {
             val n = newList ?: return null
@@ -534,8 +543,8 @@ fun getCategorizedSegmentDiff(
         if (newList == null) {
             return "  • 本时段名单: 已恢复为跟随全局黑/白名单"
         }
-        val oldSet = oldList.toSet()
-        val newSet = newList.toSet()
+        val oldSet = selectable(oldList.toSet())
+        val newSet = selectable(newList.toSet())
         if (newSet == oldSet) return null
         if (newList.isEmpty()) {
             return "  • 本时段名单: 已清空本时段名单（不锁任何应用）"
