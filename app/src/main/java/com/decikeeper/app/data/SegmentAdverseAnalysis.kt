@@ -376,6 +376,16 @@ object SegmentAdverseAnalysis {
     }
 
     /**
+     * 界面「待生效: 修改」标识用的相等：次数上限留空（自动）与手填同一个数是同一个效果，不算修改。
+     * 保存时的 [isSingleSegmentEqual] 仍按原始值严格比较（留空与手填不是一回事：改休息时长后自动值会跟着变）。
+     */
+    fun isSingleSegmentEquivalent(s1: TimeSegment, s2: TimeSegment): Boolean =
+        isSingleSegmentEqual(
+            s1.copy(usableCountLimitHalfUnits = s1.getEffectiveUsableCountLimitHalfUnits()),
+            s2.copy(usableCountLimitHalfUnits = s2.getEffectiveUsableCountLimitHalfUnits())
+        )
+
+    /**
      * 🚀 [Hybrid] Find matching old segment for a new segment by Start Time.
      */
     /**

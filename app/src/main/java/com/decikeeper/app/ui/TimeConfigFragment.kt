@@ -294,7 +294,7 @@ class TimeConfigFragment : Fragment() {
                     c.endHour == p.endHour && c.endMinute == p.endMinute)
             }
             if (match == null) a.markAsNew(p)
-            else if (!SegmentAdverseAnalysis.isSingleSegmentEqual(p, match)) a.markAsModified(p)
+            else if (!SegmentAdverseAnalysis.isSingleSegmentEquivalent(p, match)) a.markAsModified(p)
         }
     }
 

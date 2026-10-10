@@ -5,6 +5,7 @@ import com.decikeeper.app.data.AnalysisResult
 import com.decikeeper.app.data.TimeSegment
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,5 +57,24 @@ class BlankCountLimitSaveTest {
         assertFalse("有效次数没变不该进待生效: $result", result is AnalysisResult.Mixed)
         assertFalse(TimeRuleManager.hasPendingRules(context))
         assertNull(pendingPrefs.getString("segments_json", null))
+    }
+
+    @Test
+    fun typingTheAutoValueIntoABlankCountLeavesNothingPending() {
+        seed(seg(-1)) // 留空（自动 = 3 次）
+        val result = TimeRuleManager.analyzeAndSaveTimeSegments(context, listOf(seg(6)))
+
+        assertFalse("有效次数没变不该进待生效: $result", result is AnalysisResult.Mixed)
+        assertFalse(TimeRuleManager.hasPendingRules(context))
+        assertNull(pendingPrefs.getString("segments_json", null))
+    }
+
+    @Test
+    fun blankAndTypedAutoValueAreTheSameForThePendingBadgeButNotForSaving() {
+        val blank = seg(-1)
+        val typed = seg(6)
+        assertTrue(com.decikeeper.app.data.SegmentAdverseAnalysis.isSingleSegmentEquivalent(blank, typed))
+        assertFalse(com.decikeeper.app.data.SegmentAdverseAnalysis.isSingleSegmentEqual(blank, typed))
+        assertFalse(com.decikeeper.app.data.SegmentAdverseAnalysis.isSingleSegmentEquivalent(seg(-1), seg(4)))
     }
 }
