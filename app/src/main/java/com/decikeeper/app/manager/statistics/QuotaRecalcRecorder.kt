@@ -45,6 +45,8 @@ object QuotaRecalcRecorder {
     }
 
     private fun snapshot(context: Context): Snapshot? = runCatching {
+        // 改动前先把今天各时段的额度落账，之后只记差额
+        CreditManager.materializeEntitlements(context)
         Snapshot(
             CreditManager.getRemainingMinutes(context),
             CreditManager.getRemainingUsableCount(context),
@@ -56,6 +58,7 @@ object QuotaRecalcRecorder {
 
     private fun recordDifference(context: Context, before: Snapshot) {
         runCatching {
+            CreditManager.applyEntitlementDelta(context, before.segments, TimeRuleManager.getTimeSegments(context))
             val afterMinutes = CreditManager.getRemainingMinutes(context)
             val afterHalfUnits = CreditManager.getRemainingUsableCount(context)
             val deltaMinutes = before.minutes - afterMinutes

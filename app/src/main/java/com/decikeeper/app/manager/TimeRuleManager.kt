@@ -3079,10 +3079,9 @@ object TimeRuleManager {
                 val oldMatch = SegmentAdverseAnalysis.findMatchingOldSegment(candidate, beforeSegments)
                 if (oldMatch == null) {
                     candidate.copy(lastModified = if (candidate.lastModified > 0L) candidate.lastModified else changeTimestamp)
-                } else if (candidate.lastModified <= 0L) {
-                    candidate.copy(lastModified = oldMatch.lastModified)
                 } else {
-                    candidate
+                    // 编辑已有时段不重新打「今天改过」标记：今日额度按差额记账，不再靠标记折算
+                    candidate.copy(lastModified = oldMatch.lastModified)
                 }
             }
     }

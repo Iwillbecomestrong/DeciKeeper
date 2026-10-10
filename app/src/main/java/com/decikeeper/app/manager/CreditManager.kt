@@ -1799,7 +1799,84 @@ object CreditManager {
         val effectiveUsableCountHalfUnits: Int
     )
 
+    /**
+     * 时段今天的额度（时长 + 次数）。
+     *
+     * 额度按「业务日 + 时段」存账（[readEntitlement] / [writeEntitlement]）：首次读取时按 [computeSegmentProration]
+     * 算一次存下，之后改设置只记差额（[applyEntitlementDelta]），读取时不再折算，
+     * 所以改严已过的时段不会让滚存整段清零，也不会因为某次保存丢了记号而把额度加回来。
+     * 账只对「当前时刻」生效：[now] 偏离当前时间时（测试 / 预演）直接按记号现算，不读不写。
+     */
     fun getSegmentProration(context: Context, segment: TimeSegment, now: Long = System.currentTimeMillis()): SegmentProration {
+        if (kotlin.math.abs(now - System.currentTimeMillis()) > ENTITLEMENT_CLOCK_TOLERANCE_MS) {
+            return computeSegmentProration(context, segment, now)
+        }
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val key = entitlementKey(context, segment)
+        readEntitlement(prefs, key)?.let { return it }
+        val computed = computeSegmentProration(context, segment, now)
+        prefs.edit().putString(key, encodeEntitlement(computed)).apply()
+        return computed
+    }
+
+    private const val ENTITLEMENT_CLOCK_TOLERANCE_MS = 60_000L
+
+    private fun entitlementKey(context: Context, segment: TimeSegment): String =
+        "quota_entitle_${getSegmentBusinessDateString(context, segment)}_${generateSegmentKey(segment)}"
+
+    private fun encodeEntitlement(p: SegmentProration): String =
+        "${p.effectiveLimitMins};${p.effectiveUsableCountHalfUnits};${if (p.isEligibleForSurplus) 1 else 0};${p.ratio}"
+
+    private fun readEntitlement(prefs: SharedPreferences, key: String): SegmentProration? {
+        val parts = prefs.getString(key, null)?.split(';') ?: return null
+        if (parts.size < 4) return null
+        return runCatching {
+            SegmentProration(
+                ratio = parts[3].toDouble(),
+                isEligibleForSurplus = parts[2] == "1",
+                effectiveLimitMins = parts[0].toDouble(),
+                effectiveUsableCountHalfUnits = parts[1].toInt()
+            )
+        }.getOrNull()
+    }
+
+    /** 改动时段前先把今天所有时段的额度落账，避免编辑发生在首次读取之前而被旧记号折算。 */
+    fun materializeEntitlements(context: Context) {
+        for (segment in TimeRuleManager.getTimeSegments(context)) getSegmentProration(context, segment)
+    }
+
+    /**
+     * 时段改动后，把额度差额记进今天的账：新额度 − 旧额度，加到已落账的今日额度上，最小取 0。
+     * 没落账的（新建 / 改名）不处理，下次读取按新设置惰性初始化；时长与次数各算各的。
+     * 返回每个有变化的时段 (时段名, 时长差分钟, 次数差 half-unit)，供额度重算流水说明。
+     */
+    fun applyEntitlementDelta(
+        context: Context,
+        before: List<TimeSegment>,
+        after: List<TimeSegment>
+    ): List<Triple<String, Double, Int>> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val edit = prefs.edit()
+        val changes = mutableListOf<Triple<String, Double, Int>>()
+        for (new in after) {
+            val old = before.firstOrNull { generateSegmentKey(it) == generateSegmentKey(new) } ?: continue
+            val minsDiff = (new.limitMins - old.limitMins).toDouble()
+            val countDiff = new.getEffectiveUsableCountLimitHalfUnits() - old.getEffectiveUsableCountLimitHalfUnits()
+            if (minsDiff == 0.0 && countDiff == 0) continue
+            val entitlement = readEntitlement(prefs, entitlementKey(context, old)) ?: continue
+            val updated = entitlement.copy(
+                effectiveLimitMins = (entitlement.effectiveLimitMins + minsDiff).coerceAtLeast(0.0),
+                effectiveUsableCountHalfUnits = (entitlement.effectiveUsableCountHalfUnits + countDiff).coerceAtLeast(0)
+            )
+            edit.putString(entitlementKey(context, new), encodeEntitlement(updated))
+            changes += Triple(new.name, minsDiff, countDiff)
+        }
+        edit.apply()
+        return changes
+    }
+
+    /** 按记号现算的额度，仅用于首次落账与旧数据迁移；已落账的日子不再读它。 */
+    private fun computeSegmentProration(context: Context, segment: TimeSegment, now: Long): SegmentProration {
         val baseLimitMins = segment.limitMins.toDouble()
         val baseHalfUnits = segment.getEffectiveUsableCountLimitHalfUnits()
         if (segment.lastModified <= 0L) {
