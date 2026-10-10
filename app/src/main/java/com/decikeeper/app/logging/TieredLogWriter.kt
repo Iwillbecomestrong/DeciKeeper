@@ -30,6 +30,7 @@ class ExecutorLogScheduler : LogScheduler {
  * - B 级记录攒到 [flushIntervalMs] 后批量落盘，业务线程只做内存追加，不开关文件。
  * - [flush] 同步落盘，供导出、服务销毁和系统内存紧张时调用。
  * - 磁盘写入失败时吞掉异常并丢弃该批，日志不得影响业务。
+ * - B 级连续重复记录由 [RepeatCollapser] 折叠，只在内容变化或 [flush] 时补一行 `[REPEATED]` 汇总。
  * - B 级待写缓冲超过 [maxPendingChars] 时丢弃最老部分，避免磁盘卡住时内存无限增长。
  */
 class TieredLogWriter(
@@ -43,6 +44,7 @@ class TieredLogWriter(
     private val writeLock = Any()
     private val pendingA = StringBuilder()
     private val pendingB = StringBuilder()
+    private val collapser = RepeatCollapser()
     private var immediateScheduled = false
     private var delayedScheduled = false
 
@@ -61,7 +63,10 @@ class TieredLogWriter(
                     }
                 }
                 LogTier.B -> {
-                    pendingB.append(text)
+                    // 与上一条只差时间/id/耗时的重复记录只计数、不落盘。
+                    val collapsed = collapser.accept(text)
+                    if (collapsed.isEmpty()) return
+                    pendingB.append(collapsed)
                     trimPendingB()
                     if (!delayedScheduled && !immediateScheduled) {
                         delayedScheduled = true
@@ -90,7 +95,7 @@ class TieredLogWriter(
             val b: String
             synchronized(lock) {
                 a = pendingA.toString()
-                b = pendingB.toString()
+                b = pendingB.toString() + collapser.drainSummary()
                 pendingA.setLength(0)
                 pendingB.setLength(0)
             }

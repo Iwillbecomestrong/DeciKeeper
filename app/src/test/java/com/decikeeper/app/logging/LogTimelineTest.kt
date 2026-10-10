@@ -12,8 +12,10 @@ class LogTimelineTest {
     private fun ms(text: String): Long =
         LocalDateTime.parse(text.replace(' ', 'T')).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
+    private fun records(lines: List<String>): List<String> = lines.filterNot { it.startsWith("#") }
+
     @Test
-    fun mergesByTimeWithTierMarkers() {
+    fun allPermanentRecordsComeBeforeAllDiagnosticRecords() {
         val a = listOf(
             "2026-10-10 09:12:40.000 [LOCK_RESULT] result=LOCKED",
             "2026-10-10 09:14:15.000 [LOCK_RESULT] result=LOCKED reason=EXPIRY_RELOCK"
@@ -24,22 +26,44 @@ class LogTimelineTest {
 
         assertEquals(
             listOf(
-                "B 2026-10-10 09:12:38.000 fg=com.x src=EVENTS n=3",
                 "A 2026-10-10 09:12:40.000 [LOCK_RESULT] result=LOCKED",
-                "A 2026-10-10 09:14:15.000 [LOCK_RESULT] result=LOCKED reason=EXPIRY_RELOCK"
+                "A 2026-10-10 09:14:15.000 [LOCK_RESULT] result=LOCKED reason=EXPIRY_RELOCK",
+                "B 2026-10-10 09:12:38.000 fg=com.x src=EVENTS n=3"
             ),
-            export.lines
+            records(export.lines)
         )
     }
 
     @Test
-    fun equalTimestampPutsAFirst() {
+    fun sectionTitlesSeparateTheTwoPartsAndCountRecords() {
         val export = LogTimeline.merge(
             listOf("2026-10-10 09:00:00.000 [A]"),
-            listOf("2026-10-10 09:00:00.000 [B]")
+            listOf("2026-10-10 09:00:01.000 [B1]", "2026-10-10 09:00:02.000 [B2]")
         )
 
-        assertEquals(listOf("A 2026-10-10 09:00:00.000 [A]", "B 2026-10-10 09:00:00.000 [B]"), export.lines)
+        val titles = export.lines.filter { it.startsWith("#") }
+        assertEquals(2, titles.size)
+        assertTrue(titles[0].contains("A 永久账本") && titles[0].contains("1 条"))
+        assertTrue(titles[1].contains("B 近期诊断") && titles[1].contains("2 条"))
+        assertTrue("A 分区标题在 B 分区标题之前", export.lines.indexOf(titles[0]) < export.lines.indexOf(titles[1]))
+    }
+
+    @Test
+    fun eachSectionIsSortedByTime() {
+        val export = LogTimeline.merge(
+            listOf("2026-10-10 10:00:00.000 [LATE]", "2026-10-10 08:00:00.000 [EARLY]"),
+            listOf("2026-10-10 12:00:00.000 [B-LATE]", "2026-10-10 11:00:00.000 [B-EARLY]")
+        )
+
+        assertEquals(
+            listOf(
+                "A 2026-10-10 08:00:00.000 [EARLY]",
+                "A 2026-10-10 10:00:00.000 [LATE]",
+                "B 2026-10-10 11:00:00.000 [B-EARLY]",
+                "B 2026-10-10 12:00:00.000 [B-LATE]"
+            ),
+            records(export.lines)
+        )
     }
 
     @Test
@@ -58,7 +82,7 @@ class LogTimelineTest {
                 "  [1 结果] foreground=com.x action=ALLOW",
                 "  [2 状态] allowance=UNKNOWN"
             ),
-            export.lines
+            records(export.lines)
         )
         assertEquals("只有记录首行以 B 开头", 1, export.lines.count { it.startsWith("B") })
     }
@@ -77,14 +101,14 @@ class LogTimelineTest {
             startMs = ms("2026-10-10 10:00:00"), endMs = ms("2026-10-10 12:00:00")
         )
 
-        assertEquals(listOf("B 2026-10-10 11:00:00.000 [NEW]", "  body-of-new"), export.lines)
+        assertEquals(listOf("B 2026-10-10 11:00:00.000 [NEW]", "  body-of-new"), records(export.lines))
     }
 
     @Test
     fun orphanFragmentBeforeFirstHeaderIsDropped() {
         val export = LogTimeline.merge(emptyList(), listOf("half a record", "2026-10-10 09:00:00.000 [OK]"))
 
-        assertEquals(listOf("B 2026-10-10 09:00:00.000 [OK]"), export.lines)
+        assertEquals(listOf("B 2026-10-10 09:00:00.000 [OK]"), records(export.lines))
     }
 
     @Test

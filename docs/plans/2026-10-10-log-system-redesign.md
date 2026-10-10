@@ -177,18 +177,24 @@ filesDir/
 - **容量估算**：按 2026-10-10 样本合并后约每天 1.5MB 诊断，6MB 约可回看 3 到 4 天；用户多应用切换、反复锁解时会缩短。该数字为估算，真机跑几天后按实测调整。
 - 以上数字（4MB / 6MB / 5 秒）为初始值，实现时放成常量。因为 A 已带精简证据、B 只承担"无事件时的证据"和完整证据块，B 的实际需求可能小于 6MB，真机验证后可下调，把空间让给 A 或直接减小总占用。
 
-**导出格式**：导出时把 `journal` 与 `trace` 按时间合并成一条时间线，每行开头加一个等级标记，与 §6 分级一致：
+**导出格式**：导出文件分两个分区，**上半部分是全部 A（永久账本），下半部分是全部 B（近期诊断）**，各自按时间排序，每行开头带等级标记，与 §6 分级一致。需要某个 A 事件的前因时，按它的时间到下半部分的 B 里查找。（此前设想过把 A、B 按时间交错成一条时间线，用户更倾向两个分区，已按用户意见改为分区。）
 
-- `A` = A 级，永久账本（存于 `journal.log`）。
+- `A` = A 级，永久账本（存于 `journal/`）。
 - `B` = B 级，近期诊断（存于 `trace/`）。
 - C 级不落盘，没有标记。
-- 文件头写一行说明（`A=永久账本 B=近期诊断`），并分别给出 A、B 的时间范围，让读者知道诊断部分只能回看到什么时候。
+- 文件头写图例，并分别给出 A、B 的时间范围，让读者知道诊断部分只能回看到什么时候；每个分区开头有一行带本次导出条数的标题。
 - 需要只看重要事件时，用 `grep '^A'` 筛选。
 - 同一个 8 行证据块视为一个整体，只在首行带标记，后续行缩进，导出和筛选时不得拆开。
 
+**B 级同类重复折叠**：与同一类（按记录首行标签区分，如 `[FG_DECISION]`、`MonitorService: [EVENT] type=SUSPECT`）上一条相比，只有时间戳、各类 id、毫秒耗时不同的记录不再落盘，只累计次数；该类内容变化或导出时补写一行 `[REPEATED] of=<类别> n=<次数> first=<首次时间>`。包名、状态、原因码等实质变化一定产生新记录。A 级不折叠。
+
 ```
-A 2026-10-10 09:12:40 [LOCK_RESULT]  packageName=com.ss.android.ugc.aweme result=LOCKED reason=WINDOW_ATTACHED
-B 2026-10-10 09:12:38 fg=com.ss.android.ugc.aweme src=EVENTS reason=EVENTS_BUSINESS_MATCH n=3
+# ---------- A 永久账本（本次导出 2 条）----------
+A 2026-10-10 09:12:40.000 [LOCK_RESULT] packageName=com.ss.android.ugc.aweme result=LOCKED reason=WINDOW_ATTACHED evidence=fg:com.ss.android.ugc.aweme src:EVENTS reason:EVENTS_BUSINESS_MATCH
+A 2026-10-10 09:14:15.000 [LOCK_RESULT] packageName=com.ss.android.ugc.aweme result=LOCKED reason=EXPIRY_RELOCK
+# ---------- B 近期诊断（本次导出 3 条）----------
+B 2026-10-10 09:12:38.000 [FG_DECISION] ...
+B 2026-10-10 09:12:58.000 [REPEATED] of=[FG_DECISION] n=14 first=2026-10-10 09:12:41.000
 ```
 
 **来源字段与真实 Android 接口对照**（写在每个文件头部一次）：
