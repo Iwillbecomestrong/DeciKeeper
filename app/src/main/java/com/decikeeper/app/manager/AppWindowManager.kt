@@ -373,6 +373,56 @@ object AppWindowManager {
         return loadPartialDelayMap(context).isNotEmpty()
     }
 
+    /** 新增规则「部分应用 × 日期」延后的映射：规则 id → 应用包名 → 还没生效的星期（1=周一…7=周日）。 */
+    fun getPartialDelayedDays(context: Context): Map<String, Map<String, Set<Int>>> =
+        loadPartialDelayMap(context).mapValues { (_, appMap) -> appMap.mapValues { it.value.toSet() } }
+
+    /** 应用时间窗待生效项的生效时刻（毫秒）；没有待生效项返回 0。 */
+    fun getPendingEffectiveTimestamp(context: Context): Long =
+        context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE).getLong("effective_timestamp", 0L)
+
+    /**
+     * 撤销新增规则里「还没生效的那部分」。
+     *
+     * 混合新增时整条规则已经写进生效列表，延后的应用 × 日期只是用遮罩挡着；撤销等于把遮住的部分摘掉。
+     * 规则的日期对所有应用共用，所以只有「整条规则的所有日期都被遮住」的应用才摘得干净；
+     * 只遮了其中几天的应用无法单独摘（不然要把规则拆开），此时不动并返回 false。
+     */
+    fun revokePartialDelayedRule(context: Context, ruleId: String): Boolean {
+        ensureLoaded(context)
+        val mask = loadPartialDelayMap(context)[ruleId] ?: return false
+        val active = rulesCache.find { it.id == ruleId } ?: run {
+            clearPartialDelayedDaysForRule(context, ruleId)
+            return true
+        }
+        val ruleDays = normalizeAppWindowDays(active.daysOfWeek)
+        val (fully, partially) = mask.entries.partition { (_, days) -> days.containsAll(ruleDays) }
+        if (partially.isNotEmpty()) return false
+
+        val pruned = fully.map { it.key }.toSet()
+        fun prune(rule: AppWindowRule): AppWindowRule? {
+            val kept = rule.packageNames - pruned
+            return if (kept.isEmpty()) null else rule.copy(packageNames = kept.toMutableSet())
+        }
+        updateList(rulesCache, active, prune(active))
+        saveToPrefs(context)
+
+        val pending = getPendingRules(context)
+        if (pending != null) {
+            val pendingRule = pending.find { it.id == ruleId }
+            if (pendingRule != null) updateList(pending, pendingRule, prune(pendingRule))
+        }
+        clearPartialDelayedDaysForRule(context, ruleId)
+        ChangeLogManager.removePendingEntriesByTag(context, CATEGORY_LOG, ruleId)
+        ChangeLogManager.removePendingEntriesByTag(context, CATEGORY_LOG, "${ruleId}_imm")
+        if (pending == null || (isSameAsActive(pending) && !hasPartialDelayedEntries(context))) {
+            clearAllPendingChanges(context)
+        } else {
+            saveToPendingPrefs(context, pending)
+        }
+        return true
+    }
+
     private fun savePartialDelayMap(context: Context, map: Map<String, Map<String, Set<Int>>>) {
         val root = JSONObject()
         map.forEach { (ruleId, appMap) ->
@@ -1136,7 +1186,7 @@ object AppWindowManager {
         }
     }
     
-    private fun generateChangeDescription(context: Context, oldRule: AppWindowRule?, newRule: AppWindowRule?): String {
+    internal fun generateChangeDescription(context: Context, oldRule: AppWindowRule?, newRule: AppWindowRule?): String {
         if (oldRule != null && newRule == null) {
             return "[删除] ${oldRule.name}"
         }

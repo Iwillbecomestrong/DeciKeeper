@@ -186,10 +186,13 @@ object SegmentAdverseAnalysis {
         // [FIX 2026-08-14 用户报告] 名单页只展示有启动入口的应用；全局黑名单里
         // 无入口/已卸载的包无法被勾选（全选/反选后必然丢失），不能作为"被移除"
         // 的基准——否则在全局基础上添加应用会被误判为放松→延迟生效。
-        val launchable = SegmentBlacklist.allLaunchablePackages(context)
-        // 取不到可启动应用全集（包可见性受限等）时无法判断谁不可操作，保守不过滤。
-        if (launchable.isEmpty()) return { it }
-        return { set -> set.filter { it in launchable && !SegmentBlacklist.isHardExempt(context, it) }.toSet() }
+        // 全集查询很慢，只在判定真的要过滤名单时才取（名单没动的时段不付这个代价）。
+        return { set ->
+            // 取不到可启动应用全集（包可见性受限等）时无法判断谁不可操作，保守不过滤。
+            val launchable = SegmentBlacklist.allLaunchablePackages(context)
+            if (launchable.isEmpty()) set
+            else set.filter { it in launchable && !SegmentBlacklist.isHardExempt(context, it) }.toSet()
+        }
     }
 
     /**
@@ -221,13 +224,19 @@ object SegmentAdverseAnalysis {
             // 首次脱钩（旧 null → 新非 null）：newList 必非 null。
             val n = newList ?: return true
             if (oldEffective == null) return true // 无法判定 → 保守视为混合/不利（原语义）
+            val newSet = n.toSet()
+            // 过滤只是逐元素的谓词：原始新名单已覆盖原始基准，过滤后必然也覆盖，省掉昂贵的可启动应用查询
+            if (newSet.containsAll(oldEffective)) return false
             val selectableOld = selectable(oldEffective)
-            return !n.toSet().containsAll(selectableOld)
+            return !newSet.containsAll(selectableOld)
         }
 
         // 两者都非 null：集合语义比较（前三分支已排除所有含 null 的情形）。
-        val oldSet = selectable(oldList.toSet())
-        val newSet = selectable(newList!!.toSet())
+        val rawOld = oldList.toSet()
+        val rawNew = newList!!.toSet()
+        if (rawNew.containsAll(rawOld)) return false // 只增不删：同上，不必过滤
+        val oldSet = selectable(rawOld)
+        val newSet = selectable(rawNew)
         return !newSet.containsAll(oldSet) // 有删或混合 → 不利
     }
 
@@ -387,6 +396,12 @@ object SegmentAdverseAnalysis {
             s1.copy(usableCountLimitHalfUnits = s1.getEffectiveUsableCountLimitHalfUnits()),
             s2.copy(usableCountLimitHalfUnits = s2.getEffectiveUsableCountLimitHalfUnits())
         )
+
+    /** 两份时段表效果等价（按名字配对，逐项用 [isSingleSegmentEquivalent]，忽略顺序与改动时间戳）。 */
+    fun areSegmentListsEquivalent(a: List<TimeSegment>, b: List<TimeSegment>): Boolean {
+        if (a.size != b.size) return false
+        return a.all { x -> b.any { y -> x.name == y.name && isSingleSegmentEquivalent(x, y) } }
+    }
 
     /**
      * 🚀 [Hybrid] Find matching old segment for a new segment by Start Time.

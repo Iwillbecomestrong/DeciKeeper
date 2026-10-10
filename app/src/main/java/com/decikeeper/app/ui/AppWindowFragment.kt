@@ -43,6 +43,7 @@ import com.decikeeper.app.manager.AppWindowManager
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
+import com.decikeeper.app.manager.PendingChangeTable
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
 import java.util.Calendar
@@ -179,6 +180,9 @@ class AppWindowFragment : Fragment() {
     
     private fun showPendingChanges() {
         val ctx = context ?: return
+        cardPending.setOnClickListener {
+            PendingChangesDialog.show(ctx, PendingChangeTable.Scope.APP_WINDOW) { refreshList() }
+        }
         val isLocked = TimeRuleManager.isTimeRuleEditLocked(ctx)
         if (isLocked) {
             cardPending.visibility = View.VISIBLE
@@ -202,6 +206,14 @@ class AppWindowFragment : Fragment() {
             return
         }
         
+        // 与勿扰时段、规则参数两页共用同一份待生效清单：卡片摘要逐项列出，点开可逐项撤销
+        val summary = PendingChangesDialog.cardSummary(ctx, PendingChangeTable.Scope.APP_WINDOW)
+        if (summary.isNotEmpty()) {
+            cardPending.visibility = View.VISIBLE
+            tvPendingChanges.text = summary
+            return
+        }
+
         val changeLog = ChangeLogManager.getFormattedLogForCategory(ctx, "app_window_rules")
         
         if (changeLog.isNotEmpty()) {
