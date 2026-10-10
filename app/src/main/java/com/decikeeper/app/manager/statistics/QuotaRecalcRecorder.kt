@@ -116,7 +116,9 @@ object QuotaRecalcRecorder {
             val oldCount = previous.getEffectiveUsableCountLimitHalfUnits()
             val newCount = seg.getEffectiveUsableCountLimitHalfUnits()
             if (oldCount != newCount) details += "可用次数 ${formatTimes(oldCount)} → ${formatTimes(newCount)} 次"
-            if (previous.isEnabled != seg.isEnabled) details += if (seg.isEnabled) "启用" else "停用"
+            if (previous.isEnabled != seg.isEnabled) {
+                details += if (seg.isEnabled) "启用（等同新建：未开始满额，进行中按启用时刻到结束的比例折算，已结束为 0）" else "停用"
+            }
             if (previous.lastModified <= 0L && seg.lastModified > 0L) {
                 details += "记为今天改动（已过的时段不再滚存未用额度，进行中的按剩余时间折算）"
             } else if (previous.lastModified > 0L && seg.lastModified <= 0L) {

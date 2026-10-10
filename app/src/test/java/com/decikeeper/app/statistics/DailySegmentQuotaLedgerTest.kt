@@ -105,6 +105,43 @@ class DailySegmentQuotaLedgerTest {
     }
 
     @Test
+    fun enablingASegmentThatAlreadyEndedGivesZeroQuota() {
+        val disabledPast = segments(30, 20).let { list -> listOf(list[0].copy(isEnabled = false, enabledStateBaseline = false), list[1]) }
+        install(disabledPast)
+        assertEquals("停用的前段不计入", 20.0, CreditManager.getRemainingMinutes(context), 0.01)
+
+        TimeRuleManager.analyzeAndSaveTimeSegments(context, segments(30, 20))
+
+        assertEquals("前段已结束，启用等同新建：额度 0，不凭空产生滚存", 20.0, CreditManager.getRemainingMinutes(context), 0.01)
+    }
+
+    @Test
+    fun enablingASegmentInProgressProratesByTheRemainingTimeAndCarries() {
+        val cal = Calendar.getInstance()
+        val nowMin = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+        assumeTrue(nowMin <= 23 * 60 + 20)
+        val endMin = nowMin + 30
+        fun inProgress(enabled: Boolean) = listOf(
+            TimeSegment(
+                startHour = 0, startMinute = 0, endHour = endMin / 60, endMinute = endMin % 60,
+                limitMins = 30, name = "进行中段", isEnabled = enabled, enabledStateBaseline = enabled
+            ),
+            TimeSegment(
+                startHour = endMin / 60, startMinute = endMin % 60, endHour = 23, endMinute = 59,
+                limitMins = 20, name = "后段"
+            )
+        )
+        install(inProgress(enabled = false))
+
+        TimeRuleManager.analyzeAndSaveTimeSegments(context, inProgress(enabled = true))
+
+        // 启用时刻到结束还剩 30 分钟，整段 endMin 分钟：额度 30 × 30 / endMin
+        val expected = 30.0 * 30.0 / endMin
+        assertEquals(expected, CreditManager.getRemainingMinutes(context), 0.3)
+        assertTrue(recalcRecords().single().reason.contains("启用"))
+    }
+
+    @Test
     fun usageBeyondTheNewQuotaIsNotClawedBackAndNeverGoesNegative() {
         install(segments(pastLimit = 30, currentLimit = 20))
         CreditManager.getRemainingMinutes(context)

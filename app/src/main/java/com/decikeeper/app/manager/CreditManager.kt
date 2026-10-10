@@ -1860,6 +1860,20 @@ object CreditManager {
         val changes = mutableListOf<Triple<String, Double, Int>>()
         for (new in after) {
             val old = before.firstOrNull { generateSegmentKey(it) == generateSegmentKey(new) } ?: continue
+            if (!isActiveOnLogicalDay(old) && isActiveOnLogicalDay(new)) {
+                // 启用已停用的时段（或把今天加进生效日）等同新建：按启用时刻折算，之后正常滚存
+                val nowMillis = System.currentTimeMillis()
+                val prorated = computeSegmentProration(context, new.copy(lastModified = nowMillis), nowMillis)
+                val previous = readEntitlement(prefs, entitlementKey(context, old))
+                edit.putString(entitlementKey(context, new), encodeEntitlement(prorated))
+                changes += Triple(
+                    new.name,
+                    prorated.effectiveLimitMins - (previous?.effectiveLimitMins ?: new.limitMins.toDouble()),
+                    prorated.effectiveUsableCountHalfUnits -
+                        (previous?.effectiveUsableCountHalfUnits ?: new.getEffectiveUsableCountLimitHalfUnits())
+                )
+                continue
+            }
             val minsDiff = (new.limitMins - old.limitMins).toDouble()
             val countDiff = new.getEffectiveUsableCountLimitHalfUnits() - old.getEffectiveUsableCountLimitHalfUnits()
             if (minsDiff == 0.0 && countDiff == 0) continue
@@ -1873,6 +1887,13 @@ object CreditManager {
         }
         edit.apply()
         return changes
+    }
+
+    /** 时段今天是否生效：已启用，且生效日包含当前逻辑日（不看启用时刻，折算由账承担）。 */
+    private fun isActiveOnLogicalDay(segment: TimeSegment): Boolean {
+        if (!segment.isEnabled) return false
+        val days = segment.daysOfWeek
+        return days.isNullOrEmpty() || days.contains(com.decikeeper.app.data.LogicalDayClock.currentConfiguredDayOfWeek())
     }
 
     /** 按记号现算的额度，仅用于首次落账与旧数据迁移；已落账的日子不再读它。 */

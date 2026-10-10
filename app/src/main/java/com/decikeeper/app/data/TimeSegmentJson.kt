@@ -58,15 +58,13 @@ object LogicalDayClock {
 /**
  * Live activation policy for a single logical-day segment occurrence.
  *
- * A segment that is enabled after its occurrence already started is allowed to
- * enforce the restriction immediately while it is physically inside the time
- * range, but that occurrence must not later become a source of surplus carry.
- * Once the next logical occurrence is still in the future, the same enabled
- * segment is treated normally again.
+ * 启用已停用的时段等同新建时段：启用时刻在起点前 → 满额；进行中 → 按（启用时刻到结束）÷ 整段折算；
+ * 已结束 → 当天额度为 0。额度折算由「今日额度」账承担（`CreditManager.applyEntitlementDelta`），
+ * 折算后的额度正常参与滚存，所以这里不再因为启用得晚而取消滚存资格，只看是否启用。
+ * 其余参数保留是为了兼容既有调用方。
  */
 object SegmentActivationPolicy {
-    private const val MINUTES_PER_DAY = 24 * 60
-
+    @Suppress("UNUSED_PARAMETER")
     fun isEligibleForLiveRules(
         isEnabled: Boolean,
         enabledStateChangedAt: Long,
@@ -76,48 +74,7 @@ object SegmentActivationPolicy {
         segmentEndMinute: Int,
         refreshMinutes: Int,
         nowMillis: Long
-    ): Boolean {
-        if (!isEnabled) return false
-        if (enabledStateChangedAt <= 0L) return true
-
-        val effectiveRefresh = refreshMinutes.coerceIn(0, MINUTES_PER_DAY - 1)
-        val now = Calendar.getInstance().apply { timeInMillis = nowMillis }
-        val currentMinute = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-        val startMinute = segmentStartHour * 60 + segmentStartMinute
-        val endMinute = segmentEndHour * 60 + segmentEndMinute
-
-        val currentLogicalPosition = logicalPosition(currentMinute, effectiveRefresh)
-        val startLogicalPosition = logicalPosition(startMinute, effectiveRefresh)
-
-        // The segment has not started yet in this logical day. Any enable change
-        // that already happened is therefore "before start" for this occurrence.
-        if (currentLogicalPosition < startLogicalPosition) return true
-
-        val occurrenceStart = (now.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, segmentStartHour)
-            set(Calendar.MINUTE, segmentStartMinute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        if (occurrenceStart.timeInMillis > nowMillis) {
-            occurrenceStart.add(Calendar.DAY_OF_YEAR, -1)
-        }
-
-        // Enabled before (or exactly at) the start boundary: full participant.
-        if (enabledStateChangedAt <= occurrenceStart.timeInMillis) return true
-
-        // Late enable: enforce immediately while the occurrence is still active,
-        // but become ineligible as soon as the occurrence ends so carry scans skip it.
-        return if (startMinute > endMinute) {
-            currentMinute >= startMinute || currentMinute < endMinute
-        } else {
-            currentMinute >= startMinute && currentMinute < endMinute
-        }
-    }
-
-    private fun logicalPosition(minuteOfDay: Int, refreshMinutes: Int): Int {
-        return (minuteOfDay - refreshMinutes + MINUTES_PER_DAY) % MINUTES_PER_DAY
-    }
+    ): Boolean = isEnabled
 }
 
 data class TimeSegment(
