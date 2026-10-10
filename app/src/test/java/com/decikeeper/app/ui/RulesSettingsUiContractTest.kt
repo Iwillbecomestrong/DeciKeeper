@@ -275,9 +275,20 @@ class RulesSettingsUiContractTest {
         assertTrue(permActivitySource.contains("val checkBox = CheckBox(ctx)"))
         assertTrue(permActivitySource.contains("auto_start_confirmed"))
         assertTrue(permActivitySource.contains("assoc_start_confirmed"))
+        assertTrue(permActivitySource.contains("recents_lock_confirmed"))
+
+        // 契约：删掉精确闹钟权限（应用声明了 USE_EXACT_ALARM，无系统独立开关）
+        assertFalse(permActivitySource.contains("精确闹钟权限"))
 
         // 契约：设备管理器仅在适配推荐机型（如 OPPO）展示，vivo 等机型默认隐藏
         assertTrue(permActivitySource.contains("isDeviceAdminRecommended"))
+
+        // 契约：设置页弹窗的基础权限按钮直接导航至 PermissionsActivity，不再切回主页
+        assertFalse(rulesSource.contains("selectedItemId = R.id.nav_home"))
+
+        // 契约：统一标题为「基础权限与系统设置」
+        val permXml = source("app/src/main/res/layout/activity_permissions.xml")
+        assertTrue(permXml.contains("基础权限与系统设置"))
     }
 
     private fun source(path: String): String {

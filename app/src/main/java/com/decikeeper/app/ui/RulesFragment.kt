@@ -1580,10 +1580,8 @@ class RulesFragment : Fragment() {
         btnBase.setOnClickListener {
             val permState = getHomePermissionState(ctx)
             if (!permState.allGranted) {
-                (activity as? MainActivity)
-                    ?.findViewById<BottomNavigationView>(R.id.bottom_navigation)
-                    ?.selectedItemId = R.id.nav_home
-                Toast.makeText(ctx, "请在主页完成基础权限设置", Toast.LENGTH_SHORT).show()
+                val intent = Intent(ctx, PermissionsActivity::class.java)
+                startActivity(intent)
                 dialog?.dismiss()
             }
         }
@@ -2031,10 +2029,8 @@ class RulesFragment : Fragment() {
         btnBase.setOnClickListener {
             val permState = getHomePermissionState(ctx)
             if (!permState.allGranted) {
-                (activity as? MainActivity)
-                    ?.findViewById<BottomNavigationView>(R.id.bottom_navigation)
-                    ?.selectedItemId = R.id.nav_home
-                Toast.makeText(ctx, "请在主页完成基础权限设置", Toast.LENGTH_SHORT).show()
+                val intent = Intent(ctx, PermissionsActivity::class.java)
+                startActivity(intent)
                 dialog?.dismiss()
             }
         }
@@ -2216,10 +2212,8 @@ class RulesFragment : Fragment() {
         btnBase.setOnClickListener {
             val permState = getHomePermissionState(ctx)
             if (!permState.allGranted) {
-                (activity as? MainActivity)
-                    ?.findViewById<BottomNavigationView>(R.id.bottom_navigation)
-                    ?.selectedItemId = R.id.nav_home
-                Toast.makeText(ctx, "请在主页完成基础权限设置", Toast.LENGTH_SHORT).show()
+                val intent = Intent(ctx, PermissionsActivity::class.java)
+                startActivity(intent)
                 dialog?.dismiss()
             }
         }
@@ -3258,7 +3252,7 @@ class RulesFragment : Fragment() {
         if (ready == total) {
             tvBasicPermissionsStatus?.text = "基础运行与核心识别权限已就绪"
             tvBasicPermissionsBadge?.apply {
-                text = "已就绪 ✓"
+                text = "已开启 ✓"
                 setTextColor(android.graphics.Color.parseColor("#388E3C"))
             }
         } else {

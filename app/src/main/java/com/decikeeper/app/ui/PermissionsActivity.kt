@@ -33,6 +33,12 @@ class PermissionsActivity : AppCompatActivity() {
     private var layoutSections: LinearLayout? = null
     private val refreshCallbacks = mutableListOf<() -> Unit>()
 
+    private val cameraPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) {
+        refreshAll()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.apply(this)
         super.onCreate(savedInstanceState)
@@ -55,6 +61,28 @@ class PermissionsActivity : AppCompatActivity() {
         for (callback in refreshCallbacks) {
             callback.invoke()
         }
+    }
+
+    private fun showRecentsLockGuideDialog(ctx: Context) {
+        val extraWindowTip = if (SettingsNavigator.isOppoOrOnePlusOrRealme()) {
+            "\n\n• OPPO 强效保活妙招：\n  ColorOS 支持将决定守护设为「闪达小窗/迷你浮窗」常驻桌面或侧边栏，小窗模式下可完全免疫多任务一键划杀！"
+        } else {
+            ""
+        }
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle("🔒 多任务卡片加锁指引")
+            .setMessage(
+                "• 作用：防止系统一键清理后台时误杀决定守护；\n\n" +
+                "• 操作步骤：\n" +
+                "  1. 呼出手机的多任务（最近任务）界面；\n" +
+                "  2. 找到「决定守护」卡片；\n" +
+                "  3. 下拉卡片，或长按/点击卡片右上角菜单；\n" +
+                "  4. 点击【加锁】（卡片上出现 🔒 小锁图标）；" +
+                extraWindowTip +
+                "\n\n• 设置完成后，回到这里勾选「已开启」即可。"
+            )
+            .setPositiveButton("知道了", null)
+            .show()
     }
 
     private fun safeLaunch(intent: Intent) {
@@ -101,6 +129,7 @@ class PermissionsActivity : AppCompatActivity() {
             override val desc: String,
             val actionLabel: String = "去设置",
             val checkboxText: String = "已开启",
+            val confirmedBadgeText: String = "已开启 ✓",
             val isConfirmed: (Context) -> Boolean,
             val onConfirmChanged: (Context, Boolean) -> Unit,
             val onAction: (Context) -> Unit
@@ -192,6 +221,34 @@ class PermissionsActivity : AppCompatActivity() {
                         onAction = {
                             SettingsNavigator.openAutostartSettings(it)
                         }
+                    ),
+                    PermItem.Manual(
+                        title = "多任务卡片加锁（防误清理）",
+                        desc = "防止系统一键清理后台任务时误杀决定守护",
+                        actionLabel = "查看指引",
+                        checkboxText = "已加锁",
+                        confirmedBadgeText = "已加锁 ✓",
+                        isConfirmed = {
+                            val prefs = it.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+                            prefs.getBoolean("recents_lock_confirmed", false)
+                        },
+                        onConfirmChanged = { c, checked ->
+                            val prefs = c.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
+                            if (checked) {
+                                prefs.edit()
+                                    .putBoolean("recents_lock_confirmed", true)
+                                    .putLong("recents_lock_confirmed_at", System.currentTimeMillis())
+                                    .apply()
+                            } else {
+                                prefs.edit()
+                                    .remove("recents_lock_confirmed")
+                                    .remove("recents_lock_confirmed_at")
+                                    .apply()
+                            }
+                        },
+                        onAction = {
+                            showRecentsLockGuideDialog(it)
+                        }
                     )
                 )
             ),
@@ -204,6 +261,7 @@ class PermissionsActivity : AppCompatActivity() {
                             desc = "关闭夜间深睡省电冻结，避免闹钟漏响或延迟",
                             actionLabel = "去关闭",
                             checkboxText = "已关闭",
+                            confirmedBadgeText = "已关闭 ✓",
                             isConfirmed = {
                                 val prefs = it.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
                                 prefs.getBoolean("sleep_standby_confirmed", false) || prefs.getBoolean("vivo_sleep_standby_confirmed", false)
@@ -220,30 +278,20 @@ class PermissionsActivity : AppCompatActivity() {
                             }
                         )
                     )
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        add(
-                            PermItem.Auto(
-                                title = "精确闹钟权限",
-                                desc = "保障挑战闹钟按秒准时触发，避免系统省电延迟",
-                                isGranted = {
-                                    val am = it.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
-                                    am?.canScheduleExactAlarms() == true
-                                },
-                                onAction = {
-                                    SettingsNavigator.openExactAlarmPermission(it)
-                                }
-                            )
-                        )
-                    }
                     add(
                         PermItem.Auto(
                             title = "相机权限",
                             desc = "仅用于扫码挑战核验二维码，设备本地瞬时比对",
+                            actionLabel = "去开启",
                             isGranted = {
                                 ContextCompat.checkSelfPermission(it, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                             },
                             onAction = {
-                                openAppDetailsSettings()
+                                if (ContextCompat.checkSelfPermission(it, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                                    cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                } else {
+                                    openAppDetailsSettings()
+                                }
                             }
                         )
                     )
@@ -255,6 +303,7 @@ class PermissionsActivity : AppCompatActivity() {
                     PermItem.Auto(
                         title = "使用情况访问权限",
                         desc = "在手机本地实时识别前台应用包名，用于时间规则拦截",
+                        actionLabel = "去开启",
                         isGranted = { PermissionManager.hasUsageStatsPermission(it) },
                         onAction = {
                             safeLaunch(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
@@ -263,6 +312,7 @@ class PermissionsActivity : AppCompatActivity() {
                     PermItem.Auto(
                         title = "读取应用列表",
                         desc = "配置时间规则时展示应用列表以供勾选，仅保存在本地",
+                        actionLabel = "去设置",
                         isGranted = { true },
                         onAction = {
                             openAppDetailsSettings()
@@ -277,7 +327,7 @@ class PermissionsActivity : AppCompatActivity() {
                         PermItem.Auto(
                             title = "无障碍服务",
                             desc = "提供防卸载、防关闭关键权限等高阶防护能力",
-                            actionLabel = "去管理",
+                            actionLabel = "去开启",
                             isGranted = {
                                 AlarmPowerOffProtectionManager.isAccessibilityServiceEnabled(it)
                             },
@@ -427,7 +477,7 @@ class PermissionsActivity : AppCompatActivity() {
                 when (item) {
                     is PermItem.Auto -> {
                         val tvBadge = TextView(ctx).apply {
-                            text = "已就绪 ✓"
+                            text = "已开启 ✓"
                             textSize = 12f
                             setTypeface(typeface, android.graphics.Typeface.BOLD)
                             setTextColor(android.graphics.Color.parseColor("#388E3C"))
@@ -475,6 +525,15 @@ class PermissionsActivity : AppCompatActivity() {
                             gravity = Gravity.CENTER_VERTICAL
                         }
 
+                        val tvBadge = TextView(ctx).apply {
+                            text = item.confirmedBadgeText
+                            textSize = 12f
+                            setTypeface(typeface, android.graphics.Typeface.BOLD)
+                            setTextColor(android.graphics.Color.parseColor("#388E3C"))
+                            setPadding((6 * density).toInt(), (3 * density).toInt(), (6 * density).toInt(), (3 * density).toInt())
+                            visibility = View.GONE
+                        }
+
                         val btnAction = MaterialButton(ctx).apply {
                             text = item.actionLabel
                             isAllCaps = false
@@ -504,10 +563,12 @@ class PermissionsActivity : AppCompatActivity() {
                             setOnCheckedChangeListener { _, isChecked ->
                                 if (isInternalUpdating) return@setOnCheckedChangeListener
                                 item.onConfirmChanged(ctx, isChecked)
-                                btnAction.alpha = if (isChecked) 0.5f else 1.0f
+                                btnAction.visibility = if (isChecked) View.GONE else View.VISIBLE
+                                tvBadge.visibility = if (isChecked) View.VISIBLE else View.GONE
                             }
                         }
 
+                        actionsContainer.addView(tvBadge)
                         actionsContainer.addView(btnAction)
                         actionsContainer.addView(checkBox)
                         row.addView(actionsContainer)
@@ -516,7 +577,8 @@ class PermissionsActivity : AppCompatActivity() {
                             val confirmed = item.isConfirmed(ctx)
                             isInternalUpdating = true
                             checkBox.isChecked = confirmed
-                            btnAction.alpha = if (confirmed) 0.5f else 1.0f
+                            btnAction.visibility = if (confirmed) View.GONE else View.VISIBLE
+                            tvBadge.visibility = if (confirmed) View.VISIBLE else View.GONE
                             isInternalUpdating = false
                         }
                         refreshCallbacks.add(refreshItem)

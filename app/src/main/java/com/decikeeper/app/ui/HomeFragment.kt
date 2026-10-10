@@ -565,7 +565,10 @@ class HomeFragment : Fragment() {
             } else {
                 lastPermissionClickAt = now
                 pendingPermissionClick?.let { button.removeCallbacks(it) }
-                val r = Runnable { showProtectionDialog() }
+                val r = Runnable {
+                    val intent = Intent(requireContext(), PermissionsActivity::class.java)
+                    startActivity(intent)
+                }
                 pendingPermissionClick = r
                 button.postDelayed(r, doubleClickWindowMs)
             }
@@ -726,7 +729,10 @@ class HomeFragment : Fragment() {
             cardSetupGuide?.visibility = View.GONE
             Toast.makeText(ctx, "已跳过初始化向导，可在各页面随时配置", Toast.LENGTH_SHORT).show()
         }
-        btnGoPerm?.setOnClickListener { showProtectionDialog() }
+        btnGoPerm?.setOnClickListener {
+            val intent = Intent(requireContext(), PermissionsActivity::class.java)
+            startActivity(intent)
+        }
         btnGoBlacklist?.setOnClickListener { (activity as? MainActivity)?.showFocusRules(FocusRulesFragment.TAB_TIME) }
         btnGoDnd?.setOnClickListener { (activity as? MainActivity)?.showFocusRules(FocusRulesFragment.TAB_TIME) }
         btnGoAlarm?.setOnClickListener { (activity as? MainActivity)?.showAlarm() }
