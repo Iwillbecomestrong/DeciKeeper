@@ -64,28 +64,68 @@ object QuotaRecalcRecorder {
             val deltaMinutes = before.minutes - afterMinutes
             val deltaHalfUnits = before.halfUnits - afterHalfUnits
             if (kotlin.math.abs(deltaMinutes) < MINUTES_EPSILON && deltaHalfUnits == 0) return
-            RestStatsRecorder.record(
-                context = context,
-                type = RestLedger.TYPE_RECALC,
-                typeName = RestLedger.TYPE_NAME_RECALC,
-                reason = describeChange(
-                    before.segments,
-                    TimeRuleManager.getTimeSegments(context),
-                    before.currentName,
-                    currentSegmentName(context)
-                ) + describeBalanceShift(
-                    before.minutes, afterMinutes,
-                    before.halfUnits, afterHalfUnits,
-                    before.breakdown, CreditManager.getRemainingMinutesBreakdown(context)
-                ),
-                // 成本 = 变动前 − 变动后：结余减少为正，增加为负（与额度发放、提前退还同一符号约定）
-                costMinutes = deltaMinutes,
-                costCount = deltaHalfUnits / 2.0,
-                balanceMinutes = afterMinutes,
-                balanceCount = afterHalfUnits
+            val reason = describeChange(
+                before.segments,
+                TimeRuleManager.getTimeSegments(context),
+                before.currentName,
+                currentSegmentName(context)
+            ) + describeBalanceShift(
+                before.minutes, afterMinutes,
+                before.halfUnits, afterHalfUnits,
+                before.breakdown, CreditManager.getRemainingMinutesBreakdown(context)
             )
+            val parts = splitParts(before.minutes, afterMinutes, before.halfUnits, afterHalfUnits)
+            val now = System.currentTimeMillis()
+            parts.forEachIndexed { index, part ->
+                RestStatsRecorder.record(
+                    context = context,
+                    type = RestLedger.TYPE_RECALC,
+                    typeName = RestLedger.TYPE_NAME_RECALC,
+                    reason = if (parts.size > 1) reason + splitNote(part) else reason,
+                    // 成本 = 变动前 − 变动后：结余减少为正，增加为负（与额度发放、提前退还同一符号约定）
+                    costMinutes = part.costMinutes,
+                    costCount = part.costHalfUnits / 2.0,
+                    balanceMinutes = part.balanceMinutes,
+                    balanceCount = part.balanceHalfUnits,
+                    // 拆成两条时错开 1ms，保证先时长后次数的先后顺序
+                    timestamp = now + index
+                )
+            }
         }
     }
+
+    /** 一次重算落成一条或两条流水里的一条。 */
+    internal class RecalcPart(
+        val costMinutes: Double,
+        val costHalfUnits: Int,
+        val balanceMinutes: Double,
+        val balanceHalfUnits: Int
+    )
+
+    /**
+     * 时长与次数一增一减时拆成两条（时长一条、次数一条），入流 / 出流、筛选与统计都按条算，不用再拆开看：
+     * 第一条只动时长（次数结余还是改动前的），第二条只动次数，两条的变动前后首尾相接。
+     * 同向变化（都增、都减、只动一项）仍是一条。
+     */
+    internal fun splitParts(
+        beforeMinutes: Double,
+        afterMinutes: Double,
+        beforeHalfUnits: Int,
+        afterHalfUnits: Int
+    ): List<RecalcPart> {
+        val deltaMinutes = beforeMinutes - afterMinutes
+        val deltaHalfUnits = beforeHalfUnits - afterHalfUnits
+        val minutesMoved = kotlin.math.abs(deltaMinutes) >= MINUTES_EPSILON
+        val oppositeDirections = minutesMoved && deltaHalfUnits != 0 && (deltaMinutes > 0) != (deltaHalfUnits > 0)
+        if (!oppositeDirections) return listOf(RecalcPart(deltaMinutes, deltaHalfUnits, afterMinutes, afterHalfUnits))
+        return listOf(
+            RecalcPart(deltaMinutes, 0, afterMinutes, beforeHalfUnits),
+            RecalcPart(0.0, deltaHalfUnits, afterMinutes, afterHalfUnits)
+        )
+    }
+
+    private fun splitNote(part: RecalcPart): String =
+        "。时长与次数一增一减，已拆成两条记录，本条为" + if (part.costHalfUnits == 0) "时长变化" else "次数变化"
 
     /**
      * 逐个时段写明改了什么：额度、起止时间、可用次数、启用状态、新增 / 删除，

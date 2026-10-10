@@ -5,6 +5,8 @@ import com.decikeeper.app.data.TimeSegment
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.manager.statistics.QuotaRecalcRecorder
+import com.decikeeper.app.data.statistics.RestUsageRecord
+import com.decikeeper.app.manager.statistics.LedgerFilter
 import com.decikeeper.app.manager.statistics.RestLedger
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import java.util.Calendar
@@ -222,5 +224,57 @@ class QuotaRecalcRecorderTest {
         val old = listOf(allDay(30))
 
         assertTrue(QuotaRecalcRecorder.describeChange(old, old).contains("时段设置"))
+    }
+
+    // ── 一增一减拆成两条 ──────────────────────────────────────────────
+
+    @Test
+    fun opposingMinutesAndCountSplitIntoTwoChainedParts() {
+        // 时长 19 → 24（增加 5），次数 3 → 2 次（减少 1 次 = 2 half-unit）
+        val parts = QuotaRecalcRecorder.splitParts(19.0, 24.0, 6, 4)
+
+        assertEquals(2, parts.size)
+        // 第一条只动时长：次数结余还是改动前的
+        assertEquals(-5.0, parts[0].costMinutes, 0.0001)
+        assertEquals(0, parts[0].costHalfUnits)
+        assertEquals(24.0, parts[0].balanceMinutes, 0.0001)
+        assertEquals(6, parts[0].balanceHalfUnits)
+        // 第二条只动次数
+        assertEquals(0.0, parts[1].costMinutes, 0.0001)
+        assertEquals(2, parts[1].costHalfUnits)
+        assertEquals(24.0, parts[1].balanceMinutes, 0.0001)
+        assertEquals(4, parts[1].balanceHalfUnits)
+        // 首尾相接：第二条的变动前 = 第一条的变动后
+        assertEquals(parts[0].balanceMinutes, parts[1].balanceMinutes + parts[1].costMinutes, 0.0001)
+        assertEquals(parts[0].balanceHalfUnits, parts[1].balanceHalfUnits + parts[1].costHalfUnits)
+    }
+
+    @Test
+    fun theSplitPartsEachLandInOneDirectionOnly() {
+        val parts = QuotaRecalcRecorder.splitParts(19.0, 24.0, 6, 4)
+        val records = parts.map {
+            RestUsageRecord(
+                id = "x", timestamp = 1L, dateLabel = "", type = RestLedger.TYPE_RECALC, typeName = "额度重算",
+                costMinutes = it.costMinutes, costCount = it.costHalfUnits / 2.0,
+                balanceMinutes = it.balanceMinutes, balanceCount = it.balanceHalfUnits
+            )
+        }
+
+        assertTrue(RestLedger.matches(records[0], LedgerFilter.RECALC_INCREASE))
+        assertTrue(!RestLedger.matches(records[0], LedgerFilter.RECALC_DECREASE))
+        assertTrue(RestLedger.matches(records[1], LedgerFilter.RECALC_DECREASE))
+        assertTrue(!RestLedger.matches(records[1], LedgerFilter.RECALC_INCREASE))
+    }
+
+    @Test
+    fun sameDirectionOrSingleDimensionStaysOneRecord() {
+        // 都减少
+        assertEquals(1, QuotaRecalcRecorder.splitParts(20.0, 10.0, 6, 2).size)
+        // 都增加
+        assertEquals(1, QuotaRecalcRecorder.splitParts(10.0, 20.0, 2, 6).size)
+        // 只动次数
+        val onlyCount = QuotaRecalcRecorder.splitParts(10.0, 10.0, 0, 8)
+        assertEquals(1, onlyCount.size)
+        assertEquals(-8, onlyCount.single().costHalfUnits)
     }
 }

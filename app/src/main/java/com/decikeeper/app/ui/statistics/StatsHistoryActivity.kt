@@ -255,7 +255,6 @@ class StatsHistoryActivity : AppCompatActivity() {
         }
         splitContainer.isVisible = false
         tvSplitNote.isVisible = false
-        restAdapter.filter = restLedgerFilter
         restAdapter.submitList(entries)
         tvRestEmpty.isVisible = records.isEmpty()
         rvRest.isVisible = records.isNotEmpty()
@@ -281,8 +280,9 @@ class StatsHistoryActivity : AppCompatActivity() {
         val showDate = restDisplayRange != StatsDateRange.Today
         inflowAdapter.showDate = showDate
         outflowAdapter.showDate = showDate
-        inflowAdapter.submitList(columns.inflow)
-        outflowAdapter.submitList(columns.outflow)
+        // 「变动前」是每笔自带的，不依赖相邻记录，分栏里同样逐条带上（缺口提示只有逐笔列表有）
+        inflowAdapter.submitList(rowsOf(columns.inflow))
+        outflowAdapter.submitList(rowsOf(columns.outflow))
 
         val (inMin, inCount) = RestLedger.columnTotal(columns.inflow, LedgerFilter.INFLOW)
         val (advMin, advCount) = RestLedger.advanceTotal(records)
@@ -300,6 +300,9 @@ class StatsHistoryActivity : AppCompatActivity() {
         tvSplitNote.isVisible = columns.neither > 0 && records.isNotEmpty()
         tvSplitNote.text = "另有 ${columns.neither} 条不动额度的记录（免费休息、特权等），在「逐笔列表」里查看"
     }
+
+    private fun rowsOf(records: List<RestUsageRecord>): List<LedgerEntry.Row> =
+        RestLedger.buildEntries(records, includeGaps = false).filterIsInstance<LedgerEntry.Row>()
 
     private fun tintHeader(header: TextView, colorAttr: Int) {
         header.backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(this, colorAttr))
@@ -547,7 +550,6 @@ class StatsHistoryActivity : AppCompatActivity() {
     ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         private var items: List<LedgerEntry> = emptyList()
-        var filter: LedgerFilter = LedgerFilter.ALL
         private val expandedIds = mutableSetOf<String>()
 
         fun submitList(newItems: List<LedgerEntry>) {
@@ -573,7 +575,7 @@ class StatsHistoryActivity : AppCompatActivity() {
                 is LedgerEntry.Row -> {
                     val item = entry.record
                     val isExpanded = expandedIds.contains(item.id)
-                    (holder as ViewHolder).bind(entry, isExpanded, filter, onDeleteClicked) {
+                    (holder as ViewHolder).bind(entry, isExpanded, onDeleteClicked) {
                         if (isExpanded) {
                             expandedIds.remove(item.id)
                         } else {
@@ -612,7 +614,6 @@ class StatsHistoryActivity : AppCompatActivity() {
             fun bind(
                 entry: LedgerEntry.Row,
                 isExpanded: Boolean,
-                filter: LedgerFilter,
                 onDelete: (RestUsageRecord) -> Unit,
                 onToggle: () -> Unit
             ) {
@@ -620,7 +621,9 @@ class StatsHistoryActivity : AppCompatActivity() {
                 badge.text = item.typeName
                 tvDate.text = item.dateLabel
 
-                val (quotaDelta, countDelta) = RestLedger.displayedDelta(item, filter)
+                // 逐笔列表每行都带变动前 / 变动后，所以金额一律照实显示完整变动（一增一减的重算也是）；只有分栏才按方向只显示一项
+                val quotaDelta = -item.costMinutes
+                val countDelta = -RestLedger.costCountInTimes(item)
                 val balanceText = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
                 tvCost.text = "${RestLedger.poolLabel(item)} ${RestLedger.formatDelta(quotaDelta, "m")} / 次数 ${RestLedger.formatDelta(countDelta, "次")}"
                 // 左变动前、右变动后；特权是独立池子，不动休息额度，结余没有变化可言
@@ -655,11 +658,11 @@ private class CompactLedgerAdapter(
     private val onDeleteClicked: (RestUsageRecord) -> Unit
 ) : RecyclerView.Adapter<CompactLedgerAdapter.ViewHolder>() {
 
-    private var items: List<RestUsageRecord> = emptyList()
+    private var items: List<LedgerEntry.Row> = emptyList()
     var showDate: Boolean = false
     private val expandedIds = mutableSetOf<String>()
 
-    fun submitList(newItems: List<RestUsageRecord>) {
+    fun submitList(newItems: List<LedgerEntry.Row>) {
         items = newItems
         notifyDataSetChanged()
     }
@@ -670,10 +673,11 @@ private class CompactLedgerAdapter(
     override fun getItemCount(): Int = items.size
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = items[position]
+        val entry = items[position]
+        val item = entry.record
         val lines = RestLedger.detailLines(item)
         val open = lines.isNotEmpty() && expandedIds.contains(item.id)
-        holder.bind(item, direction, showDate, lines, open, onDeleteClicked) {
+        holder.bind(entry, direction, showDate, lines, open, onDeleteClicked) {
             if (!expandedIds.add(item.id)) expandedIds.remove(item.id)
             notifyItemChanged(position)
         }
@@ -688,7 +692,7 @@ private class CompactLedgerAdapter(
         private val detail: LinearLayout = view.findViewById(R.id.layout_compact_detail)
 
         fun bind(
-            item: RestUsageRecord,
+            entry: LedgerEntry.Row,
             direction: LedgerFilter,
             showDate: Boolean,
             lines: List<RestLedger.DetailLine>,
@@ -696,13 +700,19 @@ private class CompactLedgerAdapter(
             onDelete: (RestUsageRecord) -> Unit,
             onToggle: () -> Unit
         ) {
+            val item = entry.record
             badge.text = item.typeName
             val (minutes, count) = RestLedger.displayedDelta(item, direction)
             amount.text = RestLedger.flowAmountText(minutes, count)
             // dateLabel 形如「2026-10-10 12:27」：当天范围只留时刻，多日范围留「10-10 12:27」
             time.text = if (showDate) item.dateLabel.substringAfter('-', item.dateLabel) else item.dateLabel.substringAfterLast(' ')
-            balance.text = if (item.type == RestLedger.TYPE_PRIVILEGE) "不占用休息额度"
-            else "结余 ${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
+            val after = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
+            balance.text = when {
+                item.type == RestLedger.TYPE_PRIVILEGE -> "不占用休息额度"
+                entry.beforeMinutes != null && entry.beforeCount != null ->
+                    "变动前: ${RestLedger.formatAmount(entry.beforeMinutes)}m / ${RestLedger.formatAmount(entry.beforeCount)}次\n变动后结余: $after"
+                else -> "变动后结余: $after"
+            }
 
             arrow.isVisible = lines.isNotEmpty()
             arrow.text = if (open) "▲" else "▼"
