@@ -152,6 +152,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             LogExporter.logEvent("AlarmOverlay", "SCAN_OVERLAY_PREVIEW_MISSING")
             Toast.makeText(this, "摄像头界面暂不可用，请返回挑战重试", Toast.LENGTH_LONG).show()
             isScanMode = false
+            LockWindowManager.fallbackFromQrToMath()
             LockWindowManager.cancelAlarmScan()
             return
         }
@@ -186,7 +187,9 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         val timeout = Runnable {
             if (isScanMode && !scanPreviewStreaming) {
                 barcodeView?.pause()
-                status?.text = "暂时无法显示摄像头画面，请返回挑战后重试"
+                // 系统禁止 Overlay 的 TextureView 预览时，必须留一条真正可完成的路径。
+                LockWindowManager.fallbackFromQrToMath()
+                status?.text = "摄像头画面暂不可用，请点“返回挑战”改用做题"
                 status?.visibility = View.VISIBLE
                 LogExporter.logEvent("AlarmOverlay", "SCAN_OVERLAY_PREVIEW_TIMEOUT")
             }
