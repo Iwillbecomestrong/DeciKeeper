@@ -158,14 +158,14 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
         clearScanPreviewObservation()
         scanPreviewStreaming = false
-        val status = alarmView.findViewById<TextView>(R.id.tv_alarm_scan_preview_status)
+        val status = alarmView?.findViewById<TextView>(R.id.tv_alarm_scan_preview_status)
         status?.text = "正在打开摄像头…"
         status?.visibility = View.VISIBLE
         // TextureView 与扫码 UI 在同一个 Overlay 窗口，不再依赖下层分屏坐标。
         previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         val multiWindow = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInMultiWindowMode else false
         LogExporter.logEvent("AlarmOverlay",
-            "SCAN_PREVIEW_HOST=OVERLAY multiWindow=$multiWindow attached=${previewView.isAttachedToWindow} activityBounds=${window.decorView.width}x${window.decorView.height} overlayBounds=${alarmView.width}x${alarmView.height}")
+            "SCAN_PREVIEW_HOST=OVERLAY multiWindow=$multiWindow attached=${previewView.isAttachedToWindow} activityBounds=${window.decorView.width}x${window.decorView.height} overlayBounds=${alarmView?.width}x${alarmView?.height}")
         val observer = Observer<PreviewView.StreamState> { state ->
             if (isScanMode) {
                 scanPreviewStreaming = state == PreviewView.StreamState.STREAMING
