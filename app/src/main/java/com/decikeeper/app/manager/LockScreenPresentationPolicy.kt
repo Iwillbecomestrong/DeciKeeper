@@ -77,17 +77,17 @@ internal fun resolveTemporaryAccessPresentation(
     }
     val label = if (inAnyCooling) {
         if (coolingRemainingSeconds > 0L) {
-            "⚡ 临时解锁（冷却翻倍 ${coolingRemainingSeconds}s）"
+            "⚡ 冷却中 ${coolingRemainingSeconds}s"
         } else {
-            "⚡ 临时解锁（冷却翻倍）"
+            "⚡ 冷却中，暂不可解锁"
         }
     } else {
         "⚡ 临时解锁"
     }
     return EmergencyActionPresentation(
         label = label,
-        enabled = true,
-        alpha = 1.0f
+        enabled = !inAnyCooling,
+        alpha = if (inAnyCooling) 0.5f else 1.0f
     )
 }
 

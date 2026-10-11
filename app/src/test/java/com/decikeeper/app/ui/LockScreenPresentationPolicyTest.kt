@@ -131,7 +131,7 @@ class LockScreenPresentationPolicyTest {
     // ────────────────────────────────────────────────────────────────
 
     @Test
-    fun givenAppWindowBlocked_duringCooling_keepsTemporaryReleaseEnabled() {
+    fun givenAppWindowBlocked_duringCooling_disablesTemporaryAccess() {
         val presentation = resolveEmergencyActionPresentation(
             mode = LockOverlayRestrictionMode.APP_WINDOW,
             privilegeUnavailableReason = null,
@@ -140,10 +140,10 @@ class LockScreenPresentationPolicyTest {
             coolingRemainingSeconds = 45L
         )
 
-        assertTrue(presentation.enabled)
-        assertEquals(1.0f, presentation.alpha, 0.01f)
-        assertTrue(presentation.label.contains("临时解锁"))
-        assertTrue(presentation.label.contains("翻倍"))
+        assertFalse(presentation.enabled)
+        assertEquals(0.5f, presentation.alpha, 0.01f)
+        assertTrue(presentation.label.contains("冷却中"))
+        assertFalse(presentation.label.contains("翻倍"))
         assertTrue(presentation.label.contains("45s"))
     }
 

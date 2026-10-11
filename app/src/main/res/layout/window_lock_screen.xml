@@ -191,18 +191,6 @@
         </FrameLayout>
 
         <Button
-            android:id="@+id/btn_temporary_access_quick_10"
-            android:layout_width="match_parent"
-            android:layout_height="46dp"
-            android:layout_marginTop="7dp"
-            android:backgroundTint="?attr/zzWarning"
-            android:text="冷静期应急 10 秒"
-            android:textAllCaps="false"
-            android:textColor="@android:color/white"
-            android:textSize="13sp"
-            android:visibility="gone" />
-
-        <Button
             android:id="@+id/btn_weekly_privilege"
             android:layout_width="match_parent"
             android:layout_height="50dp"

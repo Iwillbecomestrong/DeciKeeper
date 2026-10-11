@@ -178,27 +178,6 @@ class LockLifecycleEventTest {
     }
 
     @Test
-    fun emergencyAccessRecordsOnlyCompletedStartAndEndFacts() {
-        val captured = mutableListOf<NormalEventDraft>()
-        val bridge = bridge(captured)
-
-        bridge.recordEmergencyAccessStarted(
-            requestId = "EMERGENCY-001",
-            sessionId = "EMERGENCY-SESSION-001",
-            granted = "10s"
-        )
-        bridge.recordEmergencyAccessEnded(
-            sessionId = "EMERGENCY-SESSION-001",
-            actualDuration = "10s",
-            reason = "TIME_EXPIRED"
-        )
-
-        assertEquals(listOf("EMERGENCY_ACCESS_START", "EMERGENCY_ACCESS_END"), captured.map { it.type })
-        assertFields(captured[0], "result" to "APPROVED", "granted" to "10s")
-        assertFields(captured[1], "reason" to "TIME_EXPIRED")
-    }
-
-    @Test
     fun privilegeKeepsAsyncApprovalRejectionStartFailureEndAndQuotaChangeDistinct() {
         val captured = mutableListOf<NormalEventDraft>()
         val bridge = bridge(captured)
