@@ -47,6 +47,8 @@ object CrashRecorder : Thread.UncaughtExceptionHandler {
     override fun uncaughtException(t: Thread, e: Throwable) {
         try {
             saveCrashInfo(t, e)
+            // 崩溃前把内存中尚未落盘的日志写出，保留崩溃之前的现场。
+            LogExporter.flush()
         } catch (ex: Exception) {
             Log.e(TAG, "Failed to record crash", ex)
         } finally {
