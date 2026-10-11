@@ -3018,11 +3018,11 @@ internal object LockAlarmOverlayController {
      * 窗口栈里，却既盖不住也拦不住系统弹层——真机上表现为扫码期间长按电源键会露出
      * vivo 语音助手，且关机菜单可被直接点击（Issue_Tracker 05-27 记录的取舍）。
      *
-     * 新行为改为「不透明挡板 + 中间开孔」：取景画面由下方 AlarmActivity 的相机预览
-     * 透过开孔透出，其余区域保持不透明并吃掉触摸，系统弹层无法漏出也无法被操作。
+     * 现改为「不透明挡板 + 覆盖层内的 CameraX TextureView」：取景器在同一窗口绘制
+     * 且本身不透明，分屏时不会从扫码框透出白名单应用，其他区域继续拦截触摸。
      *
      * 注意：覆盖层窗口渲染不了 SurfaceView（DecoratedBarcodeView 基于 SurfaceView），
-     * 因此开孔里显示的是下方 Activity 的预览，覆盖层自带的扫码视图始终不可用。
+     * 因此旧 SurfaceView 扫码器隐藏，新 PreviewView 使用 COMPATIBLE 模式。
      */
     fun setAlarmOverlayPassthrough(enable: Boolean) {
         if (enable) {
@@ -3064,8 +3064,8 @@ internal object LockAlarmOverlayController {
     /**
      * 切换扫码取景图层。
      *
-     * 开启：把覆盖层根容器与扫码容器置为透明（否则会挡住取景开孔）、隐藏挑战内容
-     * （否则会从开孔里透出来）、隐藏覆盖层自带的不可渲染扫码器、显示扫码布局。
+     * 开启：根容器与扫码容器背景透明以显示内部布局，但中心取景框本身不透明；隐藏挑战内容
+     * 并隐藏旧扫码器，显示包含 CameraX PreviewView 的扫码布局。
      * 关闭：原样还原上述背景与可见性。
      */
     private fun applyScanCutoutLayers(view: View, enable: Boolean) {
@@ -3281,8 +3281,8 @@ internal object LockAlarmOverlayController {
 
     /**
      * 扫码按钮点击处理，不依赖 mAlarmController（AlarmActivity 可能已被系统销毁）。
-     * 相机会话需在 Activity 窗口中运行（TYPE_APPLICATION_OVERLAY 不支持 SurfaceView 预览），
-     * 因此启动 AlarmActivity 承载扫码界面。
+     * 相机会话由 AlarmActivity 提供生命周期；CameraX TextureView 预览在 Overlay 中，
+     * 因此启动 AlarmActivity 绑定相机，而不依赖分屏 Activity 的显示位置。
      */
     private fun handleAlarmScanClick() {
         val ctx = LockWindowManager.getAlarmContext() ?: return
@@ -3315,8 +3315,8 @@ internal object LockAlarmOverlayController {
     }
 
     fun startAlarmInlineScan() {
-        // 覆盖层窗口无法渲染相机预览，扫码统一由下方 AlarmActivity 承载（透过开孔透出）
-        Log.w(TAG, "startAlarmInlineScan: camera preview is hosted by AlarmActivity via cutout")
+        // CameraX 生命周期由 AlarmActivity 提供，画面在 Overlay 内的 PreviewView 渲染。
+        Log.w(TAG, "startAlarmInlineScan: Activity hosts camera lifecycle, overlay hosts preview")
     }
 
     fun stopAlarmInlineScan() {
