@@ -41,6 +41,7 @@ object ProtectionManager {
     private var permissionProtection: PermissionProtection? = null
     private var developerOptionsProtection: DeveloperOptionsProtection? = null
     private var installProtection: InstallProtection? = null
+    private var dateTimeProtection: DateTimeProtection? = null
 
     /** Only protection surfaces may expose text; other apps still supply foreground package signals. */
     fun shouldInspectContent(context: Context, packageName: String?): Boolean {
@@ -75,6 +76,7 @@ object ProtectionManager {
         permissionProtection = PermissionProtection(context)
         developerOptionsProtection = DeveloperOptionsProtection(context)
         installProtection = InstallProtection(context)
+        dateTimeProtection = DateTimeProtection(context)
     }
 
 
@@ -118,6 +120,13 @@ object ProtectionManager {
             installProtection?.check(service, event, root)
         } catch (e: Exception) {
             android.util.Log.e(com.decikeeper.app.protection.InstallProtection.TAG, "InstallProtection Error", e)
+        }
+
+        // 0.7 日期与时间拦截：对非设置类包名零成本返回；不参与开发者进阶拦截的豁免时段。
+        try {
+            dateTimeProtection?.check(service, event, root)
+        } catch (e: Exception) {
+            android.util.Log.e(com.decikeeper.app.protection.DateTimeProtection.TAG, "DateTimeProtection Error", e)
         }
 
         // 1. Accessibility Protection (Highest Priority - prevent disabling self)

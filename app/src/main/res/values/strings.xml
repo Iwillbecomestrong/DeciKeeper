@@ -11,8 +11,10 @@
     <!-- Protection settings -->
     <string name="settings_protection_section_title" translatable="false">加强约束功能</string>
     <string name="settings_protection_section_summary" translatable="false">以下功能需先开启无障碍服务</string>
+    <string name="settings_protection_date_time_title" translatable="false">日期与时间拦截</string>
     <string name="settings_protection_alarm_title" translatable="false">闹钟防关机保护</string>
     <string name="settings_protection_floating_title" translatable="false">小窗可见性增强</string>
+    <string name="settings_protection_dev_advanced_title" translatable="false">开发者进阶拦截</string>
     <string name="settings_protection_developer_options_title" translatable="false">开发者选项拦截</string>
     <string name="settings_protection_install_title" translatable="false">安装拦截</string>
     <string name="settings_protection_privacy_title" translatable="false">隐私空间保护</string>
@@ -34,12 +36,14 @@
     <!-- Settings protection help -->
     <string name="settings_protection_help_title" translatable="false">加强约束功能说明</string>
     <string name="settings_protection_help_intro" translatable="false">本区域功能用于强化防绕过与防杀能力，需在开启「无障碍服务」的前提下协同运行：</string>
+    <string name="settings_protection_help_date_time" translatable="false">【日期与时间拦截】\n进入系统「日期与时间」页（自动设置时间、手动改日期时间所在页面）时自动退回桌面，防止改系统时间绕过时间规则与次日生效（关闭需次日生效）。该页整体被拦，换时区、切 24 小时制也会一并受限。</string>
     <string name="settings_protection_help_alarm" translatable="false">【闹钟防关机保护】\n在闹钟响铃与挑战期间，防止直接关机或重启以逃避起床。开启与关闭均立即生效。</string>
     <string name="settings_protection_help_floating_guard" translatable="false">【桌面守护小浮窗】\n在屏幕边缘常驻微型自律图标，防止后台误划清理导致服务被杀；轻触可展开状态，松手自动靠边吸附。</string>
     <string name="settings_protection_help_floating_window" translatable="false">【小窗可见性增强】\n增强系统小窗或悬浮模式下受限应用的识别与约束（关闭需次日生效）。</string>
     <string name="settings_protection_help_uninstall_perm" translatable="false">【防卸载与防关权限保护】\n拦截进入系统设置的应用管理与权限页面，降低冲动卸载或强停服务的风险（关闭需次日生效）。</string>
     <string name="settings_protection_help_developer_options" translatable="false">【开发者选项拦截】\n进入系统「开发者选项」（USB 调试、无线调试所在页面）时自动退回桌面，防止临时打开调试后借助电脑绕过保护（关闭需次日生效）。</string>
     <string name="settings_protection_help_install" translatable="false">【安装拦截】\n系统安装器里安装或更新决定守护的页面一出现就退回桌面，防止把改动过的安装包直接覆盖安装（关闭需次日生效）。</string>
+    <string name="settings_protection_help_dev_advanced" translatable="false">【开发者进阶拦截】\n安装拦截与开发者选项拦截合并在此入口的弹窗里管理，并可设置共享的「豁免时段」（默认预填 20:30–21:30，需各自勾选才生效）：窗口内放行，窗口外照常拦截。豁免时段改严（缩短、取消勾选）立即生效，改宽（变长、平移、勾上）次日生效；窗口被改得很宽等于放松保护。日期与时间拦截不参与豁免。</string>
     <string name="settings_protection_help_vivo_note" translatable="false">【vivo 专属适配】\n• 隐私空间保护：阻止将决定守护移入原子隐私系统，防止保护链被规避（关闭需次日生效）。</string>
     <string name="settings_protection_help_oppo_note" translatable="false">【OPPO 专属适配】\n• 设备管理器防卸载锁：提供系统级底层防卸载增强，防止直接移除应用（解除需手动取消激活）。</string>
 
