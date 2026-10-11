@@ -52,4 +52,13 @@ object EventRegistry {
     fun isRegistered(type: String): Boolean = routes.containsKey(type)
 
     fun route(type: String): LogRoute = routes[type] ?: fallback
+
+    /**
+     * 按事件类型和字段决定归属。FG_DECISION 的完整报告在输出时已由保留策略分级：
+     * 头部带 `keep=LONG` 的（请求上锁、漏锁、真故障及恢复）进永久账本，其余（分歧、紧凑版）进近期诊断。
+     */
+    fun route(type: String, fields: Map<String, String>): LogRoute {
+        val base = route(type)
+        return if (type == "FG_DECISION" && fields["keep"] == "LONG") base.copy(tier = LogTier.A) else base
+    }
 }

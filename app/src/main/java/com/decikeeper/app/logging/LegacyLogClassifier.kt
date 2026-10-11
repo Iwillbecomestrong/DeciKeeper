@@ -66,7 +66,12 @@ object LegacyLogClassifier {
         Regex("""CoreService: onRebind"""),
         // Pre-existing Task 1/3 drops retained for completeness
         Regex("""TemporaryAccess: \[FINAL_RELOCK_SUCCEEDED] cleared flag"""),
-        Regex("""LockScreen: \[REASSERT]""")
+        Regex("""LockScreen: \[REASSERT]"""),
+        // 已删除的前台诊断器与事件转储（旧版本升级后残留在旧日志文件里）
+        Regex("""\[FG_RAW_"""),
+        Regex("""\[FG_RESOLVE_TRACE]"""),
+        Regex("""\[PRESENCE_EVENT]"""),
+        Regex("""AntiUninstall: \[Event]""")
     )
 
     private val alarmScheduleTags = setOf(

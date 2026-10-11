@@ -695,7 +695,8 @@ object LogExporter {
     private fun persistNormalEvent(record: RenderedNormalEvent) {
         try {
             val writer = tieredWriter ?: return
-            writer.append(EventRegistry.route(record.event.draft.type).tier, record.text)
+            val draft = record.event.draft
+            writer.append(EventRegistry.route(draft.type, draft.fields).tier, record.text)
         } catch (e: Exception) {
             Log.e(TAG, "normal event write failed: ${e.message}")
         }

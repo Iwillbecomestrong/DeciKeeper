@@ -102,7 +102,9 @@ data class ForegroundAtomicReport(
     val lock: ForegroundLockEvidence,
     val evidenceRef: String? = null,
     val freshConfirmation: ForegroundFreshConfirmation? = null,
-    val traceId: String? = null
+    val traceId: String? = null,
+    /** 日志保留等级（LONG 进永久账本，SHORT 进近期诊断）；null 表示不标注。 */
+    val keep: String? = null
 )
 
 /** The selected UsageStats record from one completed detection cycle. */
@@ -289,8 +291,11 @@ class ForegroundNormalEventBridge(
         requestId: String?,
         traceId: String?,
         transition: ForegroundTransition?,
-        /** 为 false 时丢弃这份完整报告（由 [ForegroundDecisionRetention] 判定为不值得长期保留）。 */
-        retainFull: Boolean = true
+        /**
+         * 完整报告的保留等级，由 [ForegroundDecisionRetention] 判定：DROP 丢弃，SHORT/LONG 输出并在
+         * 报告头标注 `keep=`。null 表示不做取舍，按原样输出且不标注。
+         */
+        retention: ForegroundDecisionRetention.Level? = null
     ) {
         if (decision.emission == ForegroundReportEmission.CONTINUING_CONFLICT_SUMMARY) return
         val reference = lastFullReference
@@ -307,7 +312,11 @@ class ForegroundNormalEventBridge(
             selected.packageName == packageName
 
         if (decision.emission == ForegroundReportEmission.NONE && !compactEligible) return
-        if (decision.emission == ForegroundReportEmission.FULL && !compactEligible && !retainFull) return
+        if (decision.emission == ForegroundReportEmission.FULL && !compactEligible &&
+            retention == ForegroundDecisionRetention.Level.DROP
+        ) {
+            return
+        }
 
         val full = reportFrom(cycle, outcome, selectedSource, requestId, traceId, transition)
         val report = if (compactEligible) {
@@ -323,6 +332,8 @@ class ForegroundNormalEventBridge(
                     selected = true
                 )
             )
+        } else if (retention != null && retention != ForegroundDecisionRetention.Level.DROP) {
+            full.copy(keep = retention.name)
         } else {
             full
         }
@@ -510,6 +521,7 @@ object ForegroundReportFormatter {
         val fields = LinkedHashMap<String, String>().apply {
             put("detail", report.detail.name)
             put("reportId", report.reportId)
+            report.keep?.let { put("keep", it) }
             report.traceId?.let { put("traceId", it) }
             report.transition?.let { put("transition", it.render()) }
             if (report.detail == ForegroundReportDetail.COMPACT) {

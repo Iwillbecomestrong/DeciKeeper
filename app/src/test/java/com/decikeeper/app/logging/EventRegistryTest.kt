@@ -18,6 +18,22 @@ class EventRegistryTest {
     }
 
     @Test
+    fun foregroundDecisionIsPermanentOnlyWhenMarkedKeepLong() {
+        assertEquals(LogTier.B, EventRegistry.route("FG_DECISION", emptyMap()).tier)
+        assertEquals(LogTier.B, EventRegistry.route("FG_DECISION", mapOf("keep" to "SHORT")).tier)
+        assertEquals(LogTier.B, EventRegistry.route("FG_DECISION", mapOf("detail" to "COMPACT")).tier)
+        val long = EventRegistry.route("FG_DECISION", mapOf("keep" to "LONG"))
+        assertEquals(LogTier.A, long.tier)
+        assertEquals(LogModule.FOCUS_DETECT, long.module)
+    }
+
+    @Test
+    fun keepFieldOnlyAffectsForegroundDecision() {
+        assertEquals(LogTier.B, EventRegistry.route("FG_END", mapOf("keep" to "LONG")).tier)
+        assertEquals(LogTier.A, EventRegistry.route("LOCK_RESULT", mapOf("keep" to "SHORT")).tier)
+    }
+
+    @Test
     fun stateTransitionAndLedgerEventsArePermanent() {
         mapOf(
             "LOCK_RESULT" to LogModule.FOCUS_LOCK,

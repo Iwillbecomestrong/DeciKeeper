@@ -188,11 +188,79 @@ class ForegroundDecisionRetentionTest {
         val cycle = quietCycle
         val decision = decision(cycle, ForegroundReportTrigger.SOURCE_FAULT_STARTED)
 
-        bridge.emitDecision(cycle, outcome, decision, "EVENTS", null, null, null, retainFull = false)
+        bridge.emitDecision(
+            cycle, outcome, decision, "EVENTS", null, null, null,
+            retention = ForegroundDecisionRetention.Level.DROP
+        )
         assertEquals("不保留时不输出", 0, captured.size)
 
         bridge.emitDecision(cycle, outcome, decision, "EVENTS", null, null, null)
-        assertEquals("默认保留", 1, captured.size)
+        assertEquals("不传保留等级时按原样输出", 1, captured.size)
         assertEquals("FG_DECISION", captured.single().type)
+        assertFalse("不传保留等级时不标注 keep", captured.single().fields.containsKey("keep"))
+    }
+
+    @Test
+    fun bridgeMarksKeepLevelInTheReportHeader() {
+        val clock = object : EventClock {
+            override fun wallNowMs(): Long = 1_000L
+            override fun elapsedNowMs(): Long = 1_000L
+        }
+        val captured = mutableListOf<NormalEventDraft>()
+        val bridge = ForegroundNormalEventBridge(clock = clock, emit = { captured += it })
+        val cycle = quietCycle
+        val decision = decision(cycle, ForegroundReportTrigger.REQUEST_LOCK)
+
+        bridge.emitDecision(
+            cycle, outcome, decision, "EVENTS", null, null, null,
+            retention = ForegroundDecisionRetention.Level.LONG
+        )
+        bridge.emitDecision(
+            cycle, outcome, decision, "EVENTS", null, null, null,
+            retention = ForegroundDecisionRetention.Level.SHORT
+        )
+
+        assertEquals(listOf("LONG", "SHORT"), captured.map { it.fields["keep"] })
+    }
+
+    @Test
+    fun assessGradesLockRelevantAsLongAndDisputeAsShort() {
+        val cycle = quietCycle
+        val retention = ForegroundDecisionRetention()
+
+        assertEquals(
+            ForegroundDecisionRetention.Level.LONG,
+            retention.assess(decision(cycle, ForegroundReportTrigger.REQUEST_LOCK), cycle)
+        )
+        assertEquals(
+            ForegroundDecisionRetention.Level.LONG,
+            retention.assess(decision(cycle, ForegroundReportTrigger.MISSED_LOCK_STARTED), cycle)
+        )
+        assertEquals(
+            ForegroundDecisionRetention.Level.SHORT,
+            retention.assess(decision(cycle, ForegroundReportTrigger.SOURCE_DISPUTE_STARTED), cycle)
+        )
+        assertEquals(
+            ForegroundDecisionRetention.Level.DROP,
+            retention.assess(decision(cycle, ForegroundReportTrigger.SOURCE_FAULT_STARTED), cycle)
+        )
+    }
+
+    @Test
+    fun lockRelevantWinsWhenCombinedWithDisputeOrQuietFault() {
+        val cycle = quietCycle
+
+        assertEquals(
+            ForegroundDecisionRetention.Level.LONG,
+            ForegroundDecisionRetention().assess(
+                decision(
+                    cycle,
+                    ForegroundReportTrigger.SOURCE_FAULT_STARTED,
+                    ForegroundReportTrigger.SOURCE_DISPUTE_STARTED,
+                    ForegroundReportTrigger.MISSED_LOCK_STARTED
+                ),
+                cycle
+            )
+        )
     }
 }

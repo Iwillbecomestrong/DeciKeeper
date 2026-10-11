@@ -20,7 +20,12 @@ class LegacyLogClassifierTest {
             "LockScreen" to "[AUTO_RELEASE] restrictions cleared for pkg=com.x",
             "AlarmWindowManager" to "ring show=true",
             "CoreService" to "onServiceConnected",
-            "Penalty" to "[STEP1] foo"
+            "Penalty" to "[STEP1] foo",
+            "MonitorService" to "[FG_RAW_EVENTS] checkedAt=22:23:37 count=12",
+            "MonitorService" to "[FG_RAW_STATS] pkg=com.x",
+            "MonitorService" to "[FG_RESOLVE_TRACE] result=com.x",
+            "PresenceDiag" to "[PRESENCE_EVENT] pkg=com.x event=ACTIVITY_STOPPED",
+            "AntiUninstall" to "[Event] Pkg=com.bbk.launcher2 Class=x"
         ).forEach { (tag, message) ->
             assertEquals(
                 "$tag: $message",
