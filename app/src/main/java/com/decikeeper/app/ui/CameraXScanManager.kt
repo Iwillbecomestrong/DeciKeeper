@@ -70,6 +70,9 @@ class CameraXScanManager(
      * 绑定相机生命周期并启动二维码实时分析。
      */
     fun start(previewView: PreviewView, onScanSuccess: (String) -> Unit) {
+        // 避免 SurfaceView 在独立 WindowManager/A11y Overlay 中跨窗口合成异常。
+        // COMPATIBLE 使用 TextureView，由承载扫码 UI 的同一覆盖层窗口渲染。
+        previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         val executor = Executors.newSingleThreadExecutor()
         analysisExecutor = executor
         isAnalyzing.set(true)
