@@ -611,6 +611,29 @@ object BlacklistStore {
             .getBoolean("has_pending_apps", false)
     }
 
+    /** 全局黑名单待生效项的生效时刻（毫秒）；没有待生效项返回 0。 */
+    fun getPendingEffectiveTimestamp(context: Context): Long =
+        context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).getLong("effective_timestamp", 0L)
+
+    /**
+     * 逐个撤销待生效的黑名单修改：把这个应用在待生效名单里的去留改回和生效中一致。
+     * 全部改回后整份待生效清掉。返回 false = 这个应用本来就没有待生效修改。
+     */
+    fun revokePendingApp(context: Context, pkg: String): Boolean {
+        val pending = getPendingBlacklistApps(context) ?: return false
+        val active = getBlacklistApps(context)
+        if ((pkg in pending) == (pkg in active)) return false
+        val restored = if (pkg in active) pending + pkg else pending - pkg
+        if (restored == active) {
+            revokePendingChanges(context)
+        } else {
+            stagePendingBlacklistApps(context, restored, getPendingEffectiveTimestamp(context))
+            ChangeLogManager.removePendingEntriesByTag(context, "blacklist", "blacklist_status_$pkg")
+            ChangeLogManager.removePendingEntriesByTag(context, "blacklist", "blacklist_remove_$pkg")
+        }
+        return true
+    }
+
     fun revokePendingChanges(context: Context) {
         context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
         ChangeLogManager.clearPendingLogsForCategory(context, "blacklist")

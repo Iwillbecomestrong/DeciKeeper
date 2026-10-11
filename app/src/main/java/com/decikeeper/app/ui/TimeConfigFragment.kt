@@ -35,6 +35,7 @@ import com.decikeeper.app.manager.BoundaryResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.MinuteBoundary
+import com.decikeeper.app.manager.PendingChangeTable
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.service.MonitorService
@@ -155,7 +156,9 @@ class TimeConfigFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
+        // 白名单摘要与不利分析都要「可启动应用全集」，进页面先在后台算好，编辑 / 保存时不再卡主线程
+        SegmentBlacklist.prewarmLaunchablePackages(requireContext())
         initViews(view)
         setupClickEvents(view)
         applySettingsLockoutState()
@@ -315,19 +318,11 @@ class TimeConfigFragment : Fragment() {
             return
         }
 
-        val pendingSegments = TimeRuleManager.getPendingTimeSegments(ctx)
-        if (pendingSegments.isNullOrEmpty()) {
-            if (!isLocked) cardPending?.visibility = View.GONE else tvPendingChanges?.text = ""
-            return
+        // 勿扰时段页同时承载全局黑名单入口，两者的待生效项都放在这张卡里；点开是全部模块的延迟生效表
+        val displayText = PendingChangesDialog.cardSummary(ctx, PendingChangeTable.Scope.SEGMENT, PendingChangeTable.Scope.BLACKLIST)
+        cardPending?.setOnClickListener {
+            PendingChangesDialog.show(ctx, PendingChangeTable.Scope.SEGMENT) { reloadData() }
         }
-
-        val changeLog = ChangeLogManager.getFormattedLogForCategory(ctx, "segments")
-        val displayText = if (changeLog.isNotEmpty()) changeLog else {
-            val activeSegments = TimeRuleManager.getTimeSegments(ctx)
-            SegmentAdverseAnalysis.getPendingDiffString(ctx, activeSegments, pendingSegments)
-                ?.joinToString("\n\n") ?: ""
-        }
-
         if (displayText.isNotEmpty()) {
             cardPending?.visibility = View.VISIBLE
             tvPendingChanges?.text = displayText

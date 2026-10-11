@@ -235,4 +235,35 @@ class AlarmScanCutoutContractTest {
             noActivityBlock.contains("putExtra(\"start_scan\", true)")
         )
     }
+
+    @Test
+    fun scanSuccessFinishesActivityWhenOverlayInWindowMode() {
+        val startScanMethod = activitySource.substring(
+            activitySource.indexOf("manager.start(previewView) { result ->"),
+            activitySource.indexOf("private fun updateScanCutoutForPreview")
+        )
+        assertTrue(
+            "扫码成功后，当覆盖层已独立在 Window 模式或挑战完成时必须 finishAndRemoveTask 退出扫码器，不得残留后台",
+            startScanMethod.contains("if (isLockedScreenMode && isInline && !isCompleted)") &&
+                startScanMethod.contains("LockWindowManager.showAlarmOverlayInlineInActivity(this, this)") &&
+                startScanMethod.contains("finishAndRemoveTask()")
+        )
+        assertFalse(
+            "不得再使用 else if (!isLockedScreenMode) 导致锁屏扫码成功后 Activity 滞留后台",
+            startScanMethod.contains("else if (!isLockedScreenMode)")
+        )
+    }
+
+    @Test
+    fun onResumeFinishesActivityIfAlarmSessionAlreadyEnded() {
+        val onResumeMethod = activitySource.substring(
+            activitySource.indexOf("override fun onResume()"),
+            activitySource.indexOf("private fun finishExternalOverlayHostIfNeeded")
+        )
+        assertTrue(
+            "onResume 必须检查当前闹钟是否已结束，已结束时立即销毁退出扫码界面",
+            onResumeMethod.contains("!AlarmScheduler.isAlarmActive(this)") &&
+                onResumeMethod.contains("finishAndRemoveTask()")
+        )
+    }
 }

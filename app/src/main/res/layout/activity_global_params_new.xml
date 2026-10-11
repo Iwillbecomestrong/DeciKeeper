@@ -57,7 +57,8 @@
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="14dp">
-                <TextView android:id="@+id/tv_lockout_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="当前处于设置锁定时段，仅供查看。" android:textColor="?attr/zzWarning" android:textSize="12sp" android:textStyle="bold" />
+                <TextView android:id="@+id/tv_pending_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="延迟生效修改" android:textColor="?attr/zzWarning" android:textSize="13sp" android:textStyle="bold" />
+                <TextView android:id="@+id/tv_lockout_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="当前处于设置锁定时段，仅供查看。" android:textColor="?attr/zzWarning" android:textSize="12sp" android:textStyle="bold" />
                 <TextView android:id="@+id/tv_pending_changes" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>

@@ -70,6 +70,20 @@ class StatsHistoryActivity : AppCompatActivity() {
     private lateinit var tvRestSummary: TextView
     private lateinit var rvRest: RecyclerView
     private lateinit var restAdapter: RestHistoryAdapter
+    private lateinit var btnViewSplit: Button
+    private lateinit var btnViewList: Button
+    private lateinit var splitContainer: View
+    private lateinit var tvSplitInHeader: TextView
+    private lateinit var tvSplitOutHeader: TextView
+    private lateinit var tvSplitInEmpty: TextView
+    private lateinit var tvSplitOutEmpty: TextView
+    private lateinit var tvSplitNote: TextView
+    private lateinit var rvInflow: RecyclerView
+    private lateinit var rvOutflow: RecyclerView
+    private lateinit var inflowAdapter: CompactLedgerAdapter
+    private lateinit var outflowAdapter: CompactLedgerAdapter
+    // 默认分栏对照：入流在左、出流在右，一眼分清钱从哪来、到哪去
+    private var restSplitMode = true
 
     private var currentTab: String = TAB_REST
     // 与统计页共用 StatsDateRange；null = 全部
@@ -131,6 +145,23 @@ class StatsHistoryActivity : AppCompatActivity() {
             onDeleteClicked = { record -> confirmDeleteRestRecord(record) }
         )
         rvRest.adapter = restAdapter
+
+        btnViewSplit = findViewById(R.id.btn_rest_view_split)
+        btnViewList = findViewById(R.id.btn_rest_view_list)
+        splitContainer = findViewById(R.id.split_rest_history)
+        tvSplitInHeader = findViewById(R.id.tv_split_in_header)
+        tvSplitOutHeader = findViewById(R.id.tv_split_out_header)
+        tvSplitInEmpty = findViewById(R.id.tv_split_in_empty)
+        tvSplitOutEmpty = findViewById(R.id.tv_split_out_empty)
+        tvSplitNote = findViewById(R.id.tv_split_note)
+        rvInflow = findViewById(R.id.rv_rest_inflow)
+        rvOutflow = findViewById(R.id.rv_rest_outflow)
+        inflowAdapter = CompactLedgerAdapter(LedgerFilter.INFLOW) { record -> confirmDeleteRestRecord(record) }
+        outflowAdapter = CompactLedgerAdapter(LedgerFilter.OUTFLOW) { record -> confirmDeleteRestRecord(record) }
+        rvInflow.layoutManager = LinearLayoutManager(this)
+        rvOutflow.layoutManager = LinearLayoutManager(this)
+        rvInflow.adapter = inflowAdapter
+        rvOutflow.adapter = outflowAdapter
     }
 
     private fun setupListeners() {
@@ -142,6 +173,8 @@ class StatsHistoryActivity : AppCompatActivity() {
         btnRestRange.setOnClickListener { showRestRangePicker() }
         btnAlarmRange.setOnClickListener { showAlarmRangePicker() }
         btnRestFilter.setOnClickListener { showRestFilterPicker() }
+        btnViewSplit.setOnClickListener { setRestSplitMode(true) }
+        btnViewList.setOnClickListener { setRestSplitMode(false) }
     }
 
     private fun switchTab(target: String) {
@@ -214,9 +247,65 @@ class StatsHistoryActivity : AppCompatActivity() {
         )
         btnRestRange.text = "显示范围：${rangeLabel(restDisplayRange)}"
         btnRestFilter.text = "类型：${restLedgerFilter.displayName}"
+        styleViewToggle()
+
+        if (restSplitMode) {
+            bindSplit(records)
+            return
+        }
+        splitContainer.isVisible = false
+        tvSplitNote.isVisible = false
         restAdapter.submitList(entries)
         tvRestEmpty.isVisible = records.isEmpty()
         rvRest.isVisible = records.isNotEmpty()
+    }
+
+    private fun setRestSplitMode(split: Boolean) {
+        if (restSplitMode == split) return
+        restSplitMode = split
+        loadRestData()
+    }
+
+    private fun styleViewToggle() {
+        btnViewSplit.setBackgroundResource(if (restSplitMode) R.drawable.bg_zz_option_btn_selected else R.drawable.bg_zz_option_btn)
+        btnViewSplit.setTextColor(if (restSplitMode) Color.WHITE else ThemeManager.getColorAttr(this, R.attr.zzText))
+        btnViewList.setBackgroundResource(if (!restSplitMode) R.drawable.bg_zz_option_btn_selected else R.drawable.bg_zz_option_btn)
+        btnViewList.setTextColor(if (!restSplitMode) Color.WHITE else ThemeManager.getColorAttr(this, R.attr.zzText))
+    }
+
+    /** 分栏对照：入流的放左边、出流的放右边，栏头写各自合计。 */
+    private fun bindSplit(records: List<RestUsageRecord>) {
+        rvRest.isVisible = false
+        val columns = RestLedger.splitByFlow(records)
+        val showDate = restDisplayRange != StatsDateRange.Today
+        inflowAdapter.showDate = showDate
+        outflowAdapter.showDate = showDate
+        // 「变动前」是每笔自带的，不依赖相邻记录，分栏里同样逐条带上（缺口提示只有逐笔列表有）
+        inflowAdapter.submitList(rowsOf(columns.inflow))
+        outflowAdapter.submitList(rowsOf(columns.outflow))
+
+        val (inMin, inCount) = RestLedger.columnTotal(columns.inflow, LedgerFilter.INFLOW)
+        val (advMin, advCount) = RestLedger.advanceTotal(records)
+        val (outMin, outCount) = RestLedger.columnTotal(columns.outflow, LedgerFilter.OUTFLOW)
+        tvSplitInHeader.text = "入流（额度增加）\n" + RestLedger.flowAmountText(inMin, inCount) +
+            if (advMin > 0.0 || advCount > 0.0) "\n另含借用提前发放 ${RestLedger.flowAmountText(advMin, advCount)}（只计入对账）" else ""
+        tvSplitOutHeader.text = "出流（额度减少）\n" + RestLedger.flowAmountText(-outMin, -outCount)
+        tintHeader(tvSplitInHeader, R.attr.zzSuccessSoft)
+        tintHeader(tvSplitOutHeader, R.attr.zzWarningSoft)
+
+        tvSplitInEmpty.isVisible = columns.inflow.isEmpty()
+        tvSplitOutEmpty.isVisible = columns.outflow.isEmpty()
+        tvRestEmpty.isVisible = records.isEmpty()
+        splitContainer.isVisible = records.isNotEmpty()
+        tvSplitNote.isVisible = columns.neither > 0 && records.isNotEmpty()
+        tvSplitNote.text = "另有 ${columns.neither} 条不动额度的记录（免费休息、特权等），在「逐笔列表」里查看"
+    }
+
+    private fun rowsOf(records: List<RestUsageRecord>): List<LedgerEntry.Row> =
+        RestLedger.buildEntries(records, includeGaps = false).filterIsInstance<LedgerEntry.Row>()
+
+    private fun tintHeader(header: TextView, colorAttr: Int) {
+        header.backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(this, colorAttr))
     }
 
     private fun showRestRangePicker() {
@@ -232,18 +321,59 @@ class StatsHistoryActivity : AppCompatActivity() {
         return if (range is StatsDateRange.Custom) "${resolved.displayName} ${resolved.dateSubText}" else resolved.displayName
     }
 
+    /**
+     * 类型弹窗：左列入流、右列出流（与分栏对照一致），列头可点 = 选这一整个方向；
+     * 「全部」「特权」不分方向，放在最上面。
+     */
     private fun showRestFilterPicker() {
-        val options = LedgerFilter.entries.toTypedArray()
-        val selected = options.indexOf(restLedgerFilter).coerceAtLeast(0)
-        AlertDialog.Builder(this)
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_ledger_filter, null)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("额度流水类型")
-            .setSingleChoiceItems(options.map { it.displayName }.toTypedArray(), selected) { dialog, which ->
-                restLedgerFilter = options[which]
-                dialog.dismiss()
-                loadRestData()
-            }
+            .setView(view)
             .setNegativeButton("取消", null)
-            .show()
+            .create()
+
+        fun optionButton(filter: LedgerFilter, label: String, header: Boolean): Button {
+            val selected = restLedgerFilter == filter
+            return androidx.appcompat.widget.AppCompatButton(this).apply {
+                text = label
+                isAllCaps = false
+                textSize = if (header) 13f else 12f
+                if (header) setTypeface(typeface, Typeface.BOLD)
+                setBackgroundResource(if (selected) R.drawable.bg_zz_option_btn_selected else R.drawable.bg_zz_option_btn)
+                setTextColor(if (selected) Color.WHITE else ThemeManager.getColorAttr(this@StatsHistoryActivity, R.attr.zzText))
+                // 半栏宽度放不下的长名字自动缩小，不截断
+                androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                    this, 9, textSize.toInt(), 1, android.util.TypedValue.COMPLEX_UNIT_PX
+                )
+                maxLines = 1
+                setOnClickListener {
+                    restLedgerFilter = filter
+                    dialog.dismiss()
+                    loadRestData()
+                }
+            }
+        }
+
+        fun lp(first: Boolean, weighted: Boolean = false) = LinearLayout.LayoutParams(
+            if (weighted) 0 else ViewGroup.LayoutParams.MATCH_PARENT,
+            (40 * resources.displayMetrics.density).toInt(),
+            if (weighted) 1f else 0f
+        ).apply { if (!first) { if (weighted) marginStart = (8 * resources.displayMetrics.density).toInt() else topMargin = (6 * resources.displayMetrics.density).toInt() } }
+
+        val top = view.findViewById<LinearLayout>(R.id.row_ledger_filter_top)
+        top.addView(optionButton(LedgerFilter.ALL, LedgerFilter.ALL.displayName, false), lp(true, true))
+        top.addView(optionButton(LedgerFilter.PRIVILEGE, LedgerFilter.PRIVILEGE.displayName, false), lp(false, true))
+
+        val colIn = view.findViewById<LinearLayout>(R.id.col_ledger_filter_in)
+        colIn.addView(optionButton(LedgerFilter.INFLOW, "入流 · 全部", true), lp(true))
+        RestLedger.inflowTypeFilters.forEach { colIn.addView(optionButton(it, it.displayName, false), lp(false)) }
+
+        val colOut = view.findViewById<LinearLayout>(R.id.col_ledger_filter_out)
+        colOut.addView(optionButton(LedgerFilter.OUTFLOW, "出流 · 全部", true), lp(true))
+        RestLedger.outflowTypeFilters.forEach { colOut.addView(optionButton(it, it.displayName, false), lp(false)) }
+
+        dialog.show()
     }
 
     private fun showRetentionSettingsDialog() {
@@ -491,6 +621,7 @@ class StatsHistoryActivity : AppCompatActivity() {
                 badge.text = item.typeName
                 tvDate.text = item.dateLabel
 
+                // 逐笔列表每行都带变动前 / 变动后，所以金额一律照实显示完整变动（一增一减的重算也是）；只有分栏才按方向只显示一项
                 val quotaDelta = -item.costMinutes
                 val countDelta = -RestLedger.costCountInTimes(item)
                 val balanceText = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
@@ -508,7 +639,7 @@ class StatsHistoryActivity : AppCompatActivity() {
                 tvArrow.isVisible = expandable
                 tvArrow.text = if (open) "▲" else "▼"
                 layoutDetail.isVisible = open
-                if (open) renderDetail(lines)
+                if (open) renderLedgerDetail(layoutDetail, lines)
 
                 itemView.setOnClickListener(if (expandable) View.OnClickListener { onToggle() } else null)
                 // 删除入口：长按任意一条（简单记录没有展开面板，删除统一放长按）
@@ -517,52 +648,127 @@ class StatsHistoryActivity : AppCompatActivity() {
                     true
                 }
             }
+        }
+    }
+}
 
-            private fun renderDetail(lines: List<RestLedger.DetailLine>) {
-                layoutDetail.removeAllViews()
-                val context = layoutDetail.context
-                val density = context.resources.displayMetrics.density
-                val textColor = ThemeManager.getColorAttr(context, R.attr.zzText)
-                val mutedColor = ThemeManager.getColorAttr(context, R.attr.zzMuted)
-                val lineColor = ThemeManager.getColorAttr(context, R.attr.zzLine)
+/** 分栏对照里一栏的紧凑卡片：类型标签 + 金额 + 时间 + 结余，点开看详情，长按删除。 */
+private class CompactLedgerAdapter(
+    private val direction: LedgerFilter,
+    private val onDeleteClicked: (RestUsageRecord) -> Unit
+) : RecyclerView.Adapter<CompactLedgerAdapter.ViewHolder>() {
 
-                fun cell(text: String, weight: Float, gravity: Int, color: Int, sizeSp: Float, bold: Boolean) = TextView(context).apply {
-                    this.text = text
-                    this.gravity = gravity
-                    setTextColor(color)
-                    textSize = sizeSp
-                    if (bold) setTypeface(typeface, Typeface.BOLD)
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
-                }
+    private var items: List<LedgerEntry.Row> = emptyList()
+    var showDate: Boolean = false
+    private val expandedIds = mutableSetOf<String>()
 
-                lines.forEach { line ->
-                    if (line.total) {
-                        layoutDetail.addView(View(context).apply {
-                            setBackgroundColor(lineColor)
-                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1 * density).toInt().coerceAtLeast(1)).apply {
-                                topMargin = (6 * density).toInt()
-                                bottomMargin = (6 * density).toInt()
-                            }
-                        })
-                    }
-                    val color = if (line.muted) mutedColor else textColor
-                    val size = if (line.muted) 11f else 12f
-                    if (line.isFullRow) {
-                        layoutDetail.addView(cell(line.label, 1f, Gravity.START, color, size, false).apply {
-                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                        })
-                    } else {
-                        // 时长与次数左右并排、同等重要（版式同主页）
-                        layoutDetail.addView(LinearLayout(context).apply {
-                            orientation = LinearLayout.HORIZONTAL
-                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                            addView(cell(line.label, 1.3f, Gravity.START, color, size, line.total))
-                            addView(cell(line.minutes, 1f, Gravity.END, color, size, line.total))
-                            addView(cell(line.count, 1f, Gravity.END, color, size, line.total))
-                        })
-                    }
-                }
+    fun submitList(newItems: List<LedgerEntry.Row>) {
+        items = newItems
+        notifyDataSetChanged()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
+        ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_history_rest_compact, parent, false))
+
+    override fun getItemCount(): Int = items.size
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val entry = items[position]
+        val item = entry.record
+        val lines = RestLedger.detailLines(item)
+        val open = lines.isNotEmpty() && expandedIds.contains(item.id)
+        holder.bind(entry, direction, showDate, lines, open, onDeleteClicked) {
+            if (!expandedIds.add(item.id)) expandedIds.remove(item.id)
+            notifyItemChanged(position)
+        }
+    }
+
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val badge: TextView = view.findViewById(R.id.tv_compact_badge)
+        private val amount: TextView = view.findViewById(R.id.tv_compact_amount)
+        private val time: TextView = view.findViewById(R.id.tv_compact_time)
+        private val balance: TextView = view.findViewById(R.id.tv_compact_balance)
+        private val arrow: TextView = view.findViewById(R.id.tv_compact_arrow)
+        private val detail: LinearLayout = view.findViewById(R.id.layout_compact_detail)
+
+        fun bind(
+            entry: LedgerEntry.Row,
+            direction: LedgerFilter,
+            showDate: Boolean,
+            lines: List<RestLedger.DetailLine>,
+            open: Boolean,
+            onDelete: (RestUsageRecord) -> Unit,
+            onToggle: () -> Unit
+        ) {
+            val item = entry.record
+            badge.text = item.typeName
+            val (minutes, count) = RestLedger.displayedDelta(item, direction)
+            amount.text = RestLedger.flowAmountText(minutes, count)
+            // dateLabel 形如「2026-10-10 12:27」：当天范围只留时刻，多日范围留「10-10 12:27」
+            time.text = if (showDate) item.dateLabel.substringAfter('-', item.dateLabel) else item.dateLabel.substringAfterLast(' ')
+            val after = "${RestLedger.formatAmount(item.balanceMinutes)}m / ${RestLedger.formatAmount(RestLedger.balanceCountInTimes(item))}次"
+            balance.text = when {
+                item.type == RestLedger.TYPE_PRIVILEGE -> "不占用休息额度"
+                entry.beforeMinutes != null && entry.beforeCount != null ->
+                    "变动前: ${RestLedger.formatAmount(entry.beforeMinutes)}m / ${RestLedger.formatAmount(entry.beforeCount)}次\n变动后结余: $after"
+                else -> "变动后结余: $after"
             }
+
+            arrow.isVisible = lines.isNotEmpty()
+            arrow.text = if (open) "▲" else "▼"
+            detail.isVisible = open
+            if (open) renderLedgerDetail(detail, lines)
+            itemView.setOnClickListener(if (lines.isNotEmpty()) View.OnClickListener { onToggle() } else null)
+            itemView.setOnLongClickListener {
+                onDelete(item)
+                true
+            }
+        }
+    }
+}
+
+private fun renderLedgerDetail(layoutDetail: LinearLayout, lines: List<RestLedger.DetailLine>) {
+    layoutDetail.removeAllViews()
+    val context = layoutDetail.context
+    val density = context.resources.displayMetrics.density
+    val textColor = ThemeManager.getColorAttr(context, R.attr.zzText)
+    val mutedColor = ThemeManager.getColorAttr(context, R.attr.zzMuted)
+    val lineColor = ThemeManager.getColorAttr(context, R.attr.zzLine)
+
+    fun cell(text: String, weight: Float, gravity: Int, color: Int, sizeSp: Float, bold: Boolean) = TextView(context).apply {
+        this.text = text
+        this.gravity = gravity
+        setTextColor(color)
+        textSize = sizeSp
+        if (bold) setTypeface(typeface, Typeface.BOLD)
+        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
+    }
+
+    lines.forEach { line ->
+        if (line.total) {
+            layoutDetail.addView(View(context).apply {
+                setBackgroundColor(lineColor)
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1 * density).toInt().coerceAtLeast(1)).apply {
+                    topMargin = (6 * density).toInt()
+                    bottomMargin = (6 * density).toInt()
+                }
+            })
+        }
+        val color = if (line.muted) mutedColor else textColor
+        val size = if (line.muted) 11f else 12f
+        if (line.isFullRow) {
+            layoutDetail.addView(cell(line.label, 1f, Gravity.START, color, size, false).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            })
+        } else {
+            // 时长与次数左右并排、同等重要（版式同主页）
+            layoutDetail.addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                addView(cell(line.label, 1.3f, Gravity.START, color, size, line.total))
+                addView(cell(line.minutes, 1f, Gravity.END, color, size, line.total))
+                addView(cell(line.count, 1f, Gravity.END, color, size, line.total))
+            })
         }
     }
 }

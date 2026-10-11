@@ -18,6 +18,7 @@ import com.decikeeper.app.data.AnalysisResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.EffectiveActivationPolicyManager
+import com.decikeeper.app.manager.PendingChangeTable
 import com.decikeeper.app.manager.PrivilegeWindowPolicy
 import com.decikeeper.app.manager.ProbationManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
@@ -161,13 +162,13 @@ class GlobalParamsFragment : Fragment() {
             tvLockout?.visibility = View.GONE
         }
         val isAdaptation = TimeRuleManager.isInAdaptationPeriod(context)
-        val finalText = ChangeLogManager.getFormattedLogForCategory(context, "global_params").trim()
+        val finalText = PendingChangesDialog.cardSummary(context, PendingChangeTable.Scope.PARAM).trim()
+        cardPending?.setOnClickListener {
+            PendingChangesDialog.show(context, PendingChangeTable.Scope.PARAM) { reloadData() }
+        }
         if (!isAdaptation && finalText.isNotEmpty()) {
             cardPending?.visibility = View.VISIBLE
             tvPending?.text = finalText
-            cardPending?.setOnClickListener {
-                if (TimeRuleManager.hasPendingRules(context) || CreditManager.hasPendingApps(context)) showPendingRevokeDialog()
-            }
         } else if (!isLocked) {
             cardPending?.visibility = View.GONE
         } else {
@@ -389,16 +390,28 @@ class GlobalParamsFragment : Fragment() {
             EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE
         }
         val preservedRefreshTime = TimeRuleManager.getPendingRefreshTime(context) ?: TimeRuleManager.getRefreshTime(context)
+        // 记下保存前已经挂着的参数待生效项：「取消」只收回这一次新挂上的，不动别的待生效项（时段、应用时间窗等）
+        val pendingBefore = pendingSignatures(context)
         val result = TimeRuleManager.analyzeAndSaveGlobalParams(
             context, newRest, newGap, newLockDuration, newBorrow, newNotifyFar, newNotifyNear,
             newWeeklyCount, newWeeklyDuration, preservedRefreshTime, newTempRestrictedAccessMax,
             newPrivWindowStart, newPrivWindowEnd,
             newEffectiveActivationPolicy = selectedPolicy
         )
-        handleSaveFeedback(result)
+        handleSaveFeedback(result, pendingBefore)
     }
 
-    private fun handleSaveFeedback(result: AnalysisResult) {
+    private fun pendingSignatures(context: Context): Set<String> =
+        PendingChangeTable.items(context, PendingChangeTable.Scope.PARAM).map { "${it.id}|${it.detail}" }.toSet()
+
+    /** 撤销这一次保存新挂上（或改过值）的参数待生效项，其余待生效项原样保留。 */
+    private fun revokeNewPending(context: Context, before: Set<String>) {
+        PendingChangeTable.items(context, PendingChangeTable.Scope.PARAM)
+            .filter { "${it.id}|${it.detail}" !in before }
+            .forEach { PendingChangeTable.revoke(context, it) }
+    }
+
+    private fun handleSaveFeedback(result: AnalysisResult, pendingBefore: Set<String>) {
         if (!isAdded || view == null) return
         val context = requireContext()
         if (TimeRuleManager.isInAdaptationPeriod(context)) {
@@ -452,9 +465,7 @@ class GlobalParamsFragment : Fragment() {
 
                     val title = if (!isAllNextDayPolicy) "⚠️ 包含延后生效项" else "变更生效分析"
                     val handleCancel = {
-                        TimeRuleManager.revokePendingChanges(context)
-                        CreditManager.clearPendingWeeklyPrivilegeLimit(context)
-                        ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
+                        revokeNewPending(context, pendingBefore)
                         Toast.makeText(context, "已取消修改", Toast.LENGTH_SHORT).show()
                         reloadData()
                     }
@@ -480,9 +491,7 @@ class GlobalParamsFragment : Fragment() {
             }
             is AnalysisResult.AllDelayed -> {
                 val handleCancel = {
-                    TimeRuleManager.revokePendingChanges(context)
-                    CreditManager.clearPendingWeeklyPrivilegeLimit(context)
-                    ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
+                    revokeNewPending(context, pendingBefore)
                     Toast.makeText(context, "已取消修改", Toast.LENGTH_SHORT).show()
                     reloadData()
                 }
@@ -498,18 +507,5 @@ class GlobalParamsFragment : Fragment() {
                     .show()
             }
         }
-    }
-
-    private fun showPendingRevokeDialog() {
-        val context = requireContext()
-        AlertDialog.Builder(context).setTitle("撤销待生效的不利修改")
-            .setMessage("确定要撤销所有尚未生效的不利修改吗？\n撤销后，这些修改将不会在明日生效。")
-            .setPositiveButton("确认撤销") { _, _ ->
-                TimeRuleManager.revokePendingChanges(context)
-                CreditManager.clearPendingWeeklyPrivilegeLimit(context)
-                ChangeLogManager.clearPendingLogsForCategory(context, "global_params")
-                Toast.makeText(context, "已撤销所有待生效修改", Toast.LENGTH_SHORT).show()
-                reloadData()
-            }.setNegativeButton("取消", null).show()
     }
 }

@@ -201,8 +201,8 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             // 仅当覆盖层依然是 inline 模式、锁屏且挑战未全部完成（需进入第二关）时才内嵌回 Activity。
             val isInline = LockWindowManager.isCurrentOverlayInline()
             val isCompleted = AlarmScheduler.isChallengeCompleted(this@AlarmActivity)
-            // 扫码成功后的分支取证：锁屏且已窗口化/已完成时 Activity 既不 finish 也不重挂，
-            // 完全依赖独立覆盖层可见；记录覆盖层真实附着状态，便于复盘“扫完卡住”。
+            // 扫码成功后的分支取证：锁屏且已窗口化/已完成时直接 finish 退出扫码器，
+            // 露出已在 WindowManager 独立渲染好完成态/第二关的覆盖层。
             val alarmView = LockWindowManager.getAlarmView()
             LogExporter.logEvent(
                 "AlarmOverlay",
@@ -211,13 +211,12 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                     "viewAttachedToWindow=${alarmView?.isAttachedToWindow} viewVisibility=${alarmView?.visibility} " +
                     "action=${when {
                         isLockedScreenMode && isInline && !isCompleted -> "REHOST_INLINE"
-                        !isLockedScreenMode -> "FINISH_TASK"
-                        else -> "KEEP_ACTIVITY_NO_REHOST"
+                        else -> "FINISH_TASK"
                     }}"
             )
             if (isLockedScreenMode && isInline && !isCompleted) {
                 LockWindowManager.showAlarmOverlayInlineInActivity(this, this)
-            } else if (!isLockedScreenMode) {
+            } else {
                 finishAndRemoveTask()
             }
         }
@@ -261,6 +260,8 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         barcodeView?.pause()
         isScanMode = false
         if (!isLockedScreenMode) {
+            finishAndRemoveTask()
+        } else if (!LockWindowManager.isOverlayActive || !AlarmScheduler.isAlarmActive(this)) {
             finishAndRemoveTask()
         }
     }
@@ -568,6 +569,12 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             Log.w("AlarmActivity", "onResume: overlay permission missing, refusing page challenge")
             Toast.makeText(this, AlarmOverlayRequirement.MISSING_RUNTIME_MESSAGE, Toast.LENGTH_LONG).show()
             finish()
+            return
+        }
+        if (!AlarmScheduler.isAlarmActive(this) && !LockWindowManager.isOverlayActive) {
+            Log.i("AlarmActivity", "onResume: alarm session is no longer active, finishing")
+            LogExporter.logEvent("AlarmOverlay", "ACTIVITY_FINISH_NO_ACTIVE_ALARM id=$alarmId")
+            finishAndRemoveTask()
             return
         }
         if (finishExternalOverlayHostIfNeeded()) return

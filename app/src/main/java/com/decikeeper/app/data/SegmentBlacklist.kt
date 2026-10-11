@@ -24,14 +24,52 @@ object SegmentBlacklist {
      * 白名单模式的补集以此为准。
      */
     fun allLaunchablePackages(context: Context): Set<String> {
+        val pm = (context.applicationContext ?: context).packageManager
+        val now = System.currentTimeMillis()
+        launchableCache?.let { cached ->
+            if (cached.owner.get() === pm && now - cached.at in 0 until LAUNCHABLE_CACHE_TTL_MS) return cached.packages
+        }
+        val computed = computeLaunchablePackages(pm)
+        // 空集可能是包可见性受限 / 一次性失败，不缓存，下次重试
+        if (computed.isNotEmpty()) launchableCache = LaunchableCache(java.lang.ref.WeakReference(pm), now, computed)
+        return computed
+    }
+
+    /** 安装 / 卸载应用后让缓存失效（名单页刷新、测试装配包时调用）。 */
+    fun invalidateLaunchableCache() {
+        launchableCache = null
+    }
+
+    /**
+     * 预热缓存。全集要对每个已装应用逐个问一次系统（几百次 IPC，慢机型上秒级），
+     * 保存时段 / 切换生效策略的不利分析在主线程上会反复用到它，所以进入时间规则页时先在后台算好。
+     */
+    fun prewarmLaunchablePackages(context: Context) {
+        val appContext = context.applicationContext ?: return
+        Thread({ runCatching { allLaunchablePackages(appContext) } }, "launchable-prewarm")
+            .apply { isDaemon = true }
+            .start()
+    }
+
+    private fun computeLaunchablePackages(pm: android.content.pm.PackageManager): Set<String> {
         return runCatching {
-            val pm = context.packageManager
             pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA)
                 .filter { runCatching { pm.getLaunchIntentForPackage(it.packageName) != null }.getOrDefault(false) }
                 .map { it.packageName }
                 .toSet()
         }.getOrDefault(emptySet())
     }
+
+    private const val LAUNCHABLE_CACHE_TTL_MS = 60_000L
+
+    private class LaunchableCache(
+        val owner: java.lang.ref.WeakReference<android.content.pm.PackageManager>,
+        val at: Long,
+        val packages: Set<String>
+    )
+
+    @Volatile
+    private var launchableCache: LaunchableCache? = null
 
     /**
      * 把用户在名单页勾选的集合（白名单模式=允许列表）转成「有效黑名单集合」。

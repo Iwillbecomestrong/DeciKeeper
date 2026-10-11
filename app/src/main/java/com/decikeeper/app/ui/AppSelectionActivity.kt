@@ -407,7 +407,15 @@ class AppSelectionActivity : AppCompatActivity() {
             tvPendingDetails.setTextColor(successColor)
             findViewById<TextView>(R.id.tv_pending_hint_legacy).visibility = View.GONE
         } else {
-            val changeLog = ChangeLogManager.getFormattedLogForCategory(this, "blacklist")
+            // 与时间规则三页共用延迟生效表：摘要逐项列出，点开可逐项撤销
+            val changeLog = com.decikeeper.app.ui.PendingChangesDialog
+                .cardSummary(this, com.decikeeper.app.manager.PendingChangeTable.Scope.BLACKLIST)
+                .ifEmpty { ChangeLogManager.getFormattedLogForCategory(this, "blacklist") }
+            cardPending.setOnClickListener {
+                com.decikeeper.app.ui.PendingChangesDialog.show(
+                    this, com.decikeeper.app.manager.PendingChangeTable.Scope.BLACKLIST
+                ) { updatePendingHint() }
+            }
             if (changeLog.isNotEmpty()) {
                 cardPending.visibility = View.VISIBLE
                 cardPending.setCardBackgroundColor(warningSoft)
