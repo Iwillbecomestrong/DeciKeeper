@@ -76,6 +76,17 @@ class MyApplication : Application() {
         }
     }
 
+    // 系统回收内存或应用退到后台时同步落盘日志缓冲，降低进程被杀时丢失最近几秒日志的概率。
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        LogExporter.flush()
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        LogExporter.flush()
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -275,6 +286,7 @@ class MyApplication : Application() {
 
         // 🚀 [Log] Initialize LogExporter with app context for disk-persistent logging
         LogExporter.init(this)
+        LogExporter.logProcessStart(this)
 
         // 🚀 启动时清理无障碍保护模块历史脏 key
         // 历史版本曾在 ConfigPendingManager 中写入 "a11y_service_self_pending"

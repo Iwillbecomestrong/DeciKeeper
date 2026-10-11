@@ -379,81 +379,8 @@ class LogEventMigrationInventoryTest {
         )
     }
 
-    /**
-     * T5 (Boundary 5) — regression guard for `LogExporter.kt` byte-for-byte unchanged.
-     *
-     * Plan Challenger v3 B7: `exportDropPatterns` (LogExporter.kt:90-137) 是禁动区域,
-     * T5 不得新增 / 修改 / 删除任何 export drop pattern。本测试将 LogExporter.kt 与
-     * `git show HEAD:...` 比对, 任何文件字节差异 (含 whitespace) 即视为越界。
-     *
-     * 该测试同时充当 [B4 exportDropPatterns 禁动约束] 的强模型可审计证据。
-     */
-    @Test
-    fun exportDropPatternsRemainByteForByteUnchanged() {
-        val logExporter = File("app/src/main/java/com/decikeeper/app/data/LogExporter.kt").let { file ->
-            generateSequence(File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
-                .map { File(it, file.path) }
-                .firstOrNull { it.isFile }
-                ?: error("找不到 app/src/main/java/com/decikeeper/app/data/LogExporter.kt")
-        }
-        val onDiskBytes = logExporter.readBytes()
-        val onDiskText = String(onDiskBytes, Charsets.UTF_8)
-
-        // Strategy 1: confirm `exportDropPatterns` private list has a reasonable size
-        //   (initial spec said "36 条" — task brief listed 36 as the audit baseline count;
-        //   the actual file at T5 start has 40 entries, and we use a 36-lower-bound guard
-        //   so the test is robust to any pre-existing per-entry split that still respects B7).
-        val exportDropPatternsBlock = onDiskText.substringAfter("private val exportDropPatterns = listOf(")
-            .substringBefore("\n    )")
-        val patternEntries = exportDropPatternsBlock.lines()
-            .map { it.trim() }
-            .filter { it.startsWith("Regex(") }
-        assertTrue(
-            "LogExporter exportDropPatterns list must contain >= 36 entries (B7 禁动 — T5 不得删除/新增任何 entry, 当前=${patternEntries.size})",
-            patternEntries.size >= 36
-        )
-
-        // Strategy 2: confirm canonical "kill switch" labels are still in the exportDropPatterns block.
-        // Note: the source uses Kotlin raw triple-quoted strings ("""...""") so regex backslashes
-        // appear as `\[` literally; we search for the escaped form that exists on disk.
-        val canonicalSurvivingLabels = listOf(
-            """\[DETECT\]""",
-            """\[MINI_WINDOW_FALLBACK\]""",
-            """\[EVENT\] type=APP_STATE""",
-            """FG pkg="""",
-            """FG_SUMMARY""",
-            """前台结论:""",
-            """\[锁机\]""",
-            """\[STEP1\]""",
-            """\[STEP2\]""",
-            """\[STEP3\]""",
-            """\[DONE\] penalty applied""",
-            """💓 心跳"""
-        )
-        canonicalSurvivingLabels.forEach { label ->
-            assertTrue(
-                "LogExporter exportDropPatterns must still drop legacy label `$label` (B7 禁动 — entry 不得弱化)",
-                exportDropPatternsBlock.contains(label)
-            )
-        }
-
-        // Strategy 3: BYTE-FOR-BYTE invariant — LogExporter.kt must remain unchanged vs `git show HEAD:...`.
-        // This is the strongest B4/B7 evidence: any whitespace, encoding or line-order shift is caught.
-        // Note: git on this host has `core.autocrlf=true`, which means `git show` returns raw LF bytes
-        // (from the git object) while the on-disk file may have CRLF line terminators. We normalize
-        // both sides to LF before comparison so the test is portable across host OS settings.
-        val gitShowText = String(
-            runGit("show", "HEAD:app/src/main/java/com/decikeeper/app/data/LogExporter.kt"),
-            Charsets.UTF_8
-        )
-        val normalizedDisk = onDiskText.replace("\r\n", "\n")
-        val normalizedGit = gitShowText.replace("\r\n", "\n")
-        assertEquals(
-            "LogExporter.kt content must remain byte-for-byte equal to HEAD (B7 禁动 — T5 不得修改此文件; LF-normalized for autocrlf portability)",
-            normalizedGit,
-            normalizedDisk
-        )
-    }
+    // 原先此处有断言 LogExporter.kt 与 HEAD 字节级一致的冻结测试，已随日志系统重新设计退役：
+    // exportDropPatterns 已迁为 LegacyLogClassifier.dropPatterns（写入时分流），其广度由 LegacyLogClassifierTest 守护。
 
     /**
      * T5 (Boundary 5) — `ForegroundDetectionLogCompressor` must dedup
@@ -611,21 +538,6 @@ class LogEventMigrationInventoryTest {
             .firstOrNull { it.isFile }
             ?.readText()
             ?: error("cannot find $relative")
-
-    /** Run a `git` subcommand and return its stdout bytes (used for byte-for-byte HEAD baseline). */
-    private fun runGit(vararg args: String): ByteArray {
-        val process = ProcessBuilder("git", *args)
-            .directory(File(System.getProperty("user.dir") ?: "."))
-            .redirectErrorStream(false)
-            .start()
-        val out = process.inputStream.readBytes()
-        val err = process.errorStream.readBytes()
-        val exit = process.waitFor()
-        if (exit != 0) {
-            error("git ${args.joinToString(" ")} failed (exit=$exit): ${String(err, Charsets.UTF_8)}")
-        }
-        return out
-    }
 
     private fun assertFalse(message: String, condition: Boolean) {
         if (condition) fail(message)

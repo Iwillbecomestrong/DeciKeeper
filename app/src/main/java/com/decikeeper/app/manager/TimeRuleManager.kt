@@ -240,7 +240,7 @@ object TimeRuleManager {
         "${prefix}-${quotaConfigIdSequence.incrementAndGet()}"
 
     private const val PREFS_NAME = "decikeeper_rules"
-    private const val PREFS_PENDING = "decikeeper_rules_pending"
+    internal const val PREFS_PENDING = "decikeeper_rules_pending"
     private const val PREFS_BASELINE = "decikeeper_rules_baseline"
     private const val PREFS_LOG = "decikeeper_rules_log"
     // Legacy promotion prefs are kept only to absorb old pre-update state.
@@ -248,7 +248,7 @@ object TimeRuleManager {
     private const val KEY_LAST_FAVORABLE_TS = "last_favorable_ts"
 
     // 这里不再独立维护标记，完全代理给 CreditManager
-    private const val KEY_SEGMENTS_JSON = "segments_json"
+    internal const val KEY_SEGMENTS_JSON = "segments_json"
     private const val KEY_CHANGE_LOG = "change_log_json"
     const val KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = "temp_restricted_access_max_seconds"
     const val DEFAULT_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 180
@@ -970,8 +970,8 @@ object TimeRuleManager {
     }
 
     // 🚀 [NEW] Privilege Usage Time Window Logic
-    private const val KEY_PRIVILEGE_WINDOW_START = "privilege_window_start"
-    private const val KEY_PRIVILEGE_WINDOW_END = "privilege_window_end"
+    internal const val KEY_PRIVILEGE_WINDOW_START = "privilege_window_start"
+    internal const val KEY_PRIVILEGE_WINDOW_END = "privilege_window_end"
 
     /**
      * 获取特权可用窗口开始时间 (HH:MM 格式)
@@ -3797,6 +3797,40 @@ object TimeRuleManager {
         val pendingPrefs = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
         pendingPrefs.edit().clear().apply()
         android.util.Log.i("TimeRuleManager", "Revoked all pending global parameter changes.")
+    }
+
+    /**
+     * 逐项撤销后写回待生效时段：与生效中的时段等价就整份清掉，否则覆盖为新的待生效整表。
+     * 之后由 [settlePendingRuleFlags] 统一收尾 has_pending_changes / effective_timestamp。
+     */
+    internal fun replacePendingSegments(context: Context, segments: List<TimeSegment>) {
+        val pendingPrefs = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
+        val active = getTimeSegments(context)
+        if (SegmentAdverseAnalysis.areSegmentListsEquivalent(active, segments)) {
+            pendingPrefs.edit().remove(KEY_SEGMENTS_JSON).apply()
+        } else {
+            val sorted = segments.sortedBy { it.startHour * 60 + it.startMinute }
+            pendingPrefs.edit().putString(KEY_SEGMENTS_JSON, segmentsToJson(sorted)).apply()
+        }
+    }
+
+    /**
+     * 逐项撤销后收尾：勿扰时段与日参数都没有待生效项时，清掉整份 pending（含陈旧的参数快照键）；
+     * 只剩每周特权待生效时保留 has_pending_changes 并把生效时间指回下周一。
+     *
+     * @param hasDailyItems 勿扰时段 / 日参数是否还有待生效项（由调用方按 diff 判断）
+     */
+    internal fun settlePendingRuleFlags(context: Context, hasDailyItems: Boolean) {
+        if (hasDailyItems) return
+        val pendingPrefs = context.getSharedPreferences(PREFS_PENDING, Context.MODE_PRIVATE)
+        if (CreditManager.hasPendingWeeklyPrivilegeLimit(context)) {
+            pendingPrefs.edit().clear()
+                .putBoolean("has_pending_changes", true)
+                .putLong("effective_timestamp", CreditManager.getPendingWeeklyPrivilegeEffectiveTime(context))
+                .apply()
+        } else {
+            pendingPrefs.edit().clear().apply()
+        }
     }
 
     // --- Missing Types & Helpers ---

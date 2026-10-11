@@ -1098,14 +1098,14 @@
 
         <!-- [Fix: scan cutout] 覆盖层窗口渲染不了 SurfaceView（DecoratedBarcodeView），
              保留该视图仅为兼容既有 findViewById 调用，始终不显示。
-             取景画面来自下方 AlarmActivity 的相机预览，透过中间的开孔透出。 -->
+             实际预览由同一覆盖层窗口内的 CameraX TextureView 承载。 -->
         <View
             android:id="@+id/barcode_alarm_scanner"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone" />
 
-        <!-- 不透明挡板：仅中间留出 260dp 见方的取景开孔。其余区域保持不透明，
+        <!-- 不透明挡板与 260dp 见方的同窗口取景器。全部区域保持不透明，
              系统弹层（关机菜单、语音助手）既无法从四周漏出，也无法被触摸操作。 -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -1131,11 +1131,29 @@
                     android:layout_weight="1"
                     android:background="?attr/zzPageBg" />
 
-                <View
+                <FrameLayout
                     android:id="@+id/scan_viewfinder_hole"
                     android:layout_width="260dp"
                     android:layout_height="260dp"
-                    android:background="@android:color/transparent" />
+                    android:background="?attr/zzPageBg">
+
+                    <androidx.camera.view.PreviewView
+                        android:id="@+id/preview_alarm_overlay"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="?attr/zzPageBg" />
+
+                    <TextView
+                        android:id="@+id/tv_alarm_scan_preview_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="?attr/zzPageBg"
+                        android:gravity="center"
+                        android:padding="16dp"
+                        android:text="正在连接摄像头…"
+                        android:textColor="?attr/zzText"
+                        android:textSize="14sp" />
+                </FrameLayout>
 
                 <View
                     android:id="@+id/scan_letterbox_right"
