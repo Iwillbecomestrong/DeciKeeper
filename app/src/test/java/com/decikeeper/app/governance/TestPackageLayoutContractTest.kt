@@ -17,7 +17,8 @@ class TestPackageLayoutContractTest {
         "oem",
         "governance",
         "testutil",
-        "statistics"
+        "statistics",
+        "logging"
     )
 
     private fun resolveTestRoot(): File {

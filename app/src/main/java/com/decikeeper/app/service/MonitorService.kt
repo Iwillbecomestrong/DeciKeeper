@@ -84,6 +84,10 @@ import com.decikeeper.app.util.DiagnosticCompressor
 import com.decikeeper.app.util.DiagnosticTimestampFormatter
 import com.decikeeper.app.util.FgBypassStableKey
 import com.decikeeper.app.util.FgGuardStableKey
+import com.decikeeper.app.logging.IntervalSampler
+import com.decikeeper.app.logging.LastForegroundEvidence
+import com.decikeeper.app.logging.RecentSampleLog
+import com.decikeeper.app.util.ForegroundDecisionRetention
 import com.decikeeper.app.util.ForegroundNormalEventBridge
 import com.decikeeper.app.util.ForegroundNormalEventStateTracker
 import com.decikeeper.app.util.ForegroundReportFormatter
@@ -305,6 +309,9 @@ class MonitorService : Service() {
     private val foregroundNormalEventBridge by lazy {
         ForegroundNormalEventBridge(SystemEventClock, foregroundNormalEventLogger::emit)
     }
+    private val foregroundDecisionRetention = ForegroundDecisionRetention()
+    // 前台采样：5 秒一条，只保留最近 3 分钟，仅供事后取证，业务代码不读取。
+    private val foregroundSampler = IntervalSampler(RecentSampleLog.SAMPLE_INTERVAL_MS)
     private val foregroundNormalEventStateTracker = ForegroundNormalEventStateTracker()
 
     // [Diagnostics-only] real query wall-clock timestamps captured around the
@@ -3221,22 +3228,6 @@ class MonitorService : Service() {
                     mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
                     foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp, eventClass)
                 }
-
-                // [Diagnostics-only] 诊断小窗生命周期事件
-                if (eventPkg.isNotBlank() && (type == MOVE_TO_FG || type == ACTIVITY_RESUMED || type == MOVE_TO_BG || type == ACTIVITY_PAUSED || type == ACTIVITY_STOPPED)) {
-                    val eventName = when (type) {
-                        MOVE_TO_FG -> "MOVE_TO_FOREGROUND"
-                        MOVE_TO_BG -> "MOVE_TO_BACKGROUND"
-                        ACTIVITY_RESUMED -> "ACTIVITY_RESUMED"
-                        ACTIVITY_PAUSED -> "ACTIVITY_PAUSED"
-                        ACTIVITY_STOPPED -> "ACTIVITY_STOPPED"
-                        else -> "UNKNOWN"
-                    }
-                    if (SegmentBlacklist.shouldLock(this, eventPkg)) {
-                        Log.d(TAG, "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
-                        LogExporter.logEvent("PresenceDiag", "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
-                    }
-                }
             }
 
             // 检测前台事件：MOVE_TO_FOREGROUND(1) 或 ACTIVITY_RESUMED(15)
@@ -3279,50 +3270,16 @@ class MonitorService : Service() {
             }
         }
 
-        // [Diagnostics-only] Section III: RAW UsageEvents 诊断 (180s 窗口观察)
-        val diagEvents180 = try { usm.queryEvents(time - 180000L, time) } catch (_: Exception) { null }
-        val shouldLogRawEvents = !foundRelevantEvent || calculatedTop == null || mLastTopPackage == "com.anthropic.claude"
-        val eventsDiag = ForegroundDiagnosticTracker.analyzeAndLogUsageEvents(
-            checkedAtMs = time,
-            events180s = diagEvents180,
-            businessWindowMs = 30000L,
-            diagnosticWindowMs = 180000L,
-            eventsBusinessResult = if (foundRelevantEvent) calculatedTop else null,
-            shouldLogRawEvents = shouldLogRawEvents
-        )
-
         fun traceAndReturn(
             result: String?,
             evidence: TopPackageEvidence,
-            finalReason: String
+            @Suppress("UNUSED_PARAMETER") finalReason: String
         ): String? {
             mLastTopEvidence = evidence
             mLastTopResolvedAt = time
-            val statsSummary = ForegroundDiagnosticTracker.lastUsageStatsDiagSummary
-            val a11ySnapshot = CoreService.captureWindowSnapshot(time)
-            val a11yVisiblePkgs = a11ySnapshot.packages.ifEmpty { CoreService.lastVisiblePackagesFromWindows }
-            val a11yClaudeVisible = a11yVisiblePkgs.contains("com.anthropic.claude")
-
-            ForegroundDiagnosticTracker.logResolveTrace(
-                checkedAtMs = time,
-                result = result,
-                selectedSource = evidence.name,
-                eventsBusinessResult = if (foundRelevantEvent) calculatedTop else null,
-                eventsDiagnosticLastFgPkg = eventsDiag.diagnosticLastFgPkg,
-                eventsDiagnosticLastFgAgeMs = eventsDiag.diagnosticLastFgAgeMs,
-                usageStatsRawClaudePresent = statsSummary?.claudePresentInRaw ?: false,
-                usageStatsClaudeAccepted = statsSummary?.claudeAccepted ?: false,
-                usageStatsClaudeRejectReason = statsSummary?.claudeRejectReason ?: "NOT_QUERIED",
-                a11yClaudeVisible = a11yClaudeVisible,
-                a11yLastEventPkg = CoreService.diagnosticsLastEligibleEventPackage,
-                cachePkg = mLastTopPackage,
-                cacheAgeMs = if (mLastTopResolvedAt > 0) time - mLastTopResolvedAt else -1L,
-                finalReason = finalReason
-            )
-
-            if (result == null) {
-                ForegroundDiagnosticTracker.logRawAccessibilityEvidence("FOREGROUND_RESOLVER_NULL")
-            }
+            // 不输出日志，仅保留窗口快照采集：它会刷新 CoreService.lastVisiblePackagesFromWindows，
+            // 该缓存被前台可见性判定读取，删除调用会改变业务时序。
+            CoreService.captureWindowSnapshot(time)
 
             return result
         }
@@ -3508,14 +3465,6 @@ class MonitorService : Service() {
         }
         mLastStatsQueryFinishedAtMs = System.currentTimeMillis()
         if (stats.isNullOrEmpty()) {
-            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
-                now = now,
-                rawStats = stats,
-                recentActive = emptyList(),
-                selectedPkg = null,
-                carrierNoisePackages = usageCarrierNoisePackages,
-                isLauncher = { CreditManager.isLauncher(it) }
-            )
             // [Diagnostics-only] UsageStats returned nothing
             pushUsageStatsSnapshotToCycle(
                 packageName = null, eventTimeMs = 0L,
@@ -3547,14 +3496,6 @@ class MonitorService : Service() {
         }
 
         if (recentActive.isEmpty()) {
-            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
-                now = now,
-                rawStats = stats,
-                recentActive = emptyList(),
-                selectedPkg = null,
-                carrierNoisePackages = usageCarrierNoisePackages,
-                isLauncher = { CreditManager.isLauncher(it) }
-            )
             return null
         }
 
@@ -3576,14 +3517,6 @@ class MonitorService : Service() {
             .maxByOrNull(timeSelector)
 
         if (nonLauncher != null) {
-            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
-                now = now,
-                rawStats = stats,
-                recentActive = recentActive,
-                selectedPkg = nonLauncher.packageName,
-                carrierNoisePackages = usageCarrierNoisePackages,
-                isLauncher = { CreditManager.isLauncher(it) }
-            )
             mLastTopUsageStatTs = timeSelector(nonLauncher)
             // [Diagnostics-only] push real UsageStats snapshot. Sort newest-first so
             // take(3) returns the actual 3 most recent candidates, not 3 arbitrary entries.
@@ -3621,14 +3554,6 @@ class MonitorService : Service() {
         mLastTopUsageStatTs = fallback?.let { timeSelector(it) } ?: 0L
 
         if (fallback != null) {
-            ForegroundDiagnosticTracker.analyzeAndLogUsageStats(
-                now = now,
-                rawStats = stats,
-                recentActive = recentActive,
-                selectedPkg = fallback.packageName,
-                carrierNoisePackages = usageCarrierNoisePackages,
-                isLauncher = { CreditManager.isLauncher(it) }
-            )
             // [Diagnostics-only] push UsageStats snapshot for fallback. Sorted.
             val candidates = recentActive
                 .sortedByDescending { timeSelector(it) }
@@ -3739,6 +3664,15 @@ class MonitorService : Service() {
 
         val gate = foregroundReportGate
         val decision = gate.evaluate(c, outcome, nowMs)
+        // 只算一次：状态跟踪器与输出器必须对"这份完整报告是否真的输出"看法一致，
+        // 否则被丢弃的报告会让桌面切换的转换行也跟着丢失。
+        val fullRetention: ForegroundDecisionRetention.Level? =
+            if (decision.emission == ForegroundReportEmission.FULL) foregroundDecisionRetention.assess(decision, c) else null
+        // 仅供日志使用：给 LOCK_RESULT 等 A 级事件附上一行"为什么"，业务代码不读取。
+        LastForegroundEvidence.update(outcome.effectivePackageName, mLastTopEvidence.name, outcome.businessReason)
+        if (foregroundSampler.tryAcquire(nowMs)) {
+            LogExporter.logRecentSample(nowMs, foregroundSampleBody(c, outcome))
+        }
         emitForegroundStateClosureOrTransition(
             packageName = outcome.effectivePackageName ?: "NONE",
             stateKey = listOf(
@@ -3747,8 +3681,14 @@ class MonitorService : Service() {
                 outcome.businessReason,
                 outcome.allowanceState
             ).joinToString("|"),
-            hasFullDiagnostic = decision.emission == ForegroundReportEmission.FULL,
-            nowMs = nowMs
+            hasFullDiagnostic = decision.emission == ForegroundReportEmission.FULL &&
+                fullRetention != ForegroundDecisionRetention.Level.DROP,
+            nowMs = nowMs,
+            stateFields = linkedMapOf(
+                "action" to outcome.businessAction.name,
+                "reason" to outcome.businessReason,
+                "allowance" to outcome.allowanceState
+            )
         )
         foregroundNormalEventBridge.emitDecision(
             cycle = c,
@@ -3757,7 +3697,8 @@ class MonitorService : Service() {
             selectedSource = mLastTopEvidence.name,
             requestId = currentTraceId,
             traceId = currentTraceId,
-            transition = foregroundTransition(c.previousForegroundPackageName, outcome.effectivePackageName)
+            transition = foregroundTransition(c.previousForegroundPackageName, outcome.effectivePackageName),
+            retention = fullRetention
         )
         if (decision.emission == ForegroundReportEmission.NONE) return  // compact route already evaluated
         // R1-4: use decision.sourceProblemStartedAtMs as the single source of
@@ -3785,7 +3726,8 @@ class MonitorService : Service() {
         packageName: String,
         stateKey: String,
         hasFullDiagnostic: Boolean,
-        nowMs: Long
+        nowMs: Long,
+        stateFields: Map<String, String> = emptyMap()
     ) {
         foregroundNormalEventStateTracker.observe(
             stateKey = stateKey,
@@ -3793,8 +3735,18 @@ class MonitorService : Service() {
             isDesktop = CreditManager.isLauncher(packageName),
             hasFullDiagnostic = hasFullDiagnostic,
             nowMs = nowMs,
-            clock = SystemEventClock
+            clock = SystemEventClock,
+            stateFields = stateFields
         ).forEach(foregroundNormalEventLogger::emit)
+    }
+
+    /** 单行前台采样：前台包、来源、动作、原因，以及三个来源各自的状态。 */
+    private fun foregroundSampleBody(cycle: ForegroundDiagnosticCycle, outcome: ForegroundReportOutcome): String {
+        fun status(source: ForegroundSourceSnapshot): String =
+            source.status.name + (source.unavailableReason?.takeIf { it.isNotBlank() }?.let { "($it)" } ?: "")
+        return "[FG_SAMPLE] fg=${outcome.effectivePackageName ?: "NONE"} src=${mLastTopEvidence.name} " +
+            "action=${outcome.businessAction.name} reason=${outcome.businessReason} allowance=${outcome.allowanceState} " +
+            "events=${status(cycle.usageEvents)} stats=${status(cycle.usageStats)} a11y=${status(cycle.accessibility)}"
     }
 
     /** A real existing pre-cycle package becomes a transition only when it actually changed. */
