@@ -23,3 +23,10 @@ AlarmActivity.kt、CameraXScanManager.kt、LockAlarmOverlay.kt、window_alarm_ov
 - 最终验证命令：gradlew.bat --console=plain --max-workers=2 :app:testDebugUnitTest --tests '*AlarmScanCutoutContractTest' --tests '*AlarmScreenOffBehaviorContractTest' --tests '*AlarmOverlayAttachContractTest' --tests '*AlarmActivityExternalHostPolicyTest' --tests '*AlarmOverlayThemeContractTest' :app:assembleRelease。
 - 真机分屏/系统弹窗/熄屏恢复与四季视觉审查未执行，不能据此宣称 vivo 故障已实测解决。
 - AOCI 服务未连接，认知维护未执行；aoci 索引未随本次受管理源码变化更新。
+
+
+## 同步最新 dev 的合并验证
+
+- 用户批准合并 PR #56 后，dev 新增冷却规则修复至 cda3f889；任务分支合入该版本，仅 HISTORY 新决策记录发生冲突，完整保留两项意图，将扫码记录编号改为 DECISION-48。
+- 同步后执行 gradlew.bat --console=plain --continue --max-workers=2 :app:testDebugUnitTest :app:assembleRelease。1769 项测试：1757 通过、11 跳过、1 项相同的既有额度测试失败；扫码测试 12/12 通过。Release 签名构建成功，联合命令因既有测试失败返回非零。
+- 日志：qr-dev-merge-verification.log。没有执行真机验证或安装，AOCI 维护仍不可用。

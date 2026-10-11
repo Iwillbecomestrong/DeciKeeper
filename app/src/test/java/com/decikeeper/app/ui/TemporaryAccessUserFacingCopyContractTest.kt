@@ -19,6 +19,18 @@ class TemporaryAccessUserFacingCopyContractTest {
     }
 
     @Test
+    fun secondaryEmergencyEntryAndExecutionAreRemoved() {
+        val lock = source("src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
+        val layout = source("src/main/res/layout/window_lock_screen.xml")
+        assertFalse(layout.contains("btn_temporary_access_quick_10"))
+        assertFalse(lock.contains("showEmergencyTenConfirmDialog"))
+        assertFalse(lock.contains("scheduleEmergencyRelock"))
+        assertFalse(lock.contains("temporaryEmergencyRemainingUsesInCooldown"))
+        assertFalse(lock.contains("temp_emergency_"))
+        assertFalse(lock.contains("recordEmergencyAccessStarted"))
+    }
+
+    @Test
     fun userFacingTemporaryAccessUsesCanonicalName() {
         val files = listOf(
             source("src/main/java/com/decikeeper/app/ui/HelpActivity.kt"),

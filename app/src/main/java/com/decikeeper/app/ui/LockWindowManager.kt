@@ -498,7 +498,6 @@ object LockWindowManager {
     private var btnWeeklyPrivilege: Button? = null
     private var btnBackToHome: Button? = null
     private var btnTemporaryAccess: Button? = null
-    private var btnTemporaryAccessQuickTen: Button? = null
     private var btnTemporaryAccessHelp: ImageButton? = null
     private var penaltyOverlay: View? = null
     private var penaltyMessage: TextView? = null
@@ -654,7 +653,6 @@ object LockWindowManager {
     private var temporaryAccessTargetPackageName: String? = null
     private var temporaryAccessLogRequestId: String? = null
     private var temporaryAccessLogSessionId: String? = null
-    private var temporaryAccessLogEmergency: Boolean = false
     private val temporaryCooldownSettlement = LifecycleCooldownSettlement()
     internal var privilegeDesktopStreakTargetPkg: String? = null
     internal var privilegeLastNonLauncherPkg: String? = null
@@ -788,11 +786,6 @@ object LockWindowManager {
     @Volatile
     private var expiryStormEventEmitted: Boolean = false
     // ============================================================================
-    // 🗳️ 到期时使用 MonitorService 持续记录的 recentForegroundLog（带时间戳环形缓冲区）
-    @Volatile
-    private var temporaryEmergencyLastUseAtInCooldown = 0L
-    @Volatile
-    private var temporaryEmergencyRemainingUsesInCooldown = 0
     // 📝 临时解锁期间检测到的最后一个非桌面/IronWill app，用于到期时穿透误报
     private var temporaryAccessLastNonLauncherPkg: String? = null
     // 📝 临时解锁期间最近一次前台检测到的 pkg（用于到期定时器回退路径判断）
@@ -821,9 +814,6 @@ object LockWindowManager {
     private const val KEY_TEMP_ACCESS_TARGET_PACKAGE = "temp_access_target_package"
     private const val KEY_TEMP_LOG_REQUEST_ID = "temp_log_request_id"
     private const val KEY_TEMP_LOG_SESSION_ID = "temp_log_session_id"
-    private const val KEY_TEMP_LOG_EMERGENCY = "temp_log_emergency"
-    private const val KEY_TEMP_EMERGENCY_LAST_USE_AT = "temp_emergency_last_use_at"
-    private const val KEY_TEMP_EMERGENCY_REMAINING_USES = "temp_emergency_remaining_uses"
     
     // For debounce
     private var mLastLockTime = 0L
@@ -1605,45 +1595,35 @@ object LockWindowManager {
     private fun formatLifecycleTime(value: Long): String =
         java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.US).format(java.util.Date(value))
 
-    private fun beginTemporaryAccessLifecycle(seconds: Int, emergency: Boolean) {
-        temporaryAccessLogRequestId = nextLifecycleId(if (emergency) "EMERGENCY" else "TEMP")
-        temporaryAccessLogSessionId = nextLifecycleId(if (emergency) "EMERGENCY-SESSION" else "TEMP-SESSION")
-        temporaryAccessLogEmergency = emergency
+    private fun beginTemporaryAccessLifecycle(seconds: Int) {
+        temporaryAccessLogRequestId = nextLifecycleId("TEMP")
+        temporaryAccessLogSessionId = nextLifecycleId("TEMP-SESSION")
         val requestId = requireNotNull(temporaryAccessLogRequestId)
         val sessionId = requireNotNull(temporaryAccessLogSessionId)
-        // Boundary 1 — anchor the expiry controller to the freshly minted session id so
-        // a DEFERRED_ACCEPTED tick in this lifecycle produces a stable operationId.
+        // 到期控制器绑定本次会话，确保重试沿用同一操作标识。
         beginExpiryOperationForSession(sessionId)
-        if (emergency) {
-            lifecycleNormalEventBridge.recordEmergencyAccessStarted(requestId, sessionId, "${seconds}s")
-        } else {
-            lifecycleNormalEventBridge.recordTemporaryAccessStarted(
-                requestId = requestId,
-                sessionId = sessionId,
-                requested = "${seconds}s",
-                granted = "${seconds}s",
-                opens = "APP_LOCK+TIME_WINDOW_LOCK",
-                borrowed = temporaryAccessChargedMinutes > 0.0,
-                quotaCost = "${formatLifecycleMinutes(temporaryAccessChargedMinutes)}min"
-            )
-        }
+        lifecycleNormalEventBridge.recordTemporaryAccessStarted(
+            requestId = requestId,
+            sessionId = sessionId,
+            requested = "${seconds}s",
+            granted = "${seconds}s",
+            opens = "APP_LOCK+TIME_WINDOW_LOCK",
+            borrowed = temporaryAccessChargedMinutes > 0.0,
+            quotaCost = "${formatLifecycleMinutes(temporaryAccessChargedMinutes)}min"
+        )
     }
 
     private fun endTemporaryAccessLifecycle(nowMs: Long, reason: String = "TIME_EXPIRED", nextState: String? = null) {
         val sessionId = temporaryAccessLogSessionId ?: return
         val actualDuration = (nowMs - temporaryAccessStartAt).coerceAtLeast(0L)
-        if (temporaryAccessLogEmergency) {
-            lifecycleNormalEventBridge.recordEmergencyAccessEnded(sessionId, "${actualDuration / 1000L}s", reason)
-        } else {
-            val state = LifecycleTerminalState.resolve(nowMs, temporaryReuseCooldownUntil, nextState ?: "ENDED")
-            lifecycleNormalEventBridge.recordTemporaryAccessEnded(
-                sessionId = sessionId,
-                actualDuration = "${formatLifecycleMinutes(actualDuration / 60_000.0)}min",
-                reason = reason,
-                nextState = state.nextState,
-                cooldownEndsAt = state.cooldownEndsAtMs?.let(::formatLifecycleTime)
-            )
-        }
+        val state = LifecycleTerminalState.resolve(nowMs, temporaryReuseCooldownUntil, nextState ?: "ENDED")
+        lifecycleNormalEventBridge.recordTemporaryAccessEnded(
+            sessionId = sessionId,
+            actualDuration = "${formatLifecycleMinutes(actualDuration / 60_000.0)}min",
+            reason = reason,
+            nextState = state.nextState,
+            cooldownEndsAt = state.cooldownEndsAtMs?.let(::formatLifecycleTime)
+        )
     }
 
     private fun rejectTemporaryAccessLifecycle(reason: String, cooldownEndMs: Long? = null) {
@@ -1682,9 +1662,6 @@ object LockWindowManager {
     private const val TEMP_ACCESS_MIN_SECONDS = 1
     private const val TEMP_ACCESS_DEFAULT_SECONDS = 120
     private const val TEMP_ACCESS_HARD_MAX_SECONDS = 180
-    private const val TEMP_ACCESS_COOLDOWN_FREE_SECONDS = 10
-    private const val TEMP_ACCESS_EMERGENCY_MIN_COOLDOWN_REQUIRED_SECONDS = 60
-    private const val TEMP_ACCESS_EMERGENCY_REUSE_GAP_SECONDS = 60
     private const val TEMP_ACCESS_EXPIRE_RELOCK_RETRY_INTERVAL_MS = 250L
     private const val TEMP_ACCESS_EXPIRE_RELOCK_MAX_RETRIES = 12
     private const val LOCK_ATTACH_PENDING_TIMEOUT_MS = 450L
@@ -1715,7 +1692,6 @@ object LockWindowManager {
         requestGeneration: Int = CoreService.getAccessibilityGeneration()
     ) {
         cancelTemporaryAccessExpiryRelockRetry()
-        cancelEmergencyRelock()
         // 🚀 [Fix] Clear post-temp-access flag so the MonitorService Foreground Guard
         // returns to normal checks after the lock screen is shown.
         if (temporaryAccessFinalRelockNeeded) {
@@ -2493,7 +2469,6 @@ object LockWindowManager {
         btnWeeklyPrivilege = mLockView?.findViewById(R.id.btn_weekly_privilege)
         btnBackToHome = mLockView?.findViewById(R.id.btn_back_to_home)
         btnTemporaryAccess = mLockView?.findViewById(R.id.btn_temporary_access)
-        btnTemporaryAccessQuickTen = mLockView?.findViewById(R.id.btn_temporary_access_quick_10)
         btnTemporaryAccessHelp = mLockView?.findViewById(R.id.btn_temporary_access_help)
         val statusBarPullZone = mLockView?.findViewById<View>(R.id.view_status_bar_pull_zone)
         penaltyOverlay = mLockView?.findViewById(R.id.view_penalty_overlay)
@@ -2669,20 +2644,6 @@ object LockWindowManager {
             showTemporaryAccessDialog(context)
         }
 
-        // 二级应急按钮：冷却中可用时提供 10s 临时解锁
-        btnTemporaryAccessQuickTen?.setSafeOnClickListener {
-            val reuseRemain = getTemporaryReuseCooldownRemainingSeconds()
-            val emergencyRemainingUses = resolveTemporaryEmergencyRemainingUses(
-                reuseRemainSeconds = reuseRemain,
-                fixedRemainingUses = temporaryEmergencyRemainingUsesInCooldown
-            )
-            if (reuseRemain > 0L && emergencyRemainingUses > 0) {
-                showEmergencyTenConfirmDialog(context, emergencyRemainingUses, getTemporaryAccessMaxSeconds(context))
-            } else {
-                Toast.makeText(context, "二级应急暂不可用", Toast.LENGTH_SHORT).show()
-            }
-        }
-
         btnTemporaryAccessHelp?.setSafeOnClickListener {
             showTemporaryAccessHelpDialog(context)
         }
@@ -2783,7 +2744,6 @@ object LockWindowManager {
         return when {
             isAppWindowBlocked -> "应用时间窗锁机（$label）"
             isAntiUninstall -> "防卸载拦截"
-            isBlacklist && label.startsWith("二级解锁休息到期") -> label
             isBlacklist -> "黑名单锁机（$label）"
             !rawReason.isNullOrBlank() -> rawReason
             else -> "未知原因"
@@ -3215,15 +3175,6 @@ object LockWindowManager {
         btnEmergency?.alpha = 1.0f
 
         val tempCooldownRemain = getTemporaryReuseCooldownRemainingSeconds(now)
-        val emergencyRemainingUses = resolveTemporaryEmergencyRemainingUses(
-            reuseRemainSeconds = tempCooldownRemain,
-            fixedRemainingUses = temporaryEmergencyRemainingUsesInCooldown
-        )
-        val emergencyGapRemain = resolveTemporaryEmergencyReuseGapRemainingSeconds(
-            temporaryEmergencyLastUseAtInCooldown,
-            now
-        )
-
         val restExhausted = isRestQuotaExhausted(context)
         val tempExhausted = isTemporaryAccessQuotaExhausted(context)
         val privilegeReason = CreditManager.getWeeklyPrivilegeUnavailableReason(context)
@@ -3231,12 +3182,13 @@ object LockWindowManager {
         val restCoolEnd = CreditManager.getCoolDownEnd(context)
         val tempCoolActive = tempCooldownRemain > 0
         val inAnyCooling = now < restCoolEnd || tempCoolActive
+        val temporaryCoolingRemaining = getTemporaryAccessCooldownRemainingSeconds(context, now)
 
         // 🌟 纯粹三出口架构渲染：DND 模式下主操作为申请休息，同时保留独立的临时解锁入口
         val tempPresentation = resolveTemporaryAccessPresentation(
             isTemporaryAccessExhausted = tempExhausted,
-            inAnyCooling = inAnyCooling,
-            coolingRemainingSeconds = tempCooldownRemain
+            inAnyCooling = temporaryCoolingRemaining > 0L,
+            coolingRemainingSeconds = temporaryCoolingRemaining
         )
         btnTemporaryAccess?.visibility =
             if (shouldShowStandaloneTemporaryAccess(currentLockRestrictionMode)) {
@@ -3248,7 +3200,6 @@ object LockWindowManager {
         btnTemporaryAccess?.isEnabled = tempPresentation.enabled
         btnTemporaryAccess?.alpha = tempPresentation.alpha
 
-        btnTemporaryAccessQuickTen?.visibility = View.GONE
         btnTemporaryAccessHelp?.visibility = View.GONE
 
         // 1. 每周特权按钮状态更新
@@ -3271,8 +3222,8 @@ object LockWindowManager {
             mode = currentLockRestrictionMode,
             privilegeUnavailableReason = privilegeReason,
             restExhausted = restExhausted,
-            inAnyCooling = inAnyCooling,
-            coolingRemainingSeconds = tempCooldownRemain,
+            inAnyCooling = if (shouldRouteEmergencyToTempAccess(currentLockRestrictionMode)) temporaryCoolingRemaining > 0L else inAnyCooling,
+            coolingRemainingSeconds = temporaryCoolingRemaining,
             isTemporaryAccessExhausted = tempExhausted
         )
         val isEmergencyEnabled = emergencyPresentation.enabled
@@ -3409,7 +3360,7 @@ object LockWindowManager {
                 }
             }
 
-            // 3. 按钮状态（含冷却倒计时、应急间隔倒计时）
+            // 3. 按钮状态（含冷却倒计时）
             updateLockViewUI()
         } catch (e: Exception) {
             // Silently ignore - next full update will fix any issues
@@ -4148,6 +4099,7 @@ object LockWindowManager {
     }
 
     private fun showTempAccessWindow(context: Context) {
+        if (rejectTemporaryAccessDuringCooldown(context)) return
         if (mRestWindow != null) return
         if (isTemporaryAccessQuotaExhausted(context)) {
             Toast.makeText(context, "今日临时解锁额度已用完，无法借用", Toast.LENGTH_SHORT).show()
@@ -4377,17 +4329,11 @@ object LockWindowManager {
         val isA11y = isServiceActive()
         val dialogContext = if (isA11y) mCoreService!! else context
         val maxSeconds = getTemporaryAccessMaxSeconds(context)
-        val isCooling = CreditManager.isCooling(context)
-        val coolMsg = if (isCooling) {
-            "\n\n⚠️ 当前处于休息冷却期：本次申请的时间与次数整单翻倍（×2）。\n" +
-                "例如：申请 0.5 分钟 → 计费 1.0 分钟；申请 1.0 分钟 → 计费 2.0 分钟。"
-        } else ""
         val dialog = AlertDialog.Builder(dialogContext)
             .setTitle("临时解锁使用说明")
             .setMessage(
                 "可临时解锁 1~$maxSeconds 秒。\n" +
-                    "结束后不再强制锁机；冷却规则按时长分段递增：1分钟内按1倍，2分钟内按2倍，3分钟内按3倍。比如放行3分钟，冷却就是6分钟。二级临时总次数按本轮初始冷却秒数÷60四舍五入后固定，仅在实际使用10秒二级临时时扣减，且两次至少间隔60秒。" +
-                    coolMsg
+                    "结束后按当前统一冷却时间等待。所有冷却期内均不能临时解锁，包括休息中和空档期。冷却结束后，原有免费与计费规则继续适用。"
             )
             .setPositiveButton("我知道了", null)
             .create()
@@ -4452,51 +4398,6 @@ object LockWindowManager {
         dialog.applyEscapeDisciplineColors()
     }
 
-    /**
-     * 二级应急 10 秒确认弹窗。
-     */
-    private fun showEmergencyTenConfirmDialog(
-        context: Context,
-        remainingUses: Int,
-        maxSeconds: Int
-    ) {
-        val isA11y = isServiceActive()
-        val dialogContext = if (isA11y) mCoreService!! else context
-
-        val message = buildString {
-            append("⚠️ 二级应急（10 秒临时解锁）\n\n")
-            append("• 用途：应急扫码、快速查看等场景\n")
-            append("• 本次剩余可使用次数: ${remainingUses} 次\n")
-            append("• 10秒内不消耗休息额度\n")
-            append("• 使用后需等待 60 秒才能再次使用\n\n")
-            append("确定要使用二级应急吗？")
-        }
-
-        val dialog = AlertDialog.Builder(dialogContext)
-            .setTitle("二级应急确认")
-            .setMessage(message)
-            .setPositiveButton("确认") { _, _ ->
-                startTemporaryAccess(context, TEMP_ACCESS_COOLDOWN_FREE_SECONDS, maxSeconds)
-            }
-            .setNegativeButton("取消", null)
-            .create()
-
-        if (isA11y) {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-        } else {
-            dialog.window?.setType(WindowManager.LayoutParams.TYPE_PHONE)
-        }
-        dialog.window?.clearFlags(
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
-        )
-
-        dialog.show()
-        dialog.applyEscapeDisciplineColors()
-    }
-
     private fun startTemporaryAccess(
         context: Context,
         rawSeconds: Int,
@@ -4506,6 +4407,10 @@ object LockWindowManager {
         prechargedPlan: TemporaryAccessQuotaPlan? = null
     ) {
         val now = System.currentTimeMillis()
+        if (rejectTemporaryAccessDuringCooldown(context, now)) return
+        // 借用确认后的扣费也必须位于冷却门禁之后，拒绝时不动额度。
+        if (quotaAlreadyDeducted && prechargedPlan != null &&
+            !CreditManager.applyTemporaryAccessQuotaPlan(context, prechargedPlan)) return
         val seconds = normalizeTemporaryAccessSeconds(rawSeconds, maxSeconds)
         var currentChargeSecondsForSession = prechargedPlan?.currentTimeCostSec ?: 0
         var nextChargeSecondsForSession = prechargedPlan?.nextTimeCostSec ?: 0
@@ -4515,7 +4420,6 @@ object LockWindowManager {
         resetDesktopStreak()
         temporaryAccessLastNonLauncherPkg = null
         temporaryAccessLastDetectedPkg = null
-        emergencyStartPackage = null
 
         val currentSegment = TimeRuleManager.getCurrentSegment(context)
         val isInDndSegment = currentSegment != null // 在勿扰时段（非空档期）
@@ -4529,16 +4433,6 @@ object LockWindowManager {
         Log.d(TAG, "startTemporaryAccess[DIAG] ENTRY rawSeconds=$rawSeconds seconds=$seconds skipBorrowDialog=$skipBorrowDialog currentSegment=${currentSegment?.name ?: "null"}(${currentSegment?.formatTimeRange() ?: "N/A"}) isInDndSegment=$isInDndSegment borrowedBefore=${diagBorrowedBefore}min remainingBefore=${diagRemainingBefore}min")
 
         val reuseRemain = getTemporaryReuseCooldownRemainingSeconds(now)
-        val emergencyRemainingUses = resolveTemporaryEmergencyRemainingUses(
-            reuseRemainSeconds = reuseRemain,
-            fixedRemainingUses = temporaryEmergencyRemainingUsesInCooldown
-        )
-        val emergencyGapRemain = resolveTemporaryEmergencyReuseGapRemainingSeconds(
-            temporaryEmergencyLastUseAtInCooldown,
-            now
-        )
-        val isEmergencyInCooldown = isEmergencyTemporaryAccessDuringCooldown(reuseRemain, seconds)
-
         val existingCooldownEndMs = maxOf(
             CreditManager.getCoolDownEnd(context),
             if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L
@@ -4565,8 +4459,7 @@ object LockWindowManager {
         val effectiveSeconds = chargeSnapshot.weightedTimeCostSec
         val countCost = chargeSnapshot.weightedCountHalfUnits
 
-        // 二级应急（10s 冷却中）不扣额度，无需检查休息额度
-        if (isInDndSegment && !isEmergencyInCooldown) {
+        if (isInDndSegment) {
             val remainingSecs = kotlin.math.round(CreditManager.getRemainingMinutes(context) * 60).toInt()
             Log.d(TAG, "startTemporaryAccess[DIAG] BORROW_CHECK seconds=$seconds freeSec=$freeSec dndSec=${chargeSnapshot.dndSec} coolOverlapSec=$coolOverlapSec effectiveSeconds=$effectiveSeconds remainingSecs=$remainingSecs needBorrow=${remainingSecs < effectiveSeconds}")
 
@@ -4614,78 +4507,6 @@ object LockWindowManager {
                 }
             }
         }
-        if (isEmergencyInCooldown && !canUseTemporaryEmergencyDuringCooldown(
-                reuseRemain,
-                temporaryEmergencyLastUseAtInCooldown,
-                now,
-                seconds,
-                remainingUsesInCooldown = emergencyRemainingUses
-            )) {
-            if (emergencyGapRemain > 0L) {
-                rejectTemporaryAccessLifecycle("COOLDOWN_ACTIVE", now + reuseRemain * 1000L)
-                Toast.makeText(
-                    context,
-                    "二级临时每次10秒结束后需再等${TEMP_ACCESS_EMERGENCY_REUSE_GAP_SECONDS}秒，请再等${emergencyGapRemain}s",
-                    Toast.LENGTH_SHORT
-                ).show()
-                return
-            }
-            Toast.makeText(
-                context,
-                if (emergencyRemainingUses <= 0) {
-                    "主冷却剩余不足60秒，当前不可申请二级临时"
-                } else {
-                    "冷却中二级临时每60秒仅可申请1次"
-                },
-                Toast.LENGTH_SHORT
-            ).show()
-            rejectTemporaryAccessLifecycle("COOLDOWN_ACTIVE", now + reuseRemain * 1000L)
-            return
-        }
-
-        val activeCooldownUntil = if (reuseRemain > 0L) now + reuseRemain * 1000L else 0L
-
-        // 二级应急：10s 临时解锁，若未切换 App 则到点自动锁屏
-        // 期间和普通临时解锁一样可自由访问黑名单 App
-        if (isEmergencyInCooldown) {
-            val emergencyAccessUntil = now + seconds * 1000L
-            temporaryAccessUntil = emergencyAccessUntil
-            temporaryAccessSeconds = seconds
-            temporaryAccessStartAt = now
-            temporaryAccessChargedMinutes = 0.0
-            clearTemporaryAccessChargeReceipt()
-            // 二级应急解锁不延长一级冷却：闹钟挑战本身就是代价，冷却保持原有结束时间
-            temporaryReuseCooldownUntil = activeCooldownUntil
-            temporaryAccessExpiredAt = 0L
-            temporaryAccessTargetPackageName = lastBlockedPackageName
-            mDismissUntil = emergencyAccessUntil
-
-            // 记录启动时的前台 App，供 10s 后判断是否切换
-            emergencyStartPackage = lastBlockedPackageName
-
-            // 更新应急冷却状态：记录本次使用时间、扣减剩余次数
-            temporaryEmergencyLastUseAtInCooldown = emergencyAccessUntil
-            temporaryEmergencyRemainingUsesInCooldown =
-                (temporaryEmergencyRemainingUsesInCooldown - 1).coerceAtLeast(0)
-            beginTemporaryAccessLifecycle(seconds, emergency = true)
-            saveTemporaryAccessState()
-
-            LogExporter.logEvent(
-                "TemporaryAccess",
-                "[EMERGENCY] 10s free access, startPkg=$emergencyStartPackage, cooldownUntil=$temporaryReuseCooldownUntil, emergencyLastUse=$temporaryEmergencyLastUseAtInCooldown, emergencyRemainingUses=$temporaryEmergencyRemainingUsesInCooldown, targetPkg=${temporaryAccessTargetPackageName ?: "N/A"}"
-            )
-
-            // 调度 10s 后检查：未切换 App 则强制锁屏
-            scheduleEmergencyRelock(context, emergencyAccessUntil)
-
-            // 共用：解锁并重置状态
-            resetConsecutiveNormalLockState("temporary_access_started")
-            totalSegmentBlacklistHits = 0
-            Toast.makeText(context, "已临时解锁10s，若未切换App则到时自动锁定", Toast.LENGTH_SHORT).show()
-
-            dismissLockScreen(LockDismissAuthority.TEMPORARY_ACCESS)
-            return
-        }
         // 空档期申请超出空档期（进入下一勿扰时段）：整段计费，先扣前序结余，不足部分扣下一勿扰段额度（不算借用）
         if (isInGap && chargeSnapshot.dndSec > 0) {
             if (!CreditManager.consumeGapOverflowCharge(context, effectiveSeconds, countCost)) {
@@ -4697,8 +4518,7 @@ object LockWindowManager {
 
         val accessUntil = now + seconds * 1000L
         val globalCoolSec = TimeRuleManager.getCoolDownRestSeconds(context).coerceAtLeast(0)
-        val newCooldownUntil = accessUntil + calculateTemporaryReuseCooldownMs(globalCoolSec)
-        val cooldownUntil = maxOf(activeCooldownUntil, newCooldownUntil)
+        val cooldownUntil = accessUntil + calculateTemporaryReuseCooldownMs(globalCoolSec)
         val cooldownAfterAccessRemainMs = (cooldownUntil - accessUntil).coerceAtLeast(0L)
         val cooldownSeconds = (cooldownAfterAccessRemainMs + 999L) / 1000L
         temporaryAccessUntil = accessUntil
@@ -4711,19 +4531,6 @@ object LockWindowManager {
         CreditManager.setCoolDownEnd(context, cooldownUntil)
         temporaryAccessExpiredAt = 0L
         temporaryAccessTargetPackageName = lastBlockedPackageName
-        if (cooldownUntil <= now) {
-            temporaryEmergencyLastUseAtInCooldown = 0L
-            temporaryEmergencyRemainingUsesInCooldown = 0
-        } else if (isEmergencyInCooldown) {
-            // Secondary unlock gap is measured after the 10s access ends.
-            temporaryEmergencyLastUseAtInCooldown = accessUntil
-            temporaryEmergencyRemainingUsesInCooldown =
-                (temporaryEmergencyRemainingUsesInCooldown - 1).coerceAtLeast(0)
-        } else if (reuseRemain <= 0L) {
-            temporaryEmergencyLastUseAtInCooldown = 0L
-            temporaryEmergencyRemainingUsesInCooldown =
-                calculateTemporaryEmergencyBudgetTotal(cooldownSeconds)
-        }
         mDismissUntil = accessUntil
         saveTemporaryAccessState()
         scheduleTemporaryAccessExpiryIfNeeded()
@@ -4731,7 +4538,7 @@ object LockWindowManager {
         // 临时解锁 legacy lifecycle line retired; TEMP_ACCESS_START normal event already records the outcome.
 
         // [勿扰时段扣除休息额度] 在勿扰时段临时解锁需要扣除休息额度
-        // 空档期不扣额度（空档期本来就是休息的），二级应急（10s冷却中）已提前返回
+        // 空档期不扣额度（空档期本来就是休息的）
         // 🆕 免扣场景：休息中也不扣时间（spec §免扣场景）
         // 🛡️ [Finding 1 修复] 结算直接消费预检确定的 chargeSnapshot，严禁重新读取已被本次修改的冷却状态！
         if (isInDndSegment && !quotaAlreadyDeducted) {
@@ -4806,7 +4613,7 @@ object LockWindowManager {
         setTemporaryAccessChargeReceipt(chargeReceipt)
         temporaryAccessChargedMinutes =
             (currentChargeSecondsForSession + nextChargeSecondsForSession) / 60.0
-        beginTemporaryAccessLifecycle(seconds, emergency = false)
+        beginTemporaryAccessLifecycle(seconds)
         saveTemporaryAccessState()
 
         resetConsecutiveNormalLockState("temporary_access_started")
@@ -4932,71 +4739,23 @@ object LockWindowManager {
         requestedSeconds: Int,
         maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS
     ): Boolean {
-        // SPEC §3.2 契约：冷静期再犯进入加权双倍扣除，不再硬性阻断临时解锁
-        return false
-    }
-
-    internal fun shouldShowTemporaryEmergencyTenButton(reuseRemainSeconds: Long): Boolean {
         return reuseRemainSeconds > 0L
     }
 
-    internal fun isEmergencyTemporaryAccessDuringCooldown(
-        reuseRemainSeconds: Long,
-        requestedSeconds: Int,
-        maxSeconds: Int = TEMP_ACCESS_DEFAULT_SECONDS
-    ): Boolean {
-        if (reuseRemainSeconds <= 0L) return false
-        val normalized = normalizeTemporaryAccessSeconds(requestedSeconds, maxSeconds)
-        return normalized == TEMP_ACCESS_COOLDOWN_FREE_SECONDS
+    internal fun getTemporaryAccessCooldownRemainingSeconds(context: Context, nowMs: Long = System.currentTimeMillis()): Long {
+        // 休息未结束时，其预设的结束后冷却尚未生效；独立临时解锁冷却仍然生效。
+        val restRemaining = if (CreditManager.getFreeTimeEnd(context) > nowMs) 0L else
+            ((CreditManager.getCoolDownEnd(context) - nowMs + 999L) / 1000L).coerceAtLeast(0L)
+        return maxOf(restRemaining, getTemporaryAccessSnapshot(context, nowMs).cooldownRemainingSeconds)
     }
 
-    internal fun canUseTemporaryEmergencyDuringCooldown(
-        reuseRemainSeconds: Long,
-        lastUseAtMs: Long = 0L,
-        nowMs: Long = System.currentTimeMillis(),
-        requestedSeconds: Int = TEMP_ACCESS_COOLDOWN_FREE_SECONDS,
-        minGapSeconds: Int = TEMP_ACCESS_EMERGENCY_REUSE_GAP_SECONDS,
-        minCooldownRequiredSeconds: Int = TEMP_ACCESS_EMERGENCY_MIN_COOLDOWN_REQUIRED_SECONDS,
-        remainingUsesInCooldown: Int = -1
-    ): Boolean {
-        if (reuseRemainSeconds <= 0L) return true
-        if (requestedSeconds != TEMP_ACCESS_COOLDOWN_FREE_SECONDS) return false
-        if (remainingUsesInCooldown == 0) return false
-        if (remainingUsesInCooldown < 0 && reuseRemainSeconds < minCooldownRequiredSeconds) return false
-        if (lastUseAtMs <= 0L) return true
-        val elapsedMs = nowMs - lastUseAtMs
-        return elapsedMs >= minGapSeconds * 1000L
-    }
-
-    internal fun calculateTemporaryEmergencyBudgetTotal(
-        cooldownSeconds: Long,
-        perUseCooldownSeconds: Int = TEMP_ACCESS_EMERGENCY_MIN_COOLDOWN_REQUIRED_SECONDS
-    ): Int {
-        if (cooldownSeconds <= 0L) return 0
-        val divisor = perUseCooldownSeconds.toLong().coerceAtLeast(1L)
-        return (cooldownSeconds / divisor).toInt().coerceAtLeast(0)
-    }
-
-    internal fun resolveTemporaryEmergencyReuseGapRemainingSeconds(
-        lastUseAtMs: Long,
-        nowMs: Long = System.currentTimeMillis(),
-        minGapSeconds: Int = TEMP_ACCESS_EMERGENCY_REUSE_GAP_SECONDS
-    ): Long {
-        if (lastUseAtMs <= 0L) return 0L
-        val remainMs = lastUseAtMs + minGapSeconds * 1000L - nowMs
-        if (remainMs <= 0L) return 0L
-        return ((remainMs + 999L) / 1000L)
-    }
-
-    internal fun resolveTemporaryEmergencyRemainingUses(
-        reuseRemainSeconds: Long,
-        fixedRemainingUses: Int = -1,
-        perUseCooldownSeconds: Int = TEMP_ACCESS_EMERGENCY_MIN_COOLDOWN_REQUIRED_SECONDS
-    ): Int {
-        if (fixedRemainingUses >= 0) return fixedRemainingUses.coerceAtLeast(0)
-        if (reuseRemainSeconds <= 0L) return 0
-        // Use rounding consistent with calculateTemporaryEmergencyBudgetTotal so budget matches other calculations
-        return calculateTemporaryEmergencyBudgetTotal(reuseRemainSeconds, perUseCooldownSeconds)
+    private fun rejectTemporaryAccessDuringCooldown(context: Context, nowMs: Long = System.currentTimeMillis()): Boolean {
+        val remaining = getTemporaryAccessCooldownRemainingSeconds(context, nowMs)
+        if (!shouldBlockTemporaryAccessByReuseCooldown(remaining, 0)) return false
+        rejectTemporaryAccessLifecycle("COOLDOWN_ACTIVE", nowMs + remaining * 1000L)
+        CreditManager.recordCooldownAttemptEvent(context)
+        Toast.makeText(context, "冷却中，还需等待 ${remaining}s，暂不能临时解锁", Toast.LENGTH_SHORT).show()
+        return true
     }
 
     internal fun getTemporaryAccessRemainingSeconds(nowMs: Long = System.currentTimeMillis()): Long {
@@ -5214,9 +4973,6 @@ object LockWindowManager {
                 .putString(KEY_TEMP_ACCESS_TARGET_PACKAGE, temporaryAccessTargetPackageName)
                 .putString(KEY_TEMP_LOG_REQUEST_ID, temporaryAccessLogRequestId)
                 .putString(KEY_TEMP_LOG_SESSION_ID, temporaryAccessLogSessionId)
-                .putBoolean(KEY_TEMP_LOG_EMERGENCY, temporaryAccessLogEmergency)
-                .putLong(KEY_TEMP_EMERGENCY_LAST_USE_AT, temporaryEmergencyLastUseAtInCooldown)
-                .putInt(KEY_TEMP_EMERGENCY_REMAINING_USES, temporaryEmergencyRemainingUsesInCooldown)
                 .apply()
         } catch (e: Exception) {
             Log.w("LockWindowManager", "saveTemporaryAccessState: failed to persist state: ${e.message}")
@@ -5256,9 +5012,6 @@ object LockWindowManager {
         resetDesktopStreak()
         temporaryAccessLogRequestId = null
         temporaryAccessLogSessionId = null
-        temporaryAccessLogEmergency = false
-        temporaryEmergencyLastUseAtInCooldown = 0L
-        temporaryEmergencyRemainingUsesInCooldown = 0
         temporaryAccessLastNonLauncherPkg = null
         temporaryAccessLastDetectedPkg = null
         val context = mContext ?: return
@@ -5278,9 +5031,6 @@ object LockWindowManager {
                 .remove(KEY_TEMP_ACCESS_TARGET_PACKAGE)
                 .remove(KEY_TEMP_LOG_REQUEST_ID)
                 .remove(KEY_TEMP_LOG_SESSION_ID)
-                .remove(KEY_TEMP_LOG_EMERGENCY)
-                .remove(KEY_TEMP_EMERGENCY_LAST_USE_AT)
-                .remove(KEY_TEMP_EMERGENCY_REMAINING_USES)
                 .apply()
         } catch (e: Exception) {
             Log.w("LockWindowManager", "clearTemporaryAccessState: failed to clear prefs: ${e.message}")
@@ -5312,9 +5062,6 @@ object LockWindowManager {
         val persistedTargetPackage = prefs.getString(KEY_TEMP_ACCESS_TARGET_PACKAGE, null)
         val persistedLogRequestId = prefs.getString(KEY_TEMP_LOG_REQUEST_ID, null)
         val persistedLogSessionId = prefs.getString(KEY_TEMP_LOG_SESSION_ID, null)
-        val persistedLogEmergency = prefs.getBoolean(KEY_TEMP_LOG_EMERGENCY, false)
-        val persistedEmergencyLastUseAt = prefs.getLong(KEY_TEMP_EMERGENCY_LAST_USE_AT, 0L)
-        val persistedEmergencyRemainingUses = prefs.getInt(KEY_TEMP_EMERGENCY_REMAINING_USES, -1)
         val now = System.currentTimeMillis()
 
         if (persistedAccessUntil <= 0L && persistedCooldownUntil <= 0L) {
@@ -5349,29 +5096,6 @@ object LockWindowManager {
         }
         temporaryAccessLogRequestId = persistedLogRequestId
         temporaryAccessLogSessionId = persistedLogSessionId
-        temporaryAccessLogEmergency = persistedLogEmergency
-        temporaryEmergencyLastUseAtInCooldown = if (temporaryReuseCooldownUntil > now) {
-            persistedEmergencyLastUseAt
-        } else {
-            0L
-        }
-        temporaryEmergencyRemainingUsesInCooldown = if (temporaryReuseCooldownUntil > now) {
-            if (persistedEmergencyRemainingUses >= 0) {
-                persistedEmergencyRemainingUses.coerceAtLeast(0)
-            } else {
-                // Migration fallback for old state without persisted fixed budget.
-                calculateTemporaryEmergencyBudgetTotal(
-                    cooldownSeconds = calculateTemporaryReuseCooldownRemainingSeconds(
-                        accessUntilMs = temporaryAccessUntil,
-                        cooldownUntilMs = temporaryReuseCooldownUntil,
-                        nowMs = now
-                    )
-                )
-            }
-        } else {
-            0
-        }
-
         if (temporaryAccessUntil > 0L) {
             mDismissUntil = maxOf(mDismissUntil, temporaryAccessUntil)
         }
@@ -5426,13 +5150,9 @@ object LockWindowManager {
         if (temporaryReuseCooldownUntil <= nowMs) {
             temporaryAccessLogSessionId?.let { sessionId ->
                 temporaryCooldownSettlement.settleIfExpired(nowMs, temporaryReuseCooldownUntil) {
-                    if (!temporaryAccessLogEmergency) {
-                        lifecycleNormalEventBridge.recordTemporaryAccessCooldownEnded(sessionId)
-                    }
+                    lifecycleNormalEventBridge.recordTemporaryAccessCooldownEnded(sessionId)
                 }
             }
-            temporaryEmergencyLastUseAtInCooldown = 0L
-            temporaryEmergencyRemainingUsesInCooldown = 0
         }
         return remainSeconds
     }
@@ -5562,56 +5282,6 @@ object LockWindowManager {
     private const val STORM_THRESHOLD = 5
     private const val STORM_WINDOW_MS = 60_000L
     // ============================================================================
-
-    // 二级应急启动时的前台 App，供 10s 后判断是否切换
-    private var emergencyStartPackage: String? = null
-
-    // 二级应急 10s 后检查：若未切换 App 则强制锁屏
-    private var emergencyRelockRunnable: Runnable? = null
-
-    private fun scheduleEmergencyRelock(context: Context, relockAtMs: Long) {
-        cancelEmergencyRelock()
-        val delayMs = (relockAtMs - System.currentTimeMillis()).coerceAtLeast(0L)
-        emergencyRelockRunnable = Runnable {
-            val ctx = mContext ?: return@Runnable
-            val nowFg = getLastKnownForegroundPkg()
-            val startPkg = emergencyStartPackage
-            val blacklistApps = CreditManager.getBlacklistApps(ctx)
-            val isStillBlacklisted = nowFg == null || blacklistApps.contains(nowFg)
-            if (isStillBlacklisted) {
-                // 到期时前台仍是黑名单 App（或无法判定）→ 强制锁屏
-                val appName = if (nowFg != null) {
-                    try {
-                        ctx.packageManager.getApplicationLabel(
-                            ctx.packageManager.getApplicationInfo(nowFg, 0)
-                        ).toString()
-                    } catch (_: Exception) { nowFg }
-                } else {
-                    startPkg ?: "未知应用"
-                }
-                val label = "二级解锁休息到期（$appName）"
-                LogExporter.logEvent("TemporaryAccess", "[EMERGENCY_RELOCK] still on blacklist, locking. startPkg=$startPkg, nowFg=$nowFg, label=$label")
-                transitionTemporaryAccessToCooldownIfNeeded(System.currentTimeMillis())
-                showLockScreen(
-                    reason = label,
-                    isAntiUninstall = false,
-                    isBlacklist = true,
-                    blockedAppLabel = label,
-                    blockedPackageName = nowFg ?: temporaryAccessTargetPackageName
-                )
-            } else {
-                // 切换到非黑名单 App（如桌面）→ 走正常到期流程
-                LogExporter.logEvent("TemporaryAccess", "[EMERGENCY_RELOCK] switched to non-blacklist app, normal expiry. startPkg=$startPkg, nowFg=$nowFg")
-                handleTemporaryAccessExpired(context)
-            }
-        }
-        mUiHandler.postDelayed(emergencyRelockRunnable!!, delayMs)
-    }
-
-    private fun cancelEmergencyRelock() {
-        emergencyRelockRunnable?.let { mUiHandler.removeCallbacks(it) }
-        emergencyRelockRunnable = null
-    }
 
     private fun scheduleTemporaryAccessExpiryRelockRetry(context: Context) {
         // Boundary 1 — REQ-004 / REQ-005: gate the unbounded tick behind a CAS attempt.
@@ -6477,16 +6147,14 @@ object LockWindowManager {
             plan = plan,
             confirmText = "确认使用"
         ) {
-            if (CreditManager.applyTemporaryAccessQuotaPlan(context, plan)) {
-                startTemporaryAccess(
-                    context,
-                    rawSeconds,
-                    maxSeconds,
-                    skipBorrowDialog = true,
-                    quotaAlreadyDeducted = true,
-                    prechargedPlan = plan
-                )
-            }
+            startTemporaryAccess(
+                context,
+                rawSeconds,
+                maxSeconds,
+                skipBorrowDialog = true,
+                quotaAlreadyDeducted = true,
+                prechargedPlan = plan
+            )
         }
     }
 
@@ -7223,21 +6891,6 @@ class LockLifecycleEventBridge(
         "TEMP_ACCESS_COOLDOWN_END",
         "sessionId" to sessionId,
         "result" to "AVAILABLE"
-    )
-
-    fun recordEmergencyAccessStarted(requestId: String, sessionId: String, granted: String) = event(
-        "EMERGENCY_ACCESS_START",
-        "requestId" to requestId,
-        "sessionId" to sessionId,
-        "granted" to granted,
-        "result" to "APPROVED"
-    )
-
-    fun recordEmergencyAccessEnded(sessionId: String, actualDuration: String, reason: String) = event(
-        "EMERGENCY_ACCESS_END",
-        "sessionId" to sessionId,
-        "actualDuration" to actualDuration,
-        "reason" to reason
     )
 
     fun recordPrivilegeRequested(requestId: String, requested: String) = event(
