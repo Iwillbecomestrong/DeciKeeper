@@ -116,6 +116,8 @@ class CameraXScanManager(
      * 而不是只把二维码分析开关重新设为 true。
      */
     fun start(previewView: PreviewView, onScanSuccess: (String) -> Unit) {
+        // TextureView 在覆盖层窗口内合成，避免分屏 Activity 与透明取景孔错位。
+        previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         val generation = ++bindGeneration
         onScanSuccessCallback = onScanSuccess
 
@@ -309,6 +311,11 @@ class CameraXScanManager(
             .addOnCompleteListener {
                 imageProxy.close()
             }
+    }
+
+    // 等待前台/预览就绪时只停分析，不能把已出帧状态清掉，否则 onResume 无法恢复。
+    fun pauseAnalysis() {
+        isAnalyzing.set(false)
     }
 
     /**
