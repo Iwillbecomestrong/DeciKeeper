@@ -6,14 +6,14 @@ import org.junit.Test
 import java.io.File
 
 /**
- * 扫码取景模式的契约：覆盖层必须保持**不透明且可触摸**，只在中间留取景开孔。
+ * 扫码取景模式的契约：覆盖层保持可触摸，取景框自身是不透明的 CameraX 画面。
  *
  * 关联真机缺陷：旧实现把整层设为 alpha=0 + FLAG_NOT_TOUCHABLE（"穿透"），
  * 结果扫码期间既盖不住也拦不住系统弹层——长按电源键会露出 vivo 语音助手，
  * 关机菜单还能被直接点击。
  *
- * 注意：覆盖层窗口渲染不了 SurfaceView，所以开孔里的画面来自下方 AlarmActivity
- * 的相机预览，覆盖层自带的 DecoratedBarcodeView 必须保持不可见。
+ * 分屏回归：严禁依赖下方 AlarmActivity 的窗口透过透明开孔显示相机，
+ * 否则在应急白名单的分屏场景中会露出另一半应用的内容。
  */
 class AlarmScanCutoutContractTest {
 
@@ -63,10 +63,10 @@ class AlarmScanCutoutContractTest {
         assertTrue(overlaySource.contains("applyScanCutoutLayers(view, enable)"))
         assertTrue(overlaySource.contains("SCAN_CUTOUT_ENABLED"))
         assertTrue(overlaySource.contains("SCAN_CUTOUT_DISABLED"))
-        // 根容器与扫码容器必须转透明，否则会挡住开孔
+        // 根容器/扫码容器透明由挡板填充；取景框必须独立不透明，不能透出分屏应用。
         assertTrue(overlaySource.contains("root?.setBackgroundColor(Color.TRANSPARENT)"))
         assertTrue(overlaySource.contains("scanLayout?.setBackgroundColor(Color.TRANSPARENT)"))
-        // 挑战内容必须隐藏，否则会从开孔透出来
+        // 挑战内容不能和扫码布局重叠
         assertTrue(overlaySource.contains("content?.visibility = View.GONE"))
         // 退出时必须原样还原背景
         assertTrue(overlaySource.contains("savedRootBackground"))
@@ -74,17 +74,20 @@ class AlarmScanCutoutContractTest {
     }
 
     @Test
-    fun layoutProvidesOpaqueLetterboxAroundViewfinderHole() {
+    fun layoutProvidesOpaqueLetterboxAndOwnPreviewInsteadOfTransparentHole() {
         assertTrue("取景开孔必须存在", layout.contains("@+id/scan_viewfinder_hole"))
         assertTrue("四周不透明挡板必须存在",
             layout.contains("@+id/scan_letterbox_top") &&
                 layout.contains("@+id/scan_letterbox_bottom") &&
                 layout.contains("@+id/scan_letterbox_left") &&
                 layout.contains("@+id/scan_letterbox_right"))
-        // 开孔本身必须透明，否则相机预览透不出来
+        // 取景框内置 CameraX PreviewView；即使相机还没启动，也不能看到后面的分屏应用。
         val holeIdx = layout.indexOf("@+id/scan_viewfinder_hole")
-        val holeBlock = layout.substring(holeIdx, minOf(holeIdx + 320, layout.length))
-        assertTrue("开孔背景必须透明", holeBlock.contains("@android:color/transparent"))
+        val holeBlock = layout.substring(holeIdx, minOf(holeIdx + 1250, layout.length))
+        assertTrue("取景框必须有不透明背景", holeBlock.contains("android:background=\"#000000\""))
+        assertTrue("必须内嵌独立 PreviewView", holeBlock.contains("@+id/preview_alarm_overlay"))
+        assertTrue("预览失败时必须有清晰提示", holeBlock.contains("@+id/tv_alarm_scan_preview_status"))
+        assertFalse("取景框不允许透明", holeBlock.contains("android:background=\"@android:color/transparent\""))
     }
 
     @Test
@@ -98,13 +101,27 @@ class AlarmScanCutoutContractTest {
     }
 
     @Test
-    fun overlayOwnScannerStaysHiddenBecauseSurfaceViewCannotRenderInOverlay() {
+    fun overlayOldSurfaceViewScannerStaysHidden() {
         val idx = layout.indexOf("@+id/barcode_alarm_scanner")
         val block = layout.substring(idx, minOf(idx + 320, layout.length))
         assertTrue(
-            "覆盖层自带的 DecoratedBarcodeView 必须保持 gone——覆盖层窗口渲染不了 SurfaceView",
+            "旧 SurfaceView 扫码器不应显示；取景器由 CameraX TextureView 负责",
             block.contains("android:visibility=\"gone\"")
         )
+    }
+
+    @Test
+    fun cameraPreviewUsesTextureViewAndDoesNotExposeSplitScreenTask() {
+        val manager = source("src/main/java/com/decikeeper/app/ui/CameraXScanManager.kt")
+        assertTrue(manager.contains("PreviewView.ImplementationMode.COMPATIBLE"))
+        assertTrue("相机预览应挂在覆盖层，而不是在分屏 Activity 后面透出",
+            activitySource.contains("findViewById<PreviewView>(R.id.preview_alarm_overlay)"))
+        assertTrue("仅在画面真正可见时允许扫码通过",
+            activitySource.contains("if (!scanPreviewStreaming)"))
+        assertTrue("相机预览异常需要可见提示",
+            activitySource.contains("SCAN_OVERLAY_PREVIEW_TIMEOUT"))
+        assertTrue("退出扫码必须移除预览观察者",
+            activitySource.contains("clearScanPreviewObservation()"))
     }
 
     @Test
