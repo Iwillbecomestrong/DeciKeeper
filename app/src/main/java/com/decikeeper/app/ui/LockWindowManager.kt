@@ -5805,9 +5805,7 @@ object LockWindowManager {
 
         // 🆕 申请休息消耗可用次数（冷却期加权）
         if (!quotaAlreadyDeducted) {
-            for (i in 0 until countCost) {
-                CreditManager.consumeUsableCount(context)
-            }
+            CreditManager.consumeUsableCountWeighted(context, countCost)
         }
 
         val appliedInCooling = CreditManager.isCooling(context) || getTemporaryReuseCooldownRemainingSeconds() > 0L
