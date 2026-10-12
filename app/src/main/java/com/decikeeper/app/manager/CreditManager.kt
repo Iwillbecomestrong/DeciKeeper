@@ -288,8 +288,8 @@ object CreditManager {
             
             // 🚀 [Baseline Snapshot] Save current state as baseline immediately upon adaptation end
             saveBaselineBlacklist(context)
-            TimeRuleManager.saveBaselineSnapshot(context)
-            TimeRuleManager.saveBaselineParams(context)
+            TimeRuleManager.saveBaselineSnapshot(context, forceWeekly = true)
+            TimeRuleManager.saveBaselineParams(context, forceWeekly = true)
 
             LogExporter.i("CreditManager", "Adaptation Ended. Baseline Snapshot Saved.")
         }

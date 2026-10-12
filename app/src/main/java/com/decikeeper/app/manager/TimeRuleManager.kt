@@ -242,6 +242,7 @@ object TimeRuleManager {
     private const val PREFS_NAME = "decikeeper_rules"
     internal const val PREFS_PENDING = "decikeeper_rules_pending"
     private const val PREFS_BASELINE = "decikeeper_rules_baseline"
+    private const val KEY_BASELINE_WEEKLY_WEEK_START = "weekly_baseline_week_start"
     private const val PREFS_LOG = "decikeeper_rules_log"
     // Legacy promotion prefs are kept only to absorb old pre-update state.
     private const val PREFS_PROMOTION = "decikeeper_promotion"
@@ -513,7 +514,7 @@ object TimeRuleManager {
     }
     
     // 🚀 [NEW] Explicit Baseline Snapshot Save (Called at Adaptation End / 06:00)
-    fun saveBaselineSnapshot(context: Context) {
+    fun saveBaselineSnapshot(context: Context, forceWeekly: Boolean = false) {
         val currentSegments = getTimeSegments(context)
         val json = segmentsToJson(currentSegments)
         
@@ -531,8 +532,7 @@ object TimeRuleManager {
             putInt("notify_entry_near_minutes", getNotifyEntryNearMinutes(context))
             putString("config_refresh_time", getRefreshTime(context))
             putLong("strict_penalty_duration", getStrictPenaltyDurationSeconds(context) * 1000)
-            putInt("weekly_privilege_limit", CreditManager.getWeeklyPrivilegeLimit(context))
-            putInt("weekly_privilege_duration_limit", CreditManager.getWeeklyPrivilegeDurationLimit(context))
+            putWeeklyBaselineIfDue(context, this, forceWeekly)
             putString("privilege_window_start", getPrivilegeWindowStart(context))
             putString("privilege_window_end", getPrivilegeWindowEnd(context))
         }.apply()
@@ -540,6 +540,24 @@ object TimeRuleManager {
         android.util.Log.i("TimeRuleManager", "Baseline Snapshot (Segments + Global Params) Saved to PREFS_BASELINE.")
     }
     
+    /**
+     * 每周特权的基准按周更新，不跟每日快照走：本周内无论生效值怎么被加严/放宽，基准都停在周初那一份，
+     * 延迟生效表和加严/放宽判断才有一个稳定的「周基准」可比。
+     * 只在 ① 基准里还没有这两项 ② 进入新的一周（周一刷新时刻之后，待生效已先并入）③ 适应期 ④ 显式 force 时写入。
+     */
+    private fun putWeeklyBaselineIfDue(context: Context, editor: android.content.SharedPreferences.Editor, force: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+        val thisWeekStart = CreditManager.getThisWeekStartMillis(context)
+        val due = force || isInAdaptationPeriod(context) ||
+            !prefs.contains("weekly_privilege_limit") ||
+            !prefs.contains("weekly_privilege_duration_limit") ||
+            prefs.getLong(KEY_BASELINE_WEEKLY_WEEK_START, 0L) < thisWeekStart
+        if (!due) return
+        editor.putInt("weekly_privilege_limit", CreditManager.getWeeklyPrivilegeLimit(context))
+        editor.putInt("weekly_privilege_duration_limit", CreditManager.getWeeklyPrivilegeDurationLimit(context))
+        editor.putLong(KEY_BASELINE_WEEKLY_WEEK_START, thisWeekStart)
+    }
+
     // 🚀 [NEW] Retrieve Baseline Segments
     fun getBaselineSegments(context: Context): List<TimeSegment>? {
         val json = context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getString(KEY_SEGMENTS_JSON, null) ?: return null
@@ -2242,7 +2260,7 @@ object TimeRuleManager {
     // ==========================================
     // 🔵 基本参数快照 (Baseline Snapshot)
     // ==========================================
-    fun saveBaselineParams(context: Context) {
+    fun saveBaselineParams(context: Context, forceWeekly: Boolean = false) {
         val activePrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val creditPrefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
         
@@ -2258,8 +2276,7 @@ object TimeRuleManager {
             putLong("strict_penalty_duration", curStrict.coerceAtLeast(15000L))
             
             // 🚀 [Fix] Add missing baseline params — use CreditManager getters for correct v2 keys
-            putInt("weekly_privilege_limit", CreditManager.getWeeklyPrivilegeLimit(context))
-            putInt("weekly_privilege_duration_limit", CreditManager.getWeeklyPrivilegeDurationLimit(context))
+            putWeeklyBaselineIfDue(context, this, forceWeekly)
             putString("config_refresh_time", creditPrefs.getString("config_refresh_time", "08:00"))
             
             // 🚀 [Fix] Save Anti-Uninstall State Baseline
@@ -2886,8 +2903,8 @@ object TimeRuleManager {
         prefs.edit().putLong("install_time", System.currentTimeMillis() - 25 * 3600 * 1000L).apply()
         
         // 保存基准快照
-        saveBaselineSnapshot(context)
-        saveBaselineParams(context)
+        saveBaselineSnapshot(context, forceWeekly = true)
+        saveBaselineParams(context, forceWeekly = true)
         
         android.util.Log.i("TimeRuleManager", "First Setup Done. Baseline Snapshot Saved.")
     }
