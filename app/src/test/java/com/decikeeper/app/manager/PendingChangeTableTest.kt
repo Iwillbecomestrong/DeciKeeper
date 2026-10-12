@@ -296,4 +296,54 @@ class PendingChangeTableTest {
         assertTrue(PendingChangeTable.revoke(context, rest))
         assertFalse(PendingChangeTable.revoke(context, rest))
     }
+
+    // ── 表里左边固定展示基准值，而不是会随加严立刻变化的生效值 ──────────────
+
+    @Test
+    fun weeklyPendingShowsWeeklyBaselineNotTheTightenedActiveValue() {
+        CreditManager.setWeeklyPrivilegeLimit(context, 2, 480)
+        TimeRuleManager.saveBaselineParams(context, forceWeekly = true) // 周初的那一份基准
+        // 本周中途加严：生效值立刻变成 1 次 / 60 分钟，随后又想放宽到 3 次 / 600 分钟（下周一生效）
+        CreditManager.setWeeklyPrivilegeLimit(context, 1, 60)
+        CreditManager.setPendingWeeklyPrivilegeLimit(context, 3, 600, System.currentTimeMillis() + 3_600_000L)
+
+        assertEquals("2次 → 3次", item(Scope.PARAM, "每周特权次数").detail)
+        assertEquals("480分钟 → 600分钟", item(Scope.PARAM, "每周特权总时长").detail)
+    }
+
+    @Test
+    fun weeklyBaselineStaysPutForTheRestOfTheWeek() {
+        CreditManager.setWeeklyPrivilegeLimit(context, 2, 480)
+        TimeRuleManager.saveBaselineParams(context, forceWeekly = true) // 周初的那一份基准
+        CreditManager.setWeeklyPrivilegeLimit(context, 1, 60)
+
+        TimeRuleManager.saveBaselineParams(context) // 次日的每日快照
+        TimeRuleManager.saveBaselineSnapshot(context)
+
+        assertEquals(2, TimeRuleManager.getBaselineWeeklyPrivilegeLimit(context))
+        assertEquals(480, TimeRuleManager.getBaselineWeeklyPrivilegeDurationLimit(context))
+    }
+
+    @Test
+    fun weeklyBaselineFollowsActiveOnceANewWeekStarts() {
+        CreditManager.setWeeklyPrivilegeLimit(context, 2, 480)
+        TimeRuleManager.saveBaselineParams(context, forceWeekly = true) // 周初的那一份基准
+        CreditManager.setWeeklyPrivilegeLimit(context, 3, 600)
+        // 把基准里记的周起点拨回上一周，等价于「已经进入新的一周」
+        baselinePrefs.edit().putLong("weekly_baseline_week_start", 1L).commit()
+
+        TimeRuleManager.saveBaselineParams(context)
+
+        assertEquals(3, TimeRuleManager.getBaselineWeeklyPrivilegeLimit(context))
+        assertEquals(600, TimeRuleManager.getBaselineWeeklyPrivilegeDurationLimit(context))
+    }
+
+    @Test
+    fun dailyParamPendingShowsDailyBaselineNotTheTightenedActiveValue() {
+        // 基准 120 秒；当天加严到 300 秒（生效值立刻变），再想放宽到 90 秒 → 挂待生效
+        rulesPrefs.edit().putInt("cool_down_rest_seconds", 300).commit()
+        saveParams(rest = 90)
+
+        assertEquals("120秒 → 90秒", item(Scope.PARAM, "休息冷却").detail)
+    }
 }

@@ -117,6 +117,15 @@ object PendingChangeTable {
         return result
     }
 
+    /** 与生效中时段对应的基准时段：同名优先，其次同起止且生效日有交集（与 pairSegments 同一套配对）。 */
+    private fun baselineSegmentFor(context: Context, active: TimeSegment): TimeSegment? {
+        val baseline = TimeRuleManager.getBaselineSegments(context) ?: return null
+        return baseline.firstOrNull { it.name == active.name }
+            ?: baseline.firstOrNull {
+                sameTimes(it, active) && SegmentAdverseAnalysis.isDaysOverlapping(it.daysOfWeek, active.daysOfWeek)
+            }
+    }
+
     private fun dailyEffectiveMillis(context: Context): Long {
         TimeRuleManager.healDailyPendingEffectiveTime(context)
         val stored = context.getSharedPreferences(TimeRuleManager.PREFS_PENDING, Context.MODE_PRIVATE)
@@ -154,7 +163,9 @@ object PendingChangeTable {
                 SegmentKind.MODIFY -> {
                     val a = pair.active!!
                     val p = pair.pending!!
-                    val diff = SegmentAdverseAnalysis.getCategorizedSegmentDiff(context, a, p)
+                    // 左边展示当前稳定基准（今天刷新时刻的快照），不展示会随加严立刻变化的生效值
+                    val base = baselineSegmentFor(context, a)
+                    val diff = SegmentAdverseAnalysis.getCategorizedSegmentDiff(context, a, p, base)
                     // 新鲜时段（当前周期内刚改过）的分析一律判有利；这里要的是真实宽严，所以抹掉新鲜标记再判
                     val adverse = SegmentAdverseAnalysis.isSingleSegmentAdverse(a.copy(lastModified = 0L), p, context)
                     Item(
@@ -202,19 +213,21 @@ object PendingChangeTable {
         val logTag: String,
         val higherStricter: Boolean,
         val active: (Context) -> Int,
+        val baseline: (Context) -> Int?,
         val format: (Int) -> String
     )
 
     private val intParams = listOf(
         IntParam("cool_down_rest_seconds", "休息冷却", "cool_down_rest", true,
-            TimeRuleManager::getCoolDownRestSeconds) { "${it}秒" },
+            TimeRuleManager::getCoolDownRestSeconds, TimeRuleManager::getBaselineCoolDownRestSeconds) { "${it}秒" },
         IntParam("cool_down_gap_seconds", "空档冷却", "cool_down_gap", true,
-            TimeRuleManager::getCoolDownGapSeconds) { "${it}秒" },
+            TimeRuleManager::getCoolDownGapSeconds, TimeRuleManager::getBaselineCoolDownGapSeconds) { "${it}秒" },
         IntParam("borrow_percentage", "借用比例", "borrow_percentage", false,
-            TimeRuleManager::getBorrowPercentage) { "${it}%" },
+            TimeRuleManager::getBorrowPercentage, TimeRuleManager::getBaselineBorrowPercentage) { "${it}%" },
         IntParam(TimeRuleManager.KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS, "临时使用受限应用时长上限",
             "temp_restricted_access_max_seconds", false,
-            TimeRuleManager::getTemporaryRestrictedAccessMaxSeconds) {
+            TimeRuleManager::getTemporaryRestrictedAccessMaxSeconds,
+            TimeRuleManager::getBaselineTemporaryRestrictedAccessMaxSeconds) {
             String.format(Locale.US, "%.1f分钟", it / 60.0)
         }
     )
@@ -234,6 +247,14 @@ object PendingChangeTable {
         else -> Direction.LOOSER
     }
 
+    /**
+     * 表里「左边」固定展示当前稳定基准（日参数按逻辑日、每周特权按周更新），不展示生效值：
+     * 生效值会因为一次加严立刻变化，基准要过一个周期才变。基准缺失，或基准恰好等于待生效值
+     * （此时左右相同、表达不出变化）时，退回生效值，保证待生效项一定看得出变化。
+     */
+    private fun <T> displayFrom(baseline: T?, active: T, pending: T): T =
+        if (baseline != null && baseline != pending) baseline else active
+
     /** 日参数：只看 pending 里和生效值不同的键（pending 会存整份参数快照，相同的不算待生效）。 */
     private fun dailyParamItems(context: Context): List<Item> {
         if (!TimeRuleManager.hasPendingRules(context)) return emptyList()
@@ -246,10 +267,11 @@ object PendingChangeTable {
             val pending = runCatching { prefs.getInt(spec.key, 0) }.getOrNull() ?: continue
             val active = spec.active(context)
             if (pending == active) continue
+            val from = displayFrom(spec.baseline(context), active, pending)
             items += Item(
                 Scope.PARAM, "param:${spec.key}", spec.title,
-                "${spec.format(active)} → ${spec.format(pending)}",
-                effective, direction(spec.higherStricter, pending.toLong(), active.toLong())
+                "${spec.format(from)} → ${spec.format(pending)}",
+                effective, direction(spec.higherStricter, pending.toLong(), from.toLong())
             )
         }
 
@@ -257,9 +279,10 @@ object PendingChangeTable {
             val pending = runCatching { prefs.getLong(KEY_STRICT_PENALTY_PENDING, 0L) }.getOrNull()
             val active = TimeRuleManager.getStrictPenaltyDurationSeconds(context)
             if (pending != null && pending != active) {
+                val from = displayFrom(TimeRuleManager.getBaselineStrictPenaltyDurationSeconds(context), active, pending)
                 items += Item(
-                    Scope.PARAM, ID_STRICT, "黑名单惩罚时长", "${active}秒 → ${pending}秒",
-                    effective, direction(true, pending, active)
+                    Scope.PARAM, ID_STRICT, "黑名单惩罚时长", "${from}秒 → ${pending}秒",
+                    effective, direction(true, pending, from)
                 )
             }
         }
@@ -289,10 +312,14 @@ object PendingChangeTable {
             val newStart = pendingStart ?: activeStart
             val newEnd = pendingEnd ?: activeEnd
             if (newStart != activeStart || newEnd != activeEnd) {
+                val baseStart = TimeRuleManager.getBaselinePrivilegeWindowStart(context)
+                val baseEnd = TimeRuleManager.getBaselinePrivilegeWindowEnd(context)
+                val fromStart = if (baseStart != null && baseEnd != null && (baseStart != newStart || baseEnd != newEnd)) baseStart else activeStart
+                val fromEnd = if (baseStart != null && baseEnd != null && (baseStart != newStart || baseEnd != newEnd)) baseEnd else activeEnd
                 // 特权可用范围的任何修改一律次日生效，不判宽严
                 items += Item(
                     Scope.PARAM, ID_PRIV_WINDOW, "特权可用范围",
-                    "$activeStart~$activeEnd → $newStart~$newEnd",
+                    "$fromStart~$fromEnd → $newStart~$newEnd",
                     effective, Direction.NEUTRAL
                 )
             }
@@ -318,17 +345,19 @@ object PendingChangeTable {
         val pendingCount = CreditManager.getPendingWeeklyPrivilegeLimit(context)
         val activeCount = CreditManager.getWeeklyPrivilegeLimit(context)
         if (pendingCount != activeCount) {
+            val from = displayFrom(TimeRuleManager.getBaselineWeeklyPrivilegeLimit(context), activeCount, pendingCount)
             items += Item(
-                Scope.PARAM, ID_WEEKLY_COUNT, "每周特权次数", "${activeCount}次 → ${pendingCount}次",
-                effective, direction(false, pendingCount.toLong(), activeCount.toLong())
+                Scope.PARAM, ID_WEEKLY_COUNT, "每周特权次数", "${from}次 → ${pendingCount}次",
+                effective, direction(false, pendingCount.toLong(), from.toLong())
             )
         }
         val pendingDuration = CreditManager.getPendingWeeklyPrivilegeDurationLimit(context)
         val activeDuration = CreditManager.getWeeklyPrivilegeDurationLimit(context)
         if (pendingDuration != activeDuration) {
+            val from = displayFrom(TimeRuleManager.getBaselineWeeklyPrivilegeDurationLimit(context), activeDuration, pendingDuration)
             items += Item(
-                Scope.PARAM, ID_WEEKLY_DURATION, "每周特权总时长", "${activeDuration}分钟 → ${pendingDuration}分钟",
-                effective, direction(false, pendingDuration.toLong(), activeDuration.toLong())
+                Scope.PARAM, ID_WEEKLY_DURATION, "每周特权总时长", "${from}分钟 → ${pendingDuration}分钟",
+                effective, direction(false, pendingDuration.toLong(), from.toLong())
             )
         }
         return items
@@ -426,7 +455,13 @@ object PendingChangeTable {
                             AppWindowManager.analyzeChange(context, activeRule, rule).isOverallAdverse
                         items += Item(
                             Scope.APP_WINDOW, "aw:${rule.id}", "修改 · ${activeRule?.name ?: rule.name}",
-                            bodyOf(AppWindowManager.generateChangeDescription(context, activeRule, rule)),
+                            // 左边展示当前稳定基准；基准缺失或恰好等于待生效内容时退回生效中规则
+                            bodyOf(AppWindowManager.generateChangeDescription(
+                                context,
+                                AppWindowManager.getBaselineRule(context, rule.id)
+                                    ?.takeUnless { AppWindowManager.isRuleContentSame(it, rule) } ?: activeRule,
+                                rule
+                            )),
                             effective, if (adverse) Direction.LOOSER else Direction.STRICTER
                         )
                     }
