@@ -23,3 +23,12 @@
 - APK：`app/build/outputs/apk/release/app-release.apk`；SHA-256：`545545f55144dba3c0bb875d72c8cbe64370a8606dcc8a8881d317ae4be7443d`。
 - 原始全量测试 XML 已保留于 `app/build/verification/quota-full-test-results`，构建签名证据于 `app/build/verification/quota-release/release-manifest.json`；RED/GREEN、全量、Release 与基线复核日志分别为 worktree 中的 `quota-red.log`、`quota-green.log`、`quota-full-tests.log`、`quota-release.log`、`quota-baseline-check.log`（均为忽略的本地运行资产）。
 - 尚未真机安装或复测；旧版本已经产生的历史差额不回填。AOCI 工具未向当前会话提供，无法完成正式索引维护。全量测试仍非全绿，不宣告全仓验证通过。
+
+## 合回 dev 的候选验证（2026-10-12）
+
+- 已刷新两端远端 dev，仍为 `94bf60b5`；本地 dev 为 `47ea672f`，已有进阶保护改动，完整保留。
+- 修复提交 `7146f96`；同步本地 dev 的合并提交 `4ff7ee9`。仅 `HISTORY.md` 有新增位置冲突，两项决策均保留，本次次数修复改为 `DECISION-51`，既有进阶保护保持 `DECISION-50`。
+- 合并候选重新运行全量 JVM 测试：1917 项，1905 通过、11 跳过，唯一失败仍为原有时长折算用例；新增次数回归 5 项全部通过。日志：`quota-merged-tests.log`。
+- 合并候选签名 Release 构建成功（2m5s），包名、签名及权限核验通过；日志：`quota-merged-release.log`，证据：`app/build/verification/quota-merged-release/release-manifest.json`。
+- 最新 APK 仍在 `app/build/outputs/apk/release/app-release.apk`，已替换首次构建产物；最新 SHA-256：`b25a5943e9c0d7b0243882146bc9863bcf74dc2137ca6957362637cf257075ea`。
+- 候选相对本地 dev 仅本次修复的 6 个文件有差异；最终本地 dev 的合并提交以 Git 为准。真机、历史数据和 AOCI 验证边界仍同上。
