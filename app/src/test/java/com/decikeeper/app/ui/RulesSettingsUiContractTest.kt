@@ -31,20 +31,57 @@ class RulesSettingsUiContractTest {
         )
         assertTrue(
             xml.indexOf("@string/settings_protection_uninstall_perm_title") <
-                xml.indexOf("@string/settings_protection_developer_options_title")
+                xml.indexOf("@string/settings_protection_dev_advanced_title")
         )
-        // 开发者选项拦截是列表最后一项，排在 OPPO 专享的设备管理器行之后。
+        // 开发者进阶拦截（安装拦截 + 开发者选项拦截合并入口）是列表最后一项，排在 OPPO 专享的设备管理器行之后。
         assertTrue(
             xml.indexOf("@+id/switch_device_admin_protection") <
-                xml.indexOf("@+id/switch_developer_options_guard")
+                xml.indexOf("@+id/row_dev_advanced_guard")
         )
-        // 安装拦截排在开发者选项拦截之后，是列表最后一项。
+        // 两项拦截的开关不再占列表行，改在弹窗里管理。
+        assertFalse(xml.contains("@+id/switch_developer_options_guard"))
+        assertFalse(xml.contains("@+id/switch_install_guard"))
+        // 日期与时间拦截是「加强约束功能」区块的第一项，排在闹钟防关机保护之前。
         assertTrue(
-            xml.indexOf("@+id/switch_developer_options_guard") <
-                xml.indexOf("@+id/switch_install_guard")
+            xml.indexOf("@string/settings_protection_section_title") <
+                xml.indexOf("@+id/switch_date_time_guard")
+        )
+        assertTrue(
+            xml.indexOf("@+id/switch_date_time_guard") <
+                xml.indexOf("@string/settings_protection_alarm_title")
         )
         assertFalse(xml.contains("查看日志"))
         assertEquals(1, Regex("android:text=\"导出日志\"").findAll(xml).count())
+    }
+
+    @Test
+    fun devAdvancedGuardDialogOwnsBothGuardsAndSharedExemptionWindow() {
+        val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
+        val start = source.indexOf("private fun showDevAdvancedGuardDialog")
+        val end = source.indexOf("private fun setupDateTimeGuardSwitch", start)
+        val dialog = source.substring(start, end)
+
+        assertTrue(dialog.contains("setupInstallGuardSwitch(sw)"))
+        assertTrue(dialog.contains("setupDeveloperOptionsGuardSwitch(sw)"))
+        assertTrue(dialog.contains("豁免时段内放行"))
+        assertTrue(dialog.contains("DevGuardExemptionManager.setExemptionEnabled(ctx, guard, checked)"))
+        assertTrue(dialog.contains("DevGuardExemptionManager.setWindow("))
+        assertTrue(dialog.contains("共享豁免时段"))
+        // 弹窗里不放演示 / 调试控件。
+        assertFalse(dialog.contains("模拟"))
+        // 日期与时间拦截不参与豁免。
+        assertFalse(dialog.contains("DateTimeGuardManager"))
+    }
+
+    @Test
+    fun dateTimeGuardFollowsAccessibilityCloseFlow() {
+        val source = source("app/src/main/java/com/decikeeper/app/ui/RulesFragment.kt")
+        val start = source.indexOf("private fun submitProtectionDisablesForAccessibility")
+        val end = source.indexOf("private fun showA11yDisableConfirmDialog", start)
+        assertTrue(source.substring(start, end).contains("DateTimeGuardManager.setProtectionEnabled(ctx, false)"))
+
+        assertEquals(2, source.split("日期与时间拦截 → ").size - 1)
+        assertEquals(2, source.split("!TimeRuleManager.getBaselineDateTimeGuardState(ctx) &&").size - 1)
     }
 
     @Test

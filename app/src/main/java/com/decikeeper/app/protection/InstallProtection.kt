@@ -23,6 +23,7 @@ import android.content.Context
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.decikeeper.app.manager.DevGuardExemptionManager
 import com.decikeeper.app.manager.InstallGuardManager
 import com.decikeeper.app.protection.InstallPageMatcher.PageNode
 
@@ -43,6 +44,8 @@ class InstallProtection(private val context: Context) {
         val pkg = event.packageName?.toString().orEmpty()
         if (!InstallPageMatcher.isInstallerPackage(pkg)) return
         if (!InstallGuardManager.isEnforcing(context)) return
+        // 豁免时段内放行：只暂停拦截，不改写开关与 PENDING。
+        if (DevGuardExemptionManager.isExempt(context, DevGuardExemptionManager.Guard.INSTALL)) return
 
         val now = System.currentTimeMillis()
         when (event.eventType) {

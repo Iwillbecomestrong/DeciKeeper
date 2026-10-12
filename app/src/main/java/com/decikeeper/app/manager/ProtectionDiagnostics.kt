@@ -125,6 +125,18 @@ object ProtectionDiagnostics {
         val installGuardPending = InstallGuardManager.getPendingDisableTime(appContext)
         val installGuardEnforcing = InstallGuardManager.isEnforcing(appContext)
 
+        // DevGuardExemptionManager
+        val exemptWindow = DevGuardExemptionManager.getWindow(appContext).format()
+        val exemptInstall = DevGuardExemptionManager.isExemptionEnabled(appContext, DevGuardExemptionManager.Guard.INSTALL)
+        val exemptDevOptions = DevGuardExemptionManager.isExemptionEnabled(appContext, DevGuardExemptionManager.Guard.DEVELOPER_OPTIONS)
+        val exemptPendingWindow = DevGuardExemptionManager.getPendingWindow(appContext)?.format()
+        val exemptPendingTime = DevGuardExemptionManager.getPendingEffectiveTime(appContext, DevGuardExemptionManager.Item.WINDOW)
+
+        // DateTimeGuardManager
+        val dateTimeGuardState = DateTimeGuardManager.getProtectionState(appContext)
+        val dateTimeGuardPending = DateTimeGuardManager.getPendingDisableTime(appContext)
+        val dateTimeGuardEnforcing = DateTimeGuardManager.isEnforcing(appContext)
+
         // AlarmPowerOffProtectionManager
         val alarmPowerOffEnabled = AlarmPowerOffProtectionManager.isEnabled(appContext)
 
@@ -179,6 +191,16 @@ object ProtectionDiagnostics {
             appendLine("    state=$installGuardState")
             appendLine("    pendingEffectiveTime=$installGuardPending")
             appendLine("    isEnforcing=$installGuardEnforcing")
+            appendLine("DevGuardExemptionManager:")
+            appendLine("    window=$exemptWindow")
+            appendLine("    installExempt=$exemptInstall")
+            appendLine("    developerOptionsExempt=$exemptDevOptions")
+            appendLine("    pendingWindow=$exemptPendingWindow")
+            appendLine("    pendingWindowEffectiveTime=$exemptPendingTime")
+            appendLine("DateTimeGuardManager:")
+            appendLine("    state=$dateTimeGuardState")
+            appendLine("    pendingEffectiveTime=$dateTimeGuardPending")
+            appendLine("    isEnforcing=$dateTimeGuardEnforcing")
             appendLine("AlarmPowerOffProtectionManager:")
             appendLine("    enabled=$alarmPowerOffEnabled")
             appendLine("GuardFloatingWindowManager:")

@@ -23,6 +23,7 @@ import android.content.Context
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.decikeeper.app.manager.DevGuardExemptionManager
 import com.decikeeper.app.manager.DeveloperOptionsGuardManager
 import com.decikeeper.app.protection.DeveloperOptionsPageMatcher.PageNode
 
@@ -44,6 +45,8 @@ class DeveloperOptionsProtection(private val context: Context) {
         val pkg = event.packageName?.toString().orEmpty()
         if (pkg != "com.android.settings") return
         if (!DeveloperOptionsGuardManager.isEnforcing(context)) return
+        // 豁免时段内放行：只暂停拦截，不改写开关与 PENDING。
+        if (DevGuardExemptionManager.isExempt(context, DevGuardExemptionManager.Guard.DEVELOPER_OPTIONS)) return
 
         val now = System.currentTimeMillis()
         when (event.eventType) {
