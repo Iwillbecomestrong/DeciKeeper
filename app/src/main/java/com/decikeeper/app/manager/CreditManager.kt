@@ -3141,7 +3141,47 @@ object CreditManager {
         val key = getCountUsageKeyForSegment(context, currentSeg) ?: return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val current = prefs.getInt(key, 0)
-        prefs.edit().putInt(key, current + halfUnits).apply()
+        val editor = prefs.edit()
+        val remaining = deductAvailableUsableCount(context, halfUnits, editor) ?: return
+        // 旧临时解锁借用路径仍把不足部分记在当前段，保留其既有扣费语义。
+        if (remaining > 0) editor.putInt(key, maxOf(current, getSegmentEffectiveUsableCountLimitHalfUnits(context, currentSeg)) + remaining)
+        editor.apply()
+    }
+
+    /** 次数必须扣到实际提供额度的段，否则当前段超用会在切段归零时释放已消耗的结余。 */
+    private fun deductAvailableUsableCount(context: Context, halfUnits: Int, editor: SharedPreferences.Editor): Int? {
+        val segments = TimeRuleManager.getTimeSegments(context)
+        val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)
+        if (currentIndex !in segments.indices) return null
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val currentBizDate = getSegmentBusinessDateString(context, segments[currentIndex])
+        var remaining = halfUnits
+
+        fun deduct(segment: TimeSegment, previous: Boolean): Boolean {
+            if (remaining <= 0) return true
+            if (previous && (!segment.isActiveToday() || getSegmentBusinessDateString(context, segment) != currentBizDate)) return true
+            val proration = getSegmentProration(context, segment, now)
+            if (previous && !proration.isEligibleForSurplus) return true
+            val key = getCountUsageKeyForSegment(context, segment) ?: return false
+            val used = prefs.getInt(key, 0)
+            val take = minOf(remaining, (proration.effectiveUsableCountHalfUnits - used).coerceAtLeast(0))
+            if (take > 0) {
+                editor.putInt(key, used + take)
+                remaining -= take
+            }
+            return true
+        }
+
+        if (!deduct(segments[currentIndex], previous = false)) return null
+        val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
+        var index = firstLogicalIndex
+        while (index != currentIndex && remaining > 0) {
+            if (!deduct(segments[index], previous = true)) return null
+            index = (index + 1) % segments.size
+            if (index == firstLogicalIndex) break
+        }
+        return remaining
     }
 
     internal fun applyTemporaryAccessQuotaPlan(context: Context, plan: TemporaryAccessQuotaPlan): Boolean {
@@ -3197,33 +3237,7 @@ object CreditManager {
             editor.putInt(borrowKey, prefs.getInt(borrowKey, 0) + plan.borrowedTimePrincipalSec)
         }
         if (plan.currentCountCostHalfUnits > 0) {
-            var remainingCurrentCount = plan.currentCountCostHalfUnits
-            val currentCountKey = getCountUsageKeyForSegment(context, currentSegment) ?: return false
-            val currentCountUsed = prefs.getInt(currentCountKey, 0)
-            val currentOwnAvailable = (currentSegment.getEffectiveUsableCountLimitHalfUnits() - currentCountUsed).coerceAtLeast(0)
-            val currentTake = minOf(remainingCurrentCount, currentOwnAvailable)
-            if (currentTake > 0) {
-                editor.putInt(currentCountKey, currentCountUsed + currentTake)
-                remainingCurrentCount -= currentTake
-            }
-            val firstLogicalIndex = TimeRuleManager.getLogicalFirstSegmentIndex(context)
-            val currentBizDate = getSegmentBusinessDateString(context, currentSegment)
-            var index = firstLogicalIndex
-            while (index != currentIndex && remainingCurrentCount > 0) {
-                val segment = segments[index]
-                if (segment.isActiveToday() && getSegmentBusinessDateString(context, segment) == currentBizDate) {
-                    val countKey = getCountUsageKeyForSegment(context, segment) ?: return false
-                    val used = prefs.getInt(countKey, 0)
-                    val available = (segment.getEffectiveUsableCountLimitHalfUnits() - used).coerceAtLeast(0)
-                    val take = minOf(remainingCurrentCount, available)
-                    if (take > 0) {
-                        editor.putInt(countKey, used + take)
-                        remainingCurrentCount -= take
-                    }
-                }
-                index = (index + 1) % segments.size
-                if (index == firstLogicalIndex) break
-            }
+            val remainingCurrentCount = deductAvailableUsableCount(context, plan.currentCountCostHalfUnits, editor) ?: return false
             if (remainingCurrentCount > 0) return false
         }
         if (plan.nextCountCostHalfUnits > 0) {
