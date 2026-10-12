@@ -30,5 +30,12 @@
 - 修复提交 `7146f96`；同步本地 dev 的合并提交 `4ff7ee9`。仅 `HISTORY.md` 有新增位置冲突，两项决策均保留，本次次数修复改为 `DECISION-51`，既有进阶保护保持 `DECISION-50`。
 - 合并候选重新运行全量 JVM 测试：1917 项，1905 通过、11 跳过，唯一失败仍为原有时长折算用例；新增次数回归 5 项全部通过。日志：`quota-merged-tests.log`。
 - 合并候选签名 Release 构建成功（2m5s），包名、签名及权限核验通过；日志：`quota-merged-release.log`，证据：`app/build/verification/quota-merged-release/release-manifest.json`。
-- 最新 APK 仍在 `app/build/outputs/apk/release/app-release.apk`，已替换首次构建产物；最新 SHA-256：`b25a5943e9c0d7b0243882146bc9863bcf74dc2137ca6957362637cf257075ea`。
+- 本轮 APK 在 `app/build/outputs/apk/release/app-release.apk`，该轮 SHA-256：`b25a5943e9c0d7b0243882146bc9863bcf74dc2137ca6957362637cf257075ea`；最终产物见下节。
 - 候选相对本地 dev 仅本次修复的 6 个文件有差异；最终本地 dev 的合并提交以 Git 为准。真机、历史数据和 AOCI 验证边界仍同上。
+
+### 最终 dev 增量同步与验证
+
+- 准备合并时，本地 dev 被另一任务推进到 `1743300`（待生效表基准值修复）；已通过 `fc3de29` 同步，无业务冲突，保留适应期结束强制周基准快照及待生效表改动。
+- 在最终合并候选 `fc3de29` 上重新运行全量 JVM 测试：1921 项，1909 通过、11 跳过、1 项原有时长折算失败；次数回归 5 项全部通过。日志：`quota-final-dev-tests.log`。
+- 最终候选签名 Release 构建成功（1m47s），签名、包名和权限核验通过；日志：`quota-final-dev-release.log`，证据：`app/build/verification/quota-final-dev-release/release-manifest.json`。
+- 最终 APK：`app/build/outputs/apk/release/app-release.apk`；SHA-256：`5b9c825a4336f1d726093598ed2b08f7e3c953d965abf3db9a8f6b5a056bc765`，替换前两轮候选产物。
