@@ -353,6 +353,16 @@
                     android:textColor="?attr/zzMuted"
                     android:textSize="11sp" />
 
+                <!-- 0. 日期与时间拦截（列表第一项） -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_date_time_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_date_time_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
+                    <Switch android:id="@+id/switch_date_time_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
+
                 <!-- 1. 闹钟防关机保护 -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
@@ -413,23 +423,13 @@
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
 
-                <!-- 7. 开发者选项拦截（列表最后一项，位于 OPPO 专享行之后） -->
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                <!-- 7. 开发者进阶拦截（列表最后一项，位于 OPPO 专享行之后）：安装拦截与开发者选项拦截在弹窗里管理 -->
+                <LinearLayout android:id="@+id/row_dev_advanced_guard" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_developer_options_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                        <TextView android:id="@+id/tv_developer_options_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_dev_advanced_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_dev_advanced_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
-                    <Switch android:id="@+id/switch_developer_options_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                </LinearLayout>
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
-
-                <!-- 8. 安装拦截（列表最后一项，位于开发者选项拦截之后） -->
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_install_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
-                        <TextView android:id="@+id/tv_install_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
-                    </LinearLayout>
-                    <Switch android:id="@+id/switch_install_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textColor="?attr/zzMuted" android:textSize="20sp" />
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>

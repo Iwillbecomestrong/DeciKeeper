@@ -742,6 +742,27 @@ object TimeRuleManager {
             .getBoolean(InstallGuardManager.KEY_IS_ENABLED, false)
     }
 
+    fun getBaselineDateTimeGuardState(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+            .getBoolean(DateTimeGuardManager.KEY_IS_ENABLED, false)
+    }
+
+    /** 开发者进阶拦截的共享豁免窗口基准；从未拍过基准时取默认窗口。 */
+    fun getBaselineDevGuardExemptionWindow(context: Context): DevGuardExemptionWindow {
+        return DevGuardExemptionWindow.parse(
+            context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
+                .getString(DevGuardExemptionManager.KEY_WINDOW, null)
+        ) ?: DevGuardExemptionWindow.DEFAULT
+    }
+
+    fun getBaselineDevGuardExemptionEnabled(context: Context, guard: DevGuardExemptionManager.Guard): Boolean {
+        val key = when (guard) {
+            DevGuardExemptionManager.Guard.INSTALL -> DevGuardExemptionManager.KEY_INSTALL_FLAG
+            DevGuardExemptionManager.Guard.DEVELOPER_OPTIONS -> DevGuardExemptionManager.KEY_DEVELOPER_OPTIONS_FLAG
+        }
+        return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE).getBoolean(key, false)
+    }
+
     fun getBaselineDeveloperOptionsGuardState(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
             .getBoolean(DeveloperOptionsGuardManager.KEY_IS_ENABLED, false)
@@ -2294,6 +2315,19 @@ object TimeRuleManager {
             putBoolean(
                 InstallGuardManager.KEY_IS_ENABLED,
                 InstallGuardManager.getProtectionState(context) == InstallGuardManager.State.ACTIVE
+            )
+            putBoolean(
+                DateTimeGuardManager.KEY_IS_ENABLED,
+                DateTimeGuardManager.getProtectionState(context) == DateTimeGuardManager.State.ACTIVE
+            )
+            putString(DevGuardExemptionManager.KEY_WINDOW, DevGuardExemptionManager.getWindow(context).serialize())
+            putBoolean(
+                DevGuardExemptionManager.KEY_INSTALL_FLAG,
+                DevGuardExemptionManager.isExemptionEnabled(context, DevGuardExemptionManager.Guard.INSTALL)
+            )
+            putBoolean(
+                DevGuardExemptionManager.KEY_DEVELOPER_OPTIONS_FLAG,
+                DevGuardExemptionManager.isExemptionEnabled(context, DevGuardExemptionManager.Guard.DEVELOPER_OPTIONS)
             )
 
             val segJson = activePrefs.getString(KEY_SEGMENTS_JSON, null)
