@@ -1192,14 +1192,37 @@ object TimeRuleManager {
             TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
         ) ?: TimeRuleEditWindowPolicyManager.Policy.ALL_DAY.key
 
+        // 切到「统一延后」：当天所有修改都应是待生效，生效中的值必须回到当天基准。
+        // 此前在「宽严有别」下已立即生效的加严值（如每周特权 3->2）若原样留在 active 里，
+        // 切换后既没有待生效记录，又悄悄偏离了基准；之后改回基准反而变成「2->3」的待生效。
+        // 与时段 / 应用时间窗的 recalculatePendingAfterPolicySwitch 保持同一口径：
+        // 把生效中的值回滚到基准，再把用户当前输入作为待生效目标。
+        val rollbackToBaseline = isEffectivePolicyChanged &&
+            effectivePolicyToApply == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY
+        // 生效中的值从未写入（读到的是代码默认值）时没有可回滚的「偏离」，保持原值，避免把默认值误当偏离。
+        fun activeOrBaseline(key: String, active: Int, baseline: Int, activeStore: android.content.SharedPreferences? = prefs): Int =
+            if (rollbackToBaseline && basPrefs.contains(key) && (activeStore == null || activeStore.contains(key))) baseline else active
+
         // 1. Current Values (Baseline/Active for Strictness Check)
-        val curRest = getCoolDownRestSeconds(context)
-        val curGap = getCoolDownGapSeconds(context)
-        val curLock = getStrictPenaltyDurationSeconds(context) // Seconds
-        val curBorrow = getBorrowPercentage(context)
-        val curTempRestrictedAccess = getTemporaryRestrictedAccessMaxSeconds(context)
-        val curWeekly = CreditManager.getWeeklyPrivilegeLimit(context)
-        val curWeeklyDuration = CreditManager.getWeeklyPrivilegeDurationLimit(context)
+        val curRest = activeOrBaseline("cool_down_rest_seconds", getCoolDownRestSeconds(context), basRest)
+        val curGap = activeOrBaseline("cool_down_gap_seconds", getCoolDownGapSeconds(context), basGap)
+        val curLock = if (rollbackToBaseline && getBaselineStrictPenaltyDurationSeconds(context) != null) {
+            basLock
+        } else {
+            getStrictPenaltyDurationSeconds(context) // Seconds
+        }
+        val curBorrow = activeOrBaseline("borrow_percentage", getBorrowPercentage(context), basBorrow)
+        val curTempRestrictedAccess = activeOrBaseline(
+            KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS,
+            getTemporaryRestrictedAccessMaxSeconds(context),
+            basTempRestrictedAccess
+        )
+        val curWeekly = activeOrBaseline(
+            "weekly_privilege_limit", CreditManager.getWeeklyPrivilegeLimit(context), basWeekly, null
+        )
+        val curWeeklyDuration = activeOrBaseline(
+            "weekly_privilege_duration_limit", CreditManager.getWeeklyPrivilegeDurationLimit(context), basWeeklyDuration, null
+        )
         val curRefresh = getRefreshTime(context)
         val curNotifyFar = getNotifyAdvanceMinutes(context)
         val curNotifyNear = getNotifyEntryNearMinutes(context)
@@ -1274,6 +1297,11 @@ object TimeRuleManager {
                      anyAdverseRemaining = true
                  } else if (forceAllNextDay && new != current) {
                      anyAdverseRemaining = true
+                 } else if (isEffectivePolicyChanged && !forceAllNextDay && isBenign && new != current) {
+                     // 从「统一延后」切到「宽严有别」：挂着的加严项按宽严有别立即生效，必须告诉用户，
+                     // 否则生效中的值会在没有任何提示的情况下变掉。
+                     immList.add("$name: $diffBase -> $new (有利)")
+                     ChangeLogManager.removePendingEntriesByTag(context, "global_params", tag)
                  }
                  return
             }
