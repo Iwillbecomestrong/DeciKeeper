@@ -6,7 +6,7 @@
 
 时间规则 + 挑战闹钟｜开源内测中
 
-[⬇ 下载 v0.3.0 APK](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.3.0/DeciKeeper-v0.3.0-arm64.apk) · [全部下载渠道](#下载) · [快速上手](docs/user/getting-started.md) · [功能指南](docs/user/guide.md) · [权限说明](docs/user/permissions.md) · [开发者指南](.github/CONTRIBUTING.md)
+[⬇ 下载 v0.4.0 APK](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.4.0/DeciKeeper-v0.4.0-arm64.apk) · [全部下载渠道](#下载) · [快速上手](docs/user/getting-started.md) · [功能指南](docs/user/guide.md) · [权限说明](docs/user/permissions.md) · [开发者指南](.github/CONTRIBUTING.md)
 
 决定守护主要解决我自己长期遇到的两个问题：
 
@@ -96,9 +96,9 @@
 
 | 渠道 | 链接 |
 | --- | --- |
-| GitHub Releases | [DeciKeeper-v0.3.0-arm64.apk](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.3.0/DeciKeeper-v0.3.0-arm64.apk) |
+| GitHub Releases | [DeciKeeper-v0.4.0-arm64.apk](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.4.0/DeciKeeper-v0.4.0-arm64.apk) |
 | 全部版本与校验 | [GitHub Releases](https://github.com/Iwillbecomestrong/DeciKeeper/releases) |
-| 国内镜像 | [Gitee Releases](https://gitee.com/my_room_welcome_you/zhizhi/releases) |
+| 国内镜像 | [Gitee Releases](https://gitee.com/my_room_welcome_you/DeciKeeper/releases) |
 
 ## 反馈、贡献与开源
 
