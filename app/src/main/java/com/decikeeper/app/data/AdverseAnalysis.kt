@@ -120,7 +120,7 @@ object AdverseAnalysis {
         if (mixed.delayedChanges.isNotEmpty()) {
             val timeStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(mixed.effectiveTime))
             val delayedTitle = if (isAllNextDayPolicy) {
-                "🌅 次日 $timeStr 生效 (当前为「全部次日」模式):\n"
+                "🌅 次日 $timeStr 生效 (当前为「统一延后」模式):\n"
             } else {
                 "🌅 次日 $timeStr 生效 (不利改动):\n"
             }

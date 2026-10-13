@@ -9086,13 +9086,13 @@ object TestScenarioManager {
 
         val original = EffectiveActivationPolicyManager.getPolicy(context)
         try {
-            // Expected Input: 用户选择“全部次日生效”。
+            // Expected Input: 用户选择“统一延后生效”。
             // Expected Output: 策略持久化为 ALL_NEXT_DAY。
             EffectiveActivationPolicyManager.setPolicy(context, EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
             val policyAllNextDay = EffectiveActivationPolicyManager.getPolicy(context)
             assertPass(
                 policyAllNextDay == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY,
-                "54A.1 全部次日生效可持久化",
+                "54A.1 统一延后生效可持久化",
                 "切换后应读取到 ALL_NEXT_DAY"
             )
 
@@ -9133,7 +9133,7 @@ object TestScenarioManager {
             EffectiveActivationPolicyManager.setPolicy(context, EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
             assertPass(
                 EffectiveActivationPolicyManager.getPolicy(context) == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY,
-                "54B.1 切到全部次日可正常切换",
+                "54B.1 切到统一延后可正常切换",
                 "策略切换不崩溃，可回读为 ALL_NEXT_DAY"
             )
 
@@ -9177,10 +9177,10 @@ object TestScenarioManager {
         log("\n✅ 测试 #54C 完成: 生效策略切换后可见性刷新验证")
     }
 
-    // 模块 54D: 全部次日生效下多条待生效记录验证
+    // 模块 54D: 统一延后生效下多条待生效记录验证
     private fun runAllNextDayMultiEntryChangeLogTests(context: Context) {
         log("\n==========================================")
-        log("⏱️ 模块 54D: 全部次日生效多条日志验证")
+        log("⏱️ 模块 54D: 统一延后生效多条日志验证")
         log("==========================================")
 
         val originalPolicy = EffectiveActivationPolicyManager.getPolicy(context)
@@ -9230,7 +9230,7 @@ object TestScenarioManager {
 
             EffectiveActivationPolicyManager.setPolicy(context, EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
 
-            // Expected Input: 在“全部次日生效”下同时修改 3 个时段的退出次数。
+            // Expected Input: 在“统一延后生效”下同时修改 3 个时段的退出次数。
             // Expected Output: 延迟生效表应保留 3 条待生效记录，不得被同 tag 去重覆盖成 1 条。
             TimeRuleManager.analyzeAndSaveTimeSegments(context, changed)
             val visiblePending = ChangeLogManager.getVisibleEntriesForCategory(context, "segments")
@@ -9253,7 +9253,7 @@ object TestScenarioManager {
             assertPass(
                 noChangeResult is AnalysisResult.NoChange,
                 "54D.3 重复保存无新修改应判定为无变更",
-                "全部次日生效下不应回放历史修改到本次保存弹窗"
+                "统一延后生效下不应回放历史修改到本次保存弹窗"
             )
 
             // Expected Input: 在已有 pending 基础上，仅再改动一个时段。
@@ -9300,7 +9300,7 @@ object TestScenarioManager {
             EffectiveActivationPolicyManager.setPolicy(context, originalPolicy)
         }
 
-        log("\n✅ 测试 #54D 完成: 全部次日生效多条日志验证")
+        log("\n✅ 测试 #54D 完成: 统一延后生效多条日志验证")
     }
 
     // 模块 54E: 每周特权入口迁移一致性验证

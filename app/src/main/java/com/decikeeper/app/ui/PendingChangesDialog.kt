@@ -147,7 +147,7 @@ object PendingChangesDialog {
         val policy = EffectiveActivationPolicyManager.getPolicy(context)
         val head = if (count == 0) "没有待生效的修改。" else "共 $count 项待生效，撤销只让该项回到当前生效的设置，不影响其他项。"
         val policyLine = if (policy == EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY) {
-            "\n当前为「全部次日」：加严和放宽都要等到生效时刻才生效。"
+            "\n当前为「统一延后」：加严和放宽都要等到生效时刻才生效。"
         } else ""
         val lockLine = if (TimeRuleManager.isTimeRuleEditLocked(context)) {
             "\n" + TimeRuleEditWindowPolicyManager.getLockoutHintText(context)

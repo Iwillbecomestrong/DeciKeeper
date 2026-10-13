@@ -1138,7 +1138,7 @@ object AppWindowManager {
 
              // 🚀 [拆分加严与放宽] 同一次修改里既有收紧又有放宽（如允许窗口 21:00-23:30 → 20:30-23:00）：
              // 收紧的那一半（结束提前）今天就生效，放宽的那一半（开始提前）才进 pending。
-             // 今天生效的窗口 = 现在生效的窗口 ∩ 想要的窗口；「全部次日」策略下一律延后，不拆。
+             // 今天生效的窗口 = 现在生效的窗口 ∩ 想要的窗口；「统一延后」策略下一律延后，不拆。
              if (!forceAllNextDay && oldRule != null && newRule != null && !isMixedAddition && !isMixedDeletion) {
                  val activeRule = rulesCache.find { it.id == targetId }
                  val todayRule = activeRule?.let { tightenedTimeWindowForToday(it, newRule) }
