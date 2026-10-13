@@ -35,8 +35,11 @@ jobs:
         shell: pwsh
         run: |
           # 数组展开只会按位置传参，具名参数必须用哈希表展开
+          # CI 没有签名密钥，产物名为 app-release-unsigned.apk；本地签名构建为 app-release.apk
+          $apk = Get-ChildItem 'app/build/outputs/apk/release' -Filter '*.apk' | Select-Object -First 1
+          if (-not $apk) { throw 'Release APK not found under app/build/outputs/apk/release' }
           $verifyParams = @{
-            ApkPath         = 'app/build/outputs/apk/release/app-release.apk'
+            ApkPath         = $apk.FullName
             OutputDirectory = 'app/build/release-verification'
             TestStatus      = 'passed'
           }
