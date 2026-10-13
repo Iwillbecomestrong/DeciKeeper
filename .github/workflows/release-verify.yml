@@ -34,15 +34,17 @@ jobs:
       - name: Verify Release artifact
         shell: pwsh
         run: |
-          $args = @(
-            '-ApkPath', 'app/build/outputs/apk/release/app-release.apk',
-            '-OutputDirectory', 'app/build/release-verification',
-            '-TestStatus', 'passed'
-          )
-          if ($env:GITHUB_REF -like 'refs/tags/*') {
-            $args += @('-ExpectedVersionName', ($env:GITHUB_REF_NAME -replace '^v', ''), '-ExpectedTag', $env:GITHUB_REF_NAME)
+          # 数组展开只会按位置传参，具名参数必须用哈希表展开
+          $verifyParams = @{
+            ApkPath         = 'app/build/outputs/apk/release/app-release.apk'
+            OutputDirectory = 'app/build/release-verification'
+            TestStatus      = 'passed'
           }
-          & ./scripts/verify_release_artifact.ps1 @args
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $verifyParams.ExpectedVersionName = $env:GITHUB_REF_NAME -replace '^v', ''
+            $verifyParams.ExpectedTag = $env:GITHUB_REF_NAME
+          }
+          & ./scripts/verify_release_artifact.ps1 @verifyParams
 
       - name: Upload verification report
         uses: actions/upload-artifact@v4
