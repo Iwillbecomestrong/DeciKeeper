@@ -7,6 +7,12 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-53] 应用内切换页面不再把仍在前台的应用标成「已关闭」（2026-10-13）
+
+- **证据与根因**：真机日志（2026-10-13 21:30–21:33）里，微信回桌面后小窗仍在无障碍可见集合中，却约 30 秒不重新上锁；`FG_SAMPLE` 的 `a11yVisible` 显示 `com.tencent.mm(CLOSED)`，系统 UsageEvents 对得上：微信从 `SingleChatInfoUI` 回到 `LauncherUI` 时，先 `LauncherUI RESUMED`，随后才 `SingleChatInfoUI STOPPED`。`VisibleBlacklistPresenceTracker` 不区分 Activity，把这条旧页面的 STOPPED 当成整个应用关闭，写入关闭墓碑，小窗兜底（`MiniWindowOverrider`）因此认为它不可见。该墓碑来自 10-03 的小窗关闭修复（`36490b51`）。
+- **修复**：Presence 追踪器记录每个包最近恢复的 Activity；STOPPED 的 Activity 不是最近恢复的那个时，视为应用内页面切换，不写墓碑、不清 Session。拿不到类名时保持原行为；真正关闭小窗（最后恢复的 Activity 停止）仍写墓碑，10-03 的修复目标不变。
+- **边界**：只改 UsageEvents 的墓碑判定，不改回桌面 3 秒宽限、小窗兜底和锁屏流程；`ForegroundSessionTracker` 本来就按 Activity 跟踪，未改。
+
 ### [DECISION-52] 生效策略名称以应用内「统一延后」为准（2026-10-13）
 
 - **背景**：同一策略在应用内叫「统一延后」、在规格与指南里叫「全部次日」，两处对不上；「次日」也不准确——该策略下每项修改各等自己的下一个生效周期（日参数 / 勿扰时段 / 应用时间窗 / 全局黑名单次日 08:00，每周特权下周一，闹钟应急次数月参数下月 1 日）。曾考虑改名「全部下一周期」，最终保留应用内现有名称，避免为改名重新发版。
