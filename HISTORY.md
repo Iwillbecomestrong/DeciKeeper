@@ -7,6 +7,12 @@
 
 ## 1. 关键架构决策记录 [DECISION]
 
+### [DECISION-54] 来回切换生效策略时，规则参数与全局黑名单不再丢待生效、不再悄悄偏离基准（2026-10-14）
+
+- **证据与根因**：用户实测：每周特权次数基准 3，统一延后下改 2（待生效）→ 切到宽严有别 → 再切回统一延后，待生效消失、生效中的值已是 2；此时改回 3 反而出现「2 -> 3」。原因是切换策略时只有勿扰时段（`TimeRuleManager`）和应用时间窗（`AppWindowManager`）会按新策略重新对齐 active / pending，规则参数在 `analyzeAndSaveGlobalParams` 里「统一延后」把当前生效值当作不动，全局黑名单则完全没参与切换。同类问题涉及休息 / 空档冷却、借用比例、临时使用受限应用时长、黑名单惩罚时长、每周特权次数与总时长，以及全局黑名单。
+- **修复**：切到「统一延后」时，参数的「当前值」取当天基准（生效中的值回滚，用户当前输入作为待生效目标）；基准键或生效键不存在时保持原值。新增 `BlacklistStore.recalculatePendingAfterPolicySwitch`，口径与时段、应用时间窗一致，并接入 `EffectiveActivationPolicyManager.setPolicy`。切到「宽严有别」时挂着的加严参数项立即生效，并写进保存提示。
+- **边界**：时段与应用时间窗原本就正确，仅补回归测试锁住；刷新时刻和预警分钟本来就立即生效；「时间规则可修改时段」当前不随统一延后延迟，属于既有行为，未改。
+
 ### [DECISION-53] 应用内切换页面不再把仍在前台的应用标成「已关闭」（2026-10-13）
 
 - **证据与根因**：真机日志（2026-10-13 21:30–21:33）里，微信回桌面后小窗仍在无障碍可见集合中，却约 30 秒不重新上锁；`FG_SAMPLE` 的 `a11yVisible` 显示 `com.tencent.mm(CLOSED)`，系统 UsageEvents 对得上：微信从 `SingleChatInfoUI` 回到 `LauncherUI` 时，先 `LauncherUI RESUMED`，随后才 `SingleChatInfoUI STOPPED`。`VisibleBlacklistPresenceTracker` 不区分 Activity，把这条旧页面的 STOPPED 当成整个应用关闭，写入关闭墓碑，小窗兜底（`MiniWindowOverrider`）因此认为它不可见。该墓碑来自 10-03 的小窗关闭修复（`36490b51`）。

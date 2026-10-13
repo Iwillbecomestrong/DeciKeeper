@@ -640,6 +640,109 @@ object BlacklistStore {
         LogExporter.i("CreditManager", "Revoked all pending Blacklist changes.")
     }
 
+    /**
+     * 切换生效策略后，把全局黑名单的生效中名单与待生效名单对齐到新策略的口径
+     * （与时段、应用时间窗的 recalculatePendingAfterPolicySwitch 保持一致）：
+     *
+     * - 切到「统一延后」：当天所有修改都是待生效，生效中的名单回到当天基准，
+     *   原本在宽严有别下已立即生效的新增屏蔽，连同已挂着的待生效项一起转为待生效目标；
+     * - 切到「宽严有别」：挂着的新增屏蔽（加严）立即生效，解除屏蔽（放宽）继续待生效。
+     *
+     * 否则切换会让加严项悄悄留在生效中又没有待生效记录，来回切换后待生效内容还会丢失。
+     */
+    fun recalculatePendingAfterPolicySwitch(
+        context: Context,
+        policy: EffectiveActivationPolicyManager.Policy
+    ) {
+        if (CreditManager.isInAdaptationPeriod(context)) return
+
+        val baseline = getBaselineBlacklistApps(context)
+        val active = getBlacklistApps(context)
+        val pending = getPendingBlacklistApps(context)
+
+        when (policy) {
+            EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY -> {
+                // 生效中就是基准、也没有待生效：无事可做
+                if (pending == null && active == baseline) return
+                val target = pending ?: active
+                if (active != baseline) {
+                    saveTargetAppsImmediately(context, baseline)
+                }
+                ChangeLogManager.clearPendingLogsForCategory(context, "blacklist")
+                if (target == baseline) {
+                    context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
+                } else {
+                    val effectiveTime = getPendingEffectiveTimestamp(context).takeIf { pending != null && it > 0L }
+                        ?: ConfigPendingManager.calculateNextEffectiveTime(context, System.currentTimeMillis())
+                    stagePendingBlacklistApps(context, target, effectiveTime)
+                    ChangeLogManager.addEntries(
+                        context,
+                        "blacklist",
+                        diffLogItems(context, baseline, target, "次日生效", isPending = true)
+                    )
+                }
+                notifyBlacklistChanged(context)
+            }
+
+            EffectiveActivationPolicyManager.Policy.FAVORABLE_IMMEDIATE -> {
+                val target = pending ?: return
+                val strictAdditions = target.minus(baseline)
+                val looseRemovals = baseline.minus(target)
+                val newActive = active.plus(strictAdditions)
+                if (newActive != active) {
+                    saveTargetAppsImmediately(context, newActive)
+                }
+                if (looseRemovals.isEmpty()) {
+                    // 只剩加严（或已恢复基准）：全部生效，没有需要继续等待的放宽项
+                    context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE).edit().clear().apply()
+                    ChangeLogManager.clearPendingLogsForCategory(context, "blacklist")
+                } else {
+                    ChangeLogManager.clearPendingLogsForCategory(context, "blacklist")
+                    ChangeLogManager.addEntries(
+                        context,
+                        "blacklist",
+                        diffLogItems(context, baseline, target.minus(strictAdditions), "次日生效", isPending = true)
+                    )
+                }
+                if (strictAdditions.isNotEmpty()) {
+                    ChangeLogManager.addEntries(
+                        context,
+                        "blacklist",
+                        diffLogItems(context, active, newActive, "立即生效", isPending = false)
+                    )
+                }
+                notifyBlacklistChanged(context)
+            }
+        }
+    }
+
+    private fun diffLogItems(
+        context: Context,
+        from: Set<String>,
+        to: Set<String>,
+        suffix: String,
+        isPending: Boolean
+    ): List<Triple<String, Boolean, String?>> {
+        val items = mutableListOf<Triple<String, Boolean, String?>>()
+        to.minus(from).forEach { pkg ->
+            items.add(Triple("新增屏蔽: ${CreditManager.getAppLabel(context, pkg)} ($suffix)", isPending, "blacklist_status_$pkg"))
+        }
+        from.minus(to).forEach { pkg ->
+            items.add(Triple("解除屏蔽: ${CreditManager.getAppLabel(context, pkg)} ($suffix)", isPending, "blacklist_status_$pkg"))
+        }
+        return items
+    }
+
+    private fun notifyBlacklistChanged(context: Context) {
+        try {
+            val intent = android.content.Intent(context, MonitorService::class.java)
+            intent.action = MonitorService.ACTION_REFRESH_RULES
+            context.startService(intent)
+        } catch (_: Exception) {
+            // 服务暂时拉不起来不影响数据，下一次规则刷新会读到最新名单
+        }
+    }
+
     fun applyPendingAppsToActive(context: Context) {
         val pendingPrefs = context.getSharedPreferences(PREFS_PENDING_APPS, Context.MODE_PRIVATE)
         if (!pendingPrefs.getBoolean("has_pending_apps", false)) return

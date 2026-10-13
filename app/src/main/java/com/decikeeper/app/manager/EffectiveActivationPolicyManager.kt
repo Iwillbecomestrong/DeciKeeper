@@ -5,7 +5,7 @@
  * * @role: Domain Skill
  * * @description: 统一管理「时间规则」生效策略的读取、持久化与展示文案。
  * * @responsibilities:
- * 1. 管理勿扰时段与应用时间窗的生效策略。
+ * 1. 管理勿扰时段、应用时间窗、全局黑名单与规则参数的生效策略（「宽严有别」/「统一延后」）。
  * 2. 提供面向 UI 的策略标题、说明与作用范围文案。
  * * @context:
  * - 上游: FocusRulesFragment
@@ -13,7 +13,7 @@
  * * @constraints (必读):
  * 1. 不引入 UI 组件依赖。
  * 2. 默认策略需与历史行为兼容。
- * 3. 该策略仅作用于勿扰时段与应用时间窗，不得扩展为全局规则策略。
+ * 3. 该策略只作用于时间规则（勿扰时段、应用时间窗、全局黑名单、规则参数），不得扩展到防卸载、防关等系统保护能力。
  * 4. 空值与非法值必须回退默认策略。
  * =================================================================================
  */
@@ -21,6 +21,7 @@ package com.decikeeper.app.manager
 
 import android.content.Context
 import android.content.Intent
+import com.decikeeper.app.data.BlacklistStore
 import com.decikeeper.app.service.MonitorService
 
 object EffectiveActivationPolicyManager {
@@ -53,9 +54,10 @@ object EffectiveActivationPolicyManager {
             .putString(KEY_POLICY, policy.key)
             .apply()
 
-        // Policy switch must reconcile pending/active state for DND + AppWindow only.
+        // Policy switch must reconcile pending/active state for DND + AppWindow + global blacklist.
         TimeRuleManager.recalculatePendingAfterPolicySwitch(context, policy)
         AppWindowManager.recalculatePendingAfterPolicySwitch(context, policy)
+        BlacklistStore.recalculatePendingAfterPolicySwitch(context, policy)
 
         try {
             val intent = Intent(MonitorService.ACTION_REFRESH_RULES)
