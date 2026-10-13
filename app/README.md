@@ -66,7 +66,7 @@ com.decikeeper.app
 | **勿扰时段** | `manager/TimeRuleManager.kt` | 时段增删改查、跨午夜处理、业务日与 pending / 生效相关逻辑 |
 | **额度与出口** | `manager/CreditManager.kt`、`ui/LockWindowManager.kt` | 额度、结余 / 借用，以及休息 / 临时解锁等锁屏交互与执行链路 |
 | **应用时间窗** | `manager/AppWindowManager.kt` | 被管理应用的允许时间窗与延期生效 |
-| **时间规则生效策略** | `manager/EffectiveActivationPolicyManager.kt` | 只管理勿扰时段 + 应用时间窗的「宽严有别 / 全部次日」策略 |
+| **时间规则生效策略** | `manager/EffectiveActivationPolicyManager.kt` | 只管理勿扰时段 + 应用时间窗的「宽严有别 / 统一延后」策略 |
 | **前台监控** | `service/MonitorService.kt`、`service/ForegroundSessionTracker.kt` | 前台应用识别、Session 跟踪与规则边界重判 |
 | **防卸载 / 系统保护** | `protection/`、`service/CoreService.kt` | 无障碍事件捕获、设置页退栈、卸载 / 强停 / 特殊系统入口保护 |
 | **使用统计** | `ui/StatisticsFragment.kt`<br>`manager/statistics/StatisticsRepository.kt`<br>`manager/statistics/StatsDateRangeResolver.kt` | 休息、起床、应用、规则保护行为统计，双图表阈值自适应引擎与两层筛选体系 |
@@ -93,7 +93,7 @@ com.decikeeper.app
 - **应用时间窗**
 - **时间规则生效策略**
 
-其中「宽严有别 / 全部次日」涵盖勿扰时段、全局黑名单（归属于勿扰时段）、应用时间窗与规则参数，不扩展到底层系统安全保护功能。
+其中「宽严有别 / 统一延后」涵盖勿扰时段、全局黑名单（归属于勿扰时段）、应用时间窗与规则参数，不扩展到底层系统安全保护功能。
 
 首页只负责展示当前状态、额度与必要入口；勿扰时段和应用时间窗的编辑统一从「时间规则」进入。
 
