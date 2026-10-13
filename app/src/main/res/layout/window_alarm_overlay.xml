@@ -1044,6 +1044,49 @@
                 android:textStyle="bold"
                 android:textColor="?attr/zzText" />
         </LinearLayout>
+
+        <!-- 应急退出：低调入口，仅真实触摸长按 3 秒才会进入确认；没有 onClick，按键/无障碍点击回放无法触发 -->
+        <LinearLayout
+            android:id="@+id/layout_alarm_emergency_exit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_alarm_emergency_exit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_zz_card_soft"
+                android:gravity="center"
+                android:maxLines="2"
+                android:minHeight="44dp"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="8dp"
+                android:text="长按 3 秒 · 应急退出"
+                android:textColor="?attr/zzMuted"
+                android:textSize="13sp" />
+
+            <ProgressBar
+                android:id="@+id/pb_alarm_emergency_exit"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:max="1000"
+                android:progress="0"
+                android:visibility="invisible" />
+
+            <TextView
+                android:id="@+id/tv_alarm_emergency_exit_quota"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="center"
+                android:maxLines="2"
+                android:textColor="?attr/zzMuted"
+                android:textSize="11sp" />
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout
@@ -1055,14 +1098,14 @@
 
         <!-- [Fix: scan cutout] 覆盖层窗口渲染不了 SurfaceView（DecoratedBarcodeView），
              保留该视图仅为兼容既有 findViewById 调用，始终不显示。
-             取景画面来自下方 AlarmActivity 的相机预览，透过中间的开孔透出。 -->
+             实际预览由同一覆盖层窗口内的 CameraX TextureView 承载。 -->
         <View
             android:id="@+id/barcode_alarm_scanner"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone" />
 
-        <!-- 不透明挡板：仅中间留出 260dp 见方的取景开孔。其余区域保持不透明，
+        <!-- 不透明挡板与 260dp 见方的同窗口取景器。全部区域保持不透明，
              系统弹层（关机菜单、语音助手）既无法从四周漏出，也无法被触摸操作。 -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -1088,11 +1131,29 @@
                     android:layout_weight="1"
                     android:background="?attr/zzPageBg" />
 
-                <View
+                <FrameLayout
                     android:id="@+id/scan_viewfinder_hole"
                     android:layout_width="260dp"
                     android:layout_height="260dp"
-                    android:background="@android:color/transparent" />
+                    android:background="?attr/zzPageBg">
+
+                    <androidx.camera.view.PreviewView
+                        android:id="@+id/preview_alarm_overlay"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="?attr/zzPageBg" />
+
+                    <TextView
+                        android:id="@+id/tv_alarm_scan_preview_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="?attr/zzPageBg"
+                        android:gravity="center"
+                        android:padding="16dp"
+                        android:text="正在连接摄像头…"
+                        android:textColor="?attr/zzText"
+                        android:textSize="14sp" />
+                </FrameLayout>
 
                 <View
                     android:id="@+id/scan_letterbox_right"
@@ -1177,5 +1238,78 @@
             android:textColor="?attr/zzText"
             android:background="@drawable/bg_zz_pill"
             android:backgroundTint="?attr/zzSurfaceStrong" />
+    </FrameLayout>
+
+    <!-- 应急退出确认面板：窗口内面板，不用系统 Dialog，避免被覆盖层/系统层遮挡 -->
+    <FrameLayout
+        android:id="@+id/layout_alarm_emergency_confirm"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#52000000"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginHorizontal="24dp"
+            android:background="@drawable/bg_zz_card"
+            android:backgroundTint="?attr/zzSurface"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:id="@+id/tv_alarm_emergency_confirm_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="4dp"
+                android:textColor="?attr/zzText"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_alarm_emergency_cancel"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_zz_pill"
+                    android:backgroundTint="?attr/zzSurfaceStrong"
+                    android:maxLines="1"
+                    android:paddingHorizontal="8dp"
+                    android:text="取消"
+                    android:textAllCaps="false"
+                    android:textColor="?attr/zzText"
+                    android:textStyle="bold"
+                    app:autoSizeMaxTextSize="16sp"
+                    app:autoSizeMinTextSize="10sp"
+                    app:autoSizeTextType="uniform" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_alarm_emergency_confirm"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_zz_pill"
+                    android:backgroundTint="?attr/zzAccent"
+                    android:maxLines="1"
+                    android:paddingHorizontal="8dp"
+                    android:text="确认退出"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    app:autoSizeMaxTextSize="16sp"
+                    app:autoSizeMinTextSize="10sp"
+                    app:autoSizeTextType="uniform" />
+            </LinearLayout>
+        </LinearLayout>
     </FrameLayout>
 </com.decikeeper.app.ui.AlarmOverlayRootView>

@@ -201,10 +201,10 @@ class TemporaryAccessChargeSnapshotTest {
     }
 
     /**
-     * Test G: Rest 跨 DND 必须产生 count
+     * Test G: 申请超出休息窗口且休息结束后无冷却 → 整段按 ×1 计费，不拆免费段
      */
     @Test
-    fun restEndingDuringTemporaryAccess_chargesDndCountPortion() {
+    fun spanningRestWithoutCooldown_chargesWholeRequestAtSingleRate() {
         val now = 100_000L
         val freeTimeEnd = now + 60_000L
 
@@ -215,20 +215,61 @@ class TemporaryAccessChargeSnapshotTest {
             existingCooldownEndMs = 0L
         )
 
-        assertEquals(60, snapshot.freeSec)
-        assertEquals(120, snapshot.dndSec)
+        assertEquals(0, snapshot.freeSec)
+        assertEquals(180, snapshot.dndSec)
         assertEquals(0, snapshot.coolingSec)
-        assertEquals(120, snapshot.weightedTimeCostSec)
+        assertEquals(180, snapshot.weightedTimeCostSec)
         assertEquals(1, snapshot.weightedCountHalfUnits)
     }
 
     /**
-     * Test H: 从 Rest 开始也不得阻止 count settlement
+     * Test G2: 申请超出休息窗口并碰到休息后预置的冷却 → 整段（含休息内部分）全部 ×2
+     */
+    @Test
+    fun spanningRestIntoPresetCooldown_doublesWholeRequest() {
+        val now = 100_000L
+        val freeTimeEnd = now + 60_000L
+
+        val snapshot = resolveTemporaryAccessChargeSnapshot(
+            requestedSec = 180,
+            freeSec = 60,
+            coolingAnchorMs = freeTimeEnd,
+            existingCooldownEndMs = freeTimeEnd + 60_000L
+        )
+
+        assertEquals(180, snapshot.dndSec)
+        assertEquals(180, snapshot.coolingSec)
+        assertEquals(360, snapshot.weightedTimeCostSec)
+        assertEquals(2, snapshot.weightedCountHalfUnits)
+    }
+
+    /**
+     * Test G3: 申请完全落在休息窗口内 → 免费，休息后预置的冷却不得回溯翻倍
+     */
+    @Test
+    fun fullyWithinRest_isFreeEvenWithPresetCooldown() {
+        val now = 100_000L
+        val freeTimeEnd = now + 120_000L
+
+        val snapshot = resolveTemporaryAccessChargeSnapshot(
+            requestedSec = 90,
+            freeSec = 90,
+            coolingAnchorMs = freeTimeEnd,
+            existingCooldownEndMs = freeTimeEnd + 60_000L
+        )
+
+        assertEquals(0, snapshot.dndSec)
+        assertEquals(0, snapshot.weightedTimeCostSec)
+        assertEquals(0, snapshot.weightedCountHalfUnits)
+    }
+
+    /**
+     * Test H: settlement gate 只看 snapshot 次数，不因「请求开始时在休息」而放行或阻止
      */
     @Test
     fun startedInRest_butSnapshotHasCount_commitsCount() {
         assertTrue(
-            "即使请求开始时在休息，只要 snapshot.weightedCountHalfUnits > 0 且在DND，必须扣除次数",
+            "snapshot.weightedCountHalfUnits > 0 且在DND、未预扣时，gate 必须放行次数扣除",
             shouldCommitTemporaryAccessCount(
                 quotaAlreadyDeducted = false,
                 isInDndSegment = true,

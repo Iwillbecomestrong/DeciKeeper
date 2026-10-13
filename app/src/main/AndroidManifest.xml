@@ -209,7 +209,7 @@
         <activity
             android:name=".ui.statistics.StatsHistoryActivity"
             android:exported="false"
-            android:label="历史记录中心" />
+            android:label="统计明细" />
 
         <activity
             android:name=".ui.statistics.AppCategoryDetailActivity"
@@ -238,6 +238,12 @@
             android:exported="false"
             android:label="全局参数"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.PermissionsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.DeciKeeper" />
 
         <activity
             android:name=".ui.AlarmEmergencyWhitelistPickerActivity"
@@ -294,6 +300,16 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.decikeeper.app.ACTION_TEST_AUTO_START" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 诊断与自动化测试控制广播 -->
+        <receiver
+            android:name=".receiver.ProtectionDiagnosticsReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.decikeeper.app.ACTION_TEST_DIAGNOSTICS" />
             </intent-filter>
         </receiver>
 

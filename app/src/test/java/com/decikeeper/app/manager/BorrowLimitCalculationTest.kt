@@ -51,9 +51,42 @@ class BorrowLimitCalculationTest {
             borrowPercent = 50
         )
 
-        assertEquals(3, limitCount)
+        // 6 半次(=3次) * 50% = 1.5次 -> 向下取整到整数次 = 1次 = 2 半次
+        assertEquals(2, limitCount)
         assertTrue(canOccupyBorrowRepaymentCount(limitCount, alreadyBorrowedWeightedCount = 0, requestedWeightedCount = 2))
         assertFalse(canOccupyBorrowRepaymentCount(limitCount, alreadyBorrowedWeightedCount = 2, requestedWeightedCount = 2))
+    }
+
+    @Test
+    fun repaymentCountIsFlooredToWholeCounts() {
+        // 3次 * 50% = 1.5次 -> 1次
+        assertEquals(2, calculateBorrowRepaymentLimitCount(nextCountLimit = 6, borrowPercent = 50))
+        // 3.5次 * 50% = 1.75次 -> 1次
+        assertEquals(2, calculateBorrowRepaymentLimitCount(nextCountLimit = 7, borrowPercent = 50))
+        // 3次 * 100% = 3次
+        assertEquals(6, calculateBorrowRepaymentLimitCount(nextCountLimit = 6, borrowPercent = 100))
+        // 1次 * 50% = 0.5次 -> 0
+        assertEquals(0, calculateBorrowRepaymentLimitCount(nextCountLimit = 2, borrowPercent = 50))
+        assertEquals(0, calculateBorrowRepaymentLimitCount(nextCountLimit = 6, borrowPercent = 0))
+    }
+
+    @Test
+    fun minimumRawBorrowedPrincipalIsHalfCount() {
+        // 下阶段3次、50%：还款额度 1次，借一还二 -> 最多借 0.5次(=1 半次)
+        assertEquals(
+            1,
+            calculateMaxRawBorrowableCount(nextCountLimit = 6, borrowPercent = 50, alreadyBorrowedWeightedCount = 0)
+        )
+        // 下阶段3.5次、50%：同样只有 0.5次
+        assertEquals(
+            1,
+            calculateMaxRawBorrowableCount(nextCountLimit = 7, borrowPercent = 50, alreadyBorrowedWeightedCount = 0)
+        )
+        // 下阶段3次、100%：还款 3次 -> 本金 1.5次(=3 半次)
+        assertEquals(
+            3,
+            calculateMaxRawBorrowableCount(nextCountLimit = 6, borrowPercent = 100, alreadyBorrowedWeightedCount = 0)
+        )
     }
 
     @Test

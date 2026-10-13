@@ -20,6 +20,8 @@ package com.decikeeper.app.protection
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -37,15 +39,49 @@ object ProtectionManager {
     private var antiUninstallProtection: AntiUninstallProtection? = null
     private var accessibilityProtection: AccessibilityProtection? = null
     private var permissionProtection: PermissionProtection? = null
+    private var developerOptionsProtection: DeveloperOptionsProtection? = null
+    private var installProtection: InstallProtection? = null
+    private var dateTimeProtection: DateTimeProtection? = null
+
+    /** Only protection surfaces may expose text; other apps still supply foreground package signals. */
+    fun shouldInspectContent(context: Context, packageName: String?): Boolean {
+        if (packageName.isNullOrBlank() || packageName == context.packageName) return false
+        if (packageName == "android" ||
+            packageName in AntiUninstallProtection.MONITORED_PACKAGES ||
+            packageName in AntiUninstallProtection.LAUNCHER_PACKAGES ||
+            packageName in AntiUninstallProtection.PRIVATE_SPACE_PACKAGES ||
+            packageName in AccessibilityProtection.RELEVANT_PACKAGES ||
+            packageName in PermissionProtection.SETTINGS_PACKAGES
+        ) return true
+
+        return isDefaultLauncher(context, packageName) || canRequestUninstall(context, packageName)
+    }
+
+    internal fun isDefaultLauncher(context: Context, packageName: String): Boolean {
+        // Discover the actual launcher, not arbitrary names containing "launcher".
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        return context.packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName == packageName
+    }
+
+    internal fun canRequestUninstall(context: Context, packageName: String): Boolean {
+        val pm = context.packageManager
+        return pm.checkPermission("android.permission.REQUEST_DELETE_PACKAGES", packageName) == PackageManager.PERMISSION_GRANTED ||
+            pm.checkPermission("android.permission.DELETE_PACKAGES", packageName) == PackageManager.PERMISSION_GRANTED
+    }
 
     fun init(context: Context) {
         antiUninstallProtection = AntiUninstallProtection(context)
         accessibilityProtection = AccessibilityProtection(context)
         permissionProtection = PermissionProtection(context)
+        developerOptionsProtection = DeveloperOptionsProtection(context)
+        installProtection = InstallProtection(context)
+        dateTimeProtection = DateTimeProtection(context)
     }
 
 
     fun onAccessibilityEvent(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo?) {
+        if (!shouldInspectContent(service, event.packageName?.toString())) return
         // 🚀 [Identity Check] Explicitly ignore self-events to prevent "Self-Locking"
         if (event.packageName == "com.decikeeper.app") {
             return
@@ -58,9 +94,39 @@ object ProtectionManager {
             }
             return
         }
+        if (!shouldInspectContent(service, root.packageName?.toString())) return
 
         if (DEBUG) {
             android.util.Log.d(com.decikeeper.app.protection.AccessibilityProtection.TAG, "[PM] Event: Type=${event.eventType} Pkg=${event.packageName}")
+        }
+
+        // 0. Permission Protection 先行：自启动/关联启动/悬浮窗页面的拦截对延迟最敏感，
+        //    它对非设置类包名几乎零成本返回；放在 AntiUninstall 的整树文本扫描之前，避免被拖慢。
+        try {
+            permissionProtection?.check(service, event, root)
+        } catch (e: Exception) {
+            android.util.Log.e(com.decikeeper.app.protection.PermissionProtection.TAG, "PermissionProtection Error", e)
+        }
+
+        // 0.5 开发者选项拦截：同样对延迟敏感，对非设置类包名零成本返回。
+        try {
+            developerOptionsProtection?.check(service, event, root)
+        } catch (e: Exception) {
+            android.util.Log.e(com.decikeeper.app.protection.DeveloperOptionsProtection.TAG, "DeveloperOptionsProtection Error", e)
+        }
+
+        // 0.6 安装拦截：必须先于防卸载派发，防卸载对安装器的「安装 / 更新流程豁免」会把这类页面放行。
+        try {
+            installProtection?.check(service, event, root)
+        } catch (e: Exception) {
+            android.util.Log.e(com.decikeeper.app.protection.InstallProtection.TAG, "InstallProtection Error", e)
+        }
+
+        // 0.7 日期与时间拦截：对非设置类包名零成本返回；不参与开发者进阶拦截的豁免时段。
+        try {
+            dateTimeProtection?.check(service, event, root)
+        } catch (e: Exception) {
+            android.util.Log.e(com.decikeeper.app.protection.DateTimeProtection.TAG, "DateTimeProtection Error", e)
         }
 
         // 1. Accessibility Protection (Highest Priority - prevent disabling self)
@@ -75,13 +141,6 @@ object ProtectionManager {
             antiUninstallProtection?.check(service, event, root)
         } catch (e: Exception) {
             android.util.Log.e(com.decikeeper.app.protection.AntiUninstallProtection.TAG, "AntiUninstallProtection Error", e)
-        }
-
-        // 3. Permission Protection
-        try {
-             permissionProtection?.check(service, event, root)
-        } catch (e: Exception) {
-             android.util.Log.e(com.decikeeper.app.protection.PermissionProtection.TAG, "PermissionProtection Error", e)
         }
 
     }

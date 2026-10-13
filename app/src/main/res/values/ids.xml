@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Legacy view IDs retained for source code contract tests and safe null-finding -->
+    <item name="switch_refresh_sync" type="id" />
+    <item name="tv_refresh_sync_hint" type="id" />
+</resources>

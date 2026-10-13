@@ -48,6 +48,12 @@ class MainActivity : AppCompatActivity() {
             finishAffinity()
             return
         }
+        // Direct Boot 出生的进程不会再跑 Application.onCreate，这里补一道入口，保证先拍基准再让用户动开关。
+        try {
+            com.decikeeper.app.manager.DailyBaselineManager.ensureTodaySnapshot(this)
+        } catch (e: Exception) {
+            Log.w("MainActivity", "ensureTodaySnapshot failed (non-fatal)", e)
+        }
         setContentView(R.layout.activity_main)
         val fragmentContainer = findViewById<View>(R.id.fragment_container)
         ViewCompat.setOnApplyWindowInsetsListener(fragmentContainer) { view, insets ->

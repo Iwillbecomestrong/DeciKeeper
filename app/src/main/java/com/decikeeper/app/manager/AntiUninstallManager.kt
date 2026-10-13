@@ -104,6 +104,13 @@ object AntiUninstallManager {
      * returns the current protection state.
      */
     fun getProtectionState(context: Context): State {
+        val state = computeProtectionState(context)
+        // 同步 Direct Boot 镜像：锁屏期预挂遮罩只能读这个 DPS 镜像（CE 不可用）。
+        StartupAntiUninstallCache.sync(context, shouldShowInitialization(state))
+        return state
+    }
+
+    private fun computeProtectionState(context: Context): State {
         val prefs = getPrefs(context)
         
         // 1) Explicit switch OFF means protection disabled.
@@ -163,9 +170,28 @@ object AntiUninstallManager {
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
     }
 
-    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
-        getPrefs(context).edit().putBoolean(KEY_IS_ENABLED, false).apply()
+    internal fun disableImmediatelyForAccessibilityUnavailable(
+        context: Context,
+        caller: String = "AccessibilityDependencyManager"
+    ) {
+        val prefs = getPrefs(context)
+        val oldEnabled = prefs.getBoolean(KEY_IS_ENABLED, false)
+        val oldState = getProtectionState(context)
+        val oldPending = getUnlockTime(context)
+
+        prefs.edit().putBoolean(KEY_IS_ENABLED, false).apply()
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+
+        val newEnabled = prefs.getBoolean(KEY_IS_ENABLED, false)
+        val newState = getProtectionState(context)
+
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        android.util.Log.w(
+            "ProtectionDiagnostics",
+            "[PROTECTION_FORCE_DISABLE] ${runIdTag}component=anti_uninstall caller=$caller " +
+                    "oldEnabled=$oldEnabled oldState=$oldState oldPending=$oldPending " +
+                    "newEnabled=$newEnabled newState=$newState"
+        )
     }
 
     /**

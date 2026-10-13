@@ -42,14 +42,21 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.decikeeper.app.R
 import com.decikeeper.app.data.LogExporter
+import com.decikeeper.app.manager.A11ySelfDisableAuthorization
 import com.decikeeper.app.manager.AccessibilityControlManager
+import com.decikeeper.app.manager.SelfDisableReason
 import com.decikeeper.app.manager.SettingsNavigator
 import com.decikeeper.app.manager.AccessibilityDependencyManager
 import com.decikeeper.app.manager.AlarmPowerOffProtectionManager
 import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.ConfigPendingManager
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.DateTimeGuardManager
+import com.decikeeper.app.manager.DevGuardExemptionManager
+import com.decikeeper.app.manager.DevGuardExemptionWindow
+import com.decikeeper.app.manager.DeveloperOptionsGuardManager
 import com.decikeeper.app.manager.FloatingWindowProtectionManager
+import com.decikeeper.app.manager.InstallGuardManager
 import com.decikeeper.app.manager.GuardFloatingWindowManager
 import com.decikeeper.app.manager.ManualPermissionRecoveryManager
 import com.decikeeper.app.manager.PermissionManager
@@ -58,6 +65,7 @@ import com.decikeeper.app.manager.RecentTasksHideManager
 import com.decikeeper.app.manager.RomPermissionDetector
 import com.decikeeper.app.manager.SettingsBackupManager
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
+import com.decikeeper.app.manager.PrivilegeWindowPolicy
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.service.MonitorService
 
@@ -216,6 +224,17 @@ class RulesFragment : Fragment() {
     private var tvUninstallAndPermProtectionStatus: TextView? = null
     private var switchFloatingWindowProtection: Switch? = null
     private var tvFloatingWindowProtectionStatus: TextView? = null
+    private var rowDevAdvancedGuard: View? = null
+    private var tvDevAdvancedGuardStatus: TextView? = null
+    private var switchDateTimeGuard: Switch? = null
+    private var tvDateTimeGuardStatus: TextView? = null
+    private var switchDeveloperOptionsGuard: Switch? = null
+    private var tvDeveloperOptionsGuardStatus: TextView? = null
+    private var switchInstallGuard: Switch? = null
+    private var tvInstallGuardStatus: TextView? = null
+    private var cardBasicPermissions: View? = null
+    private var tvBasicPermissionsStatus: TextView? = null
+    private var tvBasicPermissionsBadge: TextView? = null
     private var tvAccessibilityStatus: TextView? = null
     private var switchAccessibilityService: Switch? = null
     private var switchAlarmPowerOffProtection: Switch? = null
@@ -268,11 +287,17 @@ class RulesFragment : Fragment() {
     // Protection Switch Debounces
     private var lastSwitchClickTime = 0L
     private var lastFloatingWindowSwitchClickTime = 0L
+    private var lastDateTimeGuardSwitchClickTime = 0L
+    private var lastDeveloperOptionsGuardSwitchClickTime = 0L
+    private var lastInstallGuardSwitchClickTime = 0L
     private var lastUninstallAndPermSwitchClickTime = 0L
     private var lastA11yServiceSwitchClickTime = 0L
     private var lastPrivacySpaceGuardSwitchClickTime = 0L
     private var switchUninstallAndPermUiUpdating = false
     private var switchFloatingWindowUiUpdating = false
+    private var switchDateTimeGuardUiUpdating = false
+    private var switchDeveloperOptionsGuardUiUpdating = false
+    private var switchInstallGuardUiUpdating = false
     private var switchA11yServiceUiUpdating = false
     private var switchAlarmPowerOffUiUpdating = false
     private var switchPrivacySpaceGuardUiUpdating = false
@@ -292,24 +317,50 @@ class RulesFragment : Fragment() {
             if (shouldShowWeeklyPrivilegeEntryInSettings()) View.VISIBLE else View.GONE
     }
 
+    /**
+     * MainActivity 用 hide/show 切换底部 Tab，切回设置页时 onResume 不会触发，
+     * 在「时间规则」页改完勿扰时段后，这里的「每日生效时间」「待生效」等会停留在旧值。
+     */
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (hidden || !isAdded || view == null) return
+        updateEditWindowPolicyUI()
+        updateRefreshTimeUI()
+        updateUninstallAndPermProtectionUI()
+    }
+
     override fun onResume() {
         super.onResume()
         val context = requireContext()
+        val sysA11y = isAccessibilityServiceEnabled(context)
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        android.util.Log.i("RulesFragment", "[RULES_ON_RESUME] ${runIdTag}systemA11yEnabled=$sysA11y")
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(context, trigger = "RulesFragment.onResume")
         AccessibilityDependencyManager.reconcile(
             context,
-            systemAccessibilityEnabled = isAccessibilityServiceEnabled(context)
+            systemAccessibilityEnabled = sysA11y,
+            caller = "RulesFragment.onResume"
         )
         updateAccessibilityServiceUI()
+        updateBasicPermissionsUI()
         updateEditWindowPolicyUI()
         updateRefreshTimeUI()
         updateAlarmPowerOffProtectionUI()
         updateFloatingWindowProtectionUI()
+        updateDateTimeGuardUI()
+        updateDeveloperOptionsGuardUI()
+        updateInstallGuardUI()
         updatePrivacySpaceGuardUI()
         updateUninstallAndPermProtectionUI()
         alarmPrerequisiteDialogRefresh?.invoke()
         permProtectionGuideDialogRefresh?.invoke()
         updateFloatingGuardUI()
         updateDeviceAdminProtectionUI()
+
+        // 🚀 [Next-Day A11y Expiry Check] 检测昨日次日延迟关闭是否已在今日正式生效
+        if (AccessibilityControlManager.consumeNextDayDisableBecameEffective(context) && sysA11y) {
+            showNextDayA11yDisableGuideDialog(context)
+        }
 
         // Loop check for anti-uninstall status
         view?.let { triggerAntiUninstallStatusLoop(it) }
@@ -322,6 +373,13 @@ class RulesFragment : Fragment() {
     }
 
     private fun initViews(view: View) {
+        cardBasicPermissions = view.findViewById(R.id.card_basic_permissions)
+        tvBasicPermissionsStatus = view.findViewById(R.id.tv_basic_permissions_status)
+        tvBasicPermissionsBadge = view.findViewById(R.id.tv_basic_permissions_badge)
+        cardBasicPermissions?.setOnClickListener {
+            val intent = Intent(requireContext(), PermissionsActivity::class.java)
+            startActivity(intent)
+        }
         switchRefreshSyncRules = view.findViewById(R.id.switch_refresh_sync_rules)
         tvRefreshSyncHintRules = view.findViewById(R.id.tv_refresh_sync_hint_rules)
         tvRefreshTimeValueRules = view.findViewById(R.id.tv_refresh_time_value_rules)
@@ -336,6 +394,10 @@ class RulesFragment : Fragment() {
         tvAlarmPowerOffProtectionStatus = view.findViewById(R.id.tv_alarm_power_off_status_main)
         switchFloatingWindowProtection = view.findViewById(R.id.switch_floating_window_protection)
         tvFloatingWindowProtectionStatus = view.findViewById(R.id.tv_floating_window_protection_status)
+        switchDateTimeGuard = view.findViewById(R.id.switch_date_time_guard)
+        tvDateTimeGuardStatus = view.findViewById(R.id.tv_date_time_guard_status)
+        rowDevAdvancedGuard = view.findViewById(R.id.row_dev_advanced_guard)
+        tvDevAdvancedGuardStatus = view.findViewById(R.id.tv_dev_advanced_guard_status)
         layoutPrivacySpaceGuard = view.findViewById(R.id.layout_privacy_space_guard)
         dividerPrivacySpaceGuard = view.findViewById(R.id.divider_privacy_space_guard)
         switchPrivacySpaceGuard = view.findViewById(R.id.switch_privacy_space_guard)
@@ -365,6 +427,9 @@ class RulesFragment : Fragment() {
         switchAlarmPowerOffProtection?.let { setupAlarmPowerOffProtectionSwitch(it) }
         switchFloatingGuard?.let { setupFloatingGuardSwitch(it) }
         switchFloatingWindowProtection?.let { setupFloatingWindowProtectionSwitch(it) }
+        switchDateTimeGuard?.let { setupDateTimeGuardSwitch(it) }
+        rowDevAdvancedGuard?.setOnClickListener { showDevAdvancedGuardDialog() }
+        updateDevAdvancedGuardSummary()
         switchPrivacySpaceGuard?.let { setupPrivacySpaceGuardSwitch(it) }
         switchUninstallAndPermProtection?.let { setupUninstallAndPermProtectionSwitch(it) }
         switchDeviceAdminProtection?.let { setupDeviceAdminProtectionSwitch(it) }
@@ -382,10 +447,14 @@ class RulesFragment : Fragment() {
 
             val message = buildString {
                 append(getString(R.string.settings_protection_help_intro)).append("\n\n")
+                append(getString(R.string.settings_protection_help_date_time)).append("\n\n")
                 append(getString(R.string.settings_protection_help_alarm)).append("\n\n")
                 append(getString(R.string.settings_protection_help_floating_guard)).append("\n\n")
                 append(getString(R.string.settings_protection_help_floating_window)).append("\n\n")
                 append(getString(R.string.settings_protection_help_uninstall_perm))
+                append("\n\n").append(getString(R.string.settings_protection_help_developer_options))
+                append("\n\n").append(getString(R.string.settings_protection_help_install))
+                append("\n\n").append(getString(R.string.settings_protection_help_dev_advanced))
 
                 if (isVivo) {
                     append("\n\n").append(getString(R.string.settings_protection_help_vivo_note))
@@ -457,6 +526,9 @@ class RulesFragment : Fragment() {
 
             updateEditWindowPolicyUI()
             updateFloatingWindowProtectionUI()
+            updateDateTimeGuardUI()
+            updateDeveloperOptionsGuardUI()
+            updateInstallGuardUI()
             updatePrivacySpaceGuardUI()
             updateUninstallAndPermProtectionUI()
         }
@@ -523,6 +595,7 @@ class RulesFragment : Fragment() {
                 TimeRuleManager.saveRefreshTime(context, syncedTime)
             }
             updateRefreshTimeUI()
+            if (isChecked) notifyPrivilegeWindowStartConflict(context)
         }
 
         tvRefreshTimeValueRules?.setOnClickListener {
@@ -538,6 +611,18 @@ class RulesFragment : Fragment() {
             }
             showRefreshTimePickerDialog(context)
         }
+    }
+
+    /** 固定的特权开始时间早于新的生效时间时提示：特权将从生效时间起可用（存储值不改）。 */
+    private fun notifyPrivilegeWindowStartConflict(context: Context) {
+        val refresh = TimeRuleManager.getRefreshTime(context)
+        val storedStart = TimeRuleManager.getStoredPrivilegeWindowStart(context)
+        if (!PrivilegeWindowPolicy.conflictsWithRefresh(storedStart, refresh)) return
+        AlertDialog.Builder(context)
+            .setTitle("特权可用范围已调整")
+            .setMessage("特权可用范围的开始时间 $storedStart 早于新的生效时间 $refresh，特权将从生效时间 $refresh 起可用，且不能跨天。")
+            .setPositiveButton("我知道了", null)
+            .show()
     }
 
     private fun showRefreshTimePickerDialog(context: Context) {
@@ -587,6 +672,7 @@ class RulesFragment : Fragment() {
                 TimeRuleManager.saveRefreshTime(context, formatted)
                 updateRefreshTimeUI()
                 Toast.makeText(context, "每日生效时间已更新为 $formatted", Toast.LENGTH_SHORT).show()
+                notifyPrivilegeWindowStartConflict(context)
             }
             .setNegativeButton("取消", null)
             .show()
@@ -817,15 +903,444 @@ class RulesFragment : Fragment() {
                 FloatingWindowProtectionManager.setProtectionEnabled(ctx, true)
                 Toast.makeText(ctx, "小窗可见性增强已开启", Toast.LENGTH_SHORT).show()
             } else {
+                val isImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || !TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx)
                 FloatingWindowProtectionManager.setProtectionEnabled(ctx, false)
-                val message = if (TimeRuleManager.isInAdaptationPeriod(ctx)) {
-                    "适应期内，小窗可见性增强已立即关闭"
+                val message = if (isImmediate) {
+                    if (TimeRuleManager.isInAdaptationPeriod(ctx)) "适应期内，小窗可见性增强已立即关闭"
+                    else "小窗可见性增强已立即关闭（恢复基准）"
                 } else {
                     "已申请关闭小窗可见性增强（明日生效）"
                 }
                 Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
             }
             updateFloatingWindowProtectionUI()
+        }
+    }
+
+    private fun setupDeveloperOptionsGuardSwitch(switchView: Switch) {
+        val ctx = requireContext()
+        updateDeveloperOptionsGuardUI()
+        (switchView.parent as? View)?.setOnClickListener {
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+            }
+        }
+        switchView.setOnCheckedChangeListener { _, checked ->
+            if (switchDeveloperOptionsGuardUiUpdating) return@setOnCheckedChangeListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                switchDeveloperOptionsGuardUiUpdating = true
+                switchView.isChecked = !checked
+                switchDeveloperOptionsGuardUiUpdating = false
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+            val now = System.currentTimeMillis()
+            if (now - lastDeveloperOptionsGuardSwitchClickTime < 1000L) {
+                switchDeveloperOptionsGuardUiUpdating = true
+                switchView.isChecked = !checked
+                switchDeveloperOptionsGuardUiUpdating = false
+                return@setOnCheckedChangeListener
+            }
+            lastDeveloperOptionsGuardSwitchClickTime = now
+
+            if (checked) {
+                if (!isA11yServiceReady(ctx)) {
+                    switchDeveloperOptionsGuardUiUpdating = true
+                    switchView.isChecked = false
+                    switchDeveloperOptionsGuardUiUpdating = false
+                    Toast.makeText(ctx, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    return@setOnCheckedChangeListener
+                }
+                DeveloperOptionsGuardManager.setProtectionEnabled(ctx, true)
+                Toast.makeText(ctx, "开发者选项拦截已开启", Toast.LENGTH_SHORT).show()
+            } else {
+                val isImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || !TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx)
+                DeveloperOptionsGuardManager.setProtectionEnabled(ctx, false)
+                val message = if (isImmediate) {
+                    if (TimeRuleManager.isInAdaptationPeriod(ctx)) "适应期内，开发者选项拦截已立即关闭"
+                    else "开发者选项拦截已立即关闭（恢复基准）"
+                } else {
+                    "已申请关闭开发者选项拦截（明日生效）"
+                }
+                Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+            }
+            updateDeveloperOptionsGuardUI()
+        }
+    }
+
+    /** 「开发者进阶拦截」入口行的汇总状态：两项拦截的开关、豁免窗口与待生效提示。 */
+    private fun updateDevAdvancedGuardSummary() {
+        val ctx = context ?: return
+        val tv = tvDevAdvancedGuardStatus ?: return
+        fun label(state: Enum<*>, active: Enum<*>, pending: Enum<*>) = when (state) {
+            active -> "开"
+            pending -> "待关"
+            else -> "关"
+        }
+        val install = InstallGuardManager.getProtectionState(ctx)
+        val dev = DeveloperOptionsGuardManager.getProtectionState(ctx)
+        val installExempt = DevGuardExemptionManager.isExemptionEnabled(ctx, DevGuardExemptionManager.Guard.INSTALL)
+        val devExempt = DevGuardExemptionManager.isExemptionEnabled(ctx, DevGuardExemptionManager.Guard.DEVELOPER_OPTIONS)
+        val hasPending = DevGuardExemptionManager.getPendingWindow(ctx) != null ||
+            DevGuardExemptionManager.getPendingExemption(ctx, DevGuardExemptionManager.Guard.INSTALL) != null ||
+            DevGuardExemptionManager.getPendingExemption(ctx, DevGuardExemptionManager.Guard.DEVELOPER_OPTIONS) != null
+        tv.text = buildString {
+            append("安装 ").append(label(install, InstallGuardManager.State.ACTIVE, InstallGuardManager.State.PENDING))
+            append(" · 开发者选项 ").append(label(dev, DeveloperOptionsGuardManager.State.ACTIVE, DeveloperOptionsGuardManager.State.PENDING))
+            append(" · ")
+            if (installExempt || devExempt) {
+                append("豁免 ").append(DevGuardExemptionManager.getWindow(ctx).format())
+            } else {
+                append("豁免未启用")
+            }
+            if (hasPending) append(" · 有待生效")
+        }
+    }
+
+    /** 「开发者进阶拦截」弹窗：两项拦截的开关、各自的「豁免时段内放行」勾选，以及共享豁免时段。 */
+    private fun showDevAdvancedGuardDialog() {
+        val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+        val timeFmt = java.text.SimpleDateFormat("M月d日 HH:mm", java.util.Locale.getDefault())
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(20), dp(24), dp(20))
+        }
+        container.addView(TextView(ctx).apply {
+            text = getString(R.string.settings_protection_dev_advanced_title)
+            textSize = 18f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        })
+
+        val exemptRefreshers = ArrayList<() -> Unit>()
+        var exemptUpdating = false
+
+        fun addGuardBlock(
+            title: String,
+            guard: DevGuardExemptionManager.Guard,
+            bind: (Switch, TextView) -> Unit
+        ) {
+            val block = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(14), 0, 0)
+            }
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val labels = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            labels.addView(TextView(ctx).apply {
+                text = title
+                textSize = 15f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            })
+            val status = TextView(ctx).apply {
+                textSize = 11f
+                setPadding(0, dp(2), 0, 0)
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            }
+            labels.addView(status)
+            val sw = Switch(ctx)
+            row.addView(labels)
+            row.addView(sw)
+            block.addView(row)
+
+            val cb = android.widget.CheckBox(ctx).apply {
+                textSize = 13f
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            }
+            val refresh = {
+                val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
+                val pending = DevGuardExemptionManager.getPendingExemption(ctx, guard)
+                exemptUpdating = true
+                cb.isChecked = pending ?: DevGuardExemptionManager.isExemptionEnabled(ctx, guard)
+                cb.text = if (pending != null) "豁免时段内放行（明日生效）" else "豁免时段内放行"
+                cb.isEnabled = !locked
+                exemptUpdating = false
+            }
+            cb.setOnCheckedChangeListener { _, checked ->
+                if (exemptUpdating) return@setOnCheckedChangeListener
+                if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                    Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+                    refresh()
+                    return@setOnCheckedChangeListener
+                }
+                val message = when (DevGuardExemptionManager.setExemptionEnabled(ctx, guard, checked)) {
+                    DevGuardExemptionManager.Outcome.APPLIED -> if (checked) "已开启豁免放行" else "已取消豁免放行"
+                    DevGuardExemptionManager.Outcome.PENDING -> "已申请开启豁免放行（明日生效）"
+                    DevGuardExemptionManager.Outcome.UNCHANGED -> "已取消待生效的改动"
+                    DevGuardExemptionManager.Outcome.INVALID -> null
+                }
+                if (message != null) Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
+                exemptRefreshers.forEach { it() }
+                updateDevAdvancedGuardSummary()
+            }
+            exemptRefreshers.add(refresh)
+            refresh()
+            block.addView(cb)
+            container.addView(block)
+            bind(sw, status)
+        }
+
+        addGuardBlock(getString(R.string.settings_protection_install_title), DevGuardExemptionManager.Guard.INSTALL) { sw, st ->
+            switchInstallGuard = sw
+            tvInstallGuardStatus = st
+            setupInstallGuardSwitch(sw)
+        }
+        addGuardBlock(getString(R.string.settings_protection_developer_options_title), DevGuardExemptionManager.Guard.DEVELOPER_OPTIONS) { sw, st ->
+            switchDeveloperOptionsGuard = sw
+            tvDeveloperOptionsGuardStatus = st
+            setupDeveloperOptionsGuardSwitch(sw)
+        }
+
+        // 共享豁免时段
+        container.addView(TextView(ctx).apply {
+            text = "共享豁免时段"
+            textSize = 15f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            setPadding(0, dp(18), 0, 0)
+        })
+        val tvActive = TextView(ctx).apply {
+            textSize = 11f
+            setPadding(0, dp(2), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+        }
+        container.addView(tvActive)
+
+        var draftStart = DevGuardExemptionManager.getWindow(ctx).startMinute
+        var draftEnd = DevGuardExemptionManager.getWindow(ctx).endMinute
+
+        val windowRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, 0)
+        }
+        val btnStart = Button(ctx).apply { isAllCaps = false }
+        val btnEnd = Button(ctx).apply { isAllCaps = false }
+        val tvTo = TextView(ctx).apply {
+            text = "至"
+            setPadding(dp(10), 0, dp(10), 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+        }
+        windowRow.addView(btnStart)
+        windowRow.addView(tvTo)
+        windowRow.addView(btnEnd)
+        container.addView(windowRow)
+
+        val tvVerdict = TextView(ctx).apply {
+            textSize = 13f
+            setPadding(0, dp(6), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+        }
+        container.addView(tvVerdict)
+        val tvPending = TextView(ctx).apply {
+            textSize = 12f
+            setPadding(0, dp(4), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
+        }
+        container.addView(tvPending)
+
+        val btnSave = Button(ctx).apply {
+            text = "保存时段"
+            isAllCaps = false
+            visibility = View.GONE
+        }
+        container.addView(btnSave)
+
+        fun fmtMinute(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+
+        fun refreshWindowUi() {
+            val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
+            val active = DevGuardExemptionManager.getWindow(ctx)
+            val pending = DevGuardExemptionManager.getPendingWindow(ctx)
+            tvActive.text = "当前生效窗口: ${active.format()}"
+            btnStart.text = fmtMinute(draftStart)
+            btnEnd.text = fmtMinute(draftEnd)
+            btnStart.isEnabled = !locked
+            btnEnd.isEnabled = !locked
+            val draft = DevGuardExemptionWindow(draftStart, draftEnd)
+            if (!draft.isValid()) {
+                tvVerdict.text = "开始时间必须早于结束时间，暂不支持跨午夜"
+                btnSave.visibility = View.GONE
+            } else {
+                when (DevGuardExemptionWindow.compare(active, draft)) {
+                    DevGuardExemptionWindow.Change.STRICTER -> tvVerdict.text = "改严：立即生效"
+                    DevGuardExemptionWindow.Change.LOOSER ->
+                        tvVerdict.text = if (DevGuardExemptionManager.previewWindow(ctx, draft) == DevGuardExemptionManager.Outcome.APPLIED) {
+                            "改宽（变长或平移）：拦截尚未开启或回到基准，立即生效"
+                        } else {
+                            "改宽（变长或平移）：次日生效"
+                        }
+                    DevGuardExemptionWindow.Change.SAME ->
+                        tvVerdict.text = if (pending != null) "点保存可取消待生效的改动" else ""
+                }
+                btnSave.visibility = if (draft != active || pending != null) View.VISIBLE else View.GONE
+            }
+            btnSave.isEnabled = !locked
+            tvPending.text = if (pending != null) {
+                val eff = DevGuardExemptionManager.getPendingEffectiveTime(ctx, DevGuardExemptionManager.Item.WINDOW)
+                "时段 ${pending.format()} 将于 ${timeFmt.format(java.util.Date(eff))} 生效"
+            } else ""
+        }
+
+        btnStart.setOnClickListener {
+            android.app.TimePickerDialog(ctx, { _, h, m -> draftStart = h * 60 + m; refreshWindowUi() },
+                draftStart / 60, draftStart % 60, true).show()
+        }
+        btnEnd.setOnClickListener {
+            val h0 = (draftEnd / 60).coerceAtMost(23)
+            val m0 = if (draftEnd >= DevGuardExemptionWindow.MINUTES_PER_DAY) 59 else draftEnd % 60
+            android.app.TimePickerDialog(ctx, { _, h, m -> draftEnd = h * 60 + m; refreshWindowUi() }, h0, m0, true).show()
+        }
+        btnSave.setOnClickListener {
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val message = when (DevGuardExemptionManager.setWindow(ctx, DevGuardExemptionWindow(draftStart, draftEnd))) {
+                DevGuardExemptionManager.Outcome.APPLIED -> "豁免时段已更新"
+                DevGuardExemptionManager.Outcome.PENDING -> "已申请调整豁免时段（明日生效）"
+                DevGuardExemptionManager.Outcome.UNCHANGED -> "已取消待生效的改动"
+                DevGuardExemptionManager.Outcome.INVALID -> "开始时间必须早于结束时间"
+            }
+            Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
+            val active = DevGuardExemptionManager.getWindow(ctx)
+            draftStart = active.startMinute
+            draftEnd = active.endMinute
+            refreshWindowUi()
+            updateDevAdvancedGuardSummary()
+        }
+        refreshWindowUi()
+
+        container.addView(TextView(ctx).apply {
+            text = "豁免时段内，冲动时也能随手装包或开 USB 调试。窗口改宽等于放松保护，次日才生效。"
+            textSize = 12f
+            setLineSpacing(0f, 1.2f)
+            setPadding(0, dp(14), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+        })
+
+        val dialog = AlertDialog.Builder(ctx)
+            .setView(android.widget.ScrollView(ctx).apply { addView(container) })
+            .setPositiveButton("完成", null)
+            .create()
+        dialog.setOnDismissListener {
+            switchInstallGuard = null
+            tvInstallGuardStatus = null
+            switchDeveloperOptionsGuard = null
+            tvDeveloperOptionsGuardStatus = null
+            updateDevAdvancedGuardSummary()
+        }
+        dialog.show()
+    }
+
+    private fun setupDateTimeGuardSwitch(switchView: Switch) {
+        val ctx = requireContext()
+        updateDateTimeGuardUI()
+        (switchView.parent as? View)?.setOnClickListener {
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+            }
+        }
+        switchView.setOnCheckedChangeListener { _, checked ->
+            if (switchDateTimeGuardUiUpdating) return@setOnCheckedChangeListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                switchDateTimeGuardUiUpdating = true
+                switchView.isChecked = !checked
+                switchDateTimeGuardUiUpdating = false
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+            val now = System.currentTimeMillis()
+            if (now - lastDateTimeGuardSwitchClickTime < 1000L) {
+                switchDateTimeGuardUiUpdating = true
+                switchView.isChecked = !checked
+                switchDateTimeGuardUiUpdating = false
+                return@setOnCheckedChangeListener
+            }
+            lastDateTimeGuardSwitchClickTime = now
+
+            if (checked) {
+                if (!isA11yServiceReady(ctx)) {
+                    switchDateTimeGuardUiUpdating = true
+                    switchView.isChecked = false
+                    switchDateTimeGuardUiUpdating = false
+                    Toast.makeText(ctx, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    return@setOnCheckedChangeListener
+                }
+                DateTimeGuardManager.setProtectionEnabled(ctx, true)
+                Toast.makeText(ctx, "日期与时间拦截已开启", Toast.LENGTH_SHORT).show()
+            } else {
+                val isImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || !TimeRuleManager.getBaselineDateTimeGuardState(ctx)
+                DateTimeGuardManager.setProtectionEnabled(ctx, false)
+                val message = if (isImmediate) {
+                    if (TimeRuleManager.isInAdaptationPeriod(ctx)) "适应期内，日期与时间拦截已立即关闭"
+                    else "日期与时间拦截已立即关闭（恢复基准）"
+                } else {
+                    "已申请关闭日期与时间拦截（明日生效）"
+                }
+                Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+            }
+            updateDateTimeGuardUI()
+        }
+    }
+
+    private fun setupInstallGuardSwitch(switchView: Switch) {
+        val ctx = requireContext()
+        updateInstallGuardUI()
+        (switchView.parent as? View)?.setOnClickListener {
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+            }
+        }
+        switchView.setOnCheckedChangeListener { _, checked ->
+            if (switchInstallGuardUiUpdating) return@setOnCheckedChangeListener
+            if (TimeRuleEditWindowPolicyManager.isEditLocked(ctx)) {
+                switchInstallGuardUiUpdating = true
+                switchView.isChecked = !checked
+                switchInstallGuardUiUpdating = false
+                Toast.makeText(ctx, TimeRuleEditWindowPolicyManager.getLockoutHintText(ctx), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+            val now = System.currentTimeMillis()
+            if (now - lastInstallGuardSwitchClickTime < 1000L) {
+                switchInstallGuardUiUpdating = true
+                switchView.isChecked = !checked
+                switchInstallGuardUiUpdating = false
+                return@setOnCheckedChangeListener
+            }
+            lastInstallGuardSwitchClickTime = now
+
+            if (checked) {
+                if (!isA11yServiceReady(ctx)) {
+                    switchInstallGuardUiUpdating = true
+                    switchView.isChecked = false
+                    switchInstallGuardUiUpdating = false
+                    Toast.makeText(ctx, getString(R.string.a11y_service_not_ready_toast), Toast.LENGTH_SHORT).show()
+                    return@setOnCheckedChangeListener
+                }
+                InstallGuardManager.setProtectionEnabled(ctx, true)
+                Toast.makeText(ctx, "安装拦截已开启", Toast.LENGTH_SHORT).show()
+            } else {
+                val isImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || !TimeRuleManager.getBaselineInstallGuardState(ctx)
+                InstallGuardManager.setProtectionEnabled(ctx, false)
+                val message = if (isImmediate) {
+                    if (TimeRuleManager.isInAdaptationPeriod(ctx)) "适应期内，安装拦截已立即关闭"
+                    else "安装拦截已立即关闭（恢复基准）"
+                } else {
+                    "已申请关闭安装拦截（明日生效）"
+                }
+                Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+            }
+            updateInstallGuardUI()
         }
     }
 
@@ -883,18 +1398,20 @@ class RulesFragment : Fragment() {
 
     private fun enableUninstallAndPermProtection(ctx: Context) {
         AntiUninstallManager.setProtectionEnabled(ctx, true)
-        AccessibilityControlManager.setEnabled(ctx, true)
         Toast.makeText(ctx, "防卸载与防关权限保护已开启", Toast.LENGTH_SHORT).show()
         updateUninstallAndPermProtectionUI()
         maybeAskBgBatteryPermissionAfterAntiUninstallEnabled()
     }
 
     private fun disableUninstallAndPermProtection(ctx: Context) {
+        val isImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || (
+            !TimeRuleManager.getBaselineAntiUninstallState(ctx)
+        )
         AntiUninstallManager.setProtectionEnabled(ctx, false)
-        AccessibilityControlManager.setEnabled(ctx, false)
         updateUninstallAndPermProtectionUI()
-        val message = if (TimeRuleManager.isInAdaptationPeriod(ctx)) {
-            "适应期内，防卸载与防关权限保护已立即关闭"
+        val message = if (isImmediate) {
+            if (TimeRuleManager.isInAdaptationPeriod(ctx)) "适应期内，防卸载与防关权限保护已立即关闭"
+            else "防卸载与防关权限保护已立即关闭（恢复基准）"
         } else {
             "已申请关闭防卸载与防关权限保护（明日生效）"
         }
@@ -908,10 +1425,10 @@ class RulesFragment : Fragment() {
         val context = requireContext()
         val locked = TimeRuleEditWindowPolicyManager.isEditLocked(context)
         val systemEnabled = isAccessibilityServiceEnabled()
-        val pendingDisable = isA11yPendingDisable(context)
+        val a11yState = AccessibilityControlManager.getState(context)
         switchA11yServiceUiUpdating = true
-        // 待关闭状态也显示为 unchecked
-        switchView.isChecked = systemEnabled && !pendingDisable
+        // 只有业务处于 ACTIVE 且系统服务开启时才勾选
+        switchView.isChecked = (a11yState == AccessibilityControlManager.State.ACTIVE && systemEnabled)
         switchView.isEnabled = !locked
         switchView.isClickable = !locked
         switchView.alpha = if (locked) 0.5f else 1.0f
@@ -920,6 +1437,14 @@ class RulesFragment : Fragment() {
         (switchView.parent as? View)?.setOnClickListener {
             if (TimeRuleEditWindowPolicyManager.isEditLocked(context)) {
                 Toast.makeText(context, TimeRuleEditWindowPolicyManager.getLockoutHintText(context), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val state = AccessibilityControlManager.getState(context)
+            val ok = isAccessibilityServiceEnabled(context)
+            if (state == AccessibilityControlManager.State.PENDING) {
+                Toast.makeText(context, "无障碍服务关闭申请生效中（明日生效），期间防关保护持续生效", Toast.LENGTH_SHORT).show()
+            } else if (state == AccessibilityControlManager.State.DISABLED && ok) {
+                showPostImmediateDisableGuideDialog(context)
             }
         }
 
@@ -944,12 +1469,10 @@ class RulesFragment : Fragment() {
 
             if (isChecked) {
                 if (isAccessibilityServiceEnabled()) {
-                    // 已开启，检查是否有待关闭标记需要清除
-                    if (isA11yPendingDisable(context)) {
-                        setA11yPendingDisable(context, false)
-                        updateAccessibilityServiceUI()
-                        Toast.makeText(context, "已取消关闭申请", Toast.LENGTH_SHORT).show()
-                    }
+                    // 已开启，确保业务状态与防关保护处于 ACTIVE（清除待关闭申请）
+                    AccessibilityControlManager.setEnabled(context, true)
+                    updateAccessibilityServiceUI()
+                    Toast.makeText(context, "无障碍服务及防关保护已开启", Toast.LENGTH_SHORT).show()
                     return@setOnCheckedChangeListener
                 }
                 // 未开启 → 弹窗引导
@@ -981,6 +1504,14 @@ class RulesFragment : Fragment() {
         }
     }
 
+    private fun getProtectionEffectivenessText(ctx: Context, baselineActive: Boolean): String {
+        return if (TimeRuleManager.isInAdaptationPeriod(ctx) || !baselineActive) {
+            "立即解除（恢复基准）"
+        } else {
+            "次日生效"
+        }
+    }
+
     private fun submitProtectionDisablesForAccessibility(ctx: Context) {
         if (AntiUninstallManager.getProtectionState(ctx) == AntiUninstallManager.State.ACTIVE) {
             AntiUninstallManager.setProtectionEnabled(ctx, false)
@@ -990,6 +1521,18 @@ class RulesFragment : Fragment() {
         }
         if (FloatingWindowProtectionManager.getProtectionState(ctx) == FloatingWindowProtectionManager.State.ACTIVE) {
             FloatingWindowProtectionManager.setProtectionEnabled(ctx, false)
+        }
+        if (DeveloperOptionsGuardManager.getProtectionState(ctx) == DeveloperOptionsGuardManager.State.ACTIVE) {
+            DeveloperOptionsGuardManager.setProtectionEnabled(ctx, false)
+        }
+        if (InstallGuardManager.getProtectionState(ctx) == InstallGuardManager.State.ACTIVE) {
+            InstallGuardManager.setProtectionEnabled(ctx, false)
+        }
+        if (DateTimeGuardManager.getProtectionState(ctx) == DateTimeGuardManager.State.ACTIVE) {
+            DateTimeGuardManager.setProtectionEnabled(ctx, false)
+        }
+        if (GuardFloatingWindowManager.getProtectionState(ctx) == GuardFloatingWindowManager.State.ACTIVE) {
+            GuardFloatingWindowManager.setFloatingGuardEnabled(ctx, false)
         }
         if (PrivacyProtectionManager.getProtectionState(ctx) == PrivacyProtectionManager.State.ACTIVE) {
             PrivacyProtectionManager.setProtectionEnabled(ctx, false)
@@ -1016,21 +1559,53 @@ class RulesFragment : Fragment() {
         }
         container.addView(tvTitle)
 
+        val antiText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineAntiUninstallState(ctx))
+        val guardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineFloatingGuardState(ctx))
+        val floatingText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx))
+        val privacyText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselinePrivacyProtectionState(ctx))
+        val devGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx))
+        val installGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineInstallGuardState(ctx))
+        val dateTimeGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineDateTimeGuardState(ctx))
+        val a11yText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineA11yServiceState(ctx))
+
+        val allImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || (
+            !TimeRuleManager.getBaselineAntiUninstallState(ctx) &&
+            !TimeRuleManager.getBaselineFloatingGuardState(ctx) &&
+            !TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx) &&
+            !TimeRuleManager.getBaselinePrivacyProtectionState(ctx) &&
+            !TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx) &&
+            !TimeRuleManager.getBaselineInstallGuardState(ctx) &&
+            !TimeRuleManager.getBaselineDateTimeGuardState(ctx) &&
+            !TimeRuleManager.getBaselineA11yServiceState(ctx)
+        )
+
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
             setPadding(0, (14 * density).toInt(), 0, 0)
             setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             setLineSpacing(0f, 1.25f)
-            text = "关闭无障碍服务后，以下保护功能将一并停用：\n\n" +
-                "  • 防卸载与防关权限保护 → 提交次日关闭申请\n" +
-                "  • 小窗可见性增强 → 提交次日关闭申请\n" +
-                "  • 隐私空间保护 → 提交次日关闭申请\n" +
-                "  • 闹钟防关机保护 → 立即关闭\n\n" +
-                "关闭流程：\n" +
-                "1. 点击「确认关闭」提交以上所有关闭申请\n" +
-                "2. 除闹钟防关机保护立即生效外，其余次日生效\n" +
-                "3. 生效后，可前往系统无障碍设置中关闭决定守护无障碍服务\n\n" +
-                "是否确认同时提交所有关闭申请？"
+            text = buildString {
+                append("关闭无障碍服务后，以下保护功能将一并停用：\n\n")
+                append("  • 防卸载与防关权限保护 → $antiText\n")
+                append("  • 桌面守护小浮窗 → $guardText\n")
+                append("  • 小窗可见性增强 → $floatingText\n")
+                append("  • 隐私空间保护 → $privacyText\n")
+                append("  • 开发者选项拦截 → $devGuardText\n")
+                append("  • 安装拦截 → $installGuardText\n")
+                append("  • 日期与时间拦截 → $dateTimeGuardText\n")
+                append("  • 闹钟防关机保护 → 立即关闭\n")
+                append("  • 无障碍服务 → $a11yText\n\n")
+                if (allImmediate) {
+                    append("提示：检测到当前所有功能今日基准均为关闭，保护将【立即全部解除】。\n确认后可直接前往系统设置关闭无障碍服务。\n\n")
+                    append("是否确认关闭？")
+                } else {
+                    append("关闭流程：\n")
+                    append("1. 点击「确认关闭」提交以上所有关闭申请\n")
+                    append("2. 立即解除项立即停用，其余项次日生效\n")
+                    append("3. 次日全部生效后，可前往系统无障碍设置中关闭决定守护无障碍服务\n\n")
+                    append("是否确认同时提交所有关闭申请？")
+                }
+            }
         }
         container.addView(tvMessage)
 
@@ -1053,7 +1628,7 @@ class RulesFragment : Fragment() {
         }
 
         val btnConfirm = com.google.android.material.button.MaterialButton(ctx).apply {
-            text = "确认关闭"
+            text = if (allImmediate) "确认并前往关闭" else "确认关闭"
             setAllCaps(false)
             setTextColor(android.graphics.Color.WHITE)
             backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
@@ -1074,7 +1649,6 @@ class RulesFragment : Fragment() {
 
         btnConfirm.setOnClickListener {
             submitProtectionDisablesForAccessibility(ctx)
-            // 无障碍服务：适应期内立即解除业务保护，否则提交次日关闭申请
             val a11yImmediate = applyA11yDisableRequest(ctx)
             switchA11yServiceUiUpdating = true
             switchView.isChecked = false
@@ -1083,13 +1657,16 @@ class RulesFragment : Fragment() {
             updateUninstallAndPermProtectionUI()
             updateAlarmPowerOffProtectionUI()
             updateFloatingWindowProtectionUI()
+            updateDateTimeGuardUI()
+            updateDeveloperOptionsGuardUI()
+            updateInstallGuardUI()
             updatePrivacySpaceGuardUI()
+            updateFloatingGuardUI()
             dialog.dismiss()
             if (a11yImmediate) {
-                Toast.makeText(ctx, "适应期内保护已立即解除，请在系统设置中关闭无障碍服务", Toast.LENGTH_LONG).show()
-                openAccessibilitySettings()
+                showPostImmediateDisableGuideDialog(ctx)
             } else {
-                Toast.makeText(ctx, "已同时提交关闭申请（闹钟防关机已立即关闭，其余次日生效）", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "已提交关闭申请（明日生效），期间无障碍防关保护持续生效", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -1113,19 +1690,50 @@ class RulesFragment : Fragment() {
         }
         container.addView(tvTitle)
 
+        val antiText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineAntiUninstallState(ctx))
+        val guardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineFloatingGuardState(ctx))
+        val floatingText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx))
+        val privacyText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselinePrivacyProtectionState(ctx))
+        val devGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx))
+        val installGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineInstallGuardState(ctx))
+        val dateTimeGuardText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineDateTimeGuardState(ctx))
+        val a11yText = getProtectionEffectivenessText(ctx, TimeRuleManager.getBaselineA11yServiceState(ctx))
+
+        val allImmediate = TimeRuleManager.isInAdaptationPeriod(ctx) || (
+            !TimeRuleManager.getBaselineAntiUninstallState(ctx) &&
+            !TimeRuleManager.getBaselineFloatingGuardState(ctx) &&
+            !TimeRuleManager.getBaselineFloatingWindowProtectionState(ctx) &&
+            !TimeRuleManager.getBaselinePrivacyProtectionState(ctx) &&
+            !TimeRuleManager.getBaselineDeveloperOptionsGuardState(ctx) &&
+            !TimeRuleManager.getBaselineInstallGuardState(ctx) &&
+            !TimeRuleManager.getBaselineDateTimeGuardState(ctx) &&
+            !TimeRuleManager.getBaselineA11yServiceState(ctx)
+        )
+
         val tvMessage = TextView(ctx).apply {
             textSize = 14f
             setPadding(0, (14 * density).toInt(), 0, 0)
             setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
             setLineSpacing(0f, 1.25f)
-            text = "「防卸载与防关权限保护」正在保护中，它会阻止对无障碍服务的关闭操作。\n\n" +
-                "将同时提交以下功能的关闭申请：\n" +
-                "  • 防卸载与防关权限保护 → 次日生效\n" +
-                "  • 小窗可见性增强 → 次日生效\n" +
-                "  • 隐私空间保护 → 次日生效\n" +
-                "  • 闹钟防关机保护 → 立即关闭\n" +
-                "  • 无障碍服务 → 次日生效\n\n" +
-                "是否确认同时提交？"
+            text = buildString {
+                append("「防卸载与防关权限保护」正在保护中，它会阻止对无障碍服务的关闭操作。\n\n")
+                append("将同时提交以下功能的关闭申请：\n")
+                append("  • 防卸载与防关权限保护 → $antiText\n")
+                append("  • 桌面守护小浮窗 → $guardText\n")
+                append("  • 小窗可见性增强 → $floatingText\n")
+                append("  • 隐私空间保护 → $privacyText\n")
+                append("  • 开发者选项拦截 → $devGuardText\n")
+                append("  • 安装拦截 → $installGuardText\n")
+                append("  • 日期与时间拦截 → $dateTimeGuardText\n")
+                append("  • 闹钟防关机保护 → 立即关闭\n")
+                append("  • 无障碍服务 → $a11yText\n\n")
+                if (allImmediate) {
+                    append("提示：检测到当前所有功能今日基准均为关闭，保护将【立即全部解除】。\n确认后可直接前往系统设置关闭无障碍服务。\n\n")
+                    append("是否确认关闭？")
+                } else {
+                    append("是否确认同时提交？")
+                }
+            }
         }
         container.addView(tvMessage)
 
@@ -1148,7 +1756,7 @@ class RulesFragment : Fragment() {
         }
 
         val btnConfirm = com.google.android.material.button.MaterialButton(ctx).apply {
-            text = "同时提交关闭"
+            text = if (allImmediate) "确认并前往关闭" else "同时提交关闭"
             setAllCaps(false)
             setTextColor(android.graphics.Color.WHITE)
             backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
@@ -1169,7 +1777,6 @@ class RulesFragment : Fragment() {
 
         btnConfirm.setOnClickListener {
             submitProtectionDisablesForAccessibility(ctx)
-            // 无障碍服务：适应期内立即解除业务保护，否则提交次日关闭申请
             val a11yImmediate = applyA11yDisableRequest(ctx)
             switchA11yServiceUiUpdating = true
             switchView.isChecked = false
@@ -1178,13 +1785,16 @@ class RulesFragment : Fragment() {
             updateUninstallAndPermProtectionUI()
             updateAlarmPowerOffProtectionUI()
             updateFloatingWindowProtectionUI()
+            updateDateTimeGuardUI()
+            updateDeveloperOptionsGuardUI()
+            updateInstallGuardUI()
             updatePrivacySpaceGuardUI()
+            updateFloatingGuardUI()
             dialog.dismiss()
             if (a11yImmediate) {
-                Toast.makeText(ctx, "适应期内保护已立即解除，请在系统设置中关闭无障碍服务", Toast.LENGTH_LONG).show()
-                openAccessibilitySettings()
+                showPostImmediateDisableGuideDialog(ctx)
             } else {
-                Toast.makeText(ctx, "已同时提交关闭申请（闹钟防关机已立即关闭，其余次日生效）", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "已同时提交关闭申请（明日生效），期间无障碍防关保护持续生效", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -1320,10 +1930,8 @@ class RulesFragment : Fragment() {
         btnBase.setOnClickListener {
             val permState = getHomePermissionState(ctx)
             if (!permState.allGranted) {
-                (activity as? MainActivity)
-                    ?.findViewById<BottomNavigationView>(R.id.bottom_navigation)
-                    ?.selectedItemId = R.id.nav_home
-                Toast.makeText(ctx, "请在主页完成基础权限设置", Toast.LENGTH_SHORT).show()
+                val intent = Intent(ctx, PermissionsActivity::class.java)
+                startActivity(intent)
                 dialog?.dismiss()
             }
         }
@@ -1771,10 +2379,8 @@ class RulesFragment : Fragment() {
         btnBase.setOnClickListener {
             val permState = getHomePermissionState(ctx)
             if (!permState.allGranted) {
-                (activity as? MainActivity)
-                    ?.findViewById<BottomNavigationView>(R.id.bottom_navigation)
-                    ?.selectedItemId = R.id.nav_home
-                Toast.makeText(ctx, "请在主页完成基础权限设置", Toast.LENGTH_SHORT).show()
+                val intent = Intent(ctx, PermissionsActivity::class.java)
+                startActivity(intent)
                 dialog?.dismiss()
             }
         }
@@ -1956,10 +2562,8 @@ class RulesFragment : Fragment() {
         btnBase.setOnClickListener {
             val permState = getHomePermissionState(ctx)
             if (!permState.allGranted) {
-                (activity as? MainActivity)
-                    ?.findViewById<BottomNavigationView>(R.id.bottom_navigation)
-                    ?.selectedItemId = R.id.nav_home
-                Toast.makeText(ctx, "请在主页完成基础权限设置", Toast.LENGTH_SHORT).show()
+                val intent = Intent(ctx, PermissionsActivity::class.java)
+                startActivity(intent)
                 dialog?.dismiss()
             }
         }
@@ -2306,16 +2910,18 @@ class RulesFragment : Fragment() {
 
     private enum class CombinedProtectionState { DISABLED, ACTIVE, PENDING }
 
+    /** 无障碍未连接时，依赖无障碍的保护项在「已开启」后追加的提示（开关本身保持用户设置不变）。 */
+    private fun a11yInactiveSuffix(ctx: Context): String =
+        if (isAccessibilityServiceEnabled(ctx)) "" else "（无障碍未连接，暂未生效）"
+
     private fun getCombinedProtectionState(context: Context): CombinedProtectionState {
-        if (!isAccessibilityServiceEnabled(context)) return CombinedProtectionState.DISABLED
+        // 开关只反映用户的持久化设置：无障碍意外掉线时不得把它显示成「未开启」
+        // （否则看起来像被自动关闭了）。无障碍是否已连接另在状态文字里提示。
         val antiState = AntiUninstallManager.getProtectionState(context)
-        val permissionState = AccessibilityControlManager.getState(context)
-        return when {
-            antiState == AntiUninstallManager.State.ACTIVE &&
-                permissionState == AccessibilityControlManager.State.ACTIVE -> CombinedProtectionState.ACTIVE
-            antiState != AntiUninstallManager.State.DISABLED &&
-                permissionState != AccessibilityControlManager.State.DISABLED -> CombinedProtectionState.PENDING
-            else -> CombinedProtectionState.DISABLED
+        return when (antiState) {
+            AntiUninstallManager.State.ACTIVE -> CombinedProtectionState.ACTIVE
+            AntiUninstallManager.State.PENDING -> CombinedProtectionState.PENDING
+            AntiUninstallManager.State.DISABLED -> CombinedProtectionState.DISABLED
         }
     }
 
@@ -2331,16 +2937,19 @@ class RulesFragment : Fragment() {
         switchUninstallAndPermProtection?.alpha = if (locked) 0.5f else 1.0f
         switchUninstallAndPermUiUpdating = false
 
+        val a11yConnected = isAccessibilityServiceEnabled(ctx)
         tvUninstallAndPermProtectionStatus?.let {
             it.text = when (state) {
-                CombinedProtectionState.ACTIVE -> "状态: 已开启"
+                CombinedProtectionState.ACTIVE ->
+                    if (a11yConnected) "状态: 已开启" else "状态: 已开启（无障碍未连接，暂未生效）"
                 CombinedProtectionState.PENDING -> "状态: 待关闭（明日生效）"
                 CombinedProtectionState.DISABLED -> "状态: 未开启"
             }
             it.setTextColor(
                 ThemeManager.getColorAttr(
                     ctx,
-                    if (state == CombinedProtectionState.PENDING) R.attr.zzWarning
+                    if (state == CombinedProtectionState.PENDING ||
+                        (state == CombinedProtectionState.ACTIVE && !a11yConnected)) R.attr.zzWarning
                     else if (state == CombinedProtectionState.ACTIVE) R.attr.zzSuccess
                     else R.attr.zzMuted
                 )
@@ -2359,17 +2968,111 @@ class RulesFragment : Fragment() {
         switchFloatingWindowProtection?.isClickable = !locked
         switchFloatingWindowProtection?.alpha = if (locked) 0.5f else 1.0f
         switchFloatingWindowUiUpdating = false
+        val floatingWindowInactive = a11yInactiveSuffix(ctx)
         tvFloatingWindowProtectionStatus?.let {
             it.text = when (state) {
-                FloatingWindowProtectionManager.State.ACTIVE -> "状态: 已开启"
+                FloatingWindowProtectionManager.State.ACTIVE -> "状态: 已开启$floatingWindowInactive"
                 FloatingWindowProtectionManager.State.PENDING -> "状态: 待关闭（明日生效）"
                 FloatingWindowProtectionManager.State.DISABLED -> "状态: 未开启"
             }
             it.setTextColor(
                 ThemeManager.getColorAttr(
                     ctx,
-                    if (state == FloatingWindowProtectionManager.State.PENDING) R.attr.zzWarning
+                    if (state == FloatingWindowProtectionManager.State.PENDING ||
+                        (state == FloatingWindowProtectionManager.State.ACTIVE && floatingWindowInactive.isNotEmpty())) R.attr.zzWarning
                     else if (state == FloatingWindowProtectionManager.State.ACTIVE) R.attr.zzSuccess
+                    else R.attr.zzMuted
+                )
+            )
+        }
+    }
+
+    private fun updateDeveloperOptionsGuardUI() {
+        if (!isAdded) return
+        val ctx = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
+        val state = DeveloperOptionsGuardManager.getProtectionState(ctx)
+        updateDevAdvancedGuardSummary()
+        switchDeveloperOptionsGuardUiUpdating = true
+        switchDeveloperOptionsGuard?.isChecked = state == DeveloperOptionsGuardManager.State.ACTIVE
+        switchDeveloperOptionsGuard?.isEnabled = !locked
+        switchDeveloperOptionsGuard?.isClickable = !locked
+        switchDeveloperOptionsGuard?.alpha = if (locked) 0.5f else 1.0f
+        switchDeveloperOptionsGuardUiUpdating = false
+        val inactiveSuffix = a11yInactiveSuffix(ctx)
+        tvDeveloperOptionsGuardStatus?.let {
+            it.text = when (state) {
+                DeveloperOptionsGuardManager.State.ACTIVE -> "状态: 已开启$inactiveSuffix"
+                DeveloperOptionsGuardManager.State.PENDING -> "状态: 待关闭（明日生效）"
+                DeveloperOptionsGuardManager.State.DISABLED -> "状态: 未开启"
+            }
+            it.setTextColor(
+                ThemeManager.getColorAttr(
+                    ctx,
+                    if (state == DeveloperOptionsGuardManager.State.PENDING ||
+                        (state == DeveloperOptionsGuardManager.State.ACTIVE && inactiveSuffix.isNotEmpty())) R.attr.zzWarning
+                    else if (state == DeveloperOptionsGuardManager.State.ACTIVE) R.attr.zzSuccess
+                    else R.attr.zzMuted
+                )
+            )
+        }
+    }
+
+    private fun updateDateTimeGuardUI() {
+        if (!isAdded) return
+        val ctx = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
+        val state = DateTimeGuardManager.getProtectionState(ctx)
+        switchDateTimeGuardUiUpdating = true
+        switchDateTimeGuard?.isChecked = state == DateTimeGuardManager.State.ACTIVE
+        switchDateTimeGuard?.isEnabled = !locked
+        switchDateTimeGuard?.isClickable = !locked
+        switchDateTimeGuard?.alpha = if (locked) 0.5f else 1.0f
+        switchDateTimeGuardUiUpdating = false
+        val inactiveSuffix = a11yInactiveSuffix(ctx)
+        tvDateTimeGuardStatus?.let {
+            it.text = when (state) {
+                DateTimeGuardManager.State.ACTIVE -> "状态: 已开启$inactiveSuffix"
+                DateTimeGuardManager.State.PENDING -> "状态: 待关闭（明日生效）"
+                DateTimeGuardManager.State.DISABLED -> "状态: 未开启"
+            }
+            it.setTextColor(
+                ThemeManager.getColorAttr(
+                    ctx,
+                    if (state == DateTimeGuardManager.State.PENDING ||
+                        (state == DateTimeGuardManager.State.ACTIVE && inactiveSuffix.isNotEmpty())) R.attr.zzWarning
+                    else if (state == DateTimeGuardManager.State.ACTIVE) R.attr.zzSuccess
+                    else R.attr.zzMuted
+                )
+            )
+        }
+    }
+
+    private fun updateInstallGuardUI() {
+        if (!isAdded) return
+        val ctx = requireContext()
+        val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
+        val state = InstallGuardManager.getProtectionState(ctx)
+        updateDevAdvancedGuardSummary()
+        switchInstallGuardUiUpdating = true
+        switchInstallGuard?.isChecked = state == InstallGuardManager.State.ACTIVE
+        switchInstallGuard?.isEnabled = !locked
+        switchInstallGuard?.isClickable = !locked
+        switchInstallGuard?.alpha = if (locked) 0.5f else 1.0f
+        switchInstallGuardUiUpdating = false
+        val inactiveSuffix = a11yInactiveSuffix(ctx)
+        tvInstallGuardStatus?.let {
+            it.text = when (state) {
+                InstallGuardManager.State.ACTIVE -> "状态: 已开启$inactiveSuffix"
+                InstallGuardManager.State.PENDING -> "状态: 待关闭（明日生效）"
+                InstallGuardManager.State.DISABLED -> "状态: 未开启"
+            }
+            it.setTextColor(
+                ThemeManager.getColorAttr(
+                    ctx,
+                    if (state == InstallGuardManager.State.PENDING ||
+                        (state == InstallGuardManager.State.ACTIVE && inactiveSuffix.isNotEmpty())) R.attr.zzWarning
+                    else if (state == InstallGuardManager.State.ACTIVE) R.attr.zzSuccess
                     else R.attr.zzMuted
                 )
             )
@@ -2381,32 +3084,186 @@ class RulesFragment : Fragment() {
         val ctx = requireContext()
         val locked = TimeRuleEditWindowPolicyManager.isEditLocked(ctx)
         val a11yOk = isAccessibilityServiceEnabled()
-        val pendingDisable = isA11yPendingDisable(ctx)
-        // 如果系统已关闭但还标记着待关闭，清除标记
-        if (!a11yOk && pendingDisable) {
-            setA11yPendingDisable(ctx, false)
+        var a11yState = AccessibilityControlManager.getState(ctx)
+
+        // 🚀 [A11y Baseline & State Self-Healing]
+        // 1. 若系统无障碍服务已开启，且受控状态为 DISABLED，只要并非处于到期等待去系统关闭流程中，即刻自愈为 ACTIVE
+        if (a11yOk && a11yState == AccessibilityControlManager.State.DISABLED && !AccessibilityControlManager.isAwaitingSelfDisable(ctx)) {
+            AccessibilityControlManager.setEnabled(ctx, true)
+            a11yState = AccessibilityControlManager.State.ACTIVE
         }
-        val finalPending = if (a11yOk) pendingDisable else false
+        // 2. 若用户已不在适应期，系统无障碍正在运行，且未处于申请待关闭状态：
+        //    检查基准记录是否遗漏/误记为 false，若为 false 即刻自愈修复基准为 true！
+        if (!TimeRuleManager.isInAdaptationPeriod(ctx) && a11yOk && a11yState != AccessibilityControlManager.State.PENDING) {
+            if (!TimeRuleManager.getBaselineA11yServiceState(ctx) && AccessibilityControlManager.getDisableEffectiveTime(ctx) == 0L) {
+                TimeRuleManager.repairBaselineA11yServiceState(ctx, true)
+            }
+        }
 
         switchA11yServiceUiUpdating = true
-        switchAccessibilityService?.isChecked = a11yOk && !finalPending
+        // 只有业务处于 ACTIVE 且系统服务开启时才勾选
+        switchAccessibilityService?.isChecked = (a11yState == AccessibilityControlManager.State.ACTIVE && a11yOk)
         switchAccessibilityService?.isEnabled = !locked
         switchAccessibilityService?.isClickable = !locked
         switchAccessibilityService?.alpha = if (locked) 0.5f else 1.0f
         switchA11yServiceUiUpdating = false
 
         tvAccessibilityStatus?.let {
-            if (finalPending) {
-                it.text = "状态: 待关闭（明日生效）"
-                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
-            } else if (a11yOk) {
-                it.text = "状态: 无障碍服务已开启，可启用各项保护"
-                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzSuccess))
-            } else {
-                it.text = "状态: 服务未开启"
-                it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            when {
+                a11yState == AccessibilityControlManager.State.PENDING -> {
+                    it.text = "状态: 待关闭（明日生效）"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
+                }
+                a11yState == AccessibilityControlManager.State.ACTIVE && a11yOk -> {
+                    it.text = "状态: 无障碍服务已开启（防关保护生效中）"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzSuccess))
+                }
+                a11yState == AccessibilityControlManager.State.ACTIVE && !a11yOk -> {
+                    it.text = "状态: 无障碍服务已断开（保护配置保持中，请前往开启）"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
+                }
+                a11yState == AccessibilityControlManager.State.DISABLED && a11yOk -> {
+                    it.text = "状态: 守护已停用（待在系统设置中关闭服务）"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzWarning))
+                }
+                else -> {
+                    it.text = "状态: 服务未开启"
+                    it.setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+                }
             }
         }
+    }
+
+    private fun showPostImmediateDisableGuideDialog(ctx: Context) {
+        val density = ctx.resources.displayMetrics.density
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
+        }
+
+        val tvTitle = TextView(ctx).apply {
+            text = "保护已解除"
+            textSize = 18f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        container.addView(tvTitle)
+
+        val tvMessage = TextView(ctx).apply {
+            textSize = 14f
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
+            text = "无障碍防关保护已解除，决定守护不再使用无障碍功能。\n\n是否现在前往系统设置关闭底层的无障碍服务？"
+        }
+        container.addView(tvMessage)
+
+        val buttonRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, (20 * density).toInt(), 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val btnCancel = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "暂不关闭"
+            setAllCaps(false)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, (8 * density).toInt(), 0)
+            }
+        }
+
+        val btnGo = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "前往系统关闭"
+            setAllCaps(false)
+            setTextColor(android.graphics.Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        buttonRow.addView(btnCancel)
+        buttonRow.addView(btnGo)
+        container.addView(buttonRow)
+
+        val dialog = AlertDialog.Builder(ctx).setView(container).create()
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnGo.setOnClickListener {
+            dialog.dismiss()
+            A11ySelfDisableAuthorization.authorize(SelfDisableReason.USER_CONFIRMED, 60_000L)
+            openAccessibilitySettings()
+        }
+        dialog.show()
+    }
+
+    private fun showNextDayA11yDisableGuideDialog(ctx: Context) {
+        val density = ctx.resources.displayMetrics.density
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((24 * density).toInt(), (20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt())
+        }
+
+        val tvTitle = TextView(ctx).apply {
+            text = "无障碍关闭已生效"
+            textSize = 18f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+        }
+        container.addView(tvTitle)
+
+        val tvMessage = TextView(ctx).apply {
+            textSize = 14f
+            setPadding(0, (14 * density).toInt(), 0, 0)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzMuted))
+            setLineSpacing(0f, 1.25f)
+            text = "您昨日申请的无障碍服务关闭已正式生效，相关保护已解除。\n\n是否前往系统设置关闭底层的无障碍服务？"
+        }
+        container.addView(tvMessage)
+
+        val buttonRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, (20 * density).toInt(), 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val btnCancel = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "稍后再说"
+            setAllCaps(false)
+            setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzText))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzSurface2))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, (8 * density).toInt(), 0)
+            }
+        }
+
+        val btnGo = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "前往系统关闭"
+            setAllCaps(false)
+            setTextColor(android.graphics.Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
+            cornerRadius = (12 * density).toInt()
+            minHeight = (44 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        buttonRow.addView(btnCancel)
+        buttonRow.addView(btnGo)
+        container.addView(buttonRow)
+
+        val dialog = AlertDialog.Builder(ctx).setView(container).create()
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnGo.setOnClickListener {
+            dialog.dismiss()
+            A11ySelfDisableAuthorization.authorize(SelfDisableReason.USER_CONFIRMED, 60_000L)
+            openAccessibilitySettings()
+        }
+        dialog.show()
     }
 
     private fun updateAlarmPowerOffProtectionUI() {
@@ -2416,13 +3273,25 @@ class RulesFragment : Fragment() {
         val configuredEnabled = AlarmPowerOffProtectionManager.isEnabled(context)
         val enabled = configuredEnabled && status.allReady
 
+        // 开关只反映用户设置；前置条件（如无障碍）暂时不满足时保持「已开启」，仅在文字里提示未生效。
         switchAlarmPowerOffUiUpdating = true
-        switchAlarmPowerOffProtection?.isChecked = enabled
+        switchAlarmPowerOffProtection?.isChecked = configuredEnabled
         switchAlarmPowerOffUiUpdating = false
 
-        tvAlarmPowerOffProtectionStatus?.text = if (enabled) "状态: 已开启" else "状态: 未开启"
+        tvAlarmPowerOffProtectionStatus?.text = when {
+            enabled -> "状态: 已开启"
+            configuredEnabled -> "状态: 已开启（前置条件未满足，暂未生效）"
+            else -> "状态: 未开启"
+        }
         tvAlarmPowerOffProtectionStatus?.setTextColor(
-            ThemeManager.getColorAttr(context, if (enabled) R.attr.zzSuccess else R.attr.zzMuted)
+            ThemeManager.getColorAttr(
+                context,
+                when {
+                    enabled -> R.attr.zzSuccess
+                    configuredEnabled -> R.attr.zzWarning
+                    else -> R.attr.zzMuted
+                }
+            )
         )
     }
 
@@ -2475,13 +3344,15 @@ class RulesFragment : Fragment() {
                 }
                 updateFloatingGuardUI()
             } else {
-                if (TimeRuleManager.isInAdaptationPeriod(context)) {
-                    GuardFloatingWindowManager.setFloatingGuardEnabled(context, false)
-                    Toast.makeText(context, "适应期内，桌面守护小浮窗已立即关闭", Toast.LENGTH_SHORT).show()
+                val isImmediate = TimeRuleManager.isInAdaptationPeriod(context) || !TimeRuleManager.getBaselineFloatingGuardState(context)
+                GuardFloatingWindowManager.setFloatingGuardEnabled(context, false)
+                val message = if (isImmediate) {
+                    if (TimeRuleManager.isInAdaptationPeriod(context)) "适应期内，桌面守护小浮窗已立即关闭"
+                    else "桌面守护小浮窗已立即关闭（恢复基准）"
                 } else {
-                    GuardFloatingWindowManager.setFloatingGuardEnabled(context, false)
-                    Toast.makeText(context, "已申请关闭桌面守护小浮窗（明日生效）", Toast.LENGTH_LONG).show()
+                    "已申请关闭桌面守护小浮窗（明日生效）"
                 }
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 switchFloatingGuardUiUpdating = true
                 switchView.isChecked = false
                 switchFloatingGuardUiUpdating = false
@@ -2508,8 +3379,11 @@ class RulesFragment : Fragment() {
         tvFloatingGuardStatus?.let { tv ->
             when (state) {
                 GuardFloatingWindowManager.State.ACTIVE -> {
-                    tv.text = "状态: 已开启"
-                    tv.setTextColor(ThemeManager.getColorAttr(context, R.attr.zzSuccess))
+                    val inactive = a11yInactiveSuffix(context)
+                    tv.text = "状态: 已开启$inactive"
+                    tv.setTextColor(
+                        ThemeManager.getColorAttr(context, if (inactive.isEmpty()) R.attr.zzSuccess else R.attr.zzWarning)
+                    )
                 }
                 GuardFloatingWindowManager.State.PENDING -> {
                     tv.text = "状态: 待关闭（明日生效）"
@@ -2581,13 +3455,15 @@ class RulesFragment : Fragment() {
             } else {
                 // 关闭: 对齐防关权限 — 直接提交次日关闭 + Toast (无弹窗)
                 // 真机反馈: 之前复用了防卸载的 dialog_gentle_warning, 用户不需要温柔挽留.
-                if (TimeRuleManager.isInAdaptationPeriod(context)) {
-                    PrivacyProtectionManager.setProtectionEnabled(context, false)
-                    Toast.makeText(context, getString(R.string.privacy_space_guard_toast_adaptation_off), Toast.LENGTH_SHORT).show()
+                val isImmediate = TimeRuleManager.isInAdaptationPeriod(context) || !TimeRuleManager.getBaselinePrivacyProtectionState(context)
+                PrivacyProtectionManager.setProtectionEnabled(context, false)
+                val message = if (isImmediate) {
+                    if (TimeRuleManager.isInAdaptationPeriod(context)) getString(R.string.privacy_space_guard_toast_adaptation_off)
+                    else "隐私空间保护已立即关闭（恢复基准）"
                 } else {
-                    PrivacyProtectionManager.setProtectionEnabled(context, false)
-                    Toast.makeText(context, getString(R.string.privacy_space_guard_toast_pending), Toast.LENGTH_LONG).show()
+                    getString(R.string.privacy_space_guard_toast_pending)
                 }
+                Toast.makeText(context, message, if (isImmediate) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
                 // 同步把开关刷为 unchecked (PENDING 视觉)
                 switchPrivacySpaceGuardUiUpdating = true
                 switchView.isChecked = false
@@ -2619,11 +3495,13 @@ class RulesFragment : Fragment() {
         switchPrivacySpaceGuardUiUpdating = false
 
         tvPrivacySpaceGuardStatus?.let {
-            val statusText = computePrivacySpaceGuardUiText(state, enforcing)
+            val inactive = if (state == PrivacyProtectionManager.State.ACTIVE) a11yInactiveSuffix(context) else ""
+            val statusText = computePrivacySpaceGuardUiText(state, enforcing) + inactive
             it.text = "状态: $statusText"
             // 颜色随状态变化, 保持对比度
             val color = when {
                 state == PrivacyProtectionManager.State.PENDING -> ThemeManager.getColorAttr(context, R.attr.zzWarning)
+                inactive.isNotEmpty() -> ThemeManager.getColorAttr(context, R.attr.zzWarning)
                 enforcing -> ThemeManager.getColorAttr(context, R.attr.zzSuccess)
                 else -> ThemeManager.getColorAttr(context, R.attr.zzMuted)
             }
@@ -2718,15 +3596,55 @@ class RulesFragment : Fragment() {
     }
 
     private fun applyA11yDisableRequest(ctx: Context): Boolean {
-        val immediate = TimeRuleManager.isInAdaptationPeriod(ctx)
-        if (immediate) {
-            ConfigPendingManager.clearPending(ctx, "a11y_service_self_pending")
-            setA11yPendingDisable(ctx, false)
-        } else {
-            ConfigPendingManager.submitChange(ctx, "a11y_service_self_pending", "true", strictNextDay = true)
-            setA11yPendingDisable(ctx, true)
-        }
+        val immediate = TimeRuleManager.isInAdaptationPeriod(ctx) || !TimeRuleManager.getBaselineA11yServiceState(ctx)
+        AccessibilityControlManager.setEnabled(ctx, false)
         return immediate
+    }
+
+    private fun getBasicPermissionsOverview(ctx: Context): Pair<Int, Int> {
+        var ready = 0
+        var total = 0
+
+        // 一、基础运行
+        // 1. 悬浮窗
+        total++
+        if (PermissionManager.hasOverlayPermission(ctx)) ready++
+
+        // 2. 通知
+        total++
+        if (PermissionManager.hasNotificationPermission(ctx)) ready++
+
+        // 3. 后台耗电管理
+        total++
+        if (PermissionManager.isBatteryOptimizationExempt(ctx)) ready++
+
+        // 三、时间规则
+        // 4. 使用情况访问
+        total++
+        if (PermissionManager.hasUsageStatsPermission(ctx)) ready++
+
+        return ready to total
+    }
+
+    private fun updateBasicPermissionsUI() {
+        if (!isAdded) return
+        val ctx = context ?: return
+        val (ready, total) = getBasicPermissionsOverview(ctx)
+
+        if (ready == total) {
+            tvBasicPermissionsStatus?.text = "基础运行与核心识别权限已就绪"
+            tvBasicPermissionsBadge?.apply {
+                text = "已开启 ✓"
+                setTextColor(android.graphics.Color.parseColor("#388E3C"))
+            }
+        } else {
+            val missing = total - ready
+            tvBasicPermissionsStatus?.text = "有 ${missing} 项核心基础设置待开启，点击查看与配置"
+            tvBasicPermissionsBadge?.apply {
+                text = "${ready}/${total} 项 ›"
+                setTextColor(ThemeManager.getColorAttr(ctx, R.attr.zzAccent))
+            }
+        }
     }
 
     private fun openAppDetailsSettings() {
@@ -2747,15 +3665,15 @@ class RulesFragment : Fragment() {
     }
 
     internal fun isA11yPendingDisable(ctx: Context): Boolean {
-        return ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_A11Y_PENDING_DISABLE, false)
+        return AccessibilityControlManager.getState(ctx) == AccessibilityControlManager.State.PENDING
     }
 
     internal fun setA11yPendingDisable(ctx: Context, pending: Boolean) {
-        ctx.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_A11Y_PENDING_DISABLE, pending)
-            .apply()
+        if (pending) {
+            AccessibilityControlManager.setEnabled(ctx, false)
+        } else {
+            AccessibilityControlManager.setEnabled(ctx, true)
+        }
     }
 
     internal fun isA11yServiceReady(ctx: Context? = context): Boolean {

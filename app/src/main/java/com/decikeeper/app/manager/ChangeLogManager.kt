@@ -41,6 +41,15 @@ object ChangeLogManager {
         return tag?.startsWith(WEEKLY_PRIVILEGE_TAG_PREFIX) == true
     }
 
+    /** 勿扰时段 / 规则参数里还没生效的日修改（不含每周特权）最后一次保存的时间；没有则 null。 */
+    internal fun latestDailyPendingTimestamp(context: Context): Long? =
+        getAllEntries(context)
+            .filter {
+                (it.category == "segments" || it.category == "global_params") &&
+                    it.isAdverse && !it.isApplied && !isWeeklyPrivilegeTag(it.tag)
+            }
+            .maxOfOrNull { it.timestamp }
+
     data class ChangeLogEntry(
         val id: String,           // Unique ID (timestamp + random)
         val category: String,     // "global_params", "segments", "blacklist"
@@ -228,6 +237,33 @@ object ChangeLogManager {
         saveEntries(context, entries)
     }
     
+    /**
+     * 清掉某分类下未生效的记录，但保留每周特权那几条（它们有自己的生效时间，下周一才生效）。
+     * 逐项撤销到日修改清空时用。
+     */
+    fun clearPendingLogsForCategoryExcludingWeekly(context: Context, category: String) {
+        val entries = getAllEntries(context).filter {
+            !(it.category == category && !it.isApplied && !isWeeklyPrivilegeTag(it.tag))
+        }
+        saveEntries(context, entries)
+    }
+
+    /** 清掉某分类下描述里含 [keyword] 且未生效的记录（没有标签可依的记录用）。 */
+    fun removePendingEntriesContaining(context: Context, category: String, keyword: String) {
+        val entries = getAllEntries(context).filter {
+            !(it.category == category && !it.isApplied && it.description.contains(keyword))
+        }
+        saveEntries(context, entries)
+    }
+
+    /** 按标签前缀清掉某分类下未生效的记录（时段记录的标签是 `seg_起止_名字哈希` + 后缀）。 */
+    fun removePendingEntriesByTagPrefix(context: Context, category: String, tagPrefix: String) {
+        val entries = getAllEntries(context).filter {
+            !(it.category == category && !it.isApplied && it.tag?.startsWith(tagPrefix) == true)
+        }
+        saveEntries(context, entries)
+    }
+
     // Alias for consistency
     fun removePendingEntriesByCategory(context: Context, category: String) {
         clearPendingLogsForCategory(context, category)
@@ -279,6 +315,7 @@ object ChangeLogManager {
                 val appWindowPending = context.getSharedPreferences("app_window_pending", Context.MODE_PRIVATE)
                 storedEffTime = appWindowPending.getLong("effective_timestamp", 0L)
             } else {
+                 TimeRuleManager.healDailyPendingEffectiveTime(context)
                  val pendingPrefs = context.getSharedPreferences("decikeeper_rules_pending", Context.MODE_PRIVATE)
                  storedEffTime = pendingPrefs.getLong("effective_timestamp", 0L)
             }

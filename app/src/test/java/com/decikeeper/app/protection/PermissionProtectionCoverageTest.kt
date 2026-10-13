@@ -55,39 +55,39 @@ class PermissionProtectionCoverageTest {
     @Test
     fun protectionStateGate_activeAndPendingMustEnforceProtection() {
         // 1. ACTIVE 状态
-        AccessibilityControlManager.setEnabled(context, true)
-        val activeState = AccessibilityControlManager.getState(context)
-        assertEquals("ACTIVE 状态下应为 ACTIVE", AccessibilityControlManager.State.ACTIVE, activeState)
+        com.decikeeper.app.manager.AntiUninstallManager.setProtectionEnabled(context, true)
+        val activeState = com.decikeeper.app.manager.AntiUninstallManager.getProtectionState(context)
+        assertEquals("ACTIVE 状态下应为 ACTIVE", com.decikeeper.app.manager.AntiUninstallManager.State.ACTIVE, activeState)
 
-        // 2. 模拟 PENDING 状态 (通过 ConfigPendingManager 写入次日生效的关闭申请)
+        // 2. 模拟 PENDING 状态
         com.decikeeper.app.manager.ConfigPendingManager.submitChange(
             context = context,
-            key = "accessibility_pending_disable",
-            value = "false",
+            key = "pending_disable_request",
+            value = "true",
             strictNextDay = true
         )
-        val pendingState = AccessibilityControlManager.getState(context)
-        assertEquals("PENDING 状态下应为 PENDING", AccessibilityControlManager.State.PENDING, pendingState)
+        val pendingState = com.decikeeper.app.manager.AntiUninstallManager.getProtectionState(context)
+        assertEquals("PENDING 状态下应为 PENDING", com.decikeeper.app.manager.AntiUninstallManager.State.PENDING, pendingState)
 
         // 验证 ACTIVE 与 PENDING 均属于需要保护的状态
         assertTrue(
-            activeState == AccessibilityControlManager.State.ACTIVE ||
-            activeState == AccessibilityControlManager.State.PENDING
+            activeState == com.decikeeper.app.manager.AntiUninstallManager.State.ACTIVE ||
+            activeState == com.decikeeper.app.manager.AntiUninstallManager.State.PENDING
         )
         assertTrue(
-            pendingState == AccessibilityControlManager.State.ACTIVE ||
-            pendingState == AccessibilityControlManager.State.PENDING
+            pendingState == com.decikeeper.app.manager.AntiUninstallManager.State.ACTIVE ||
+            pendingState == com.decikeeper.app.manager.AntiUninstallManager.State.PENDING
         )
     }
 
     @Test
     fun protectionStateGate_disabledMustNotEnforce() {
-        AccessibilityControlManager.disableImmediatelyForAccessibilityUnavailable(context)
-        val state = AccessibilityControlManager.getState(context)
-        assertEquals("DISABLED", AccessibilityControlManager.State.DISABLED, state)
+        com.decikeeper.app.manager.AntiUninstallManager.setProtectionEnabled(context, false)
+        val state = com.decikeeper.app.manager.AntiUninstallManager.getProtectionState(context)
+        assertEquals("DISABLED", com.decikeeper.app.manager.AntiUninstallManager.State.DISABLED, state)
         assertFalse(
-            state == AccessibilityControlManager.State.ACTIVE ||
-            state == AccessibilityControlManager.State.PENDING
+            state == com.decikeeper.app.manager.AntiUninstallManager.State.ACTIVE ||
+            state == com.decikeeper.app.manager.AntiUninstallManager.State.PENDING
         )
     }
 }

@@ -46,8 +46,11 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.AlarmAlertPolicy
+import com.decikeeper.app.manager.AlarmCallStatePolicy
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AlarmScheduler
+import com.decikeeper.app.manager.AlarmStreamVolumeLock
+import com.decikeeper.app.manager.AudioManagerStreamVolumeAccess
 import com.decikeeper.app.manager.StageAlertPolicy
 import com.decikeeper.app.ui.AlarmActivity
 import com.decikeeper.app.ui.LockAlarmOverlayController
@@ -188,10 +191,12 @@ class AlarmVibrationService : Service() {
     private var activeChallengeStage: Int = 1
     private var fixedAmplitude = 0
     private var lockedFinalIntensity = 0
-    // 铃声播放（使用 MediaPlayer + USAGE_MEDIA，音量完全由 app 控制）
+    // 铃声播放（MediaPlayer + USAGE_ALARM，走闹钟专属音量通道，不占用与音乐/视频共用的媒体音量）
     private var mediaPlayer: android.media.MediaPlayer? = null
     private var isAttenuated: Boolean = false
     @Volatile private var isSnoozeSilenced: Boolean = false
+    // 来电响铃 / 通话中：闹钟铃声与震动让路，通话结束后从当前阶段继续（不重置响铃周期）。
+    @Volatile private var isCallPaused: Boolean = false
     private var snoozeRestoreRunnable: Runnable? = null
 
     private fun applyAttenuation() {
@@ -201,6 +206,7 @@ class AlarmVibrationService : Service() {
         currentVibrationMode = "attenuated"
         mediaPlayer?.setVolume(0f, 0f)
         vibrator?.cancel()
+        syncVolumeLock()
         Log.i(TAG, "Alarm attenuated: volume=0f (muted), vibration=stopped")
     }
 
@@ -213,6 +219,7 @@ class AlarmVibrationService : Service() {
         currentVibrationMode = "snooze_silent"
         mediaPlayer?.setVolume(0f, 0f)
         vibrator?.cancel()
+        syncVolumeLock()
 
         snoozeRestoreRunnable = Runnable {
             snoozeRestoreRunnable = null
@@ -228,6 +235,7 @@ class AlarmVibrationService : Service() {
                 Log.i(TAG, "Silent snooze expired; restoring alarm output for id=$targetAlarmId")
                 resetAlertCycle()
                 startVibrationImpl()
+                syncVolumeLock()
             } else {
                 isSnoozeSilenced = false
                 Log.i(TAG, "Silent snooze restore skipped: sameSession=$sameSession stillStageOne=$stillStageOne")
@@ -255,10 +263,11 @@ class AlarmVibrationService : Service() {
     /** 铃声实际开始播放的时间戳；0 表示当前会话未响铃。用于 RING_END 的 durationMs 与防重复发射 */
     private var ringStartedAtMs: Long = 0L
 
-    // [音量锁定] 播放铃声时锁定 STREAM_MUSIC 到最大值，
-    // 用户按音量键后立刻被还原，让音量键对闹钟铃声"失效"。
-    // app 内 ringVolume (1-10) → setVolume(0.1~1.0) 成为唯一音量控制。
-    private var volumeLocked = false
+    // [音量锁定] 铃声真正出声期间锁定「闹钟通道」音量，用户调小后立刻被还原，
+    // 让系统音量键对闹钟铃声"失效"；静音/通话/结束时释放并还原用户原来的闹钟通道音量。
+    // 绝不读写媒体音量：它与用户正在播放的音乐、视频共用。
+    // app 内 ringVolume (1-10) → setVolume() 仍是闹钟响度的唯一调节手段。
+    private var streamVolumeLock: AlarmStreamVolumeLock? = null
 
     private val screenOffReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -313,7 +322,13 @@ class AlarmVibrationService : Service() {
             alarmMode = LockWindowManager.testAlarmMode ?: entry?.alarmMode ?: AlarmScheduler.getDefaultAlarmMode(this),
             vibrationMode = LockWindowManager.testVibrationMode ?: entry?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE,
             fixedVibrationIntensity = LockWindowManager.testVibrationIntensity ?: entry?.vibrationIntensity ?: AlarmScheduler.getDefaultVibrationIntensity(this),
-            fixedRingVolume = LockWindowManager.testRingVolume ?: entry?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(this)
+            fixedRingVolume = LockWindowManager.testRingVolume ?: entry?.ringVolume ?: AlarmScheduler.getDefaultRingVolume(this),
+            progressiveMaxRingVolume = LockWindowManager.testProgressiveMaxRingVolume
+                ?: entry?.progressiveMaxRingVolume
+                ?: AlarmScheduler.getDefaultProgressiveMaxRingVolume(this),
+            progressiveMaxVibrationIntensity = LockWindowManager.testProgressiveMaxIntensity
+                ?: entry?.progressiveMaxIntensity
+                ?: AlarmScheduler.getDefaultProgressiveMaxIntensity(this)
         )
         if (activeChallengeStage <= 1 && !AlarmScheduler.isFirstStagePassed(this)) {
             return stage1
@@ -323,10 +338,12 @@ class AlarmVibrationService : Service() {
                 alarmMode = entry.stage2AlarmMode,
                 vibrationMode = entry.stage2VibrationMode,
                 fixedVibrationIntensity = entry.stage2VibrationIntensity,
-                fixedRingVolume = entry.stage2RingVolume
+                fixedRingVolume = entry.stage2RingVolume,
+                progressiveMaxRingVolume = entry.stage2ProgressiveMaxRingVolume,
+                progressiveMaxVibrationIntensity = entry.stage2ProgressiveMaxIntensity
             )
-        } else null
-        val useIndependent = entry?.stage2UseIndependentAlertPolicy ?: false
+        } else LockWindowManager.testStage2AlertPolicy
+        val useIndependent = entry?.stage2UseIndependentAlertPolicy ?: (stage2 != null)
         return AlarmAlertPolicy.resolveStagePolicy(stage1, useIndependent, stage2)
     }
 
@@ -334,7 +351,7 @@ class AlarmVibrationService : Service() {
     // 不设超时——闹钟持续响铃直到用户完成挑战（扫码关闭）
     private val vibrationKeepAliveRunnable = object : Runnable {
         override fun run() {
-            if (!isSnoozeSilenced && !isAttenuated && vibrator != null) {
+            if (!isSnoozeSilenced && !isAttenuated && !isCallPaused && vibrator != null) {
                 Log.d(TAG, "Vibration keep-alive: re-triggering")
                 startVibrationImpl()
             }
@@ -358,14 +375,14 @@ class AlarmVibrationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        directBootSession = isUserLockedForDirectBoot()
-        // 从 SharedPreferences 恢复 alertCycleStartTime
-        val savedStartTime = AlarmScheduler.getVibrationStartTime(this)
-        alertCycleStartTime = if (savedStartTime > 0) savedStartTime else System.currentTimeMillis()
-        if (savedStartTime == 0L) {
-            AlarmScheduler.saveVibrationStartTime(this, alertCycleStartTime)
+        // 仅在已有处于活跃状态的闹钟会话（如进程被杀重启恢复）时，从 SharedPreferences 恢复 alertCycleStartTime
+        val savedStartTime = if (AlarmScheduler.isAlarmActive(this)) {
+            AlarmScheduler.getVibrationStartTime(this)
+        } else {
+            0L
         }
-        serviceStartTime = alertCycleStartTime
+        alertCycleStartTime = if (savedStartTime > 0L) savedStartTime else 0L
+        serviceStartTime = if (alertCycleStartTime > 0L) alertCycleStartTime else System.currentTimeMillis()
         // 恢复锁定强度（第一关通过后的半强度值）
         lockedFinalIntensity = AlarmScheduler.getVibrationLockedIntensity(this)
         // 恢复完成后延迟/第一关通过后的最低强度状态，避免服务或进程重启后重新高强度响铃。
@@ -407,6 +424,7 @@ class AlarmVibrationService : Service() {
             isSnoozeSilenced = false
             resetAlertCycle()
             startVibrationImpl()
+            syncVolumeLock()
             return START_STICKY
         }
         if (intent?.action == ACTION_SNOOZE_SILENCE) {
@@ -489,6 +507,10 @@ class AlarmVibrationService : Service() {
             return START_STICKY
         }
 
+        val isExistingActiveSession = AlarmScheduler.isAlarmActive(this) && alertCycleStartTime > 0L
+        if (!isExistingActiveSession) {
+            resetAlertCycle()
+        }
         this.alarmId = newAlarmId
         activateAlarm()
         isAttenuated = AlarmScheduler.isAlarmAttenuated(this)
@@ -504,6 +526,8 @@ class AlarmVibrationService : Service() {
         // 启动铃声音量显示更新（1秒刷新，保证渐进音量显示平滑）
         handler.removeCallbacks(ringDisplayUpdateRunnable)
         handler.postDelayed(ringDisplayUpdateRunnable, 1000)
+        handler.removeCallbacks(callWatchRunnable)
+        handler.postDelayed(callWatchRunnable, 500)
         return START_STICKY
     }
 
@@ -511,6 +535,7 @@ class AlarmVibrationService : Service() {
         super.onDestroy()
         handler.removeCallbacks(vibrationKeepAliveRunnable)
         handler.removeCallbacks(ringDisplayUpdateRunnable)
+        handler.removeCallbacks(callWatchRunnable)
         snoozeRestoreRunnable?.let { handler.removeCallbacks(it) }
         snoozeRestoreRunnable = null
         val activeAlarmId = AlarmScheduler.getActiveAlarmId(this)
@@ -542,7 +567,7 @@ class AlarmVibrationService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun startVibrationImpl() {
-        if (isSnoozeSilenced) {
+        if (isSnoozeSilenced || isCallPaused) {
             currentDisplayVolume = 0
             currentDisplayIntensity = 0
             mediaPlayer?.setVolume(0f, 0f)
@@ -577,7 +602,8 @@ class AlarmVibrationService : Service() {
         acquireWakeLock()
 
         val finalIntensity = AlarmAlertPolicy.vibrationLevel(currentPolicy, elapsedMs)
-        val amplitude = (finalIntensity * 25.5).toInt().coerceIn(1, 255)
+        // 渐进时按「第 1 档 → 最大震动」铺开的浮点档位换算振幅；界面显示的当前档仍是步号 finalIntensity。
+        val amplitude = AlarmAlertPolicy.vibrationAmplitude(AlarmAlertPolicy.vibrationLevelValue(currentPolicy, elapsedMs))
         val stableAmplitude = amplitude
 
         val audioAttributes = AudioAttributes.Builder()
@@ -596,35 +622,29 @@ class AlarmVibrationService : Service() {
         Log.d(TAG, "Alarm vibration started/restarted (policy=$currentPolicy, intensity=$finalIntensity, amplitude=$stableAmplitude)")
     }
 
-    /** 铃声音量等级(1-10) → MediaPlayer浮点音量，使用三次方曲线拉开低强度差距 */
-    private fun ringVolumeToFloat(level: Int): Float {
-        val v = level.coerceIn(1, 10) / 10f
-        return v * v * v  // 三次方：1→0.001, 2→0.008, 5→0.125, 7→0.343, 10→1.0
-    }
+    /** 铃声音量等级(1-10，渐进时为浮点档位) → MediaPlayer浮点音量，曲线见 [AlarmAlertPolicy.ringGain] */
+    private fun ringVolumeToFloat(level: Float): Float = AlarmAlertPolicy.ringGain(level)
 
     /** 更新铃声强度显示值 + 实际 MediaPlayer 音量（RING_ONLY 和 VIBRATE_AND_RING 都需要） */
     private fun updateRingVolumeDisplay(policy: StageAlertPolicy, elapsedMs: Long) {
-        if (isSnoozeSilenced) {
+        if (isSnoozeSilenced || isCallPaused || isAttenuated) {
             currentDisplayVolume = 0
             mediaPlayer?.setVolume(0f, 0f)
-            return
-        }
-        if (isAttenuated) {
-            currentDisplayVolume = 0
-            mediaPlayer?.setVolume(0f, 0f)
+            syncVolumeLock()
             return
         }
         val volume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)
         currentDisplayVolume = volume.coerceIn(1, 10)
-        val mpVol = ringVolumeToFloat(currentDisplayVolume)
+        val mpVol = ringVolumeToFloat(AlarmAlertPolicy.ringLevelValue(policy, elapsedMs))
         mediaPlayer?.setVolume(mpVol, mpVol)
+        syncVolumeLock()
         Log.d(TAG, "[RING_VOL] display update: policy=$policy, elapsedMs=$elapsedMs, currentDisplayVolume=$currentDisplayVolume, mpVol=$mpVol")
     }
 
     /**
-     * 启动铃声播放。使用 MediaPlayer + USAGE_MEDIA（STREAM_MUSIC），
-     * 与系统闹钟音量完全隔离。音量由 ringVolume (1-10) 通过 setVolume() 直接控制，
-     * 系统音量键只影响媒体音量，不影响 app 闹钟音量。
+     * 启动铃声播放。使用 MediaPlayer + USAGE_ALARM（闹钟专属通道），
+     * 与用户的音乐/视频媒体音量完全隔离，不读写媒体音量。
+     * 响度由 ringVolume (1-10) 通过 setVolume() 控制，出声期间闹钟通道音量被锁定（见 syncVolumeLock）。
      */
     @SuppressLint("MissingPermission")
     private fun startRingtone(policy: StageAlertPolicy, elapsedMs: Long) {
@@ -657,12 +677,12 @@ class AlarmVibrationService : Service() {
 
         try {
             val initialVolume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)
-            val vol = ringVolumeToFloat(initialVolume)
+            val vol = ringVolumeToFloat(AlarmAlertPolicy.ringLevelValue(policy, elapsedMs))
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(this@AlarmVibrationService, uri)
                 setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setUsage(AudioAttributes.USAGE_ALARM)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
                 )
@@ -672,7 +692,7 @@ class AlarmVibrationService : Service() {
                 start()
             }
             Log.d(TAG, "[RING-DIAG] MediaPlayer created and started, initialVolume=$initialVolume, vol=$vol, uri=$uri")
-            startVolumeLock()
+            syncVolumeLock()
             // 铃声实际开始播放: 发射一次 ALARM_RING_START。startRingtone() 在
             // alreadyPlaying 时提前返回, 所以同一播放会话内不会重复发射;
             // AlarmReceiver 触发时的 RING_START 是"闹钟触发了"这一事实,
@@ -724,44 +744,72 @@ class AlarmVibrationService : Service() {
     }
 
     /**
-     * 锁定 STREAM_MUSIC 到最大值，让音量键对闹钟铃声"失效"。
-     * 每 200ms 检测一次，用户按音量键后立刻被还原，
-     * MediaPlayer.setVolume() 成为唯一音量控制。
+     * 锁定「闹钟通道」音量（不是媒体音量），让系统音量键对闹钟铃声"失效"。
+     * 每 200ms 检测一次，用户调小后立刻被还原；释放时还原用户原来的闹钟通道音量。
      */
     private var volumeLockRunnable: Runnable? = null
-    private var volumeLockMaxVol: Int = 0
+
+    /** 铃声此刻是否真的在出声：播放器存在，且没有被稍后再响静音 / 衰减 / 通话让路。 */
+    private fun isRingAudible(): Boolean =
+        mediaPlayer != null && !isSnoozeSilenced && !isAttenuated && !isCallPaused
+
+    /** 出声才锁、不出声就释放并还原；所有改变出声状态的地方都经过这里。 */
+    private fun syncVolumeLock() {
+        if (isRingAudible()) startVolumeLock() else stopVolumeLock()
+    }
 
     private fun startVolumeLock() {
-        if (volumeLocked) return
+        if (streamVolumeLock?.isLocked == true) return
         val audioMgr = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val maxVol = audioMgr.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        // 锁定到80%而非100%，给MediaPlayer.setVolume()留出足够的动态范围
-        // 否则在最大系统音量上，即使0.008的MediaPlayer音量通过扬声器出来仍然很大声
-        volumeLockMaxVol = (maxVol * 0.8f).toInt().coerceAtLeast(1)
-        audioMgr.setStreamVolume(AudioManager.STREAM_MUSIC, volumeLockMaxVol, 0)
-        volumeLocked = true
+        val lock = streamVolumeLock ?: AlarmStreamVolumeLock(
+            AudioManagerStreamVolumeAccess(audioMgr, AudioManager.STREAM_ALARM)
+        ).also { streamVolumeLock = it }
+        lock.lock()
 
-        volumeLockRunnable = object : Runnable {
+        val runnable = object : Runnable {
             override fun run() {
-                if (!volumeLocked) return
-                val cur = audioMgr.getStreamVolume(AudioManager.STREAM_MUSIC)
-                if (cur != volumeLockMaxVol) {
-                    Log.d(TAG, "[VOL-LOCK] volume changed $cur → $volumeLockMaxVol, restoring")
-                    audioMgr.setStreamVolume(AudioManager.STREAM_MUSIC, volumeLockMaxVol, 0)
-                }
+                if (streamVolumeLock?.isLocked != true) return
+                streamVolumeLock?.enforce()
                 handler.postDelayed(this, 200)
             }
         }
-        handler.postDelayed(volumeLockRunnable!!, 200)
-        Log.d(TAG, "[VOL-LOCK] STREAM_MUSIC locked to 80% ($volumeLockMaxVol / $maxVol)")
+        volumeLockRunnable = runnable
+        handler.postDelayed(runnable, 200)
+        Log.d(TAG, "[VOL-LOCK] STREAM_ALARM locked")
     }
 
     private fun stopVolumeLock() {
-        if (!volumeLocked) return
-        volumeLocked = false
+        val lock = streamVolumeLock ?: return
+        if (!lock.isLocked) return
         volumeLockRunnable?.let { handler.removeCallbacks(it) }
         volumeLockRunnable = null
-        Log.d(TAG, "[VOL-LOCK] released")
+        lock.release()
+        Log.d(TAG, "[VOL-LOCK] released, alarm stream volume restored")
+    }
+
+    /** 来电响铃 / 通话中暂停闹钟铃声与震动；挂断后从当前阶段恢复（不重置响铃周期）。 */
+    private val callWatchRunnable = object : Runnable {
+        override fun run() {
+            if (!isRunning) return
+            val audioMgr = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val inCall = AlarmCallStatePolicy.isCallActive(audioMgr.mode)
+            if (inCall != isCallPaused) {
+                isCallPaused = inCall
+                if (inCall) {
+                    Log.i(TAG, "Call detected: pausing alarm ring and vibration")
+                    currentDisplayVolume = 0
+                    currentDisplayIntensity = 0
+                    mediaPlayer?.setVolume(0f, 0f)
+                    vibrator?.cancel()
+                    syncVolumeLock()
+                } else {
+                    Log.i(TAG, "Call ended: resuming alarm from current stage")
+                    startVibrationImpl()
+                    syncVolumeLock()
+                }
+            }
+            handler.postDelayed(this, 500)
+        }
     }
 
     private fun stopVibration() {

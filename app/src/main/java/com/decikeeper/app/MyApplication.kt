@@ -76,15 +76,55 @@ class MyApplication : Application() {
         }
     }
 
+    // 系统回收内存或应用退到后台时同步落盘日志缓冲，降低进程被杀时丢失最近几秒日志的概率。
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        LogExporter.flush()
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        LogExporter.flush()
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
 
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.i("MyApplication", "[APP_ON_CREATE] ${runIdTag}processInstanceId=${com.decikeeper.app.manager.ProtectionDiagnostics.processInstanceId} uptime=${android.os.SystemClock.uptimeMillis()}")
+
         // Direct Boot 进程的 Application 也会先执行；此时禁止任何 CE 初始化。
         if (isUserLockedForDirectBoot()) {
             checkAndResumeAlarmIfNeeded(directBoot = true)
+            // 本进程出生在 Direct Boot：Application.onCreate 解锁后不会再跑，
+            // 动态注册 USER_UNLOCKED / USER_PRESENT（manifest 收不到 USER_UNLOCKED），解锁瞬间补挂 FastLock。
+            com.decikeeper.app.manager.BootUnlockTrigger.armIfLocked(this)
             return
         }
+
+        // 每日基准必须先于任何可能改动保护开关的入口拍好；幂等，同一业务日只会真正写一次。
+        try {
+            com.decikeeper.app.manager.DailyBaselineManager.ensureTodaySnapshot(this)
+        } catch (e: Exception) {
+            Log.w("MyApplication", "ensureTodaySnapshot failed (non-fatal)", e)
+        }
+
+        // 一次性修正 10/06 被结算两遍而翻倍的特权统计（只改已确认的翻倍值，见 PrivilegeStatsRepair）
+        try {
+            com.decikeeper.app.manager.statistics.PrivilegeStatsRepair.repairOnce(this)
+        } catch (e: Exception) {
+            Log.w("MyApplication", "PrivilegeStatsRepair failed (non-fatal)", e)
+        }
+
+        // 一次性修正今天两笔补记发放存错的「变动后」（只改已确认的错误值，见 LedgerGrantBalanceRepair）
+        try {
+            com.decikeeper.app.manager.statistics.LedgerGrantBalanceRepair.repairOnce(this)
+        } catch (e: Exception) {
+            Log.w("MyApplication", "LedgerGrantBalanceRepair failed (non-fatal)", e)
+        }
+
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "MyApplication.onCreate")
 
         // 🔖 版本指纹 + 新装心跳
         printVersionFingerprint()
@@ -98,11 +138,8 @@ class MyApplication : Application() {
         val a11yWasEnabled = StartupA11yCache.isA11yWasEnabledForStartup(this)
         Log.d("DeciKeeper", "MyApplication: startup a11y DPS cache=$a11yWasEnabled readAt=$startupCacheReadAt")
         if (a11yWasEnabled) {
-            // 直接 addView 覆盖层，不等 Service 启动（毫秒级出现）
-            StartupProtectionManager.attachEarlyBootFastLock(this)
-            // Service 仍启动，负责前台通知、超时管理、handoff
-            StartupProtectionManager.startFastLock(this)
-            StartupProtectionManager.earlyBootFastLockStarted = true
+            // 统一 CAS 入口：直接 addView 覆盖层（毫秒级出现）+ 启动 Service 负责前台通知、超时管理、handoff
+            StartupProtectionManager.triggerBootFastLock(this, "app_on_create")
             Log.d("DeciKeeper", "MyApplication: Early boot FastLock overlay attached + service requested")
             // [2026-06-25] 诊断日志：记录 MyApplication 路径是否触发 FastLock
             // 用于排查"初始化界面刷新两次"现象
@@ -249,6 +286,7 @@ class MyApplication : Application() {
 
         // 🚀 [Log] Initialize LogExporter with app context for disk-persistent logging
         LogExporter.init(this)
+        LogExporter.logProcessStart(this)
 
         // 🚀 启动时清理无障碍保护模块历史脏 key
         // 历史版本曾在 ConfigPendingManager 中写入 "a11y_service_self_pending"

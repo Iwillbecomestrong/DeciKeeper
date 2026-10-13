@@ -60,10 +60,12 @@ import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.data.TimeSegment
 import com.decikeeper.app.manager.expiry.ExpiryCoordinator
 import com.decikeeper.app.manager.expiry.ExpiryReason
+import com.decikeeper.app.manager.statistics.QuotaGrantRecorder
 import com.decikeeper.app.manager.statistics.RestStatsRecorder
 import com.decikeeper.app.data.resolveAccessibilityFailureClass
 import com.decikeeper.app.manager.AppWindowManager
 import com.decikeeper.app.manager.CreditManager
+import com.decikeeper.app.manager.DailyBaselineManager
 import com.decikeeper.app.manager.ForegroundEvidence
 import com.decikeeper.app.manager.ForegroundEvidenceDecision
 import com.decikeeper.app.manager.ForegroundEvidencePolicy
@@ -82,6 +84,10 @@ import com.decikeeper.app.util.DiagnosticCompressor
 import com.decikeeper.app.util.DiagnosticTimestampFormatter
 import com.decikeeper.app.util.FgBypassStableKey
 import com.decikeeper.app.util.FgGuardStableKey
+import com.decikeeper.app.logging.IntervalSampler
+import com.decikeeper.app.logging.LastForegroundEvidence
+import com.decikeeper.app.logging.RecentSampleLog
+import com.decikeeper.app.util.ForegroundDecisionRetention
 import com.decikeeper.app.util.ForegroundNormalEventBridge
 import com.decikeeper.app.util.ForegroundNormalEventStateTracker
 import com.decikeeper.app.util.ForegroundReportFormatter
@@ -144,7 +150,8 @@ class MonitorService : Service() {
         "com.vivo.upslide",
         "com.bbk.launcher2",
         "com.vivo.launcher",
-        "com.android.systemui"
+        "com.android.systemui",
+        "com.vivo.card" // 🚀 [vivo] OriginOS 超级卡包 / 快捷卡片
     )
     
     companion object {
@@ -154,6 +161,20 @@ class MonitorService : Service() {
         private const val NOTIFICATION_ID_WARNING = 2002
         private const val HOME_PENDING_USAGE_STATS_RELEASE_DELAY_MS = 5000L
         private const val USAGE_STATS_FOREGROUND_EVIDENCE_WINDOW_MS = 5000L
+
+        internal fun reconcileStaleLockedPackage(
+            currentLockedPkg: String?,
+            isLockShowing: Boolean
+        ): String? {
+            return if (!isLockShowing) null else currentLockedPkg
+        }
+
+        internal fun isOrphanInputPanelOpen(
+            isLockShowing: Boolean,
+            isInputPanelOpen: Boolean
+        ): Boolean {
+            return !isLockShowing && isInputPanelOpen
+        }
 
         internal fun shouldReleaseHomePendingForSamePackage(
             evidenceSource: String,
@@ -288,6 +309,9 @@ class MonitorService : Service() {
     private val foregroundNormalEventBridge by lazy {
         ForegroundNormalEventBridge(SystemEventClock, foregroundNormalEventLogger::emit)
     }
+    private val foregroundDecisionRetention = ForegroundDecisionRetention()
+    // 前台采样：5 秒一条，只保留最近 3 分钟，仅供事后取证，业务代码不读取。
+    private val foregroundSampler = IntervalSampler(RecentSampleLog.SAMPLE_INTERVAL_MS)
     private val foregroundNormalEventStateTracker = ForegroundNormalEventStateTracker()
 
     // [Diagnostics-only] real query wall-clock timestamps captured around the
@@ -617,19 +641,8 @@ class MonitorService : Service() {
         // 4. Weekly Privilege Limit
         CreditManager.checkAndApplyPendingWeeklyLimit(context)
 
-        // 5. Baseline Update — 🔴 [Fix] 使用业务日替代 DateUtils.isToday（自然日零点）
-        val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-        val lastBaselineTime = prefs.getLong("last_baseline_update_time", 0L)
-        val lastBaselineBizDate = CreditManager.getBusinessDateStringAt(context, lastBaselineTime)
-        val currentBizDate = CreditManager.getBusinessDateString(context)
-
-        if (lastBaselineBizDate != currentBizDate && TimeRuleManager.isAfterRefreshTime(context)) {
-            CreditManager.saveBaselineBlacklist(context)
-            TimeRuleManager.saveBaselineSnapshot(context)
-            AppWindowManager.saveBaseline(context)
-            prefs.edit().putLong("last_baseline_update_time", now).apply()
-            Log.i(TAG, "Daily Baseline Snapshot Updated (bizDate=$currentBizDate)")
-        }
+        // 5. Baseline Update — 每日基准由 DailyBaselineManager 幂等写入（Application、主界面也会先到）。
+        DailyBaselineManager.ensureTodaySnapshot(context)
 
         // 6. A11y Health Check — 🔴 [Fix] 使用业务日替代 java.util.Date()（自然日零点）
         try {
@@ -1062,7 +1075,7 @@ class MonitorService : Service() {
 
         // 🚀 [Fix] 预计算冷却结束时间并持久化，防止进程被杀后冷却状态丢失
         val coolingSec = TimeRuleManager.getCoolDownRestSeconds(this)
-        val coolingDuration = if (coolingSec > 0) coolingSec * 1000L else 60000L
+        val coolingDuration = coolingSec.coerceAtLeast(0) * 1000L
         CreditManager.setCoolDownEnd(this, endTime + coolingDuration)
 
         // Start Timer to auto-lock when done
@@ -1073,11 +1086,6 @@ class MonitorService : Service() {
             requestedMins = mRestRequestedDurationMins,
             costMins = costMinutes
         )
-        
-        // Show UI feedback（休息倒计时移至副标题显示）
-        if (LockWindowManager.isLocked) {
-            startFreeTimeCountdownUI(duration)
-        }
 
         EventLog.unlockResult(
             traceId = currentTraceId,
@@ -1103,8 +1111,6 @@ class MonitorService : Service() {
             CreditManager.setFreeTimeEnd(this, 0)
         }
         mFreeTimeTimer?.cancel()
-        mFreeTimeCountdownTimer?.cancel()
-        mFreeTimeCountdownTimer = null
 
         // 🚀 [Cooldown Logic Fix]
         // Determine the logical end time of the rest.
@@ -1126,49 +1132,13 @@ class MonitorService : Service() {
         if (mRestStartTime > 0 && mRestTotalCost > 0 && mRestRequestedDurationMins > 0) {
             val usedDuration = now - mRestStartTime
 
-            // 精确到0.1分钟（6秒粒度），向上取整
-            val usedMinutes = kotlin.math.ceil(usedDuration / 6000.0) / 10.0
-            val usedMinutesRounded = kotlin.math.round(usedDuration / 60000.0).toInt().coerceAtLeast(1)
+            // 精确到0.1分钟（6秒粒度），四舍五入（与 CreditManager.getRestRefundPreview 同口径）
+            val usedMinutes = kotlin.math.round(usedDuration / 6000.0) / 10.0
 
             if (usedMinutes < mRestRequestedDurationMins) {
-                // Determine base rate (usually 1.0)
-                val rate = if (mRestRequestedDurationMins > 0) mRestTotalCost / mRestRequestedDurationMins else 1.0
-                var finalCost = usedMinutes * rate
-
-                // 🚀 [Reward] Early Off Logic (0.5x for Last Segment Overlap)
-                // Conditions:
-                // 1. Started in Last Logical Segment
-                // 2. Ended AFTER segment end time
-                try {
-                    val startSeg = TimeRuleManager.getSegmentAt(this, mRestStartTime)
-                    if (startSeg != null) {
-                        // Reconstruct absolute segment end time based on mRestStartTime
-                        val cal = java.util.Calendar.getInstance()
-                        cal.timeInMillis = mRestStartTime
-                        cal.set(java.util.Calendar.HOUR_OF_DAY, startSeg.endHour)
-                        cal.set(java.util.Calendar.MINUTE, startSeg.endMinute)
-                        cal.set(java.util.Calendar.SECOND, 0)
-                        cal.set(java.util.Calendar.MILLISECOND, 0)
-                        val segEndMillis = cal.timeInMillis
-
-                        // Check overlap: If rest ended AFTER segment end
-                        if (now > segEndMillis) {
-                            val overlapMillis = segEndMillis - mRestStartTime
-                            val overlapMins = if (overlapMillis > 0) (overlapMillis / 60000.0).toInt() else 0
-
-                            // Clamping (用整数分钟做阶段奖励计算)
-                            val effectiveOverlap = overlapMins.coerceAtMost(usedMinutesRounded).coerceAtLeast(0)
-                            val effectiveNormal = usedMinutesRounded - effectiveOverlap
-
-                            // Apply 0.5x to overlap (Early Off Reward for ANY segment)
-                            val discountedCost = (effectiveOverlap * rate * 0.5) + (effectiveNormal * rate)
-                            finalCost = discountedCost
-                            Log.i(TAG, "✨ Early Off Bonus (Any Segment): Overlap=${effectiveOverlap}m (0.5x), Normal=${effectiveNormal}m. Cost -> $finalCost")
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error calculating Early Off bonus", e)
-                }
+                // 已用部分按申请时的费率（冷却期申请即 ×2）收费，未用部分全额退还，无折扣
+                val rate = mRestTotalCost / mRestRequestedDurationMins
+                val finalCost = usedMinutes * rate
 
                 val refundAmount = mRestTotalCost - finalCost
 
@@ -1223,7 +1193,7 @@ class MonitorService : Service() {
 
         // 🚀 [Rule] Set Rest Cooling Period（读取用户配置的休息冷却秒数）
         val coolingSec = TimeRuleManager.getCoolDownRestSeconds(this)
-        val coolingDuration = if (coolingSec > 0) coolingSec * 1000L else 60000L
+        val coolingDuration = coolingSec.coerceAtLeast(0) * 1000L
         if (naturalFreedom) {
             CreditManager.setCoolDownEnd(this, 0L)
         } else {
@@ -1280,26 +1250,6 @@ class MonitorService : Service() {
         }.start()
     }
     
-    private var mFreeTimeCountdownTimer: android.os.CountDownTimer? = null
-
-    private fun startFreeTimeCountdownUI(duration: Long) {
-        // UI Update Logic (Simplified)
-        // In real CoreService this updated the LockView text.
-        // LockWindowManager.updateFreeTimeText(...)
-        // We can just rely on the static method in LockWindowManager
-        mFreeTimeCountdownTimer?.cancel()
-        mFreeTimeCountdownTimer = object : android.os.CountDownTimer(duration, 1000) {
-            override fun onTick(millis: Long) {
-                val sec = millis / 1000
-                val min = sec / 60
-                val s = sec % 60
-                LockWindowManager.updateFreeTimeText("🟢 休息中: $min 分 $s 秒")
-            }
-            override fun onFinish() {
-            }
-        }.also { it.start() }
-    }
-
     private var mLastUsedMinuteTime = 0L
     private var mLastWasGap = false
     private var mLastWasRest = false
@@ -1673,14 +1623,26 @@ class MonitorService : Service() {
     }
 
     private fun checkForegroundApp() {
+        val now = System.currentTimeMillis()
+
+        // 🚀 [Cleanup & Self-Heal] Clear stale lockedPkg early before any pause gate
+        // If the lock screen is not currently showing, currentLockedPkg MUST be cleared
+        // so that heartbeat and subsequent detection never get stranded.
+        currentLockedPkg = reconcileStaleLockedPackage(currentLockedPkg, LockWindowManager.isLocked)
+
+        // 🚀 [Self-Heal] If lock screen is gone, input panel cannot legitimately remain open
+        if (isOrphanInputPanelOpen(LockWindowManager.isLocked, LockWindowManager.isInputPanelOpen)) {
+            Log.w(TAG, "[AUTO_HEAL] Orphan isInputPanelOpen detected while lock is not showing, dismissing")
+            LockWindowManager.dismissRestWindow("stale_unlocked_monitor_heal")
+        }
+
         // 🚀 [NEW] Skip check if user is typing in the input panel
-        if (LockWindowManager.shouldPauseForegroundBlockingChecks()) return
+        if (LockWindowManager.shouldPauseForegroundBlockingChecks(now)) return
 
         // 🚀 [NEW] Force active window tree scan from Accessibility Service
         // This guarantees that we always have 100% fresh window visibility data, 
         // completely bypassing the limitation where Accessibility doesn't receive events 
         // while the user is passively watching a PIP/small window video on the Home screen!
-        val now = System.currentTimeMillis()
         // 🛡️ [Keyguard 与屏幕状态前置反证 (Finding 3)]
         // 在任何前台包名解析与早退分支前优先检测系统锁屏状态，确保锁屏时无条件失效 Session 并重置保底门禁
         val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
@@ -1724,6 +1686,11 @@ class MonitorService : Service() {
         val privilegeJustEnded = wasPrivilegeActiveLastPoll && !isPrivilege
         wasPrivilegeActiveLastPoll = isPrivilege
         val isDndLocked = isInSegment && !isFreeTime
+
+        // 进入新的勿扰时段 → 记一条「额度发放」流水（每个时段每个业务日只记一次，失败不影响监控）
+        if (isInSegment) {
+            runCatching { QuotaGrantRecorder.recordIfNewSegment(this, now) }
+        }
 
         // 🚀 [Unified Expiry] 特权到期 → 统一通过 ExpiryCoordinator 评估，不直接硬锁
         if (privilegeJustEnded) {
@@ -1947,7 +1914,9 @@ class MonitorService : Service() {
         if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
             val visiblePkgs = CoreService.lastVisiblePackagesFromWindows
             val visibleBlacklistedPkg = visiblePkgs.firstOrNull { pkg ->
-                pkg != this.packageName && SegmentBlacklist.shouldLock(this, pkg)
+                pkg != this.packageName &&
+                    mPresenceTracker.isPhysicallyVisible(pkg, visiblePkgs) &&
+                    SegmentBlacklist.shouldLock(this, pkg)
             }
             if (visibleBlacklistedPkg != null) {
                 resolvedPackageName = visibleBlacklistedPkg
@@ -2014,7 +1983,7 @@ class MonitorService : Service() {
         // so that the block is not bypassed, and the lock screen remains active.
         if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
             val pendingPkg = LockWindowManager.homeClickPendingPackage
-            if (pendingPkg != null && CoreService.lastVisiblePackagesFromWindows.contains(pendingPkg)) {
+            if (pendingPkg != null && mPresenceTracker.isPhysicallyVisible(pendingPkg, CoreService.lastVisiblePackagesFromWindows)) {
                 Log.w(TAG, "[Anti-Deadlock] Pending pkg $pendingPkg is physically visible on screen, clearing suppression!")
                 LockWindowManager.clearHomeClickPendingPackage()
             }
@@ -3259,22 +3228,6 @@ class MonitorService : Service() {
                     mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
                     foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp, eventClass)
                 }
-
-                // [Diagnostics-only] 诊断小窗生命周期事件
-                if (eventPkg.isNotBlank() && (type == MOVE_TO_FG || type == ACTIVITY_RESUMED || type == MOVE_TO_BG || type == ACTIVITY_PAUSED || type == ACTIVITY_STOPPED)) {
-                    val eventName = when (type) {
-                        MOVE_TO_FG -> "MOVE_TO_FOREGROUND"
-                        MOVE_TO_BG -> "MOVE_TO_BACKGROUND"
-                        ACTIVITY_RESUMED -> "ACTIVITY_RESUMED"
-                        ACTIVITY_PAUSED -> "ACTIVITY_PAUSED"
-                        ACTIVITY_STOPPED -> "ACTIVITY_STOPPED"
-                        else -> "UNKNOWN"
-                    }
-                    if (SegmentBlacklist.shouldLock(this, eventPkg)) {
-                        Log.d(TAG, "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
-                        LogExporter.logEvent("PresenceDiag", "[PRESENCE_EVENT] pkg=$eventPkg event=$eventName eventAt=${event.timeStamp}")
-                    }
-                }
             }
 
             // 检测前台事件：MOVE_TO_FOREGROUND(1) 或 ACTIVITY_RESUMED(15)
@@ -3317,6 +3270,20 @@ class MonitorService : Service() {
             }
         }
 
+        fun traceAndReturn(
+            result: String?,
+            evidence: TopPackageEvidence,
+            @Suppress("UNUSED_PARAMETER") finalReason: String
+        ): String? {
+            mLastTopEvidence = evidence
+            mLastTopResolvedAt = time
+            // 不输出日志，仅保留窗口快照采集：它会刷新 CoreService.lastVisiblePackagesFromWindows，
+            // 该缓存被前台可见性判定读取，删除调用会改变业务时序。
+            CoreService.captureWindowSnapshot(time)
+
+            return result
+        }
+
         // 2. If we found relevant events, update cache and return
         if (foundRelevantEvent) {
             mLastTopPackage = calculatedTop
@@ -3330,7 +3297,7 @@ class MonitorService : Service() {
                 selectionReason = "EVENTS_QUERY",
                 status = if (calculatedTop != null) ForegroundSourceStatus.AVAILABLE else ForegroundSourceStatus.UNAVAILABLE
             )
-            return calculatedTop
+            return traceAndReturn(calculatedTop, TopPackageEvidence.EVENTS, "EVENTS_BUSINESS_MATCH")
         }
 
         // 3. If NO events in last 30s, use queryUsageStats to cross-validate cache
@@ -3352,7 +3319,7 @@ class MonitorService : Service() {
                 selectionReason = null,
                 status = ForegroundSourceStatus.UNAVAILABLE
             )
-            return mLastTopPackage
+            return traceAndReturn(mLastTopPackage, TopPackageEvidence.USAGE_STATS, "EVENTS_EMPTY_30S->USAGE_STATS_MATCH")
         }
         
         // 4. queryUsageStats 也没有结果，使用缓存
@@ -3375,7 +3342,7 @@ class MonitorService : Service() {
                 selectionReason = null,
                 status = ForegroundSourceStatus.UNAVAILABLE
             )
-            return mLastTopPackage
+            return traceAndReturn(mLastTopPackage, TopPackageEvidence.CACHE, "EVENTS_EMPTY_30S->STATS_EMPTY->CACHE_HIT")
         }
 
         // 5. Initialization Case: Cache is null and no recent events (service restart?).
@@ -3396,7 +3363,7 @@ class MonitorService : Service() {
                 candidates = emptyList(), selectionReason = null,
                 status = ForegroundSourceStatus.UNAVAILABLE
             )
-            return null
+            return traceAndReturn(null, TopPackageEvidence.NONE, "EVENTS_EMPTY_30S->STATS_EMPTY->CACHE_NULL->HISTORY_COOLDOWN")
         }
         mLastHistoryQueryTime = time
         Log.d(TAG, "[getTopPackageName] Cache empty & no recent events. Querying history (12h)...")
@@ -3440,7 +3407,7 @@ class MonitorService : Service() {
                 candidates = emptyList(), selectionReason = null,
                 status = ForegroundSourceStatus.UNAVAILABLE
             )
-            return historyTop
+            return traceAndReturn(historyTop, TopPackageEvidence.HISTORY, "EVENTS_EMPTY_30S->STATS_EMPTY->CACHE_NULL->HISTORY_MATCH")
         }
 
         Log.w(TAG, "[getTopPackageName] No foreground app detected via Events/UsageStats/History. Returning null.")
@@ -3457,7 +3424,7 @@ class MonitorService : Service() {
             candidates = emptyList(), selectionReason = null,
             status = ForegroundSourceStatus.UNAVAILABLE
         )
-        return null
+        return traceAndReturn(null, TopPackageEvidence.NONE, "EVENTS_EMPTY_30S->STATS_EMPTY->CACHE_NULL->HISTORY_EMPTY")
     }
 
     /**
@@ -3528,7 +3495,9 @@ class MonitorService : Service() {
             isActive && stat.totalTimeInForeground > 0
         }
 
-        if (recentActive.isEmpty()) return null
+        if (recentActive.isEmpty()) {
+            return null
+        }
 
         // 🔧 [Fix] 优先选择非launcher/非系统UI的应用
         // 避免 launcher 因为后台活动被排在前面
@@ -3695,6 +3664,15 @@ class MonitorService : Service() {
 
         val gate = foregroundReportGate
         val decision = gate.evaluate(c, outcome, nowMs)
+        // 只算一次：状态跟踪器与输出器必须对"这份完整报告是否真的输出"看法一致，
+        // 否则被丢弃的报告会让桌面切换的转换行也跟着丢失。
+        val fullRetention: ForegroundDecisionRetention.Level? =
+            if (decision.emission == ForegroundReportEmission.FULL) foregroundDecisionRetention.assess(decision, c) else null
+        // 仅供日志使用：给 LOCK_RESULT 等 A 级事件附上一行"为什么"，业务代码不读取。
+        LastForegroundEvidence.update(outcome.effectivePackageName, mLastTopEvidence.name, outcome.businessReason)
+        if (foregroundSampler.tryAcquire(nowMs)) {
+            LogExporter.logRecentSample(nowMs, foregroundSampleBody(c, outcome))
+        }
         emitForegroundStateClosureOrTransition(
             packageName = outcome.effectivePackageName ?: "NONE",
             stateKey = listOf(
@@ -3703,8 +3681,14 @@ class MonitorService : Service() {
                 outcome.businessReason,
                 outcome.allowanceState
             ).joinToString("|"),
-            hasFullDiagnostic = decision.emission == ForegroundReportEmission.FULL,
-            nowMs = nowMs
+            hasFullDiagnostic = decision.emission == ForegroundReportEmission.FULL &&
+                fullRetention != ForegroundDecisionRetention.Level.DROP,
+            nowMs = nowMs,
+            stateFields = linkedMapOf(
+                "action" to outcome.businessAction.name,
+                "reason" to outcome.businessReason,
+                "allowance" to outcome.allowanceState
+            )
         )
         foregroundNormalEventBridge.emitDecision(
             cycle = c,
@@ -3713,7 +3697,8 @@ class MonitorService : Service() {
             selectedSource = mLastTopEvidence.name,
             requestId = currentTraceId,
             traceId = currentTraceId,
-            transition = foregroundTransition(c.previousForegroundPackageName, outcome.effectivePackageName)
+            transition = foregroundTransition(c.previousForegroundPackageName, outcome.effectivePackageName),
+            retention = fullRetention
         )
         if (decision.emission == ForegroundReportEmission.NONE) return  // compact route already evaluated
         // R1-4: use decision.sourceProblemStartedAtMs as the single source of
@@ -3741,7 +3726,8 @@ class MonitorService : Service() {
         packageName: String,
         stateKey: String,
         hasFullDiagnostic: Boolean,
-        nowMs: Long
+        nowMs: Long,
+        stateFields: Map<String, String> = emptyMap()
     ) {
         foregroundNormalEventStateTracker.observe(
             stateKey = stateKey,
@@ -3749,8 +3735,18 @@ class MonitorService : Service() {
             isDesktop = CreditManager.isLauncher(packageName),
             hasFullDiagnostic = hasFullDiagnostic,
             nowMs = nowMs,
-            clock = SystemEventClock
+            clock = SystemEventClock,
+            stateFields = stateFields
         ).forEach(foregroundNormalEventLogger::emit)
+    }
+
+    /** 单行前台采样：前台包、来源、动作、原因，以及三个来源各自的状态。 */
+    private fun foregroundSampleBody(cycle: ForegroundDiagnosticCycle, outcome: ForegroundReportOutcome): String {
+        fun status(source: ForegroundSourceSnapshot): String =
+            source.status.name + (source.unavailableReason?.takeIf { it.isNotBlank() }?.let { "($it)" } ?: "")
+        return "[FG_SAMPLE] fg=${outcome.effectivePackageName ?: "NONE"} src=${mLastTopEvidence.name} " +
+            "action=${outcome.businessAction.name} reason=${outcome.businessReason} allowance=${outcome.allowanceState} " +
+            "events=${status(cycle.usageEvents)} stats=${status(cycle.usageStats)} a11y=${status(cycle.accessibility)}"
     }
 
     /** A real existing pre-cycle package becomes a transition only when it actually changed. */

@@ -172,18 +172,26 @@ object SegmentAdverseAnalysis {
         val oldEffective = if (context != null && oldSeg != null && oldSeg.listApps == null) {
             SegmentBlacklist.effectiveList(context, oldSeg)
         } else null // null = 无法计算基准（context 缺失时仅"脱钩"分支受影响）
-        return classifyListAppsAdverseCore(oldSeg, newSeg, oldEffective) { oldEff ->
-            if (context == null) {
-                oldEff // 无 context：不额外过滤（保持原"双非 null 无需 context"语义）
-            } else {
-                // [FIX 2026-08-14 用户报告] 名单页只展示有启动入口的应用；全局黑名单里
-                // 无入口/已卸载的包无法被勾选（全选/反选后必然丢失），不能作为"被移除"
-                // 的基准——否则在全局基础上添加应用会被误判为放松→延迟生效。
-                oldEff.filter { pkg ->
-                    runCatching { context.packageManager.getLaunchIntentForPackage(pkg) != null }
-                        .getOrDefault(false)
-                }.toSet()
-            }
+        return classifyListAppsAdverseCore(oldSeg, newSeg, oldEffective, listSelectable(context))
+    }
+
+    /**
+     * 名单里「用户在名单页能操作到」的子集：有启动入口、且不在硬剔除里。
+     * 已卸载 / 无入口的包用户勾不到也取消不了（白名单模式存的是补集，换一次勾选就会丢掉它们），
+     * 不能算成「移除」，否则一次纯加严（如白名单从 5 个改成一个都不选）会被判成「有增有减」。
+     * context 缺失时不过滤。
+     */
+    private fun listSelectable(context: Context?): (Set<String>) -> Set<String> {
+        if (context == null) return { it }
+        // [FIX 2026-08-14 用户报告] 名单页只展示有启动入口的应用；全局黑名单里
+        // 无入口/已卸载的包无法被勾选（全选/反选后必然丢失），不能作为"被移除"
+        // 的基准——否则在全局基础上添加应用会被误判为放松→延迟生效。
+        // 全集查询很慢，只在判定真的要过滤名单时才取（名单没动的时段不付这个代价）。
+        return { set ->
+            // 取不到可启动应用全集（包可见性受限等）时无法判断谁不可操作，保守不过滤。
+            val launchable = SegmentBlacklist.allLaunchablePackages(context)
+            if (launchable.isEmpty()) set
+            else set.filter { it in launchable && !SegmentBlacklist.isHardExempt(context, it) }.toSet()
         }
     }
 
@@ -216,13 +224,19 @@ object SegmentAdverseAnalysis {
             // 首次脱钩（旧 null → 新非 null）：newList 必非 null。
             val n = newList ?: return true
             if (oldEffective == null) return true // 无法判定 → 保守视为混合/不利（原语义）
+            val newSet = n.toSet()
+            // 过滤只是逐元素的谓词：原始新名单已覆盖原始基准，过滤后必然也覆盖，省掉昂贵的可启动应用查询
+            if (newSet.containsAll(oldEffective)) return false
             val selectableOld = selectable(oldEffective)
-            return !n.toSet().containsAll(selectableOld)
+            return !newSet.containsAll(selectableOld)
         }
 
         // 两者都非 null：集合语义比较（前三分支已排除所有含 null 的情形）。
-        val oldSet = oldList.toSet()
-        val newSet = newList!!.toSet()
+        val rawOld = oldList.toSet()
+        val rawNew = newList!!.toSet()
+        if (rawNew.containsAll(rawOld)) return false // 只增不删：同上，不必过滤
+        val oldSet = selectable(rawOld)
+        val newSet = selectable(rawNew)
         return !newSet.containsAll(oldSet) // 有删或混合 → 不利
     }
 
@@ -350,7 +364,10 @@ object SegmentAdverseAnalysis {
             targetLimit, new.name, true, unionDays, targetEnabled,
             usableCountLimitHalfUnits = targetUsableCount,
             listMode = targetListMode,
-            listApps = targetListApps
+            listApps = targetListApps,
+            // 「今天改过」的标记（决定已过时段不滚存、进行中时段按剩余时间折算）必须带上：
+            // 丢掉它会让之前因修改而扣掉的结余又加回来，立即生效的改动只能减少额度。
+            lastModified = new.lastModified
         )
     }
 
@@ -368,6 +385,22 @@ object SegmentAdverseAnalysis {
                s1.isEnabled == s2.isEnabled && // 🚀 [Fix] Check Enabled equality
                s1.listApps == s2.listApps && // 🆕 [TASK-04] 名单精确相等（null ≠ emptyList）
                s1.listMode == s2.listMode // 🆕 [黑/白名单] 模式也参与相等判定（仅改模式也要能保存）
+    }
+
+    /**
+     * 界面「待生效: 修改」标识用的相等：次数上限留空（自动）与手填同一个数是同一个效果，不算修改。
+     * 保存时的 [isSingleSegmentEqual] 仍按原始值严格比较（留空与手填不是一回事：改休息时长后自动值会跟着变）。
+     */
+    fun isSingleSegmentEquivalent(s1: TimeSegment, s2: TimeSegment): Boolean =
+        isSingleSegmentEqual(
+            s1.copy(usableCountLimitHalfUnits = s1.getEffectiveUsableCountLimitHalfUnits()),
+            s2.copy(usableCountLimitHalfUnits = s2.getEffectiveUsableCountLimitHalfUnits())
+        )
+
+    /** 两份时段表效果等价（按名字配对，逐项用 [isSingleSegmentEquivalent]，忽略顺序与改动时间戳）。 */
+    fun areSegmentListsEquivalent(a: List<TimeSegment>, b: List<TimeSegment>): Boolean {
+        if (a.size != b.size) return false
+        return a.all { x -> b.any { y -> x.name == y.name && isSingleSegmentEquivalent(x, y) } }
     }
 
     /**
@@ -488,11 +521,15 @@ fun getCategorizedSegmentDiff(
              add("休息时长", oldLimit, match.limitMins, base?.limitMins, activeAnalysis.isLimitAdverse)
              add("生效日期", oldDays, TimeRuleManager.formatDays(match.daysOfWeek), base?.let { TimeRuleManager.formatDays(it.daysOfWeek) }, activeAnalysis.isDaysAdverse)
              add("状态", oldStatus, TimeRuleManager.formatEnabled(match.isEnabled), base?.let { TimeRuleManager.formatEnabled(it.isEnabled) }, activeAnalysis.isStatusAdverse)
+             // 次数上限也要列出来：混合保存按这份 diff 决定每个时段「今天生效什么」，
+             // 缺了它，只改次数的时段会被当成没变化，加严的次数也不会立即生效。
+             fun countText(seg: TimeSegment) = formatUsableCountLimit(seg.getEffectiveUsableCountLimitHalfUnits())
+             add("次数上限", countText(old), countText(match), base?.let { countText(it) }, activeAnalysis.isCountLimitAdverse)
         }
 
         // 🆕 [TASK-04] listApps 变化文案（仅在有变化时出现；null ≠ 空列表）。
         if (old != null && old.listApps != match.listApps) {
-            val listMsg = buildListAppsDiffMessage(old.listApps, match.listApps)
+            val listMsg = buildListAppsDiffMessage(old.listApps, match.listApps, listSelectable(context))
             if (listMsg != null) {
                 val isRestoredList = base != null && match.listApps == base.listApps
                 val isListAdv = if (isRestoredList) false else classifyListAppsAdverse(context, old, match)
@@ -511,11 +548,21 @@ fun getCategorizedSegmentDiff(
         return diffItems
     }
 
+    /** half-unit（0.5 次 = 1）显示成「次」：整数不带小数点。 */
+    internal fun formatUsableCountLimit(halfUnits: Int): String {
+        val times = halfUnits / 2.0
+        return if (times % 1.0 == 0.0) "${times.toInt()}次" else "${times}次"
+    }
+
     /**
      * 🆕 [TASK-04] 生成 listApps 变化的差异文案（风格对齐现有 diff 项）。
      * 返回 null 表示集合相同（仅顺序/重复变化）→ 不产生文案。
      */
-    private fun buildListAppsDiffMessage(oldList: List<String>?, newList: List<String>?): String? {
+    private fun buildListAppsDiffMessage(
+        oldList: List<String>?,
+        newList: List<String>?,
+        selectable: (Set<String>) -> Set<String> = { it }
+    ): String? {
         if (oldList == null && newList == null) return null
         if (oldList == null) {
             val n = newList ?: return null
@@ -524,8 +571,8 @@ fun getCategorizedSegmentDiff(
         if (newList == null) {
             return "  • 本时段名单: 已恢复为跟随全局黑/白名单"
         }
-        val oldSet = oldList.toSet()
-        val newSet = newList.toSet()
+        val oldSet = selectable(oldList.toSet())
+        val newSet = selectable(newList.toSet())
         if (newSet == oldSet) return null
         if (newList.isEmpty()) {
             return "  • 本时段名单: 已清空本时段名单（不锁任何应用）"

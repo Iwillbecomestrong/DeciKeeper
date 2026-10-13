@@ -203,7 +203,11 @@ object AlarmScheduler {
         val stage2AlarmMode: AlarmMode = AlarmMode.VIBRATE_AND_RING,
         val stage2VibrationMode: VibrationMode = VibrationMode.PROGRESSIVE,
         val stage2VibrationIntensity: Int = 7,
-        val stage2RingVolume: Int = 7
+        val stage2RingVolume: Int = 7,
+        /** 第二关独立提醒的渐进「最大声音」（1-10，10 = 不限制）；第一关用 [progressiveMaxRingVolume]。 */
+        val stage2ProgressiveMaxRingVolume: Int = 10,
+        /** 第二关独立提醒的渐进「最大震动」（1-10，10 = 不限制）；第一关用 [progressiveMaxIntensity]。 */
+        val stage2ProgressiveMaxIntensity: Int = 10
     )
 
     data class DirectBootValidationResult(
@@ -349,7 +353,9 @@ object AlarmScheduler {
         stage2AlarmMode: AlarmMode = AlarmMode.VIBRATE_AND_RING,
         stage2VibrationMode: VibrationMode = VibrationMode.PROGRESSIVE,
         stage2VibrationIntensity: Int = 7,
-        stage2RingVolume: Int = 7
+        stage2RingVolume: Int = 7,
+        stage2ProgressiveMaxRingVolume: Int = 10,
+        stage2ProgressiveMaxIntensity: Int = 10
     ): AlarmEntry {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val nextId = prefs.getInt(KEY_NEXT_ID, 1)
@@ -369,7 +375,9 @@ object AlarmScheduler {
             stage2AlarmMode = stage2AlarmMode,
             stage2VibrationMode = stage2VibrationMode,
             stage2VibrationIntensity = stage2VibrationIntensity,
-            stage2RingVolume = stage2RingVolume
+            stage2RingVolume = stage2RingVolume,
+            stage2ProgressiveMaxRingVolume = stage2ProgressiveMaxRingVolume,
+            stage2ProgressiveMaxIntensity = stage2ProgressiveMaxIntensity
         )
     }
 
@@ -399,7 +407,9 @@ object AlarmScheduler {
 
     // ----- 渐进式最小/最大强度 -----
     private const val KEY_DEFAULT_PROGRESSIVE_MIN = "default_progressive_min_intensity"
-    private const val KEY_DEFAULT_PROGRESSIVE_MAX = "default_progressive_max_intensity"
+    // 「最大震动」默认值用新键，不读回 2026-09-08 重设计前遗留的 default_progressive_max_intensity（同「最大声音」）。
+    private const val KEY_DEFAULT_PROGRESSIVE_MAX = "default_progressive_vibration_max"
+    private const val KEY_DEFAULT_STAGE2_PROGRESSIVE_MAX = "default_stage2_progressive_vibration_max"
     private const val DEFAULT_PROGRESSIVE_MIN_INTENSITY = 1
     private const val DEFAULT_PROGRESSIVE_MAX_INTENSITY = 10
 
@@ -444,9 +454,20 @@ object AlarmScheduler {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putInt(KEY_DEFAULT_PROGRESSIVE_MAX, value.coerceIn(1, 10)).apply()
     }
+    fun getDefaultStage2ProgressiveMaxIntensity(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_DEFAULT_STAGE2_PROGRESSIVE_MAX, DEFAULT_PROGRESSIVE_MAX_INTENSITY).coerceIn(1, 10)
+    }
+    fun setDefaultStage2ProgressiveMaxIntensity(context: Context, value: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_DEFAULT_STAGE2_PROGRESSIVE_MAX, value.coerceIn(1, 10)).apply()
+    }
 
-    // ----- 渐进式铃声音量最大强度 -----
-    private const val KEY_DEFAULT_PROGRESSIVE_MAX_RING = "default_progressive_max_ring"
+    // ----- 渐进「最大声音」默认值（第一关 / 第二关独立提醒各一份）-----
+    // 刻意使用新键，不读回 2026-09-08 重设计前遗留的 default_progressive_max_ring，
+    // 否则早期版本存下的非 10 值会让旧闹钟突然变轻。
+    private const val KEY_DEFAULT_PROGRESSIVE_MAX_RING = "default_progressive_ring_max"
+    private const val KEY_DEFAULT_STAGE2_PROGRESSIVE_MAX_RING = "default_stage2_progressive_ring_max"
     private const val DEFAULT_PROGRESSIVE_MAX_RING = 10
     fun getDefaultProgressiveMaxRingVolume(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -455,6 +476,14 @@ object AlarmScheduler {
     fun setDefaultProgressiveMaxRingVolume(context: Context, value: Int) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putInt(KEY_DEFAULT_PROGRESSIVE_MAX_RING, value.coerceIn(1, 10)).apply()
+    }
+    fun getDefaultStage2ProgressiveMaxRingVolume(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_DEFAULT_STAGE2_PROGRESSIVE_MAX_RING, DEFAULT_PROGRESSIVE_MAX_RING).coerceIn(1, 10)
+    }
+    fun setDefaultStage2ProgressiveMaxRingVolume(context: Context, value: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_DEFAULT_STAGE2_PROGRESSIVE_MAX_RING, value.coerceIn(1, 10)).apply()
     }
 
     // ----- 5分钟后自动升级到最大（适用于所有震动模式）-----
@@ -527,6 +556,54 @@ object AlarmScheduler {
         val value = seconds.coerceIn(0, 3600)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putInt(KEY_DEFAULT_STAGE_COOLDOWN_SECONDS, value).apply()
+    }
+
+    // ----- 第二关独立提醒的默认值（新增闹钟与测试闹钟共用）-----
+    private const val KEY_DEFAULT_STAGE2_INDEPENDENT = "default_stage2_independent_alert"
+    private const val KEY_DEFAULT_STAGE2_ALARM_MODE = "default_stage2_alarm_mode"
+    private const val KEY_DEFAULT_STAGE2_VIBRATION_MODE = "default_stage2_vibration_mode"
+    private const val KEY_DEFAULT_STAGE2_VIBRATION_INTENSITY = "default_stage2_vibration_intensity"
+    private const val KEY_DEFAULT_STAGE2_RING_VOLUME = "default_stage2_ring_volume"
+
+    fun getDefaultStage2UseIndependentAlert(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_DEFAULT_STAGE2_INDEPENDENT, false)
+
+    fun getDefaultStage2AlarmMode(context: Context): AlarmMode {
+        val name = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_DEFAULT_STAGE2_ALARM_MODE, null) ?: return AlarmMode.VIBRATE_AND_RING
+        return try { AlarmMode.valueOf(name) } catch (e: Exception) { AlarmMode.VIBRATE_AND_RING }
+    }
+
+    fun getDefaultStage2VibrationMode(context: Context): VibrationMode {
+        val name = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_DEFAULT_STAGE2_VIBRATION_MODE, null) ?: return VibrationMode.PROGRESSIVE
+        return try { VibrationMode.valueOf(name) } catch (e: Exception) { VibrationMode.PROGRESSIVE }
+    }
+
+    fun getDefaultStage2VibrationIntensity(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_DEFAULT_STAGE2_VIBRATION_INTENSITY, 7).coerceIn(1, 10)
+
+    fun getDefaultStage2RingVolume(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_DEFAULT_STAGE2_RING_VOLUME, 7).coerceIn(1, 10)
+
+    fun setDefaultStage2Alert(
+        context: Context,
+        useIndependent: Boolean,
+        alarmMode: AlarmMode,
+        vibrationMode: VibrationMode,
+        vibrationIntensity: Int,
+        ringVolume: Int
+    ) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_DEFAULT_STAGE2_INDEPENDENT, useIndependent)
+            .putString(KEY_DEFAULT_STAGE2_ALARM_MODE, alarmMode.name)
+            .putString(KEY_DEFAULT_STAGE2_VIBRATION_MODE, vibrationMode.name)
+            .putInt(KEY_DEFAULT_STAGE2_VIBRATION_INTENSITY, vibrationIntensity.coerceIn(1, 10))
+            .putInt(KEY_DEFAULT_STAGE2_RING_VOLUME, ringVolume.coerceIn(1, 10))
+            .apply()
     }
 
     private const val KEY_DEFAULT_RINGTONE_URI = "default_ringtone_uri"
@@ -1787,8 +1864,10 @@ object AlarmScheduler {
         obj.put("alarmMode", alarm.alarmMode.name)
         obj.put("ringVolume", alarm.ringVolume)
         obj.put("progressiveMinIntensity", alarm.progressiveMinIntensity)
-        obj.put("progressiveMaxIntensity", alarm.progressiveMaxIntensity)
-        obj.put("progressiveMaxRingVolume", alarm.progressiveMaxRingVolume)
+        obj.put("progressiveVibrationMax", alarm.progressiveMaxIntensity)
+        obj.put("stage2ProgressiveVibrationMax", alarm.stage2ProgressiveMaxIntensity)
+        obj.put("progressiveRingMax", alarm.progressiveMaxRingVolume)
+        obj.put("stage2ProgressiveRingMax", alarm.stage2ProgressiveMaxRingVolume)
         obj.put("autoEscalate", alarm.autoEscalate)
         obj.put("scheduleToken", alarm.scheduleToken)
         val s1BanksObj = JSONObject()
@@ -1872,8 +1951,14 @@ object AlarmScheduler {
         }
 
         val progressiveMinIntensity = obj.optInt("progressiveMinIntensity", 1).coerceIn(1, 10)
-        val progressiveMaxIntensity = obj.optInt("progressiveMaxIntensity", 10).coerceIn(1, 10)
-        val progressiveMaxRingVolume = obj.optInt("progressiveMaxRingVolume", 10).coerceIn(1, 10)
+        // 新键；旧键 progressiveMaxIntensity 可能带着早期版本的遗留值，刻意不读。
+        val progressiveMaxIntensity = obj.optInt("progressiveVibrationMax", 10).coerceIn(1, 10)
+        val stage2ProgressiveMaxIntensity =
+            obj.optInt("stage2ProgressiveVibrationMax", progressiveMaxIntensity).coerceIn(1, 10)
+        // 新键；旧键 progressiveMaxRingVolume 可能带着早期版本的遗留值，刻意不读。
+        val progressiveMaxRingVolume = obj.optInt("progressiveRingMax", 10).coerceIn(1, 10)
+        val stage2ProgressiveMaxRingVolume =
+            obj.optInt("stage2ProgressiveRingMax", progressiveMaxRingVolume).coerceIn(1, 10)
         val autoEscalate = obj.optBoolean("autoEscalate", false)
         val stage2UseIndependentAlertPolicy = obj.optBoolean("stage2UseIndependentAlertPolicy", false)
         val stage2AlarmMode = runCatching {
@@ -1902,7 +1987,9 @@ object AlarmScheduler {
             stage2AlarmMode = stage2AlarmMode,
             stage2VibrationMode = stage2VibrationMode,
             stage2VibrationIntensity = stage2VibrationIntensity,
-            stage2RingVolume = stage2RingVolume
+            stage2RingVolume = stage2RingVolume,
+            stage2ProgressiveMaxRingVolume = stage2ProgressiveMaxRingVolume,
+            stage2ProgressiveMaxIntensity = stage2ProgressiveMaxIntensity
         )
     }
 

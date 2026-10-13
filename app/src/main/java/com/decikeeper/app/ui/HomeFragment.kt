@@ -565,7 +565,10 @@ class HomeFragment : Fragment() {
             } else {
                 lastPermissionClickAt = now
                 pendingPermissionClick?.let { button.removeCallbacks(it) }
-                val r = Runnable { showProtectionDialog() }
+                val r = Runnable {
+                    val intent = Intent(requireContext(), PermissionsActivity::class.java)
+                    startActivity(intent)
+                }
                 pendingPermissionClick = r
                 button.postDelayed(r, doubleClickWindowMs)
             }
@@ -632,7 +635,7 @@ class HomeFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            showWeeklyPrivilegeStartDialog(context)
+            showWeeklyPrivilegeConfirmDialog(context)
         }
 
         // 停止休息按钮
@@ -726,7 +729,10 @@ class HomeFragment : Fragment() {
             cardSetupGuide?.visibility = View.GONE
             Toast.makeText(ctx, "已跳过初始化向导，可在各页面随时配置", Toast.LENGTH_SHORT).show()
         }
-        btnGoPerm?.setOnClickListener { showProtectionDialog() }
+        btnGoPerm?.setOnClickListener {
+            val intent = Intent(requireContext(), PermissionsActivity::class.java)
+            startActivity(intent)
+        }
         btnGoBlacklist?.setOnClickListener { (activity as? MainActivity)?.showFocusRules(FocusRulesFragment.TAB_TIME) }
         btnGoDnd?.setOnClickListener { (activity as? MainActivity)?.showFocusRules(FocusRulesFragment.TAB_TIME) }
         btnGoAlarm?.setOnClickListener { (activity as? MainActivity)?.showAlarm() }
@@ -735,6 +741,34 @@ class HomeFragment : Fragment() {
     private fun getPrivilegeBoundaryLabel(context: Context): String {
         val windowEnd = TimeRuleManager.getPrivilegeWindowEnd(context)
         return buildPrivilegeBoundaryLabel(windowEnd)
+    }
+
+    private fun showWeeklyPrivilegeConfirmDialog(context: Context) {
+        val remainingDuration = CreditManager.getRemainingWeeklyPrivilegeDuration(context)
+        if (remainingDuration <= 0) {
+            Toast.makeText(context, "当前无可用特权时长", Toast.LENGTH_SHORT).show()
+            updateWeeklyPrivilegeEntryDisplay()
+            return
+        }
+
+        val count = CreditManager.getWeeklyPrivilegeCount(context)
+        val limit = CreditManager.getWeeklyPrivilegeLimit(context)
+
+        AlertDialog.Builder(context)
+            .setTitle("使用每周特权")
+            .setMessage(
+                "确定要使用每周特权吗？\n\n" +
+                    "• 每日仅可启用一次\n" +
+                    "• 你将选择一段【特权时长】，在该时长内进入【无限制】\n" +
+                    "• 若跨越 24:00 将自动结束（夜间保护）\n" +
+                    "• 特权进行中不可重复启用\n" +
+                    "• 本周剩余机会: ${limit - count} 次，剩余时长: ${remainingDuration} 分钟"
+            )
+            .setPositiveButton("确认") { _, _ ->
+                showWeeklyPrivilegeStartDialog(context)
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun showWeeklyPrivilegeStartDialog(context: Context) {
@@ -759,8 +793,8 @@ class HomeFragment : Fragment() {
         npMinute.setFormatter { i -> String.format(Locale.US, "%02d", i) }
 
         val dialog = AlertDialog.Builder(context)
-            .setTitle("选择本次特权时长")
-            .setMessage("本周剩余 $remainingDuration 分钟。请手动选择本次要使用的时长，确认后会消耗 1 次特权。")
+            .setTitle("选择特权时长")
+            .setMessage("本周剩余 $remainingDuration 分钟。请选择本次要使用的时长（超过可用时段将自动截断），确认后消耗 1 次特权。")
             .setView(view)
             .setPositiveButton("确认启动", null)
             .setNegativeButton("取消", null)
@@ -1063,7 +1097,7 @@ class HomeFragment : Fragment() {
                 infoText += "\n已预支：时长 ${formatMinutesForHome(borrowedMinsFromNext)}min  |  次数 ${formatUsableCountHalfUnits(borrowedCountFromNext)}次"
                 val penaltyMins = borrowedMinsFromNext * 2.0
                 val penaltyCount = borrowedCountFromNext * 2
-                infoText += "\n惩罚扣除 (×2) ：-${formatMinutesForHome(penaltyMins)}min  |  -${formatUsableCountHalfUnits(penaltyCount)}次"
+                infoText += "\n借用扣除 (×2) ：-${formatMinutesForHome(penaltyMins)}min  |  -${formatUsableCountHalfUnits(penaltyCount)}次"
                 val effectiveMins = (nextLimit - penaltyMins).coerceAtLeast(0.0)
                 val effectiveCount = (nextCountLimit - penaltyCount).coerceAtLeast(0)
                 infoText += "\n实际生效：时长 ${formatMinutesForHome(effectiveMins)}min  |  次数 ${formatUsableCountHalfUnits(effectiveCount)}次"

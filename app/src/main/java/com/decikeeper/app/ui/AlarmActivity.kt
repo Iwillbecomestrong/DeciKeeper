@@ -39,6 +39,15 @@ internal fun shouldFinishExternalAlarmHost(
     isLaunchingScanner: Boolean
 ): Boolean = !isScanMode && !isLockedScreenMode && !isLaunchingScanner
 
+internal fun shouldAnalyzeAlarmQrPreview(
+    isScanMode: Boolean,
+    streaming: Boolean,
+    activityReady: Boolean,
+    restartPending: Boolean,
+    overlayReady: Boolean
+): Boolean = isScanMode && streaming && activityReady && !restartPending && overlayReady
+
+
 
 
 
@@ -62,6 +71,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     private var torchOn = false
     private var scanGeneration = 0L
     private var scanSessionToken = ""
+    private var scanNeedsCameraRestartOnResume = false
 
     private val alarmProtectionNormalEventLogger by lazy {
         NormalEventLogger(
@@ -134,9 +144,18 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     }
 
     private fun startBarcodeScanner() {
+        // 先显示同窗口的不透明取景器，CameraX 才能取得可用的预览表面。
         LockWindowManager.setAlarmOverlayPassthrough(true)
-        val previewView = findViewById<PreviewView>(R.id.preview_view) ?: return
+        val previewView = LockWindowManager.getAlarmView()?.findViewById<PreviewView>(R.id.preview_alarm_overlay)
+        if (previewView == null) {
+            Log.e("AlarmActivity", "SCAN_OVERLAY_PREVIEW_MISSING")
+            LockWindowManager.cancelAlarmScan()
+            return
+        }
         val manager = barcodeView ?: CameraXScanManager(this, this).also { barcodeView = it }
+        manager.setPreviewStreamListener { streaming ->
+            updateScanCutoutForPreview(streaming)
+        }
         scanSessionToken = AlarmScheduler.getActiveScheduleToken(this)
         val callbackGeneration = ++scanGeneration
         if (!qrChallengeStartEmitted) {
@@ -148,6 +167,13 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             )
         }
         manager.start(previewView) { result ->
+            if (!shouldAnalyzeAlarmQrPreview(
+                    isScanMode,
+                    manager.isPreviewStreaming(),
+                    lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED),
+                    scanNeedsCameraRestartOnResume,
+                    previewView.isAttachedToWindow && LockWindowManager.isOverlayActive && LockWindowManager.isOverlayAttached
+                )) return@start
             val activeToken = AlarmScheduler.getActiveScheduleToken(this@AlarmActivity)
             val sessionStillCurrent = callbackGeneration == scanGeneration &&
                 (alarmId <= 0 || (AlarmScheduler.isAlarmActive(this@AlarmActivity) &&
@@ -155,6 +181,12 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                     (scanSessionToken.isBlank() || activeToken == scanSessionToken)))
             if (!sessionStillCurrent) {
                 android.util.Log.w("AlarmActivity", "Ignoring stale QR callback: id=$alarmId generation=$callbackGeneration currentGeneration=$scanGeneration")
+                LogExporter.logEvent(
+                    "AlarmOverlay",
+                    "SCAN_CALLBACK_STALE id=$alarmId gen=$callbackGeneration curGen=$scanGeneration " +
+                        "active=${AlarmScheduler.isAlarmActive(this@AlarmActivity)} activeId=${AlarmScheduler.getActiveAlarmId(this@AlarmActivity)} " +
+                        "tokenMatch=${scanSessionToken.isBlank() || activeToken == scanSessionToken}"
+                )
                 manager.pause()
                 return@start
             }
@@ -164,6 +196,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                 updateTorchUi(false)
             }
             manager.pause()
+            scanNeedsCameraRestartOnResume = false
             isScanMode = false
             android.util.Log.i("AlarmActivity", "Scan success, updating alarm challenge stage")
             if (!qrChallengeResultEmitted) {
@@ -189,15 +222,48 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             // 仅当覆盖层依然是 inline 模式、锁屏且挑战未全部完成（需进入第二关）时才内嵌回 Activity。
             val isInline = LockWindowManager.isCurrentOverlayInline()
             val isCompleted = AlarmScheduler.isChallengeCompleted(this@AlarmActivity)
+            // 扫码成功后的分支取证：锁屏且已窗口化/已完成时直接 finish 退出扫码器，
+            // 露出已在 WindowManager 独立渲染好完成态/第二关的覆盖层。
+            val alarmView = LockWindowManager.getAlarmView()
+            LogExporter.logEvent(
+                "AlarmOverlay",
+                "SCAN_SUCCESS_BRANCH id=$alarmId locked=$isLockedScreenMode inline=$isInline completed=$isCompleted " +
+                    "overlayActive=${LockWindowManager.isOverlayActive} attached=${LockWindowManager.isOverlayAttached} " +
+                    "viewAttachedToWindow=${alarmView?.isAttachedToWindow} viewVisibility=${alarmView?.visibility} " +
+                    "action=${when {
+                        isLockedScreenMode && isInline && !isCompleted -> "REHOST_INLINE"
+                        else -> "FINISH_TASK"
+                    }}"
+            )
             if (isLockedScreenMode && isInline && !isCompleted) {
                 LockWindowManager.showAlarmOverlayInlineInActivity(this, this)
-            } else if (!isLockedScreenMode) {
+            } else {
                 finishAndRemoveTask()
             }
         }
     }
 
+    private fun updateScanCutoutForPreview(streaming: Boolean) {
+        if (!isScanMode) return
+        val view = LockWindowManager.getAlarmView()
+        val activityReady = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        val overlayReady = LockWindowManager.isOverlayActive && LockWindowManager.isOverlayAttached &&
+            view?.findViewById<PreviewView>(R.id.preview_alarm_overlay)?.isAttachedToWindow == true
+        val ready = shouldAnalyzeAlarmQrPreview(
+            isScanMode, streaming, activityReady, scanNeedsCameraRestartOnResume, overlayReady
+        )
+        view?.findViewById<TextView>(R.id.tv_alarm_scan_preview_status)?.visibility =
+            if (ready) View.GONE else View.VISIBLE
+        if (ready) {
+            barcodeView?.resume()
+            LogExporter.logEvent("AlarmOverlay", "SCAN_PREVIEW_STREAMING host=OVERLAY")
+        } else {
+            barcodeView?.pauseAnalysis()
+        }
+    }
+
     override fun onScanCancel() {
+        scanNeedsCameraRestartOnResume = false
         android.util.Log.i("AlarmActivity", "onScanCancel: isLockedScreenMode=$isLockedScreenMode")
         if (torchOn) {
             torchOn = false
@@ -207,6 +273,8 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         barcodeView?.pause()
         isScanMode = false
         if (!isLockedScreenMode) {
+            finishAndRemoveTask()
+        } else if (!LockWindowManager.isOverlayActive || !AlarmScheduler.isAlarmActive(this)) {
             finishAndRemoveTask()
         }
     }
@@ -248,12 +316,30 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     }
 
     private fun startScanMode() {
+        // 进入扫码前先把覆盖层恢复并验证为真实 attached 状态。此前即使
+        // OVERLAY_DETACHED_NEEDS_REBUILD 已出现，流程仍会继续打开透明孔。
+        LockWindowManager.setAlarmOverlayPassthrough(false)
+        LockWindowManager.showAlarmOverlayIfHidden()
+        val windowModeReady = LockWindowManager.ensureAlarmOverlayInWindowMode()
+        val overlayReady = windowModeReady &&
+            LockWindowManager.isOverlayActive &&
+            LockWindowManager.isOverlayAttached
+        if (!overlayReady) {
+            isScanMode = false
+            scanNeedsCameraRestartOnResume = false
+            Log.w("AlarmActivity", "startScanMode blocked: alarm overlay is not safely attached")
+            LogExporter.logEvent(
+                "AlarmOverlay",
+                "SCAN_START_BLOCKED overlayActive=${LockWindowManager.isOverlayActive} attached=${LockWindowManager.isOverlayAttached}"
+            )
+            LockWindowManager.showAlarmOverlayIfHidden()
+            Toast.makeText(this, "扫码界面暂未就绪，请重试", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         isScanMode = true
-        // [Fix: overlay detach] setContentView() 会替换整个内容视图，把 inline 挂载的
-        // 覆盖层一起带离窗口（它仍保留 parent，但整棵子树已脱窗，此后无法渲染，
-        // 表现为扫码成功后白屏且无法退出）。因此必须在替换之前先把覆盖层提升为
-        // 独立窗口（TYPE_ACCESSIBILITY_OVERLAY），使其不再依赖 Activity 的内容视图。
-        LockWindowManager.ensureAlarmOverlayInWindowMode()
+        scanNeedsCameraRestartOnResume = false
+        // setContentView() 会替换整个内容视图，因此覆盖层必须已经脱离 inline Activity 树。
         setContentView(R.layout.activity_alarm_scan)
         // [Fix: 扫码界面沉浸模式] setContentView 重置 systemUiVisibility, 重新应用防止上滑退出
         window.decorView.systemUiVisibility = (
@@ -498,10 +584,31 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
             finish()
             return
         }
+        if (!AlarmScheduler.isAlarmActive(this) && !LockWindowManager.isOverlayActive) {
+            Log.i("AlarmActivity", "onResume: alarm session is no longer active, finishing")
+            LogExporter.logEvent("AlarmOverlay", "ACTIVITY_FINISH_NO_ACTIVE_ALARM id=$alarmId")
+            finishAndRemoveTask()
+            return
+        }
         if (finishExternalOverlayHostIfNeeded()) return
         LockWindowManager.reattachAlarmController(this)
         if (isScanMode) {
-            barcodeView?.resume()
+            // Activity 曾因系统窗口/锁屏离开前台时，必须重绑 CameraX Preview；
+            // 单纯 resume() 只会恢复二维码分析标志，无法修复失效的 Surface/Preview。
+            LockWindowManager.setAlarmOverlayPassthrough(true)
+            if (scanNeedsCameraRestartOnResume) {
+                LogExporter.logEvent("AlarmOverlay", "SCAN_CAMERA_RESTART_ON_RESUME")
+                val manager = barcodeView
+                if (manager != null) {
+                    manager.restart()
+                } else {
+                    startBarcodeScanner()
+                }
+                // restart() 移除旧 observer，新一轮 STREAMING 后才恢复分析。
+                scanNeedsCameraRestartOnResume = false
+            } else {
+                updateScanCutoutForPreview(barcodeView?.isPreviewStreaming() == true)
+            }
         } else {
             LockWindowManager.showAlarmOverlayIfHidden()
         }
@@ -527,6 +634,9 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     override fun onPause() {
         super.onPause()
         if (isScanMode) {
+            // 系统窗口/锁屏抢占时先隐藏扫码界面；回来后强制重绑相机，不能继续沿用旧 Surface。
+            scanNeedsCameraRestartOnResume = true
+            LockWindowManager.setAlarmOverlayPassthrough(false)
             barcodeView?.pause()
         }
     }
@@ -534,6 +644,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     override fun onDestroy() {
         super.onDestroy()
         scanGeneration++
+        scanNeedsCameraRestartOnResume = false
         barcodeView?.pause()
         barcodeView?.release()
         barcodeView = null

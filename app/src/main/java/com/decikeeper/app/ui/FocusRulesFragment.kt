@@ -57,14 +57,26 @@ class FocusRulesFragment : Fragment() {
                 containerTime.visibility = if (isTime) View.VISIBLE else View.GONE
                 containerAppWindow.visibility = if (!isTime && !isGlobal) View.VISIBLE else View.GONE
                 containerGlobalParams.visibility = if (isGlobal) View.VISIBLE else View.GONE
+                refreshTabContent(tab?.position)
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
-            override fun onTabReselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {
+                refreshTabContent(tab?.position)
+            }
         })
 
         pendingTabIndex?.let { index ->
             tabLayout.getTabAt(index)?.select()
             pendingTabIndex = null
+        }
+    }
+
+    private fun refreshTabContent(position: Int?) {
+        if (!isAdded || view == null) return
+        when (position) {
+            TAB_TIME -> (childFragmentManager.findFragmentByTag("time_config") as? TimeConfigFragment)?.reloadData()
+            TAB_APP_WINDOW -> (childFragmentManager.findFragmentByTag("app_window") as? AppWindowFragment)?.refreshList()
+            TAB_GLOBAL_PARAMS -> (childFragmentManager.findFragmentByTag("global_params") as? GlobalParamsFragment)?.reloadData()
         }
     }
 

@@ -7,23 +7,23 @@ import java.io.File
 
 class DefaultAlarmSettingsLayoutContractTest {
     @Test
-    fun ringtoneSettingsKeepTheirLayoutSlotsWhenOptionsChange() {
+    fun hiddenReminderControlsCollapseSoNoBlankGapIsLeftWhenOptionsChange() {
         val cwd = File(System.getProperty("user.dir"))
         val candidates = listOf(
-            File(cwd, "src/main/java/com/decikeeper/app/ui/AlarmFragment.kt"),
-            File(cwd, "app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt"),
-            File(cwd.parentFile ?: cwd, "app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
+            File(cwd, "src/main/java/com/decikeeper/app/ui/AlarmReminderSettingsView.kt"),
+            File(cwd, "app/src/main/java/com/decikeeper/app/ui/AlarmReminderSettingsView.kt"),
+            File(cwd.parentFile ?: cwd, "app/src/main/java/com/decikeeper/app/ui/AlarmReminderSettingsView.kt")
         )
         val source = candidates.firstOrNull { it.isFile }?.readText()
-            ?: error("Cannot locate AlarmFragment.kt from ${cwd.absolutePath}")
+            ?: error("Cannot locate AlarmReminderSettingsView.kt from ${cwd.absolutePath}")
 
-        val start = source.indexOf("fun updateTestRingtoneVisibility()")
-        val end = source.indexOf("testRgRingMode.setOnCheckedChangeListener", start)
-        assertTrue("ringtone visibility updater must exist", start >= 0)
-        assertTrue("ringtone visibility updater must have a bounded body", end > start)
+        val start = source.indexOf("private fun refreshVisibility()")
+        val end = source.indexOf("private fun buildRingtoneRow", start)
+        assertTrue("visibility updater must exist", start >= 0)
+        assertTrue("visibility updater must have a bounded body", end > start)
 
         val body = source.substring(start, end)
-        assertTrue("hidden ringtone controls must preserve their layout slots", body.contains("View.INVISIBLE"))
-        assertFalse("hidden ringtone controls must not collapse their layout slots", body.contains("View.GONE"))
+        assertTrue("hidden reminder controls must collapse so the content below moves up", body.contains("GONE"))
+        assertFalse("hidden reminder controls must not leave blank placeholders", body.contains("INVISIBLE"))
     }
 }

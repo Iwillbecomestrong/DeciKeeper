@@ -54,30 +54,13 @@ class BootReceiver : BroadcastReceiver() {
         val action = intent?.action
         Log.d("DeciKeeper", "BootReceiver received action: $action")
 
-        // 1. FastLock: 读 DPS 缓存（~1ms），不查 Settings.Secure。
-        // earlyBootFastLockStarted 先检查（volatile，零开销），MyApplication 已拉起则跳过。
-        if (!StartupProtectionManager.earlyBootFastLockStarted) {
-            val cached = StartupA11yCache.isA11yWasEnabledForStartup(context)
-            Log.d("DeciKeeper", "BootReceiver: startup a11y DPS cache=$cached")
-            if (cached) {
-                try {
-                    // 直接 addView，不等 Service 启动（毫秒级出现）
-                    StartupProtectionManager.attachEarlyBootFastLock(context)
-                    StartupProtectionManager.startFastLock(context)
-                    StartupProtectionManager.earlyBootFastLockStarted = true
-                    Log.d("DeciKeeper", "BootReceiver: FastLock overlay attached + service requested from DPS cache.")
-                    // [2026-06-25] 诊断日志：记录 BootReceiver 路径是否触发 FastLock 及接收的 action
-                    // 用于排查"初始化界面刷新两次"现象
-                    // 详见 Issue_AntiUninstallBootGap 尝试 8
-                    Log.i("DeciKeeper", "[BootRecv] earlyFastLock path: cached=$cached action=$action")
-                } catch (e: Exception) {
-                    Log.e("DeciKeeper", "BootReceiver: Failed to start FastLockService", e)
-                }
-            } else {
-                Log.d("DeciKeeper", "BootReceiver: A11y cache false, skipping FastLock.")
-            }
-        } else {
-            Log.d("DeciKeeper", "BootReceiver: FastLock already handled by MyApplication, skipping.")
+        // 1. FastLock: 统一 CAS 入口。未解锁（LOCKED_BOOT_COMPLETED）时入口直接返回，不碰 CE；
+        // 已被其他通道（Application / 解锁广播 / 无障碍连接）抢占时只做 reassert，不会重复弹出。
+        try {
+            StartupProtectionManager.triggerBootFastLock(context, "boot_receiver:$action")
+            Log.i("DeciKeeper", "[BootRecv] triggerBootFastLock done action=$action")
+        } catch (e: Exception) {
+            Log.e("DeciKeeper", "BootReceiver: Failed to trigger FastLock", e)
         }
 
         // 2. Only start MonitorService if User is Unlocked

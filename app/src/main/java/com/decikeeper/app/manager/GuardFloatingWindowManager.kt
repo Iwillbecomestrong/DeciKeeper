@@ -69,9 +69,28 @@ object GuardFloatingWindowManager {
         return prefs.getBoolean(KEY_DESIRED_ENABLED, prefs.getBoolean(KEY_ENABLED, false))
     }
 
-    private fun setDesiredEnabled(context: Context, enabled: Boolean) {
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
+    private fun setDesiredEnabled(
+        context: Context,
+        enabled: Boolean,
+        caller: String = "unknown",
+        reason: String = "unspecified"
+    ) {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val oldDesired = prefs.getBoolean(KEY_DESIRED_ENABLED, prefs.getBoolean(KEY_ENABLED, false))
+
+        val stackHint = Thread.currentThread().stackTrace
+            .drop(2)
+            .filterNot { it.className.contains("GuardFloatingWindowManager") && it.methodName == "setDesiredEnabled" }
+            .take(4)
+            .joinToString(" -> ") { "${it.className.substringAfterLast('.')}.${it.methodName}:${it.lineNumber}" }
+
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.w(
+            TAG,
+            "[GUARD_DESIRED_WRITE] ${runIdTag}old=$oldDesired new=$enabled caller=$caller reason=$reason stackHint=$stackHint"
+        )
+
+        prefs.edit()
             .putBoolean(KEY_DESIRED_ENABLED, enabled)
             .putBoolean(KEY_ENABLED, enabled)
             .apply()
@@ -89,9 +108,11 @@ object GuardFloatingWindowManager {
             return State.PENDING
         }
 
-        setDesiredEnabled(context, false)
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.w(TAG, "[GUARD_EXPIRED] ${runIdTag}Pending expired, auto-disabling. effectiveTime=$effectiveTime now=$now")
+        setDesiredEnabled(context, false, caller = "getProtectionState", reason = "pending_expired")
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
-        hide(context)
+        hide(context, caller = "getProtectionState", reason = "pending_expired")
         return State.DISABLED
     }
 
@@ -116,17 +137,20 @@ object GuardFloatingWindowManager {
      */
     fun setFloatingGuardEnabled(context: Context, enabled: Boolean) {
         val appContext = context.applicationContext
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.i(TAG, "[GUARD_SET_ENABLED] ${runIdTag}enabled=$enabled currentDesired=${getDesiredEnabled(appContext)}")
         if (enabled) {
-            setDesiredEnabled(appContext, true)
+            setDesiredEnabled(appContext, true, caller = "setFloatingGuardEnabled", reason = "user_enable")
             ConfigPendingManager.clearPending(appContext, KEY_PENDING_DISABLE)
-            show(appContext)
+            show(appContext, caller = "setFloatingGuardEnabled", reason = "user_enable")
             return
         }
 
-        if (TimeRuleManager.isInAdaptationPeriod(appContext)) {
-            setDesiredEnabled(appContext, false)
+        val baselineActive = TimeRuleManager.getBaselineFloatingGuardState(appContext)
+        if (TimeRuleManager.isInAdaptationPeriod(appContext) || !baselineActive) {
+            setDesiredEnabled(appContext, false, caller = "setFloatingGuardEnabled", reason = "adaptation_or_baseline_restore")
             ConfigPendingManager.clearPending(appContext, KEY_PENDING_DISABLE)
-            hide(appContext)
+            hide(appContext, caller = "setFloatingGuardEnabled", reason = "adaptation_or_baseline_restore")
             return
         }
 
@@ -137,7 +161,37 @@ object GuardFloatingWindowManager {
             strictNextDay = true
         )
         // PENDING 期间浮窗继续挂载防护
-        show(appContext)
+        show(appContext, caller = "setFloatingGuardEnabled", reason = "submit_pending_disable")
+    }
+
+    internal fun disableImmediatelyForAccessibilityUnavailable(
+        context: Context,
+        caller: String = "AccessibilityDependencyManager"
+    ) {
+        val appContext = context.applicationContext
+        val oldDesired = getDesiredEnabled(appContext)
+        val oldState = getProtectionState(appContext)
+        val oldPending = ConfigPendingManager.getEffectiveTime(appContext, KEY_PENDING_DISABLE)
+
+        setDesiredEnabled(
+            appContext,
+            false,
+            caller = caller,
+            reason = "disableImmediatelyForAccessibilityUnavailable"
+        )
+        ConfigPendingManager.clearPending(appContext, KEY_PENDING_DISABLE)
+        hide(appContext, caller = caller, reason = "accessibility_unavailable")
+
+        val newDesired = getDesiredEnabled(appContext)
+        val newState = getProtectionState(appContext)
+
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.w(
+            "ProtectionDiagnostics",
+            "[PROTECTION_FORCE_DISABLE] ${runIdTag}component=guard_floating_window caller=$caller " +
+                    "oldEnabled=$oldDesired oldState=$oldState oldPending=$oldPending " +
+                    "newEnabled=$newDesired newState=$newState"
+        )
     }
 
     /**
@@ -171,13 +225,17 @@ object GuardFloatingWindowManager {
     /**
      * 在屏幕上展示常驻守护小浮窗。
      */
-    fun show(context: Context) {
+    fun show(context: Context, caller: String = "unknown", reason: String = "unspecified") {
         val appContext = context.applicationContext
-        if (!isEnforcing(appContext)) {
-            hide(appContext)
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        val enforcing = isEnforcing(appContext)
+        val canDraw = canDrawOverlays(appContext)
+        Log.i(TAG, "[GUARD_SHOW] ${runIdTag}caller=$caller reason=$reason isEnforcing=$enforcing canDraw=$canDraw isShowing=$isShowing")
+        if (!enforcing) {
+            hide(appContext, caller = "show_not_enforcing", reason = reason)
             return
         }
-        if (!canDrawOverlays(appContext)) {
+        if (!canDraw) {
             Log.w(TAG, "SYSTEM_ALERT_WINDOW permission not granted, skipping show")
             return
         }
@@ -244,7 +302,10 @@ object GuardFloatingWindowManager {
     /**
      * 隐藏并移除常驻守护小浮窗。
      */
-    fun hide(context: Context) {
+    fun hide(context: Context, caller: String = "unknown", reason: String = "unspecified") {
+        val appContext = context.applicationContext
+        val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.i(TAG, "[GUARD_HIDE] ${runIdTag}caller=$caller reason=$reason isShowing=$isShowing")
         mainHandler.post {
             countdownRefreshRunnable?.let { mainHandler.removeCallbacks(it) }
             countdownRefreshRunnable = null

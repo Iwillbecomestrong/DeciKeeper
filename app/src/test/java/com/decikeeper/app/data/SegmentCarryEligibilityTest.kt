@@ -57,7 +57,7 @@ class SegmentCarryEligibilityTest {
     }
 
     @Test
-    fun enabledMidSegmentIsActiveNowButCannotCarryAfterEnd() {
+    fun enabledMidSegmentStaysEligibleAfterEndBecauseTheLedgerProrates() {
         val changedAt = ts(2026, 9, 1, 15, 0)
 
         assertTrue(
@@ -73,7 +73,8 @@ class SegmentCarryEligibilityTest {
             )
         )
 
-        assertFalse(
+        // 启用等同新建：折算由「今日额度」账承担（启用 15:00 → 折算后正常滚存），这里只看是否启用
+        assertTrue(
             SegmentActivationPolicy.isEligibleForLiveRules(
                 isEnabled = true,
                 enabledStateChangedAt = changedAt,
@@ -88,8 +89,8 @@ class SegmentCarryEligibilityTest {
     }
 
     @Test
-    fun enablingAfterSegmentEndedDoesNotRetroactivelyCreateCarry() {
-        assertFalse(
+    fun enablingAfterSegmentEndedIsEligibleButTheLedgerGivesItZeroQuota() {
+        assertTrue(
             SegmentActivationPolicy.isEligibleForLiveRules(
                 isEnabled = true,
                 enabledStateChangedAt = ts(2026, 9, 1, 17, 0),

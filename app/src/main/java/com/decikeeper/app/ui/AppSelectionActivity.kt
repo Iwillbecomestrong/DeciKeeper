@@ -25,6 +25,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.decikeeper.app.R
 import com.decikeeper.app.data.AdverseAnalysis
+import com.decikeeper.app.data.AnalysisResult
 import com.decikeeper.app.data.SegmentBlacklist
 import com.decikeeper.app.manager.AlarmChallengeEmergencyWhitelist
 import com.decikeeper.app.manager.ChangeLogManager
@@ -338,9 +339,37 @@ class AppSelectionActivity : AppCompatActivity() {
 
     private fun saveAppSelection() {
         val blockedSet = SegmentBlacklist.toEffectiveBlockedSet(this, listMode, selectedApps.toSet())
-        CreditManager.setBlacklistMode(this, listMode)
-        val result = CreditManager.analyzeAndSaveBlacklistApps(this, blockedSet)
-        AdverseAnalysis.showAnalysisDialog(this, result) { doFinish() }
+        val analysis = CreditManager.analyzeBlacklistApps(this, blockedSet)
+
+        val hasDelayed = when (analysis) {
+            is AnalysisResult.Mixed -> analysis.delayedChanges.isNotEmpty() || analysis.nextWeekChanges.isNotEmpty()
+            is AnalysisResult.AllDelayed -> true
+            else -> false
+        }
+        val isAdaptation = CreditManager.isInAdaptationPeriod(this)
+
+        if (!hasDelayed && !isAdaptation) {
+            CreditManager.setBlacklistMode(this, listMode)
+            val result = CreditManager.analyzeAndSaveBlacklistApps(this, blockedSet)
+            if (result is AnalysisResult.NoChange) {
+                Toast.makeText(this, "设置已保存 (未发生变更)", Toast.LENGTH_SHORT).show()
+            }
+            doFinish()
+            return
+        }
+
+        AdverseAnalysis.showAnalysisDialog(
+            this,
+            analysis,
+            onCancel = {
+                // 不写盘，AdverseAnalysis 会自动弹出“已取消修改”Toast，保留界面
+            },
+            onConfirm = {
+                CreditManager.setBlacklistMode(this, listMode)
+                CreditManager.analyzeAndSaveBlacklistApps(this, blockedSet)
+                doFinish()
+            }
+        )
     }
 
     private fun doFinish() {
@@ -378,7 +407,15 @@ class AppSelectionActivity : AppCompatActivity() {
             tvPendingDetails.setTextColor(successColor)
             findViewById<TextView>(R.id.tv_pending_hint_legacy).visibility = View.GONE
         } else {
-            val changeLog = ChangeLogManager.getFormattedLogForCategory(this, "blacklist")
+            // 与时间规则三页共用延迟生效表：摘要逐项列出，点开可逐项撤销
+            val changeLog = com.decikeeper.app.ui.PendingChangesDialog
+                .cardSummary(this, com.decikeeper.app.manager.PendingChangeTable.Scope.BLACKLIST)
+                .ifEmpty { ChangeLogManager.getFormattedLogForCategory(this, "blacklist") }
+            cardPending.setOnClickListener {
+                com.decikeeper.app.ui.PendingChangesDialog.show(
+                    this, com.decikeeper.app.manager.PendingChangeTable.Scope.BLACKLIST
+                ) { updatePendingHint() }
+            }
             if (changeLog.isNotEmpty()) {
                 cardPending.visibility = View.VISIBLE
                 cardPending.setCardBackgroundColor(warningSoft)

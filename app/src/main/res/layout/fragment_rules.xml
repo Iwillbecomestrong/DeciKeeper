@@ -243,6 +243,55 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <!-- 基础权限与系统设置（前置卡片） -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_basic_permissions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            app:cardBackgroundColor="?attr/zzSurface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="基础权限与系统设置"
+                        android:textColor="?attr/zzText"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tv_basic_permissions_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="悬浮窗、使用情况、后台保活等状态"
+                        android:textColor="?attr/zzMuted"
+                        android:textSize="11sp" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/tv_basic_permissions_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/zzAccent"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -304,6 +353,16 @@
                     android:textColor="?attr/zzMuted"
                     android:textSize="11sp" />
 
+                <!-- 0. 日期与时间拦截（列表第一项） -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_date_time_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_date_time_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
+                    <Switch android:id="@+id/switch_date_time_guard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
+
                 <!-- 1. 闹钟防关机保护 -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
@@ -361,6 +420,16 @@
                         <TextView android:id="@+id/tv_device_admin_protection_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
                     </LinearLayout>
                     <Switch android:id="@+id/switch_device_admin_protection" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/zzLine" />
+
+                <!-- 7. 开发者进阶拦截（列表最后一项，位于 OPPO 专享行之后）：安装拦截与开发者选项拦截在弹窗里管理 -->
+                <LinearLayout android:id="@+id/row_dev_advanced_guard" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:gravity="center_vertical" android:orientation="horizontal" android:paddingVertical="8dp">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_protection_dev_advanced_title" android:textColor="?attr/zzText" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tv_dev_advanced_guard_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="?attr/zzMuted" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textColor="?attr/zzMuted" android:textSize="20sp" />
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>

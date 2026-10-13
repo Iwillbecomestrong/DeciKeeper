@@ -78,18 +78,18 @@ class UiVisualSanityContractTest {
 
     @Test
     fun testAlarmDialogButtonsMustHaveAutoSizeTextType() {
-        val layoutFile = resolveFile("src/main/res/layout/dialog_test_alarm.xml")
-        assertTrue("dialog_test_alarm.xml must exist", layoutFile.exists())
+        val layoutFile = resolveFile("src/main/res/layout/dialog_alarm_edit.xml")
+        assertTrue("dialog_alarm_edit.xml must exist", layoutFile.exists())
         val content = layoutFile.readText()
 
-        // 验证底部三按钮防截断：包含 autoSizeTextType="uniform"
+        // 验证底部按钮防截断：包含 autoSizeTextType="uniform"
         assertTrue(
-            "dialog_test_alarm buttons must declare autoSizeTextType to prevent text truncation",
+            "dialog_alarm_edit buttons must declare autoSizeTextType to prevent text truncation",
             content.contains("autoSizeTextType=\"uniform\"")
         )
         assertTrue(
-            "dialog_test_alarm must contain save_and_test button",
-            content.contains("btn_test_dialog_save_and_test")
+            "dialog_alarm_edit must contain the test button",
+            content.contains("btn_alarm_edit_test")
         )
     }
 

@@ -18,6 +18,27 @@ class AlarmChallengeEmergencyWhitelistPolicyTest {
     }
 
     @Test
+    fun `call UI is allowed during challenge even when only the dialer is whitelisted`() {
+        val allowed = setOf("com.android.contacts")
+
+        listOf(
+            "com.android.incallui",
+            "com.samsung.android.incallui",
+            "com.android.phone",
+            "com.android.server.telecom"
+        ).forEach { callUi ->
+            assertTrue(
+                callUi,
+                AlarmChallengeEmergencyWhitelist.isPackageAllowedDuringChallenge(true, callUi, "com.decikeeper.app", allowed)
+            )
+        }
+        assertFalse(
+            AlarmChallengeEmergencyWhitelist.isPackageAllowedDuringChallenge(true, "com.ss.android.ugc.aweme", "com.decikeeper.app", allowed)
+        )
+        assertFalse(AlarmChallengeEmergencyWhitelist.isCallUiPackage("com.android.settings"))
+    }
+
+    @Test
     fun `inactive challenge does not impose emergency whitelist restriction`() {
         assertTrue(
             AlarmChallengeEmergencyWhitelist.isPackageAllowedDuringChallenge(

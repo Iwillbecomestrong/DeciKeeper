@@ -32,9 +32,11 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
+import android.os.SystemClock
 import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.WindowManager
@@ -42,6 +44,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -54,6 +57,8 @@ import com.decikeeper.app.data.LogExporter
 import com.decikeeper.app.data.NormalEventLogger
 import com.decikeeper.app.data.SystemEventClock
 import com.decikeeper.app.manager.AlarmChallengeManager
+import com.decikeeper.app.manager.AlarmEmergencyExitStore
+import com.decikeeper.app.manager.EmergencyExitLongPressTracker
 import com.decikeeper.app.manager.AlarmProtectionEventBridge
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmWindowManager
@@ -285,6 +290,16 @@ internal object LockAlarmOverlayController {
         testAlarmMode = if (isTest) (testCfg?.alarmMode ?: AlarmScheduler.AlarmMode.VIBRATE_AND_RING) else null
         testRingtoneUri = if (isTest) (testCfg?.ringtoneUri) else null
         testRingVolume = if (isTest) (testCfg?.ringVolume) else null
+        testStage2AlertPolicy = if (isTest && testCfg?.stage2UseIndependentAlertPolicy == true) {
+            com.decikeeper.app.manager.StageAlertPolicy(
+                alarmMode = testCfg.stage2AlarmMode,
+                vibrationMode = testCfg.stage2VibrationMode,
+                fixedVibrationIntensity = testCfg.stage2VibrationIntensity,
+                fixedRingVolume = testCfg.stage2RingVolume,
+                progressiveMaxRingVolume = testCfg.stage2ProgressiveMaxRingVolume,
+                progressiveMaxVibrationIntensity = testCfg.stage2ProgressiveMaxIntensity
+            )
+        } else null
         testProgressiveMinIntensity = if (isTest) (testCfg?.progressiveMinIntensity ?: 1) else null
         testProgressiveMaxIntensity = if (isTest) (testCfg?.progressiveMaxIntensity ?: 10) else null
         testProgressiveMaxRingVolume = if (isTest) (testCfg?.progressiveMaxRingVolume ?: 10) else null
@@ -506,6 +521,9 @@ internal object LockAlarmOverlayController {
     var testRingtoneUri: String? = null
         private set
     var testRingVolume: Int? = null
+        private set
+    /** 测试闹钟勾选了「第二关使用独立提醒设置」时的第二关策略；未勾选为 null。 */
+    var testStage2AlertPolicy: com.decikeeper.app.manager.StageAlertPolicy? = null
         private set
     var testProgressiveMinIntensity: Int? = null
         private set
@@ -1025,6 +1043,7 @@ internal object LockAlarmOverlayController {
         btnSnooze.setOnClickListener {
             handleAlarmAction(true)
         }
+        bindEmergencyExit(view)
 
         // --- Math ---
         val btnMathSubmit = view.findViewById<Button>(R.id.btn_math_submit)
@@ -2826,8 +2845,20 @@ internal object LockAlarmOverlayController {
      * 扫码成功后由 AlarmActivity 调用，让覆盖层显示"挑战完成"状态（关闭/暂停按钮）。
      */
     fun onScanChallengePassed() {
-        if (!isAlarmOverlayActive.get()) return
-        val ctx = LockWindowManager.getAlarmContext() ?: return
+        if (!isAlarmOverlayActive.get()) {
+            // 覆盖层已不活跃时扫码结果会被丢弃（进度不推进），留证便于排查“扫完卡住”。
+            LogExporter.logEvent("AlarmOverlay", "SCAN_PASSED_DROPPED reason=OVERLAY_INACTIVE id=$alarmId")
+            return
+        }
+        val ctx = LockWindowManager.getAlarmContext()
+        if (ctx == null) {
+            LogExporter.logEvent("AlarmOverlay", "SCAN_PASSED_DROPPED reason=NO_ALARM_CONTEXT id=$alarmId")
+            return
+        }
+        LogExporter.logEvent(
+            "AlarmOverlay",
+            "SCAN_PASSED_APPLY id=$alarmId twoStage=$isTwoStageUnlock firstStagePassed=$isAlarmFirstStagePassed"
+        )
 
         // [Fix: scan cutout leak] 扫码通过时，务必取消穿透/开孔的延时恢复任务，彻底退出穿透模式
         alarmPassthroughRestoreRunnable?.let {
@@ -3018,11 +3049,11 @@ internal object LockAlarmOverlayController {
      * 窗口栈里，却既盖不住也拦不住系统弹层——真机上表现为扫码期间长按电源键会露出
      * vivo 语音助手，且关机菜单可被直接点击（Issue_Tracker 05-27 记录的取舍）。
      *
-     * 新行为改为「不透明挡板 + 中间开孔」：取景画面由下方 AlarmActivity 的相机预览
-     * 透过开孔透出，其余区域保持不透明并吃掉触摸，系统弹层无法漏出也无法被操作。
+     * 扫码使用「不透明挡板 + 同窗口 TextureView」：不依赖下层 Activity 的分屏坐标，
+     * 其余区域继续拦截触摸，系统弹层无法漏出也无法被操作。
      *
      * 注意：覆盖层窗口渲染不了 SurfaceView（DecoratedBarcodeView 基于 SurfaceView），
-     * 因此开孔里显示的是下方 Activity 的预览，覆盖层自带的扫码视图始终不可用。
+     * 因此使用 COMPATIBLE PreviewView，旧扫码视图始终隐藏。
      */
     fun setAlarmOverlayPassthrough(enable: Boolean) {
         if (enable) {
@@ -3064,8 +3095,8 @@ internal object LockAlarmOverlayController {
     /**
      * 切换扫码取景图层。
      *
-     * 开启：把覆盖层根容器与扫码容器置为透明（否则会挡住取景开孔）、隐藏挑战内容
-     * （否则会从开孔里透出来）、隐藏覆盖层自带的不可渲染扫码器、显示扫码布局。
+     * 开启：把覆盖层根容器与扫码容器置为透明（显示内部不透明取景器）、隐藏挑战内容
+     * （避免与扫码布局重叠）、隐藏覆盖层自带的不可渲染扫码器、显示扫码布局。
      * 关闭：原样还原上述背景与可见性。
      */
     private fun applyScanCutoutLayers(view: View, enable: Boolean) {
@@ -3185,6 +3216,9 @@ internal object LockAlarmOverlayController {
         btnSnooze?.visibility = if (canSnooze) View.VISIBLE else View.GONE
         btnSnooze?.isEnabled = canSnooze
         btnSnooze?.text = if (canSnooze) "静音 ${alarmSnoozeMinutes} 分钟（挑战继续）" else "稍后再响 (0)"
+        // 应急退出只在挑战未完成时出现；完成后直接用「关闭闹钟」
+        layoutActions?.rootView?.findViewById<View>(R.id.layout_alarm_emergency_exit)?.visibility =
+            if (forceHide) View.VISIBLE else View.GONE
     }
 
     private var alarmPassthroughRestoreRunnable: Runnable? = null
@@ -3253,6 +3287,133 @@ internal object LockAlarmOverlayController {
         return true
     }
 
+    // ---- 应急退出（长按 3 秒 + 窗口内确认；只结束本次响铃，次数规则见 AlarmEmergencyExitPolicy） ----
+
+    private val emergencyExitTracker = EmergencyExitLongPressTracker()
+    private var emergencyExitTicker: Runnable? = null
+
+    private fun emergencyExitAvailable(ctx: Context): Boolean =
+        alarmId <= 0 || AlarmEmergencyExitStore.remaining(ctx) > 0
+
+    private fun refreshEmergencyExitEntry(view: View) {
+        val ctx = view.context
+        val entry = view.findViewById<TextView>(R.id.tv_alarm_emergency_exit)
+        val quota = view.findViewById<TextView>(R.id.tv_alarm_emergency_exit_quota)
+        val isTest = alarmId <= 0
+        val available = emergencyExitAvailable(ctx)
+        entry?.alpha = if (available) 1f else 0.4f
+        quota?.text = when {
+            isTest -> "测试闹钟：应急退出不消耗本月次数"
+            available -> "本月还剩 ${AlarmEmergencyExitStore.remaining(ctx)} 次"
+            AlarmEmergencyExitStore.load(ctx).active == 0 -> "应急退出已在设置中关闭"
+            else -> {
+                val restoreAt = AlarmEmergencyExitStore.nextMonthEffectiveTime(ctx)
+                "本月已用，" +
+                    java.text.SimpleDateFormat("M月d日 HH:mm", java.util.Locale.CHINA).format(java.util.Date(restoreAt)) +
+                    " 恢复"
+            }
+        }
+    }
+
+    private fun cancelEmergencyExitPress(view: View?) {
+        emergencyExitTracker.onUpOrCancel()
+        emergencyExitTicker?.let { LockWindowManager.getAlarmUiHandler().removeCallbacks(it) }
+        emergencyExitTicker = null
+        view?.findViewById<ProgressBar>(R.id.pb_alarm_emergency_exit)?.apply {
+            progress = 0
+            visibility = View.INVISIBLE
+        }
+    }
+
+    /**
+     * 入口只响应真实触摸：没有 onClick，音量/电源键与无障碍点击回放都无法触发。
+     * 提前松手、滑出入口、出现第二根手指都会取消并清零进度。
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun bindEmergencyExit(view: View) {
+        val entry = view.findViewById<TextView>(R.id.tv_alarm_emergency_exit) ?: return
+        val bar = view.findViewById<ProgressBar>(R.id.pb_alarm_emergency_exit)
+        val handler = LockWindowManager.getAlarmUiHandler()
+        cancelEmergencyExitPress(view)
+        refreshEmergencyExitEntry(view)
+
+        view.findViewById<View>(R.id.btn_alarm_emergency_cancel)?.setOnClickListener {
+            view.findViewById<View>(R.id.layout_alarm_emergency_confirm)?.visibility = View.GONE
+        }
+        view.findViewById<View>(R.id.btn_alarm_emergency_confirm)?.setOnClickListener {
+            performEmergencyExit(view)
+        }
+
+        entry.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    refreshEmergencyExitEntry(view)
+                    if (emergencyExitAvailable(view.context)) {
+                        emergencyExitTracker.onDown(SystemClock.uptimeMillis())
+                        bar?.visibility = View.VISIBLE
+                        val ticker = object : Runnable {
+                            override fun run() {
+                                val now = SystemClock.uptimeMillis()
+                                bar?.progress = (emergencyExitTracker.progress(now) * 1000).toInt()
+                                if (emergencyExitTracker.consumeTrigger(now)) {
+                                    cancelEmergencyExitPress(view)
+                                    showEmergencyExitConfirm(view)
+                                } else if (emergencyExitTracker.isPressing) {
+                                    handler.postDelayed(this, 50L)
+                                }
+                            }
+                        }
+                        emergencyExitTicker = ticker
+                        handler.post(ticker)
+                    }
+                }
+                MotionEvent.ACTION_POINTER_DOWN -> cancelEmergencyExitPress(view)
+                MotionEvent.ACTION_MOVE -> {
+                    val inside = event.x >= 0f && event.x <= v.width && event.y >= 0f && event.y <= v.height
+                    if (!inside) cancelEmergencyExitPress(view)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> cancelEmergencyExitPress(view)
+            }
+            true
+        }
+    }
+
+    private fun showEmergencyExitConfirm(view: View) {
+        val ctx = view.context
+        if (!emergencyExitAvailable(ctx)) {
+            refreshEmergencyExitEntry(view)
+            return
+        }
+        val message = if (alarmId <= 0) {
+            "这是测试闹钟，应急退出不会消耗本月次数。\n\n确认后将结束本次测试响铃。"
+        } else {
+            "本月应急退出还剩 ${AlarmEmergencyExitStore.remaining(ctx)} 次。\n\n" +
+                "确认后只结束本次响铃，闹钟设置不变；本月将少 1 次，且不算完成挑战。"
+        }
+        view.findViewById<TextView>(R.id.tv_alarm_emergency_confirm_message)?.text = message
+        view.findViewById<View>(R.id.layout_alarm_emergency_confirm)?.visibility = View.VISIBLE
+    }
+
+    private fun performEmergencyExit(view: View) {
+        val ctx = LockWindowManager.getAlarmContext() ?: return
+        if (!isAlarmOverlayActive.get()) return
+        view.findViewById<View>(R.id.layout_alarm_emergency_confirm)?.visibility = View.GONE
+        val isTest = alarmId <= 0
+        if (!isTest && !AlarmEmergencyExitStore.consumeOne(ctx)) {
+            Toast.makeText(ctx, "本月应急退出次数已用完", Toast.LENGTH_SHORT).show()
+            refreshEmergencyExitEntry(view)
+            return
+        }
+        if (!isTest) {
+            alarmProtectionEventBridge.recordAlarmDismiss(alarmId.toString(), "EMERGENCY_EXIT")
+        }
+        LogExporter.logEvent(
+            "AlarmEmergencyExit",
+            "[USED] alarmId=$alarmId test=$isTest remainingAfter=${if (isTest) -1 else AlarmEmergencyExitStore.remaining(ctx)}"
+        )
+        dismissAlarmOverlay("已应急退出，仅结束本次响铃", false)
+    }
+
     private fun handleAlarmAction(snooze: Boolean) {
         if (snooze) {
             requestSnooze("BUTTON")
@@ -3281,7 +3442,7 @@ internal object LockAlarmOverlayController {
 
     /**
      * 扫码按钮点击处理，不依赖 mAlarmController（AlarmActivity 可能已被系统销毁）。
-     * 相机会话需在 Activity 窗口中运行（TYPE_APPLICATION_OVERLAY 不支持 SurfaceView 预览），
+     * 相机会话由 Activity 提供生命周期，覆盖层内 TextureView 显示预览，
      * 因此启动 AlarmActivity 承载扫码界面。
      */
     private fun handleAlarmScanClick() {
@@ -3315,8 +3476,8 @@ internal object LockAlarmOverlayController {
     }
 
     fun startAlarmInlineScan() {
-        // 覆盖层窗口无法渲染相机预览，扫码统一由下方 AlarmActivity 承载（透过开孔透出）
-        Log.w(TAG, "startAlarmInlineScan: camera preview is hosted by AlarmActivity via cutout")
+        // 相机生命周期由 AlarmActivity 提供，预览由覆盖层内的 TextureView 承载
+        Log.w(TAG, "startAlarmInlineScan: camera lifecycle is hosted by AlarmActivity, preview by overlay")
     }
 
     fun stopAlarmInlineScan() {
@@ -3595,6 +3756,7 @@ internal object LockAlarmOverlayController {
         val ctx = LockWindowManager.getAlarmContext() ?: return
 
         stopAlarmIntensityUpdate()
+        cancelEmergencyExitPress(null)
 
         if (snooze && alarmId > 0) {
             AlarmScheduler.scheduleSnooze(ctx, alarmId, alarmSnoozeMinutes)

@@ -95,6 +95,10 @@ object SettingsBackupManager {
     internal fun getExclusiveFilesForCategory(category: BackupCategory): List<String> =
         CATEGORY_EXCLUSIVE_FILES[category].orEmpty()
 
+    @androidx.annotation.VisibleForTesting
+    internal fun getSharedKeysForCategory(category: BackupCategory, fileName: String): List<String> =
+        CATEGORY_SHARED_FILE_KEYS[category]?.get(fileName).orEmpty()
+
     // ── 共享文件中的按分类 key 过滤 ──────────────────────────
     // key 如果以 * 结尾，按前缀匹配；否则精确匹配
     private val CATEGORY_SHARED_FILE_KEYS: Map<BackupCategory, Map<String, List<String>>> = mapOf(
@@ -109,6 +113,8 @@ object SettingsBackupManager {
                 "alarms_json", "alarm_next_id",
                 "snooze_minutes", "max_snooze_count",
                 "default_vibration_intensity",
+                "default_progressive_ring_max", "default_stage2_progressive_ring_max",
+                "default_progressive_vibration_max", "default_stage2_progressive_vibration_max",
                 "default_math_count", "default_poem_count", "default_word_count",
                 "default_unlock_mode",
                 "default_stage1_types", "default_stage2_types"
@@ -122,13 +128,11 @@ object SettingsBackupManager {
                 "cool_down_rest_seconds", "cool_down_gap_seconds",
                 "borrow_percentage", "notify_advance_minutes",
                 "notify_entry_near_minutes", "temp_restricted_access_max_seconds",
-                "privilege_window_start", "privilege_window_end",
-                "is_privilege_window_synced"
+                "privilege_window_start", "privilege_window_end"
             ),
             "decikeeper_ledger" to listOf(
                 "config_refresh_time", "strict_penalty_duration",
                 "weekly_privilege_count_limit_v2", "weekly_privilege_duration_limit_v2",
-                "weekly_privilege_last_used_day", "weekly_privilege_last_used",
                 "last_weekly_limit_apply_time_v2",
                 "weekly_privilege_count_limit_pending",
                 "weekly_privilege_duration_limit_pending",
@@ -145,7 +149,8 @@ object SettingsBackupManager {
                 "usage_*", "borrow_time_*", "privilege_usage_*", "exit_*",
                 "count_*",
                 "privilege_*_segment_*",
-                "weekly_privilege_count_*", "weekly_privilege_duration_used_*"
+                "weekly_privilege_count_*", "weekly_privilege_duration_used_*",
+                "weekly_privilege_last_used_day", "weekly_privilege_last_used"
             )
         ),
         BackupCategory.APP_WINDOWS to emptyMap()
@@ -162,13 +167,23 @@ object SettingsBackupManager {
         "bg_popup_confirmed_at",              // decikeeper_ledger
         "assoc_start_confirmed",              // decikeeper_ledger 权限确认
         "assoc_start_confirmed_at",           // decikeeper_ledger
+        "bg_battery_confirmed",               // decikeeper_ledger 后台高耗电确认
+        "bg_battery_confirmed_at",            // decikeeper_ledger
+        "bg_battery_permission_confirmed",   // decikeeper_ledger
+        "recents_lock_confirmed",             // decikeeper_ledger 多任务卡片加锁
+        "recents_lock_confirmed_at",          // decikeeper_ledger
+        "sleep_standby_confirmed",            // alarm_prefs 睡眠待机优化
+        "vivo_sleep_standby_confirmed",       // alarm_prefs
+        "lock_screen_display_confirmed",      // alarm_prefs
         "manual_permission_last_ask_auto_start",
         "manual_permission_last_ask_bg_popup",
         "manual_permission_last_ask_assoc_start",
+        "manual_permission_last_ask_bg_battery",
         "manual_permission_prompt_primed",
         "manual_permission_settings_visit_at_auto_start",
         "manual_permission_settings_visit_at_bg_popup",
-        "manual_permission_settings_visit_at_assoc_start"
+        "manual_permission_settings_visit_at_assoc_start",
+        "manual_permission_settings_visit_at_bg_battery"
     )
 
     private val CORE_PREF_NAMES = listOf(
@@ -586,53 +601,39 @@ object SettingsBackupManager {
             if (!allowedFileKeys.containsKey(name)) continue
 
             val file = fileEntryMap[name]!!
+            if (name == "decikeeper_ledger") {
+                val rawDecoded = try { decodeEntries(file.getJSONObject("entries")) } catch (_: Exception) { continue }
+                val res = importDecikeeperLedger(
+                    context = context,
+                    rawDecoded = rawDecoded,
+                    allowedKeys = allowedFileKeys[name],
+                    allSelected = allSelected,
+                    isAdaptation = isAdaptation,
+                    exportedAt = exportedAt,
+                    writtenTargets = writtenTargets
+                )
+                fileCount += res.fileCount
+                entryCount += res.entryCount
+                continue
+            }
+
             val targetName = if (isAdaptation) name
             else resolveDelayedTargetName(name) ?: continue
 
             if (!writtenTargets.add(targetName)) continue
 
             val rawDecoded = try { decodeEntries(file.getJSONObject("entries")) } catch (_: Exception) { continue }
-            val rawValues = if (!allSelected && allowedFileKeys[name] != null) {
+            val rawValues = (if (!allSelected && allowedFileKeys[name] != null) {
                 filterKeys(rawDecoded, allowedFileKeys[name]!!)
             } else {
                 rawDecoded
-            }
+            }).filterKeys { it !in EXCLUDED_KEYS }
             if (rawValues.isEmpty()) continue
-            val values = if (targetName == "decikeeper_ledger") {
-                val effectiveTime = (rawValues["weekly_privilege_limit_effective_time"] as? Long) ?: 0L
-                val isStale = isAdaptation || (exportedAt > 0L && effectiveTime in 1..exportedAt)
-                val filtered = if (isStale) {
-                    rawValues.filterKeys { it !in setOf(
-                        "weekly_privilege_count_limit_pending",
-                        "weekly_privilege_duration_limit_pending",
-                        "weekly_privilege_limit_effective_time"
-                    ) }
-                } else rawValues
-
-                // 排除今日瞬态账本，保留本地今天实际使用的物理事实，严禁覆盖刷新额度
-                val currentTodayStr = CreditManager.getBusinessDateString(context)
-                val sanitizedLedger = filtered.filterKeys { !isTransientTodayLedgerKey(it, currentTodayStr) }
-
-                // 确保用户在备份中没有包含的分类App（如用户从黑名单移除了Google/Chrome），同步到 user_removed_apps，
-                // 防止导入后被 MonitorService 的 periodicAutoBlacklistScan 重新自动扫入黑名单！
-                val importedBlacklist = (sanitizedLedger["blacklist_apps_list"] as? Set<*>)?.filterIsInstance<String>()?.toSet()
-                if (importedBlacklist != null) {
-                    val categoryPkgs = mutableSetOf<String>()
-                    for (cat in listOf("comm", "video", "game", "browser")) {
-                        categoryPkgs.addAll(CreditManager.getBlacklistCategory(cat))
-                    }
-                    val removedFromCategory = categoryPkgs.subtract(importedBlacklist)
-                    if (removedFromCategory.isNotEmpty()) {
-                        BlacklistStore.addUserRemovedApps(context, removedFromCategory)
-                    }
-                }
-                sanitizedLedger
-            } else rawValues
 
             fileCount++
-            entryCount += values.size
+            entryCount += rawValues.size
 
-            val normalizedValues = normalizeEntryKeysForTarget(targetName, values)
+            val normalizedValues = normalizeEntryKeysForTarget(targetName, rawValues)
             writePrefs(context.getSharedPreferences(targetName, Context.MODE_PRIVATE), normalizedValues)
             writeDeviceProtectedMirror(context, targetName, normalizedValues)
 
@@ -658,7 +659,7 @@ object SettingsBackupManager {
                 AlarmWakeStatsRecorder.importLegacyBackupRecords(context)
             }
             if (root.has(REST_RECORDS_KEY)) {
-                RestStatsRecorder.replaceAllRecords(context, decodeRestRecords(root.getJSONArray(REST_RECORDS_KEY)))
+                RestStatsRecorder.mergeRecords(context, decodeRestRecords(root.getJSONArray(REST_RECORDS_KEY)))
             }
         }
 
@@ -705,6 +706,8 @@ object SettingsBackupManager {
         put("costCount", costCount)
         put("balanceMinutes", balanceMinutes)
         put("balanceCount", balanceCount)
+        put("advancedMinutes", advancedMinutes)
+        put("advancedCount", advancedCount)
     }
 
     private fun decodeAlarmWakeRecords(array: JSONArray): List<AlarmWakeRecord> {
@@ -751,7 +754,9 @@ object SettingsBackupManager {
                 costMinutes = obj.optDouble("costMinutes", 0.0),
                 costCount = obj.optDouble("costCount", 0.0),
                 balanceMinutes = obj.optDouble("balanceMinutes", 0.0),
-                balanceCount = obj.optInt("balanceCount", 0)
+                balanceCount = obj.optInt("balanceCount", 0),
+                advancedMinutes = obj.optDouble("advancedMinutes", 0.0),
+                advancedCount = obj.optDouble("advancedCount", 0.0)
             )
         }
         return records
@@ -893,6 +898,139 @@ object SettingsBackupManager {
             LogExporter.logEvent("Import", "[PAIR] $activeName: imported to $targetName (delayed)")
             return OperationResult(1, normalizedValues.size)
         }
+    }
+
+    private fun importDecikeeperLedger(
+        context: Context,
+        rawDecoded: Map<String, Any?>,
+        allowedKeys: Set<String>?,
+        allSelected: Boolean,
+        isAdaptation: Boolean,
+        exportedAt: Long,
+        writtenTargets: MutableSet<String>
+    ): OperationResult {
+        val targetName = "decikeeper_ledger"
+        if (!writtenTargets.add(targetName)) return OperationResult(0, 0)
+
+        val rawValues = if (!allSelected && allowedKeys != null) {
+            filterKeys(rawDecoded, allowedKeys)
+        } else {
+            rawDecoded
+        }
+        if (rawValues.isEmpty()) return OperationResult(0, 0)
+
+        val localPrefs = context.getSharedPreferences(targetName, Context.MODE_PRIVATE)
+        val todayStr = CreditManager.getBusinessDateString(context)
+        val finalValues = mutableMapOf<String, Any?>()
+
+        // 1. 周特权上限规则参数（weekly_privilege_count_limit_v2 / weekly_privilege_duration_limit_v2）
+        val importedWeeklyCount = (rawValues["weekly_privilege_count_limit_v2"] as? Number)?.toInt()
+        val importedWeeklyDuration = (rawValues["weekly_privilege_duration_limit_v2"] as? Number)?.toInt()
+
+        if (importedWeeklyCount != null || importedWeeklyDuration != null) {
+            if (isAdaptation) {
+                // 适应期内直接生效
+                if (importedWeeklyCount != null) finalValues["weekly_privilege_count_limit_v2"] = importedWeeklyCount
+                if (importedWeeklyDuration != null) finalValues["weekly_privilege_duration_limit_v2"] = importedWeeklyDuration
+            } else {
+                // 非适应期：对比基准（或当前值），有利（调严/调小）立即生效，不利（调宽/调大）次周生效（下周一）
+                val basPrefs = context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE)
+                val basCount = if (basPrefs.contains("weekly_privilege_limit")) {
+                    basPrefs.getInt("weekly_privilege_limit", 1)
+                } else {
+                    CreditManager.getWeeklyPrivilegeLimit(context)
+                }
+                val basDuration = if (basPrefs.contains("weekly_privilege_duration_limit")) {
+                    basPrefs.getInt("weekly_privilege_duration_limit", 480)
+                } else {
+                    CreditManager.getWeeklyPrivilegeDurationLimit(context)
+                }
+
+                val targetCount = importedWeeklyCount ?: basCount
+                val targetDuration = importedWeeklyDuration ?: basDuration
+                val isAdverse = targetCount > basCount || targetDuration > basDuration
+
+                if (isAdverse) {
+                    // 不利修改：挂起至下周一，绝不放宽当前活跃上限
+                    val nextMonday = ConfigPendingManager.calculateNextMondayEffectiveTime(context, System.currentTimeMillis())
+                    CreditManager.setPendingWeeklyPrivilegeLimit(context, targetCount, targetDuration, nextMonday)
+                } else {
+                    // 有利修改（更严或恢复基准）：立即生效，清空 pending
+                    finalValues["weekly_privilege_count_limit_v2"] = targetCount
+                    finalValues["weekly_privilege_duration_limit_v2"] = targetDuration
+                    CreditManager.clearPendingWeeklyPrivilegeLimit(context)
+                }
+            }
+        }
+
+        // 2. 遍历其余键
+        for ((key, value) in rawValues) {
+            if (key in EXCLUDED_KEYS) {
+                continue // 严禁导入任何权限确认与设备特有键
+            }
+            if (key == "weekly_privilege_count_limit_v2" || key == "weekly_privilege_duration_limit_v2") {
+                continue
+            }
+            if (isTransientTodayLedgerKey(key, todayStr)) {
+                continue // 排除今日瞬态账本
+            }
+            if (key in setOf(
+                    "weekly_privilege_count_limit_pending",
+                    "weekly_privilege_duration_limit_pending",
+                    "weekly_privilege_limit_effective_time"
+                )
+            ) {
+                val effectiveTime = (rawValues["weekly_privilege_limit_effective_time"] as? Long) ?: 0L
+                val isStale = isAdaptation || (exportedAt > 0L && effectiveTime in 1..exportedAt)
+                if (isStale) continue
+            }
+
+            // 高水位防钻空子合并：特权已用次数、时长、上次使用天及时间戳
+            if (key.startsWith("weekly_privilege_count_")) {
+                val localCount = localPrefs.getInt(key, 0)
+                val backupCount = (value as? Number)?.toInt() ?: 0
+                finalValues[key] = maxOf(localCount, backupCount)
+            } else if (key.startsWith("weekly_privilege_duration_used_")) {
+                val localDur = localPrefs.getInt(key, 0)
+                val backupDur = (value as? Number)?.toInt() ?: 0
+                finalValues[key] = maxOf(localDur, backupDur)
+            } else if (key == "weekly_privilege_last_used_day") {
+                val localDay = localPrefs.getString(key, null)
+                val backupDay = value as? String
+                finalValues[key] = when {
+                    localDay != null && backupDay != null -> maxOf(localDay, backupDay)
+                    localDay != null -> localDay
+                    else -> backupDay
+                }
+            } else if (key == "weekly_privilege_last_used") {
+                val localTs = localPrefs.getLong(key, 0L)
+                val backupTs = (value as? Number)?.toLong() ?: 0L
+                finalValues[key] = maxOf(localTs, backupTs)
+            } else {
+                finalValues[key] = value
+            }
+        }
+
+        // 黑名单分类同步逻辑（保留已有逻辑）
+        val importedBlacklist = (finalValues["blacklist_apps_list"] as? Set<*>)?.filterIsInstance<String>()?.toSet()
+        if (importedBlacklist != null) {
+            val categoryPkgs = mutableSetOf<String>()
+            for (cat in listOf("comm", "video", "game", "browser")) {
+                categoryPkgs.addAll(CreditManager.getBlacklistCategory(cat))
+            }
+            val removedFromCategory = categoryPkgs.subtract(importedBlacklist)
+            if (removedFromCategory.isNotEmpty()) {
+                BlacklistStore.addUserRemovedApps(context, removedFromCategory)
+            }
+        }
+
+        if (finalValues.isNotEmpty()) {
+            val normalizedValues = normalizeEntryKeysForTarget(targetName, finalValues)
+            writePrefs(localPrefs, normalizedValues)
+            writeDeviceProtectedMirror(context, targetName, normalizedValues)
+        }
+
+        return OperationResult(1, finalValues.size)
     }
 
     internal fun isAppWindowImportPurelyFavorable(context: Context, activeValues: Map<String, Any?>): Boolean {

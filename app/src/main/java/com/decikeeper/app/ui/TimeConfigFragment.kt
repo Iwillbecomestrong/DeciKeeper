@@ -25,6 +25,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.decikeeper.app.R
 import com.decikeeper.app.data.AdverseAnalysis
+import com.decikeeper.app.data.AnalysisResult
 import com.decikeeper.app.data.SegmentAdverseAnalysis
 import com.decikeeper.app.data.SegmentBlacklist
 import com.decikeeper.app.data.TimeSegment
@@ -34,6 +35,7 @@ import com.decikeeper.app.manager.BoundaryResult
 import com.decikeeper.app.manager.ChangeLogManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.MinuteBoundary
+import com.decikeeper.app.manager.PendingChangeTable
 import com.decikeeper.app.manager.TimeRuleEditWindowPolicyManager
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.service.MonitorService
@@ -154,7 +156,9 @@ class TimeConfigFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
+        // 白名单摘要与不利分析都要「可启动应用全集」，进页面先在后台算好，编辑 / 保存时不再卡主线程
+        SegmentBlacklist.prewarmLaunchablePackages(requireContext())
         initViews(view)
         setupClickEvents(view)
         applySettingsLockoutState()
@@ -293,7 +297,7 @@ class TimeConfigFragment : Fragment() {
                     c.endHour == p.endHour && c.endMinute == p.endMinute)
             }
             if (match == null) a.markAsNew(p)
-            else if (!SegmentAdverseAnalysis.isSingleSegmentEqual(p, match)) a.markAsModified(p)
+            else if (!SegmentAdverseAnalysis.isSingleSegmentEquivalent(p, match)) a.markAsModified(p)
         }
     }
 
@@ -314,19 +318,11 @@ class TimeConfigFragment : Fragment() {
             return
         }
 
-        val pendingSegments = TimeRuleManager.getPendingTimeSegments(ctx)
-        if (pendingSegments.isNullOrEmpty()) {
-            if (!isLocked) cardPending?.visibility = View.GONE else tvPendingChanges?.text = ""
-            return
+        // 勿扰时段页同时承载全局黑名单入口，两者的待生效项都放在这张卡里；点开是全部模块的延迟生效表
+        val displayText = PendingChangesDialog.cardSummary(ctx, PendingChangeTable.Scope.SEGMENT, PendingChangeTable.Scope.BLACKLIST)
+        cardPending?.setOnClickListener {
+            PendingChangesDialog.show(ctx, PendingChangeTable.Scope.SEGMENT) { reloadData() }
         }
-
-        val changeLog = ChangeLogManager.getFormattedLogForCategory(ctx, "segments")
-        val displayText = if (changeLog.isNotEmpty()) changeLog else {
-            val activeSegments = TimeRuleManager.getTimeSegments(ctx)
-            SegmentAdverseAnalysis.getPendingDiffString(ctx, activeSegments, pendingSegments)
-                ?.joinToString("\n\n") ?: ""
-        }
-
         if (displayText.isNotEmpty()) {
             cardPending?.visibility = View.VISIBLE
             tvPendingChanges?.text = displayText
@@ -337,34 +333,77 @@ class TimeConfigFragment : Fragment() {
         }
     }
 
-    // ============== 即时保存 ==============
+    // ============== 即时保存与确认 ==============
 
-    private fun saveSegmentsImmediately() {
+    private fun applySegmentsUpdate(finalSegments: List<TimeSegment>) {
         val ctx = context ?: return
-        val a = adapter ?: return
-        val pendingDeletions = a.getPendingDeletions()
-        val finalSegments = segments.filter { it !in pendingDeletions }
 
-        // Validation
+        // 校验 1：时长为0
         if (finalSegments.any { TimeRuleManager.calculateDuration(it) == 0 }) {
             Toast.makeText(ctx, "检测到时长为0的时段，请检查配置", Toast.LENGTH_SHORT).show()
+            reloadData()
             return
         }
+        // 校验 2：名称重复
         val names = finalSegments.map { it.name }
         if (names.distinct().size != names.size) {
             Toast.makeText(ctx, "时段名称重复，请修改", Toast.LENGTH_SHORT).show()
+            reloadData()
             return
         }
+        // 校验 3：时段重叠
         if (TimeRuleManager.checkSegmentOverlap(finalSegments)) {
             Toast.makeText(ctx, "时段存在重叠，请调整", Toast.LENGTH_SHORT).show()
+            reloadData()
             return
         }
 
-        val result = TimeRuleManager.analyzeAndSaveTimeSegments(ctx, finalSegments)
-        AdverseAnalysis.showAnalysisDialog(ctx, result) {
+        // 先通过 dryRun 进行预分析，不提前写盘
+        val analysis = TimeRuleManager.analyzeTimeSegments(ctx, finalSegments)
+
+        val hasDelayed = when (analysis) {
+            is AnalysisResult.Mixed -> analysis.delayedChanges.isNotEmpty() || analysis.nextWeekChanges.isNotEmpty()
+            is AnalysisResult.AllDelayed -> true
+            else -> false
+        }
+        val isAdaptation = TimeRuleManager.isInAdaptationPeriod(ctx)
+
+        if (!hasDelayed && !isAdaptation) {
+            // 无延后项：直接保存生效
+            val result = TimeRuleManager.analyzeAndSaveTimeSegments(ctx, finalSegments)
             reloadData()
             sendRefreshBroadcast()
+            if (result is AnalysisResult.NoChange) {
+                Toast.makeText(ctx, "设置已保存 (未发生变更)", Toast.LENGTH_SHORT).show()
+            } else if (result is AnalysisResult.AllImmediate) {
+                if (result.messages.isNotEmpty()) {
+                    val sb = StringBuilder("✅ 立即生效 (有利/恢复):\n")
+                    result.messages.forEach { sb.append("• $it\n") }
+                    AlertDialog.Builder(ctx)
+                        .setTitle("设置已保存")
+                        .setMessage(sb.toString().trim())
+                        .setPositiveButton("我知道了", null)
+                        .show()
+                } else {
+                    Toast.makeText(ctx, "设置已保存 (未发生变更)", Toast.LENGTH_SHORT).show()
+                }
+            }
+            return
         }
+
+        // 包含延后项或适应期：弹窗二次确认；点确认真正写盘，点取消直接 reloadData() 回滚
+        AdverseAnalysis.showAnalysisDialog(
+            ctx,
+            analysis,
+            onCancel = {
+                reloadData()
+            },
+            onConfirm = {
+                TimeRuleManager.analyzeAndSaveTimeSegments(ctx, finalSegments)
+                reloadData()
+                sendRefreshBroadcast()
+            }
+        )
     }
 
     private fun sendRefreshBroadcast() {
@@ -376,44 +415,43 @@ class TimeConfigFragment : Fragment() {
     // ============== 增删改操作 ==============
 
     private fun deleteSegment(position: Int) {
+        if (isSettingsLocked()) {
+            reloadData()
+            return
+        }
         if (position < 0 || position >= segments.size) return
         val a = adapter ?: return
         val segment = segments[position]
 
-        if (a.isPendingDeletion(segment)) {
-            // Undo delete
-            a.unmarkPendingDeletion(segment)
-            a.notifyItemChanged(position)
-            saveSegmentsImmediately()
-            return
-        }
-
-        val ctx = context ?: return
-        val activeSegments = TimeRuleManager.getTimeSegments(ctx)
-        val isExistingActive = activeSegments.any { aSeg ->
-            aSeg.name == segment.name || (aSeg.startHour == segment.startHour && aSeg.startMinute == segment.startMinute &&
-                aSeg.endHour == segment.endHour && aSeg.endMinute == segment.endMinute)
-        }
-
-        if (isExistingActive && !a.getNewSegments().contains(segment)) {
-            a.markPendingDeletion(segment)
-            a.notifyItemChanged(position)
-            saveSegmentsImmediately()
+        val targetSegments = if (a.isPendingDeletion(segment)) {
+            // 撤销待删除：恢复保留在目标列表中
+            val pendingDeletions = a.getPendingDeletions().filter { it != segment }
+            segments.filter { it !in pendingDeletions }
         } else {
-            segments.removeAt(position)
-            a.notifyItemRemoved(position)
-            saveSegmentsImmediately()
+            // 删除：拟定目标列表中不包含该时段
+            val pendingDeletions = a.getPendingDeletions() + segment
+            segments.filter { it !in pendingDeletions }
         }
+
+        applySegmentsUpdate(targetSegments)
     }
 
     private fun onToggleSegment(position: Int, isEnabled: Boolean) {
-        if (isSettingsLocked()) return
+        if (isSettingsLocked()) {
+            reloadData()
+            return
+        }
         if (position !in segments.indices) return
         val seg = segments[position]
         if (seg.isEnabled == isEnabled) return
-        
-        segments[position] = seg.copy(isEnabled = isEnabled)
-        saveSegmentsImmediately()
+
+        val a = adapter
+        val pendingDeletions = a?.getPendingDeletions() ?: emptyList()
+        val targetSegments = segments.mapIndexed { idx, item ->
+            if (idx == position) item.copy(isEnabled = isEnabled) else item
+        }.filter { it !in pendingDeletions }
+
+        applySegmentsUpdate(targetSegments)
     }
 
     // ============== 编辑弹窗 ==============
@@ -461,7 +499,7 @@ class TimeConfigFragment : Fragment() {
         }
         fun updateUsableCountHint() {
             val limit = etLimit.text.toString().toIntOrNull() ?: segment.limitMins
-            val defaultCount = maxOf(1, limit / 5)
+            val defaultCount = UsableCount.automaticHalfUnits(limit) / 2
             tvUsableCountHint.text = "留空=自动(默认 " + defaultCount + "次)"
         }
         updateUsableCountHint()
@@ -533,27 +571,17 @@ class TimeConfigFragment : Fragment() {
                     lastModified = System.currentTimeMillis()
                 )
 
-                // 🚀 [Fix] 先验证重叠，再更新 UI（防止验证失败但 UI 已改）
                 val a = adapter ?: return@setPositiveButton
                 val pendingDeletions = a.getPendingDeletions()
-                val tempList = segments.toMutableList()
-                tempList[position] = newSegment
-                val finalCheck = tempList.filter { it !in pendingDeletions }
-                if (TimeRuleManager.checkSegmentOverlap(finalCheck)) {
-                    Toast.makeText(ctx, "时段存在重叠，请调整", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
+                val targetSegments = segments.mapIndexed { idx, item ->
+                    if (idx == position) newSegment else item
+                }.filter { it !in pendingDeletions }
 
-                segments[position] = newSegment
-                if (a.isNewSegment(segment)) {
-                    a.markAsNew(newSegment)
-                } else if (!SegmentAdverseAnalysis.isSingleSegmentEqual(segment, newSegment)) {
-                    a.markAsModified(newSegment)
-                }
-                adapter?.notifyItemChanged(position)
-                saveSegmentsImmediately()
+                applySegmentsUpdate(targetSegments)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("取消") { _, _ ->
+                Toast.makeText(ctx, "已取消修改", Toast.LENGTH_SHORT).show()
+            }
             .show()
     }
 
@@ -589,7 +617,7 @@ class TimeConfigFragment : Fragment() {
         etUsableCount.setText("")
         fun updateUsableCountHint() {
             val limit = etLimit.text.toString().toIntOrNull() ?: 30
-            val defaultCount = maxOf(1, limit / 5)
+            val defaultCount = UsableCount.automaticHalfUnits(limit) / 2
             tvUsableCountHint.text = "留空=自动(默认 " + defaultCount + "次)"
         }
         updateUsableCountHint()
@@ -677,21 +705,13 @@ class TimeConfigFragment : Fragment() {
                 // 🚀 [Fix] 先验证重叠，再添加到列表（防止验证失败但 UI 已改）
                 val a = adapter ?: return@setPositiveButton
                 val pendingDeletions = a.getPendingDeletions()
-                val tempList = segments.toMutableList()
-                tempList.add(newSegment)
-                val finalCheck = tempList.filter { it !in pendingDeletions }
-                if (TimeRuleManager.checkSegmentOverlap(finalCheck)) {
-                    Toast.makeText(ctx, "时段存在重叠，请调整", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
+                val targetSegments = (segments + newSegment).filter { it !in pendingDeletions }
 
-                segments.add(newSegment)
-                sortSegments(segments)
-                adapter?.markAsNew(newSegment)
-                adapter?.notifyDataSetChanged()
-                saveSegmentsImmediately()
+                applySegmentsUpdate(targetSegments)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("取消") { _, _ ->
+                Toast.makeText(ctx, "已取消修改", Toast.LENGTH_SHORT).show()
+            }
             .show()
     }
 
@@ -713,7 +733,9 @@ class TimeConfigFragment : Fragment() {
                 }
                 onResult(if (allChecked || newDays.isEmpty()) null else newDays)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("取消") { _, _ ->
+                Toast.makeText(ctx, "已取消修改", Toast.LENGTH_SHORT).show()
+            }
             .show()
     }
 
@@ -736,21 +758,20 @@ class TimeConfigFragment : Fragment() {
                 "④ 晚上: 17:30 - 22:00 (休息 35min, 7次, 工作日)\n\n" +
                 "这将覆盖当前所有配置。")
             .setPositiveButton("确定") { _, _ ->
-                segments.clear()
-                adapter?.resetStates()
                 val workdays = listOf(2, 3, 4, 5, 6)
                 val everyday = listOf(1, 2, 3, 4, 5, 6, 7)
                 val now = System.currentTimeMillis()
-                segments.add(TimeSegment(name = "深夜", startHour = 23, startMinute = 0, endHour = 7, endMinute = 30, limitMins = 10, daysOfWeek = everyday, usableCountLimitHalfUnits = 8, lastModified = now))
-                segments.add(TimeSegment(name = "上午", startHour = 8, startMinute = 15, endHour = 12, endMinute = 0, limitMins = 30, daysOfWeek = everyday, usableCountLimitHalfUnits = 14, lastModified = now))
-                segments.add(TimeSegment(name = "下午", startHour = 12, startMinute = 45, endHour = 16, endMinute = 45, limitMins = 35, daysOfWeek = everyday, lastModified = now))
-                segments.add(TimeSegment(name = "晚上", startHour = 17, startMinute = 30, endHour = 22, endMinute = 0, limitMins = 35, daysOfWeek = workdays, lastModified = now))
-                segments.forEach { adapter?.markAsNew(it) }
-                sortSegments(segments)
-                adapter?.notifyDataSetChanged()
-                saveSegmentsImmediately()
+                val targetSegments = listOf(
+                    TimeSegment(name = "深夜", startHour = 23, startMinute = 0, endHour = 7, endMinute = 30, limitMins = 10, daysOfWeek = everyday, usableCountLimitHalfUnits = 8, lastModified = now),
+                    TimeSegment(name = "上午", startHour = 8, startMinute = 15, endHour = 12, endMinute = 0, limitMins = 30, daysOfWeek = everyday, usableCountLimitHalfUnits = 14, lastModified = now),
+                    TimeSegment(name = "下午", startHour = 12, startMinute = 45, endHour = 16, endMinute = 45, limitMins = 35, daysOfWeek = everyday, lastModified = now),
+                    TimeSegment(name = "晚上", startHour = 17, startMinute = 30, endHour = 22, endMinute = 0, limitMins = 35, daysOfWeek = workdays, lastModified = now)
+                )
+                applySegmentsUpdate(targetSegments)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("取消") { _, _ ->
+                Toast.makeText(ctx, "已取消修改", Toast.LENGTH_SHORT).show()
+            }
             .show()
     }
 
@@ -767,7 +788,9 @@ class TimeConfigFragment : Fragment() {
             .setPositiveButton("下一步") { _, _ ->
                 showBatchDaysSelectionDialog(checked)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("取消") { _, _ ->
+                Toast.makeText(requireContext(), "已取消修改", Toast.LENGTH_SHORT).show()
+            }
             .show()
     }
 
@@ -781,15 +804,21 @@ class TimeConfigFragment : Fragment() {
             .setPositiveButton("应用") { _, _ ->
                 val selectedDays = checkedDays.mapIndexed { i, c -> if (c) i + 1 else null }.filterNotNull()
                 val normalizedDays = if (selectedDays.size == 7) null else selectedDays
-                checkedSegments.forEachIndexed { i, checked ->
-                    if (checked && i < segments.size) {
-                        segments[i] = segments[i].copy(daysOfWeek = normalizedDays, lastModified = System.currentTimeMillis())
+                val a = adapter
+                val pendingDeletions = a?.getPendingDeletions() ?: emptyList()
+                val targetSegments = segments.mapIndexed { i, seg ->
+                    if (checkedSegments.getOrElse(i) { false }) {
+                        seg.copy(daysOfWeek = normalizedDays, lastModified = System.currentTimeMillis())
+                    } else {
+                        seg
                     }
-                }
-                adapter?.notifyDataSetChanged()
-                saveSegmentsImmediately()
+                }.filter { it !in pendingDeletions }
+
+                applySegmentsUpdate(targetSegments)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("取消") { _, _ ->
+                Toast.makeText(ctx, "已取消修改", Toast.LENGTH_SHORT).show()
+            }
             .show()
     }
 }

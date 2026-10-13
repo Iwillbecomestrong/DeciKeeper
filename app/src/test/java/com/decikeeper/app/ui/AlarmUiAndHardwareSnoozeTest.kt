@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.KeyEvent
 import com.decikeeper.app.ui.AlarmOverlayRootView
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -35,23 +36,60 @@ class AlarmUiAndHardwareSnoozeTest {
     }
 
     @Test
-    fun defaultAlarmSettingsDialog_hasThreeButtonsWithRoundedPills() {
+    fun unifiedAlarmDialog_hasAllSaveExitsWithRoundedPills() {
         val cwd = File(System.getProperty("user.dir") ?: ".")
         val candidates = listOf(
-            File(cwd, "app/src/main/res/layout/dialog_test_alarm.xml"),
-            File(cwd, "src/main/res/layout/dialog_test_alarm.xml")
+            File(cwd, "app/src/main/res/layout/dialog_alarm_edit.xml"),
+            File(cwd, "src/main/res/layout/dialog_alarm_edit.xml")
         )
         val file = candidates.firstOrNull { it.isFile }
-        assertNotNull("dialog_test_alarm.xml must exist", file)
+        assertNotNull("dialog_alarm_edit.xml must exist", file)
         val content = file!!.readText()
 
-        assertTrue(content.contains("btn_test_dialog_exit"))
-        assertTrue(content.contains("btn_test_dialog_save"))
-        assertTrue(content.contains("btn_test_dialog_save_and_test"))
+        // 四个出口：取消 / 存为默认 / 测试 / 保存；「同时设为默认」勾选框已移除（多余）
+        assertFalse(content.contains("cb_also_save_default"))
+        assertFalse(content.contains("同时设为默认设置"))
+        assertFalse(content.contains("只存为默认"))
         assertTrue(content.contains("bg_zz_pill"))
-        assertTrue(content.contains("退出"))
-        assertTrue(content.contains("保存"))
-        assertTrue(content.contains("保存并测试"))
+
+        val expected = linkedMapOf(
+            "btn_alarm_edit_cancel" to "取消",
+            "btn_alarm_edit_save_default" to "存为默认",
+            "btn_alarm_edit_test" to "测试",
+            "btn_alarm_edit_save" to "保存"
+        )
+        expected.forEach { (id, label) ->
+            val tag = content.substringAfter("android:id=\"@+id/$id\"").substringBefore("/>")
+            assertTrue("$id label", tag.contains("android:text=\"$label\""))
+            // 2×2 网格：所有按钮等宽（同权重）等高，且全部自动缩字，保证文字完整显示
+            assertTrue("$id equal width weight", tag.contains("android:layout_weight=\"1\""))
+            assertTrue("$id equal height", tag.contains("android:layout_height=\"44dp\""))
+            assertTrue("$id autosize", tag.contains("app:autoSizeTextType=\"uniform\""))
+        }
+        assertFalse("no unequal weights in the button grid", content.contains("android:layout_weight=\"1.6\""))
+
+        // 顺序：第一行 取消 | 存为默认，第二行 测试 | 保存
+        val order = expected.keys.map { content.indexOf("android:id=\"@+id/$it\"") }
+        assertEquals(order.sorted(), order)
+    }
+
+    @Test
+    fun unifiedAlarmDialog_saveDefaultKeepsDialogOpenAndSaveLabelIsFixed() {
+        val cwd = File(System.getProperty("user.dir") ?: ".")
+        val file = listOf(
+            File(cwd, "app/src/main/java/com/decikeeper/app/ui/AlarmFragment.kt"),
+            File(cwd, "src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
+        ).firstOrNull { it.isFile }
+        assertNotNull("AlarmFragment.kt must exist", file)
+        val src = file!!.readText()
+
+        assertFalse(src.contains("cbAlsoDefault"))
+        assertTrue(src.contains("R.id.btn_alarm_edit_save).text = \"保存\""))
+
+        val handler = src.substringAfter("R.id.btn_alarm_edit_save_default).setOnClickListener {")
+            .substringBefore("R.id.btn_alarm_edit_save).setOnClickListener {")
+        assertTrue(handler.contains("saveAsDefault(f)"))
+        assertFalse("save-as-default must keep the dialog open", handler.contains("editDialog.dismiss()"))
     }
 
     @Test

@@ -231,8 +231,12 @@ class PrivacySpaceGuardRulesTest {
     /** 非适应期 + baseline=true → 关闭进入 PENDING, isEnforcing 仍 true */
     @Test
     fun disableEntersPending_notAdaptationBaselineTrue() {
-        // 先通过生产 API 开启，建立 baseline=true；并用生产时间规则结束适应期。
+        // 先通过生产 API 开启，并显式建立基准 baseline=true；用生产时间规则结束适应期。
         PrivacyProtectionManager.setProtectionEnabled(context, true)
+        context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PrivacyProtectionManager.KEY_IS_ENABLED, true)
+            .commit()
         context.getSharedPreferences("decikeeper_ledger", Context.MODE_PRIVATE)
             .edit()
             .putLong("first_setup_timestamp_v2", 1L)
@@ -269,6 +273,10 @@ class PrivacySpaceGuardRulesTest {
     fun a11yCollaborativeDisable_endToEnd_activeTriggersPending() {
         // 初始 ACTIVE，并显式建立生产关闭规则所需的 baseline 与非适应期前置。
         PrivacyProtectionManager.setProtectionEnabled(context, true)
+        context.getSharedPreferences("decikeeper_rules_baseline", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PrivacyProtectionManager.KEY_IS_ENABLED, true)
+            .commit()
         context.getSharedPreferences("decikeeper_ledger", Context.MODE_PRIVATE)
             .edit()
             .putLong("first_setup_timestamp_v2", 1L)

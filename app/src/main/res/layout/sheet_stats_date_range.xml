@@ -158,6 +158,19 @@
             android:textSize="12sp" />
 
         <Button
+            android:id="@+id/opt_range_all"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="3dp"
+            android:background="@drawable/bg_zz_option_btn"
+            android:text="全部"
+            android:textAllCaps="false"
+            android:textColor="?attr/zzText"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <Button
             android:id="@+id/opt_range_custom"
             android:layout_width="0dp"
             android:layout_height="44dp"

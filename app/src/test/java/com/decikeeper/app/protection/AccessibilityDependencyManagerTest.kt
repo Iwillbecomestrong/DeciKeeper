@@ -8,6 +8,7 @@ import com.decikeeper.app.manager.AntiUninstallManager
 import com.decikeeper.app.manager.PrivacyProtectionManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,29 +38,32 @@ class AccessibilityDependencyManagerTest {
     }
 
     @Test
-    fun systemAccessibilityRevocationClearsAllDependentEnhancements() {
+    fun systemAccessibilityRevocationPreservesDependentEnhancements() {
         AccessibilityControlManager.setEnabled(context, true)
         AntiUninstallManager.setProtectionEnabled(context, true)
         PrivacyProtectionManager.setProtectionEnabled(context, true)
+        com.decikeeper.app.manager.GuardFloatingWindowManager.setFloatingGuardEnabled(context, true)
         AlarmPowerOffProtectionManager.setEnabled(context, true)
 
         AccessibilityDependencyManager.reconcile(context, systemAccessibilityEnabled = false)
 
-        assertEquals(AccessibilityControlManager.State.DISABLED, AccessibilityControlManager.getState(context))
-        assertEquals(AntiUninstallManager.State.DISABLED, AntiUninstallManager.getProtectionState(context))
-        assertEquals(PrivacyProtectionManager.State.DISABLED, PrivacyProtectionManager.getProtectionState(context))
-        assertFalse(AlarmPowerOffProtectionManager.isEnabled(context))
+        assertEquals(AccessibilityControlManager.State.ACTIVE, AccessibilityControlManager.getState(context))
+        assertEquals(AntiUninstallManager.State.ACTIVE, AntiUninstallManager.getProtectionState(context))
+        assertEquals(PrivacyProtectionManager.State.ACTIVE, PrivacyProtectionManager.getProtectionState(context))
+        assertEquals(com.decikeeper.app.manager.GuardFloatingWindowManager.State.ACTIVE, com.decikeeper.app.manager.GuardFloatingWindowManager.getProtectionState(context))
+        assertTrue(AlarmPowerOffProtectionManager.isEnabled(context))
     }
 
     @Test
-    fun enablingSystemAccessibilityDoesNotRestoreOldEnhancements() {
+    fun enablingSystemAccessibilityKeepsOldEnhancementsIntact() {
         AccessibilityControlManager.setEnabled(context, true)
         AntiUninstallManager.setProtectionEnabled(context, true)
         AccessibilityDependencyManager.reconcile(context, systemAccessibilityEnabled = false)
 
         AccessibilityDependencyManager.reconcile(context, systemAccessibilityEnabled = true)
 
-        assertEquals(AccessibilityControlManager.State.DISABLED, AccessibilityControlManager.getState(context))
-        assertEquals(AntiUninstallManager.State.DISABLED, AntiUninstallManager.getProtectionState(context))
+        assertEquals(AccessibilityControlManager.State.ACTIVE, AccessibilityControlManager.getState(context))
+        assertEquals(AntiUninstallManager.State.ACTIVE, AntiUninstallManager.getProtectionState(context))
     }
 }
+

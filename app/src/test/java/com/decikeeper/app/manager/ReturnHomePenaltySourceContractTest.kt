@@ -14,15 +14,40 @@ class ReturnHomePenaltySourceContractTest {
             ?: error("cannot find $path")
 
     @Test
+    fun appWindowLockAlsoCountsWithinDndSegment() {
+        val lockWindow = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
+        val start = lockWindow.indexOf("private fun recordReturnHomePenaltyHit(")
+        val end = lockWindow.indexOf("if (!isDndActive)", start)
+        assertTrue(start >= 0 && end > start)
+        val eligibility = lockWindow.substring(start, end)
+        assertTrue("黑名单锁与应用时间窗锁的返回桌面都应计数", eligibility.contains("isBlacklistLock || _isAppWindowLock.get()"))
+        assertTrue("仅限勿扰时段内计数", eligibility.contains("TimeRuleManager.getCurrentSegment(context) != null"))
+    }
+
+    @Test
     fun onlyExplicitReturnHomeActionOwnsPenaltyCounting() {
         val lockWindow = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
 
-        assertTrue(lockWindow.contains("recordReturnHomePenaltyHit(context, now, \"RETURN_HOME_BUTTON\")"))
+        assertTrue(lockWindow.contains("recordReturnHomePenaltyHit(context, System.currentTimeMillis(), \"RETURN_HOME_BUTTON\")"))
         assertFalse(lockWindow.contains("recordSuccessfulPenaltyEligibleDisplay"))
-        assertTrue(lockWindow.contains("30秒内返回桌面\${PENALTY_THRESHOLD}次，触发惩罚"))
-        assertTrue(lockWindow.contains("30秒内返回桌面 \${mPenaltyHitCount}/\${PENALTY_THRESHOLD} 次"))
-        assertFalse(lockWindow.contains("30秒内锁屏\${PENALTY_THRESHOLD}次，触发惩罚"))
-        assertFalse(lockWindow.contains("30秒内锁屏 \${mPenaltyHitCount}/\${PENALTY_THRESHOLD} 次"))
+        // 文案与规则收口在 FrequentReturnDeduction；LockWindowManager 只引用，不再硬编码「惩罚」
+        assertTrue(lockWindow.contains("FrequentReturnDeduction.receiptText("))
+        assertTrue(lockWindow.contains("FrequentReturnDeduction.hintText("))
+        assertTrue(lockWindow.contains("FrequentReturnDeduction.deductSeconds(isAnyCooling)"))
+        assertFalse(lockWindow.contains("触发惩罚"))
+        assertFalse(lockWindow.contains("30秒内锁屏"))
+
+        // 第5次点击：回执当场展示，确认后才回桌面；不得再等下一次锁屏 attach 才显示
+        val clickStart = lockWindow.indexOf("btnBackToHome?.setSafeOnClickListener")
+        val clickEnd = lockWindow.indexOf("纯粹三按钮架构点击逻辑", clickStart)
+        assertTrue(clickStart >= 0 && clickEnd > clickStart)
+        val clickBlock = lockWindow.substring(clickStart, clickEnd)
+        assertTrue(clickBlock.contains("penaltyOverlay?.visibility = View.VISIBLE"))
+        assertTrue(clickBlock.contains("mPendingReturnHomeAction"))
+        assertFalse(
+            "pending receipt must not be deferred to the next lock attach",
+            lockWindow.contains("penaltyMessage?.text = mPendingPenaltyMessage")
+        )
 
         val attachStart = lockWindow.indexOf("targetWM.addView(mLockView, params)")
         val attachEnd = lockWindow.indexOf("rememberLifecycleLock(", attachStart)

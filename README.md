@@ -1,15 +1,25 @@
 # 决定守护 DeciKeeper
 
-**一个我自己用了大半年的 Android 工具：该做事时更容易把手机放下来，该起床时真的下床。**
+**一个我自己用了大半年的 Android 工具：该做事时更容易把手机放下来，该起床时真的起得来。**
 
-**时间规则 + 挑战闹钟｜开源内测中**
+**一个不联网的 Android 自控应用：放宽规则要等明天生效，闹钟要完成挑战才能关。**
 
-[下载体验](#下载) · [快速上手](docs/user/getting-started.md) · [功能指南](docs/user/guide.md) · [权限说明](docs/user/permissions.md) · [开发者指南](.github/CONTRIBUTING.md)
+时间规则 + 挑战闹钟｜开源内测中
+
+[⬇ 下载 v0.3.0 APK](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.3.0/DeciKeeper-v0.3.0-arm64.apk) · [全部下载渠道](#下载) · [快速上手](docs/user/getting-started.md) · [功能指南](docs/user/guide.md) · [权限说明](docs/user/permissions.md) · [开发者指南](.github/CONTRIBUTING.md)
 
 决定守护主要解决我自己长期遇到的两个问题：
 
 - 该开始做事时，手机一拿起来就停不下来；
 - 该起床时，闹钟按掉以后又继续睡。
+
+![决定守护总览：时间规则与挑战闹钟](docs/images/readme配图.png)
+
+### 三个特点
+
+- **改规则很方便，但放宽不会立刻生效**：加严立即生效，放宽次日生效。冲动时改不掉已经生效的规则，正常调整也不用被折腾。
+- **闹钟要完成挑战才能关**：扫码、计算、单词、诗词、选词填空、自定义题库，按你的需要选。我自己的用法是把二维码放在洗手台，让自己必须离床，但选什么挑战、要不要离床，由你决定。
+- **完全不联网，数据只在你手机上**：最终 APK 不声明 `INTERNET` 权限，没有账号、不上传任何数据，源码 GPL-3.0 公开，可自行审计。需要无障碍等敏感权限的原因见 [权限说明](docs/user/permissions.md)。
 
 目前 vivo / iQOO 是测试最充分的真机环境；OPPO 主要通过云测验证；其他 Android 品牌仍需要更多真机测试。
 

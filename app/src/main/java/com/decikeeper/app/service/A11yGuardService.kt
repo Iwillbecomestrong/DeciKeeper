@@ -209,6 +209,8 @@ class A11yGuardService : Service() {
         )
         if (transitionTriggered) {
             pending = true
+            val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+            Log.w(TAG, "[A11Y_GUARD_HEALTH] ${runIdTag}Transition detected (healthy->inactive) wasEnabled=$lastEnabled wasActive=$lastActive isEnabled=$isEnabled isActive=$isActive")
             Log.w(TAG, "[NOTIFY-DIAG] Transition detected (healthy→inactive), pending=true. " +
                 "wasEnabled=$lastEnabled, wasActive=$lastActive → isEnabled=$isEnabled, isActive=$isActive")
         } else {
@@ -228,6 +230,8 @@ class A11yGuardService : Service() {
                 prefs.edit().putBoolean(KEY_A11Y_INACTIVE_PENDING, false).apply()
                 Log.d(TAG, "[NOTIFY-DIAG] A11y healthy, cleared stale pending flag")
             }
+            val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+            Log.i(TAG, "[A11Y_GUARD_HEALTH] ${runIdTag}Healthy isEnabled=true isActive=true")
             Log.d(TAG, "[NOTIFY-DIAG] Branch: A11y healthy → notifyIfChanged(active)")
             notifyIfChanged(isActive = true, mode = "active", force = false)
             return

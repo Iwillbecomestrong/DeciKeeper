@@ -82,5 +82,7 @@ class HelpManualSingleSourceContractTest {
 
         assertFalse(manual.contains("可能整体按双倍成本处理"))
         assertTrue(guide.contains("冷却期间再次申请，会按 2 倍扣除应计费额度和次数"))
+        assertTrue(guide.contains("所有正在生效的冷却期内都不能临时解锁"))
+        assertTrue(guide.contains("拒绝临时解锁，不扣时长或次数"))
     }
 }

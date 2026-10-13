@@ -78,6 +78,8 @@ object PermissionManager {
     // 防抖计数器：ACCESSIBILITY 需要连续检测到丢失 N 次才判定为真丢失
     private const val A11Y_LOST_CONSECUTIVE_THRESHOLD = 2 // 连续 2 次（约 6 秒）才确认真丢失
     private var a11yLostConsecutiveCount = 0
+
+    fun getA11yLostConsecutiveCount(): Int = a11yLostConsecutiveCount
     
     // 监控回调
     interface OnPermissionChangedListener {
@@ -102,7 +104,16 @@ object PermissionManager {
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         )
-        return enabledServices?.contains(serviceName) == true
+        if (enabledServices?.contains(serviceName) == true) return true
+        return isComponentListed(enabledServices, context.packageName, CoreService::class.java.name)
+    }
+
+    /** 系统（尤其 vivo）可能以短格式 `pkg/.service.CoreService` 保存，按组件名归一化比较。 */
+    internal fun isComponentListed(enabledServices: String?, pkg: String, cls: String): Boolean {
+        val target = android.content.ComponentName(pkg, cls)
+        return enabledServices?.split(':')?.any {
+            android.content.ComponentName.unflattenFromString(it.trim()) == target
+        } == true
     }
     
     /**
@@ -120,15 +131,27 @@ object PermissionManager {
         val enabled = isAccessibilityEnabled(context)
         val active = isAccessibilityActive()
         val recentSignal = CoreService.hasRecentAccessibilitySignal(nowMillis, A11Y_SIGNAL_GRACE_MS)
-        return shouldTreatAccessibilityAsHealthy(enabled, active, recentSignal)
+        val isStalled = com.decikeeper.app.ui.LockWindowManager.isTransientOverlayStale(
+            isInputPanelOpen = com.decikeeper.app.ui.LockWindowManager.isInputPanelOpen,
+            windowGeneration = -1,
+            currentGeneration = -1,
+            openDurationMs = if (com.decikeeper.app.ui.LockWindowManager.inputPanelOpenAtMs > 0L) nowMillis - com.decikeeper.app.ui.LockWindowManager.inputPanelOpenAtMs else 0L
+        )
+        return shouldTreatAccessibilityAsHealthy(enabled, active, recentSignal, isStalled)
     }
 
     internal fun shouldTreatAccessibilityAsHealthy(
         isEnabled: Boolean,
         isActive: Boolean,
-        hasRecentSignal: Boolean
+        hasRecentSignal: Boolean,
+        isPipelineStalled: Boolean = false
     ): Boolean {
-        return isEnabled && (isActive || hasRecentSignal)
+        return com.decikeeper.app.protection.CoreServiceProtectionDispatchPolicy.isAccessibilityPipelineHealthy(
+            isSystemEnabled = isEnabled,
+            isServiceConnected = isActive,
+            hasRecentRawSignal = hasRecentSignal,
+            isPipelineStalled = isPipelineStalled
+        )
     }
     
     /**
@@ -189,7 +212,7 @@ object PermissionManager {
             val now = System.currentTimeMillis()
             val stats = usageStatsManager?.queryUsageStats(
                 android.app.usage.UsageStatsManager.INTERVAL_DAILY,
-                now - 60 * 1000,
+                now - 24 * 60 * 60 * 1000L,
                 now
             )
             !stats.isNullOrEmpty()
@@ -316,6 +339,8 @@ object PermissionManager {
                 // 防止服务 flapping 期间瞬时断连误报
                 if (permission == Permission.ACCESSIBILITY) {
                     a11yLostConsecutiveCount++
+                    val runIdTag = ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+                    Log.w(TAG, "[A11Y_LOST_EVAL] ${runIdTag}count=$a11yLostConsecutiveCount threshold=$A11Y_LOST_CONSECUTIVE_THRESHOLD")
                     if (a11yLostConsecutiveCount < A11Y_LOST_CONSECUTIVE_THRESHOLD) {
                         Log.w(TAG, "⚠️ [Permission Lost (pending confirm)] ${permission.displayName} count=$a11yLostConsecutiveCount/$A11Y_LOST_CONSECUTIVE_THRESHOLD")
                         // 不下发 lostPermissions，继续等待下一次确认

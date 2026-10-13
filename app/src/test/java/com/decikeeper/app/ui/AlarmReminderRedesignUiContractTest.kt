@@ -22,12 +22,12 @@ class AlarmReminderRedesignUiContractTest {
     fun testAlarmEditAndDefaultUiConformsToSpec() {
         val fragment = source("src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
         val editXml = source("src/main/res/layout/dialog_alarm_edit.xml")
-        val defaultXml = source("src/main/res/layout/dialog_alarm_default_settings.xml")
+        val reminderView = source("src/main/java/com/decikeeper/app/ui/AlarmReminderSettingsView.kt")
 
         // 1. 渐进文案契约：从最低强度开始，每 30 秒提高 1 级，直到最高强度
         assertTrue(
-            "AlarmFragment must contain progressive 30-second ramp copy",
-            fragment.contains("从最低强度开始，每 30 秒提高 1 级，直到最高强度")
+            "reminder settings view must contain progressive 30-second ramp copy",
+            reminderView.contains("从最低强度开始，每 30 秒提高 1 级，直到最高强度")
         )
 
         // 2. 移除旧的 5 分钟突破 / autoEscalate 文案
@@ -47,9 +47,30 @@ class AlarmReminderRedesignUiContractTest {
             "dialog_alarm_edit.xml must use 完成后延迟",
             editXml.contains("完成后延迟")
         )
+    }
+
+    @Test
+    fun testReminderSectionAttachesByIdNotByChildPosition() {
+        val fragment = source("src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
+        val editXml = source("src/main/res/layout/dialog_alarm_edit.xml")
+
+        // 提醒设置卡片必须按 id 挂到弹窗滚动区；按子节点位置找（弹窗顶部有标题）会得到 null，
+        // 再被 ?. 悄悄跳过，整块提醒设置就消失。
         assertTrue(
-            "dialog_alarm_default_settings.xml must use 完成后延迟",
-            defaultXml.contains("完成后延迟")
+            "dialog_alarm_edit.xml must expose layout_alarm_edit_content for the reminder section",
+            editXml.contains("@+id/layout_alarm_edit_content")
+        )
+        assertTrue(
+            "AlarmFragment must find the content container by id",
+            fragment.contains("findViewById<LinearLayout>(R.id.layout_alarm_edit_content)")
+        )
+        assertFalse(
+            "AlarmFragment must not locate the content container by child position",
+            fragment.contains("getChildAt(0) as? ScrollView")
+        )
+        assertFalse(
+            "reminder section must not be added through a silent null-safe call",
+            fragment.contains("innerLayout?.addView(editReminderSection)")
         )
     }
 }

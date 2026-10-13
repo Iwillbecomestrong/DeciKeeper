@@ -283,6 +283,17 @@ class VisibleBlacklistPresenceTracker(
     }
 
     /**
+     * 包是否「物理上仍在屏幕上」：必须出现在无障碍可见窗口集合里，且没有被 ACTIVITY_STOPPED 关闭墓碑标记。
+     *
+     * 无障碍的事件-快照融合会把最近 3 秒发过事件的包也算进可见集合；小窗关闭时自身的关闭事件
+     * 会让它在关闭后继续滞留 3 秒。若只看集合成员资格，回桌面宽限一结束就会把刚关掉的小窗当成
+     * 仍然可见，清掉回桌面抑制并重新上锁。ACTIVITY_STOPPED 是权威生命周期证据，必须压过这种滞留。
+     * 再次出现 MOVE_TO_FG / ACTIVITY_RESUMED 时墓碑自动失效，重新打开的小窗照常可见。
+     */
+    fun isPhysicallyVisible(pkg: String, a11yVisiblePackages: Set<String>): Boolean =
+        a11yVisiblePackages.contains(pkg) && !isPackageClosed(pkg)
+
+    /**
      * 检查当前包的 lastTimeVisible 是否合法：
      * 1. 小窗 Presence 必须有 Accessibility 当前窗口集合的同包佐证；无障碍不可用时一律拒绝。
      * 2. 如果包当前处于 CLOSED Tombstone 状态（未收到新的 FG/RESUMED 打开事件），则一律拒绝！

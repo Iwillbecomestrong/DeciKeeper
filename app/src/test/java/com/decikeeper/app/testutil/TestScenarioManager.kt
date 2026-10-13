@@ -7557,23 +7557,15 @@ object TestScenarioManager {
             assertPass(false, "41.1 非跨午夜范围异常", e.message ?: "unknown")
         }
 
-        // --- Test 41.2: isInPrivilegeWindow 跨午夜范围 ---
-        log("\n--- Test 41.2: 跨午夜范围判断 ---")
+        // --- Test 41.2: 跨午夜（结束不晚于开始）的范围不合法，回落到默认范围 ---
+        log("\n--- Test 41.2: 跨午夜范围回落默认 ---")
         try {
-            // 设置窗口 22:00 ~ 08:00 (跨午夜)
             TimeRuleManager.setPrivilegeWindow(context, "22:00", "08:00")
-            val inWindow23 = TimeRuleManager.isInPrivilegeWindow(context, 1380) // 23:00 -> in
-            val inWindow3 = TimeRuleManager.isInPrivilegeWindow(context, 180) // 03:00 -> in
-            val inWindow12 = TimeRuleManager.isInPrivilegeWindow(context, 720) // 12:00 -> out
-            val inWindow22 = TimeRuleManager.isInPrivilegeWindow(context, 1320) // 22:00 -> in (边界)
-            val inWindow8 = TimeRuleManager.isInPrivilegeWindow(context, 480) // 08:00 -> in (边界)
-            assertPass(inWindow23, "41.2a 23:00在22-08跨夜范围内", "应为true")
-            assertPass(inWindow3, "41.2b 03:00在22-08跨夜范围内", "应为true")
-            assertPass(!inWindow12, "41.2c 12:00不在22-08跨夜范围内", "应为false")
-            assertPass(inWindow22, "41.2d 22:00在22-08边界内", "应为true")
-            assertPass(inWindow8, "41.2e 08:00在22-08边界内", "应为true")
+            assertPass(TimeRuleManager.getPrivilegeWindowStart(context) == "07:00", "41.2a 非法范围开始回落默认", "实际=${TimeRuleManager.getPrivilegeWindowStart(context)}")
+            assertPass(TimeRuleManager.getPrivilegeWindowEnd(context) == "23:00", "41.2b 非法范围结束回落默认", "实际=${TimeRuleManager.getPrivilegeWindowEnd(context)}")
+            assertPass(!TimeRuleManager.isInPrivilegeWindow(context, 180), "41.2c 03:00不在默认范围内", "应为false")
         } catch (e: Exception) {
-            assertPass(false, "41.2 跨午夜范围异常", e.message ?: "unknown")
+            assertPass(false, "41.2 跨午夜范围回落异常", e.message ?: "unknown")
         }
 
         // --- Test 41.3: calculateWeeklyPrivilegeEffectiveMinutes 使用特权窗口 ---
@@ -7616,44 +7608,11 @@ object TestScenarioManager {
             assertPass(false, "41.3 特权窗口限制异常", e.message ?: "unknown")
         }
 
-        // --- Test 41.4: 反向同步标志位 ---
-        log("\n--- Test 41.4: 反向同步标志位 ---")
-        try {
-            TimeRuleManager.setPrivilegeWindowSynced(context, true)
-            assertPass(TimeRuleManager.isPrivilegeWindowSynced(context), "41.4a 设置同步=true")
-            TimeRuleManager.setPrivilegeWindowSynced(context, false)
-            assertPass(!TimeRuleManager.isPrivilegeWindowSynced(context), "41.4b 设置同步=false")
-        } catch (e: Exception) {
-            assertPass(false, "41.4 同步标志位异常", e.message ?: "unknown")
-        }
-
-        // --- Test 41.5: checkAndSyncPrivilegeWindow ---
-        log("\n--- Test 41.5: 反向同步首段自动更新 ---")
-        try {
-            TimeRuleManager.setPrivilegeWindowSynced(context, true)
-            // 创建测试时段: 22:00 ~ 08:00
-            val testSeg = TimeSegment(
-                startHour = 22, startMinute = 0,
-                endHour = 8, endMinute = 0,
-                limitMins = 10,
-                name = "测试同步段"
-            )
-            TimeRuleManager.checkAndSyncPrivilegeWindow(context, listOf(testSeg))
-            val syncedStart = TimeRuleManager.getPrivilegeWindowStart(context)
-            val syncedEnd = TimeRuleManager.getPrivilegeWindowEnd(context)
-            // 反向: 特权开始=首段结束(08:00), 特权结束=首段开始(22:00)
-            assertPass(syncedStart == "08:00", "41.5a 同步后开始=08:00", "实际=$syncedStart")
-            assertPass(syncedEnd == "22:00", "41.5b 同步后结束=22:00", "实际=$syncedEnd")
-        } catch (e: Exception) {
-            assertPass(false, "41.5 反向同步异常", e.message ?: "unknown")
-        }
-
         // --- Cleanup ---
         if (origStart != null) prefs.edit().putString("privilege_window_start", origStart).apply()
         else prefs.edit().remove("privilege_window_start").apply()
         if (origEnd != null) prefs.edit().putString("privilege_window_end", origEnd).apply()
         else prefs.edit().remove("privilege_window_end").apply()
-        TimeRuleManager.setPrivilegeWindowSynced(context, false)
 
         log("\n✅ 测试 #41 完成: 特权可用时间范围测试")
     }
@@ -8761,13 +8720,13 @@ object TestScenarioManager {
         }
 
         // --- 场景 50.5: 超级临时冷却计算仍可独立工作 ---
-        // Expected Input: calculateTemporaryReuseCooldownMs(3)
-        // Expected Output: 0ms（<10s 免冷却）
+        // Expected Input: calculateTemporaryReuseCooldownMs(0)
+        // Expected Output: 0ms（统一冷却为 0 即无冷却）
         log("\n--- 场景 50.5: 超级临时冷却逻辑仍可独立工作 ---")
         run {
-            val cooldownMs = LockWindowManager.calculateTemporaryReuseCooldownMs(3)
+            val cooldownMs = LockWindowManager.calculateTemporaryReuseCooldownMs(0)
             if (cooldownMs == 0L) {
-                log("  ✅ 超级临时冷却支持分段规则，<10s 免冷却")
+                log("  ✅ 统一冷却为 0 时无冷却")
                 passCount++
             } else {
                 log("  ❌ 超级临时冷却计算异常: 预期0, 实际=$cooldownMs")
@@ -10011,10 +9970,10 @@ object TestScenarioManager {
         log("\n✅ 测试 #64 完成: 系统关机菜单恢复防抖验证")
     }
 
-    // 模块 65: 锁屏临时放行分段冷却与二级临时验证 (lockLogic)
+    // 模块 65: 锁屏临时解锁冷却与到期验证 (lockLogic)
     private fun runTemporaryQuickAccessPenaltyTests() {
         log("\n==========================================")
-        log("⏱️ 模块 65: 锁屏临时放行分段冷却与二级临时验证")
+        log("⏱️ 模块 65: 锁屏临时解锁冷却与到期验证")
         log("==========================================")
 
         // Expected Input: rawSeconds=135
@@ -10026,56 +9985,38 @@ object TestScenarioManager {
             "输入 135s 应裁剪为 120s，实际=$normalizedHigh"
         )
 
-        // Expected Input: rawSeconds=15
-        // Expected Output: reuseCooldownMs=15000 (1~60秒按1x)
-        val reuseCooldownMs = LockWindowManager.calculateTemporaryReuseCooldownMs(15)
+        // Expected Input: unifiedCooldownSeconds=60
+        // Expected Output: reuseCooldownMs=60000（统一冷却，不随申请时长变化）
+        val reuseCooldownMs = LockWindowManager.calculateTemporaryReuseCooldownMs(60)
         assertPass(
-            reuseCooldownMs == 15000L,
-            "65.2 分段冷却(1~60秒)",
-            "输入 15s 后冷却应为 15s(15000ms)，实际=$reuseCooldownMs"
+            reuseCooldownMs == 60000L,
+            "65.2 统一冷却",
+            "统一冷却 60s 应为 60000ms，实际=$reuseCooldownMs"
         )
 
-        // Expected Input: rawSeconds=70
-        // Expected Output: reuseCooldownMs=80000 (前60秒按1x=60s，60秒后10秒按2x=20s)
-        val reuseCooldownMsLong = LockWindowManager.calculateTemporaryReuseCooldownMs(70)
+        // Expected Input: unifiedCooldownSeconds=0
+        // Expected Output: reuseCooldownMs=0（0 表示无冷却）
+        val reuseCooldownMsZero = LockWindowManager.calculateTemporaryReuseCooldownMs(0)
         assertPass(
-            reuseCooldownMsLong == 80000L,
-            "65.3 分段冷却(>60秒双倍)",
-            "输入 70s 后冷却应为 80s(80000ms)，实际=$reuseCooldownMsLong"
-        )
-
-        // Expected Input: rawSeconds=150
-        // Expected Output: reuseCooldownMs=270000 (2~3分钟段按3x)
-        val reuseCooldownMsMidTier = LockWindowManager.calculateTemporaryReuseCooldownMs(150, 180)
-        assertPass(
-            reuseCooldownMsMidTier == 270000L,
-            "65.4 分段冷却(2~3分钟三倍)",
-            "输入 150s 后冷却应为 270s(270000ms)，实际=$reuseCooldownMsMidTier"
-        )
-
-        // Expected Input: rawSeconds=180
-        // Expected Output: reuseCooldownMs=360000（3分钟 = 6分钟冷却）
-        val reuseCooldownMsThreeMinutes = LockWindowManager.calculateTemporaryReuseCooldownMs(180, 180)
-        assertPass(
-            reuseCooldownMsThreeMinutes == 360000L,
-            "65.5 分段冷却(3分钟六分钟冷却)",
-            "输入 180s 后冷却应为 360s(360000ms)，实际=$reuseCooldownMsThreeMinutes"
+            reuseCooldownMsZero == 0L,
+            "65.3 统一冷却为 0",
+            "统一冷却 0s 应为 0ms，实际=$reuseCooldownMsZero"
         )
 
         // Expected Input: reuseRemain=40s, requested=10s
-        // Expected Output: shouldBlock=false（冷却中仅允许10秒二级临时放行）
-        val shouldBlockEmergencyTen = LockWindowManager.shouldBlockTemporaryAccessByReuseCooldown(
+        // Expected Output: shouldBlock=true（冷却中禁止所有临时解锁）
+        val shouldBlockTenSeconds = LockWindowManager.shouldBlockTemporaryAccessByReuseCooldown(
             reuseRemainSeconds = 40L,
             requestedSeconds = 10
         )
         assertPass(
-            !shouldBlockEmergencyTen,
-            "65.4 冷却中允许10秒应急",
-            "reuseRemain=40s 请求10s 应允许放行，实际 shouldBlock=$shouldBlockEmergencyTen"
+            shouldBlockTenSeconds,
+            "65.4 冷却中禁止10秒临时解锁",
+            "reuseRemain=40s 请求10s 应阻止，实际 shouldBlock=$shouldBlockTenSeconds"
         )
 
         // Expected Input: reuseRemain=40s, requested=8s
-        // Expected Output: shouldBlock=true（冷却中仅可申请10秒）
+        // Expected Output: shouldBlock=true（冷却中禁止所有临时解锁）
         val shouldBlockEight = LockWindowManager.shouldBlockTemporaryAccessByReuseCooldown(
             reuseRemainSeconds = 40L,
             requestedSeconds = 8
@@ -10087,7 +10028,7 @@ object TestScenarioManager {
         )
 
         // Expected Input: reuseRemain=40s, requested=11s
-        // Expected Output: shouldBlock=true（冷却中仅10秒应急可用）
+        // Expected Output: shouldBlock=true（冷却中禁止所有临时解锁）
         val shouldBlockEleven = LockWindowManager.shouldBlockTemporaryAccessByReuseCooldown(
             reuseRemainSeconds = 40L,
             requestedSeconds = 11
@@ -10237,130 +10178,6 @@ object TestScenarioManager {
             "cooldown 到期后 shouldClear 应为 true"
         )
 
-        // Expected Input: reuseRemain=15s
-        // Expected Output: showQuickTenButton=true（冷却中显示独立10秒应急按钮）
-        val showQuickTenDuringCooldown = LockWindowManager.shouldShowTemporaryEmergencyTenButton(15L)
-        assertPass(
-            showQuickTenDuringCooldown,
-            "65.18 冷却中显示10秒应急按钮",
-            "reuseRemain=15s 时应显示独立10秒按钮"
-        )
-
-        // Expected Input: reuseRemain=0s
-        // Expected Output: showQuickTenButton=false（冷却结束后隐藏10秒应急按钮）
-        val hideQuickTenAfterCooldown = LockWindowManager.shouldShowTemporaryEmergencyTenButton(0L)
-        assertPass(
-            !hideQuickTenAfterCooldown,
-            "65.19 冷却结束隐藏10秒应急按钮",
-            "reuseRemain=0s 时不应显示独立10秒按钮"
-        )
-
-        // Expected Input: initialCooldown=180s
-        // Expected Output: totalBudget=3（按初始冷却时长/60四舍五入）
-        val roundedBudgetThree = LockWindowManager.calculateTemporaryEmergencyBudgetTotal(
-            cooldownSeconds = 180L
-        )
-        val canUseEmergencyWithMinuteBudget = LockWindowManager.canUseTemporaryEmergencyDuringCooldown(
-            reuseRemainSeconds = 180L,
-            remainingUsesInCooldown = roundedBudgetThree
-        )
-        val remainingEmergencyByCooldown = LockWindowManager.resolveTemporaryEmergencyRemainingUses(
-            reuseRemainSeconds = 10L,
-            fixedRemainingUses = roundedBudgetThree
-        )
-        assertPass(
-            roundedBudgetThree == 3 && canUseEmergencyWithMinuteBudget && remainingEmergencyByCooldown == 3,
-            "65.20 初始冷却计次并固定",
-            "initialCooldown=180s 时预算应为3，且固定预算不随当前剩余冷却变化"
-        )
-
-        // Expected Input: initialCooldown=89s
-        // Expected Output: totalBudget=1（89/60=1.48，四舍五入为1）
-        val roundedBudgetOne = LockWindowManager.calculateTemporaryEmergencyBudgetTotal(
-            cooldownSeconds = 89L
-        )
-        val canUseEmergencyUnderOneMinute = LockWindowManager.canUseTemporaryEmergencyDuringCooldown(
-            reuseRemainSeconds = 59L,
-            remainingUsesInCooldown = roundedBudgetOne
-        )
-        val remainingUnderOneMinute = LockWindowManager.resolveTemporaryEmergencyRemainingUses(
-            reuseRemainSeconds = 1L,
-            fixedRemainingUses = roundedBudgetOne
-        )
-        assertPass(
-            roundedBudgetOne == 1 && canUseEmergencyUnderOneMinute && remainingUnderOneMinute == 1,
-            "65.21 四舍五入边界与固定预算",
-            "initialCooldown=89s 时预算应为1，且剩余冷却降到59s时预算仍保持1"
-        )
-
-        // Expected Input: reuseRemain=180s, lastUseAt=20000ms, now=79900ms
-        // Expected Output: canUse=false，remaining=1（未满足60秒间隔）
-        val canUseEmergencyBeforeMinuteGap = LockWindowManager.canUseTemporaryEmergencyDuringCooldown(
-            reuseRemainSeconds = 180L,
-            lastUseAtMs = 20000L,
-            nowMs = 79900L,
-            requestedSeconds = 10,
-            remainingUsesInCooldown = 1
-        )
-        val emergencyMinuteGapRemain = LockWindowManager.resolveTemporaryEmergencyReuseGapRemainingSeconds(
-            lastUseAtMs = 20000L,
-            nowMs = 79900L
-        )
-        assertPass(
-            !canUseEmergencyBeforeMinuteGap && emergencyMinuteGapRemain == 1L,
-            "65.22 二级临时需满足60秒间隔",
-            "lastUseAt=20000, now=79900 时应不可用且剩余1秒，实际 canUse=$canUseEmergencyBeforeMinuteGap, remain=$emergencyMinuteGapRemain"
-        )
-
-        // Expected Input: reuseRemain=180s, lastUseAt=20000ms, now=80000ms
-        // Expected Output: canUse=true，remaining=0（满60秒后可再次申请）
-        val canUseEmergencyAfterMinuteGap = LockWindowManager.canUseTemporaryEmergencyDuringCooldown(
-            reuseRemainSeconds = 180L,
-            lastUseAtMs = 20000L,
-            nowMs = 80000L,
-            requestedSeconds = 10,
-            remainingUsesInCooldown = 1
-        )
-        val minuteGapRemainAfterReady = LockWindowManager.resolveTemporaryEmergencyReuseGapRemainingSeconds(
-            lastUseAtMs = 20000L,
-            nowMs = 80000L
-        )
-        assertPass(
-            canUseEmergencyAfterMinuteGap && minuteGapRemainAfterReady == 0L,
-            "65.23 二级临时满60秒后恢复可用",
-            "上次10秒结束满60秒后应允许，实际 canUse=$canUseEmergencyAfterMinuteGap, remain=$minuteGapRemainAfterReady"
-        )
-
-        // Expected Input: now=1000ms, existingCooldownUntil=13000ms(剩12s), emergencyAccessSeconds=10s
-        // Expected Output: emergency结束后主冷却剩余2s（不得被重置为10s）
-        val nowForEmergency = 1000L
-        val existingCooldownUntil = 13000L
-        val emergencyAccessUntil = nowForEmergency + 10_000L
-        val remainAfterEmergency = LockWindowManager.calculateTemporaryReuseCooldownRemainingSeconds(
-            accessUntilMs = emergencyAccessUntil,
-            cooldownUntilMs = existingCooldownUntil,
-            nowMs = emergencyAccessUntil
-        )
-        assertPass(
-            remainAfterEmergency == 2L,
-            "65.24 二级10秒不应重置主冷却",
-            "旧冷却剩12s时申请二级10s，结束后应剩2s，实际=$remainAfterEmergency"
-        )
-
-        // Expected Input: now=1000ms, existingCooldownUntil=7000ms(剩6s), emergencyAccessSeconds=10s
-        // Expected Output: emergency结束后主冷却应自然归零
-        val shortCooldownUntil = 7000L
-        val remainAfterEmergencyOvertake = LockWindowManager.calculateTemporaryReuseCooldownRemainingSeconds(
-            accessUntilMs = emergencyAccessUntil,
-            cooldownUntilMs = shortCooldownUntil,
-            nowMs = emergencyAccessUntil
-        )
-        assertPass(
-            remainAfterEmergencyOvertake == 0L,
-            "65.25 二级10秒覆盖短冷却后应归零",
-            "旧冷却剩6s时申请二级10s，结束后应剩0s，实际=$remainAfterEmergencyOvertake"
-        )
-
         // Expected Input: targetPkg=抖音, topPkg=null, cooldownRemain=8s, retry=0/12
         // Expected Output: shouldRetry=true（到点首检拿不到topPkg时应快速重试回锁）
         val shouldRetryWhenTopMissing = LockWindowManager.shouldRetryTemporaryAccessExpiryRelock(
@@ -10417,7 +10234,7 @@ object TestScenarioManager {
             "expiredAt=0 时应返回 false"
         )
 
-        log("\n✅ 测试 #65 完成: 锁屏临时放行分段冷却与二级临时验证")
+        log("\n✅ 测试 #65 完成: 锁屏临时解锁冷却与到期验证")
     }
 
     // 模块 66: UnitTest 任务名 -> Kotlin 类目录映射验证 (buildSkill)

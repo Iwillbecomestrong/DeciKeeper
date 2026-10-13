@@ -116,42 +116,22 @@ class ConsumePenaltySecondsEpisodeTest {
      * so `getCurrentSegmentIndex` is always >= 0.
      */
     private fun forceCurrentSegmentToNow() {
-        val now = java.util.Calendar.getInstance()
-        val curH = now.get(java.util.Calendar.HOUR_OF_DAY)
-        val curM = now.get(java.util.Calendar.MINUTE)
-
-        // Build the two-segment fixture around the current wall-clock minute
-        // so the test remains valid at every ordinary wall-clock time.
-        val refreshParts = TimeRuleManager.getRefreshTime(context).split(":")
-        val refreshH = refreshParts.getOrNull(0)?.toIntOrNull() ?: 8
-        val refreshM = refreshParts.getOrNull(1)?.toIntOrNull() ?: 0
-        val currentTotal = curH * 60 + curM
-        val refreshTotal = refreshH * 60 + refreshM
-        val boundaryTotal = if (currentTotal == refreshTotal) {
-            (refreshTotal + 60) % (24 * 60)
-        } else {
-            refreshTotal
-        }
-        val boundaryH = boundaryTotal / 60
-        val boundaryM = boundaryTotal % 60
-
-        // Clear the active fixture before moving the refresh boundary. The
-        // production entry guard rejects a refresh time that falls inside an
-        // existing segment; leaving the previous fixture in place makes the
-        // test capture one business-date key and the production call resolve
-        // another one at the same wall-clock instant.
+        // 确定性夹具（与墙钟无关）：
+        //  - "now" = [00:00, 23:59) 起点最早 → 逻辑第一段，当前时刻必落在其中（23:59 除外）；
+        //  - "next" = [23:59, 00:00) 为逻辑最后段，可作为"下一时段"被借用。
+        // 若夹具随墙钟漂移，当前段可能变成逻辑最后一段，而逻辑最后一段按规格不可向下一业务日借用。
         val segs = listOf(
             TimeSegment(
-                startHour = curH, startMinute = curM,
-                endHour = boundaryH, endMinute = boundaryM,
+                startHour = 0, startMinute = 0,
+                endHour = 23, endMinute = 59,
                 limitMins = 60,
                 name = "now",
                 isEnabled = true,
                 usableCountLimitHalfUnits = 4 // 2 visible counts
             ),
             TimeSegment(
-                startHour = boundaryH, startMinute = boundaryM,
-                endHour = curH, endMinute = curM,
+                startHour = 23, startMinute = 59,
+                endHour = 0, endMinute = 0,
                 limitMins = 60,
                 name = "next",
                 isEnabled = true,
@@ -160,18 +140,14 @@ class ConsumePenaltySecondsEpisodeTest {
         )
         // This test fixture must not exercise the production adverse-change
         // policy or a stale pending snapshot from another test. Install the
-        // active JSON directly, then use the public refresh setter at the
-        // segment boundary to keep the business-date key deterministic.
+        // active JSON directly.
         context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)
             .edit()
             .putString("segments_json", TimeRuleManager.segmentsToJson(segs))
             .commit()
         TimeRuleManager.invalidateSegmentsCache()
-        // This is a black-box fixture for CreditManager, so write the
-        // already-validated boundary directly and do not route through the
-        // refresh-edit policy under test elsewhere.
         prefs.edit()
-            .putString("config_refresh_time", String.format(java.util.Locale.US, "%02d:%02d", curH, curM))
+            .putString("config_refresh_time", "00:00")
             .commit()
     }
 
@@ -240,13 +216,13 @@ class ConsumePenaltySecondsEpisodeTest {
             .putInt(keys.currentUsageKey!!, 0)
             .putInt(keys.currentBorrowKey!!, 0)
             .putInt(keys.nextUsageKey!!, 0)
-            .putInt(keys.nextBorrowKey!!, 0)
+            .putInt(keys.currentBorrowKey!!, 0)
             .commit()
 
         val beforeCurrentUsage = prefs.getInt(keys.currentUsageKey!!, 0)
         val beforeCurrentBorrow = prefs.getInt(keys.currentBorrowKey!!, 0)
         val beforeNextUsage = prefs.getInt(keys.nextUsageKey!!, 0)
-        val beforeNextBorrow = prefs.getInt(keys.nextBorrowKey!!, 0)
+        val beforeCurrentBorrowLedger = prefs.getInt(keys.currentBorrowKey!!, 0)
 
         // 60s penalty → current seg has 60 min limit, fully covered → branch 1.
         val result = CreditManager.consumePenaltySeconds(
@@ -257,7 +233,7 @@ class ConsumePenaltySecondsEpisodeTest {
         val afterCurrentUsage = prefs.getInt(keys.currentUsageKey!!, 0)
         val afterCurrentBorrow = prefs.getInt(keys.currentBorrowKey!!, 0)
         val afterNextUsage = prefs.getInt(keys.nextUsageKey!!, 0)
-        val afterNextBorrow = prefs.getInt(keys.nextBorrowKey!!, 0)
+        val afterCurrentBorrowLedger = prefs.getInt(keys.currentBorrowKey!!, 0)
 
         // Base penalty consumes one half-unit = 0.5 visible count.
         assertEquals(
@@ -283,8 +259,8 @@ class ConsumePenaltySecondsEpisodeTest {
         )
         assertEquals(
             "next segment count borrow must NOT advance on branch 1",
-            beforeNextBorrow,
-            afterNextBorrow
+            beforeCurrentBorrowLedger,
+            afterCurrentBorrowLedger
         )
     }
 
@@ -313,12 +289,12 @@ class ConsumePenaltySecondsEpisodeTest {
             .putInt(keys.currentUsageKey!!, segments[curIdx].getEffectiveUsableCountLimitHalfUnits())
             .putInt(keys.currentBorrowKey!!, 0)
             .putInt(keys.nextUsageKey!!, 0)
-            .putInt(keys.nextBorrowKey!!, 0)
+            .putInt(keys.currentBorrowKey!!, 0)
             .commit()
 
         val beforeCurrentUsage = prefs.getInt(keys.currentUsageKey!!, 0)
         val beforeNextUsage = prefs.getInt(keys.nextUsageKey!!, 0)
-        val beforeNextBorrow = prefs.getInt(keys.nextBorrowKey!!, 0)
+        val beforeCurrentBorrowLedger = prefs.getInt(keys.currentBorrowKey!!, 0)
 
         // 60s penalty at current segment capacity → must borrow from next.
         val result = CreditManager.consumePenaltySeconds(
@@ -328,7 +304,7 @@ class ConsumePenaltySecondsEpisodeTest {
 
         val afterCurrentUsage = prefs.getInt(keys.currentUsageKey!!, 0)
         val afterNextUsage = prefs.getInt(keys.nextUsageKey!!, 0)
-        val afterNextBorrow = prefs.getInt(keys.nextBorrowKey!!, 0)
+        val afterCurrentBorrowLedger = prefs.getInt(keys.currentBorrowKey!!, 0)
 
         // Current count is exhausted, so the normal one-half-unit charge is borrowed.
         assertEquals(
@@ -346,8 +322,8 @@ class ConsumePenaltySecondsEpisodeTest {
         assertEquals(1, result.borrowedCountPrincipalHalfUnits)
         assertEquals(2, result.nextCountCostHalfUnits)
         assertTrue(
-            "next count borrow ledger must advance by one half-unit (was=$beforeNextBorrow now=$afterNextBorrow)",
-            afterNextBorrow == beforeNextBorrow + 1
+            "next count borrow ledger must advance by one half-unit (was=$beforeCurrentBorrowLedger now=$afterCurrentBorrowLedger)",
+            afterCurrentBorrowLedger == beforeCurrentBorrowLedger + 1
         )
     }
 
@@ -360,7 +336,7 @@ class ConsumePenaltySecondsEpisodeTest {
         prefs.edit()
             .putInt(keys.currentUsageKey!!, 0)
             .putInt(keys.nextUsageKey!!, 0)
-            .putInt(keys.nextBorrowKey!!, 0)
+            .putInt(keys.currentBorrowKey!!, 0)
             .putInt(usageTimeKey(segments[curIdx]), 0)
             .commit()
 
@@ -378,7 +354,7 @@ class ConsumePenaltySecondsEpisodeTest {
     }
 
     @Test
-    fun coolingBorrowCapsNextCountCostAtFourHalfUnits() {
+    fun coolingBorrowIsCappedByBorrowRatioNotFixedFourHalfUnits() {
         forceCurrentSegmentToNow()
         val keys = captureLedgerKeys()
         val segments = TimeRuleManager.getTimeSegments(context)
@@ -389,7 +365,7 @@ class ConsumePenaltySecondsEpisodeTest {
             .putInt(usageTimeKey(currentSegment), currentSegment.limitMins * 60)
             .putInt(keys.currentUsageKey!!, currentCountLimit)
             .putInt(keys.nextUsageKey!!, 0)
-            .putInt(keys.nextBorrowKey!!, 0)
+            .putInt(keys.currentBorrowKey!!, 0)
             .commit()
 
         val result = CreditManager.consumePenaltySeconds(
@@ -399,12 +375,74 @@ class ConsumePenaltySecondsEpisodeTest {
             isCooling = true
         )
 
+        // 下一段次数额度 4 half-units、借用比例 50% → 偿还上限 2 → 本金最多 1（偿还 2）。
+        // 冷却想借 2，只能借到 1：下一段必须保留 额度 × (1 − 借用比例) = 2，不能被扣穿。
         assertEquals(currentCountLimit, prefs.getInt(keys.currentUsageKey!!, 0))
-        assertEquals(4, prefs.getInt(keys.nextUsageKey!!, 0))
-        assertEquals(2, prefs.getInt(keys.nextBorrowKey!!, 0))
+        assertEquals(2, prefs.getInt(keys.nextUsageKey!!, 0))
+        assertEquals(1, prefs.getInt(keys.currentBorrowKey!!, 0))
         assertEquals(0, result.currentCountCostHalfUnits)
-        assertEquals(2, result.borrowedCountPrincipalHalfUnits)
-        assertEquals(4, result.nextCountCostHalfUnits)
+        assertEquals(1, result.borrowedCountPrincipalHalfUnits)
+        assertEquals(2, result.nextCountCostHalfUnits)
+    }
+
+    /** 连续惩罚：次数借用总量不得越过 下一段额度 × 借用比例，之后不再扣次数。 */
+    @Test
+    fun repeatedPenaltiesNeverBorrowBeyondRatioCapForCounts() {
+        forceCurrentSegmentToNow()
+        val keys = captureLedgerKeys()
+        val segments = TimeRuleManager.getTimeSegments(context)
+        val curIdx = TimeRuleManager.getCurrentSegmentIndex(context)
+        val currentSegment = segments[curIdx]
+        val nextLimit = segments[(curIdx + 1) % segments.size].getEffectiveUsableCountLimitHalfUnits()
+        prefs.edit()
+            .putInt(usageTimeKey(currentSegment), currentSegment.limitMins * 60)
+            .putInt(keys.currentUsageKey!!, currentSegment.getEffectiveUsableCountLimitHalfUnits())
+            .putInt(keys.nextUsageKey!!, 0)
+            .putInt(keys.currentBorrowKey!!, 0)
+            .commit()
+
+        repeat(6) { i ->
+            CreditManager.consumePenaltySeconds(context, penaltySec = 30, transactionId = "TX-CAP-$i", isCooling = i % 2 == 0)
+        }
+
+        val repaymentCap = Math.floor(nextLimit * TimeRuleManager.getBorrowPercentage(context) / 100.0 + 0.5).toInt()
+        val nextUsed = prefs.getInt(keys.nextUsageKey!!, 0)
+        assertTrue("next count used=$nextUsed must stay <= cap=$repaymentCap", nextUsed <= repaymentCap)
+        assertTrue("reserve must remain: ${nextLimit - nextUsed} >= ${nextLimit - repaymentCap}", nextLimit - nextUsed >= nextLimit - repaymentCap)
+        assertEquals(nextUsed, prefs.getInt(keys.currentBorrowKey!!, 0) * 2)
+    }
+
+    /** 可借额度只剩一点时只扣一点（时间维度）；没了就不再扣，下一段保留量不被侵占。 */
+    @Test
+    fun timeBorrowIsPartialWhenOnlyALittleHeadroomAndZeroWhenNone() {
+        forceCurrentSegmentToNow()
+        val keys = captureLedgerKeys()
+        val segments = TimeRuleManager.getTimeSegments(context)
+        val curIdx = TimeRuleManager.getCurrentSegmentIndex(context)
+        val currentSegment = segments[curIdx]
+        val nextSegment = segments[(curIdx + 1) % segments.size]
+        val repaymentCapSec = Math.floor(nextSegment.limitMins * 60 * TimeRuleManager.getBorrowPercentage(context) / 100.0 + 0.5).toInt()
+        val borrowKeyName = "borrow_time_${segmentBusinessDate(currentSegment)}_${segmentKey(currentSegment)}"
+        val nextUsageTimeKey = usageTimeKey(nextSegment)
+        // 已借到只剩 20s 原始可借（偿还 40s）。
+        val alreadyBorrowedRaw = (repaymentCapSec - 40) / 2
+        prefs.edit()
+            .putInt(usageTimeKey(currentSegment), currentSegment.limitMins * 60)
+            .putInt(keys.currentUsageKey!!, 0)
+            .putInt(nextUsageTimeKey, alreadyBorrowedRaw * 2)
+            .putInt(borrowKeyName, alreadyBorrowedRaw)
+            .commit()
+
+        val first = CreditManager.consumePenaltySeconds(context, penaltySec = 30, transactionId = "TX-PART-1")
+        val afterFirstNextUsed = prefs.getInt(nextUsageTimeKey, 0)
+        assertTrue("first penalty borrows at most the remaining headroom", first.borrowedTimeSec in 0..40)
+        assertTrue("next used must stay <= cap: $afterFirstNextUsed <= $repaymentCapSec", afterFirstNextUsed <= repaymentCapSec)
+
+        val second = CreditManager.consumePenaltySeconds(context, penaltySec = 30, transactionId = "TX-PART-2")
+        val afterSecondNextUsed = prefs.getInt(nextUsageTimeKey, 0)
+        assertEquals("no headroom left: nothing more may be charged to next", afterFirstNextUsed, afterSecondNextUsed)
+        assertEquals(0, second.borrowedTimeSec)
+        assertEquals(0, second.timeDeductSec)
     }
 
     /**
@@ -431,7 +469,7 @@ class ConsumePenaltySecondsEpisodeTest {
             .putInt(currentUsageTimeKey, 60 * 60)
             .putInt(keys.currentUsageKey!!, segments[curIdx].getEffectiveUsableCountLimitHalfUnits())
             .putInt(keys.nextUsageKey!!, 0)
-            .putInt(keys.nextBorrowKey!!, 0)
+            .putInt(keys.currentBorrowKey!!, 0)
             .commit()
 
         CreditManager.consumePenaltySeconds(
@@ -441,7 +479,7 @@ class ConsumePenaltySecondsEpisodeTest {
 
         assertEquals(4, prefs.getInt(keys.currentUsageKey!!, 0))
         assertEquals(2, prefs.getInt(keys.nextUsageKey!!, 0))
-        assertEquals(1, prefs.getInt(keys.nextBorrowKey!!, 0))
+        assertEquals(1, prefs.getInt(keys.currentBorrowKey!!, 0))
     }
 
     @Test
@@ -463,7 +501,7 @@ class ConsumePenaltySecondsEpisodeTest {
             .putInt(keys.currentUsageKey!!, 0)
             .putInt(keys.currentBorrowKey!!, 0)
             .putInt(keys.nextUsageKey!!, 0)
-            .putInt(keys.nextBorrowKey!!, 0)
+            .putInt(keys.currentBorrowKey!!, 0)
             .commit()
 
         val result = CreditManager.consumePenaltySeconds(
@@ -514,7 +552,7 @@ class ConsumePenaltySecondsEpisodeTest {
         )
         assertTrue(
             "consumePenaltySeconds must abort when any count-ledger key is null (DA-09 fail-fast)",
-            src.contains("currentCountUsageKey == null || nextCountUsageKey == null || nextCountBorrowKey == null")
+            src.contains("currentCountUsageKey == null || nextCountUsageKey == null || currentCountBorrowKey == null")
         )
         // The pre-compute block must run BEFORE the `val edit = prefs.edit()`
         // line in consumePenaltySeconds. We anchor on the unique string
@@ -550,7 +588,7 @@ class ConsumePenaltySecondsEpisodeTest {
             .putInt(keys.currentUsageKey!!, 0)
             .putInt(keys.currentBorrowKey!!, 0)
             .putInt(keys.nextUsageKey!!, 0)
-            .putInt(keys.nextBorrowKey!!, 0)
+            .putInt(keys.currentBorrowKey!!, 0)
             .commit()
 
         // First call: branch 1 (fully covered).

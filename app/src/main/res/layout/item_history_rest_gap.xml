@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tv_history_rest_gap"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="4dp"
+    android:background="@drawable/bg_zz_card"
+    android:padding="10dp"
+    android:textColor="?attr/zzDanger"
+    android:textSize="12sp"
+    android:textStyle="bold" />

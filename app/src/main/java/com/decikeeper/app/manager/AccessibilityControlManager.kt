@@ -26,6 +26,8 @@ object AccessibilityControlManager {
     private const val KEY_DESIRED_ENABLED = "accessibility_desired_enabled"
     private const val KEY_PENDING_DISABLE = "accessibility_pending_disable"
 
+    private const val KEY_NEXT_DAY_AWAITING_PROMPT = "next_day_awaiting_prompt"
+
     enum class State {
         ACTIVE,
         PENDING,
@@ -39,9 +41,8 @@ object AccessibilityControlManager {
         return false
     }
 
-    private fun getDesiredEnabled(context: Context): Boolean {
+    fun getDesiredEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            // 防关权限保护必须由设置页合并开关显式开启；仅开启系统无障碍不能自动恢复。
             .getBoolean(KEY_DESIRED_ENABLED, false)
     }
 
@@ -50,6 +51,28 @@ object AccessibilityControlManager {
             .edit()
             .putBoolean(KEY_DESIRED_ENABLED, enabled)
             .apply()
+    }
+
+    fun markNextDayDisableBecameEffective(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, true)
+            .apply()
+    }
+
+    fun consumeNextDayDisableBecameEffective(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val awaiting = prefs.getBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, false)
+        if (awaiting) {
+            prefs.edit().putBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, false).apply()
+        }
+        return awaiting
+    }
+
+    fun isAwaitingSelfDisable(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, false) ||
+            A11ySelfDisableAuthorization.isAuthorized()
     }
 
     fun getState(context: Context): State {
@@ -66,6 +89,11 @@ object AccessibilityControlManager {
 
         setDesiredEnabled(context, false)
         ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+        markNextDayDisableBecameEffective(context)
+        A11ySelfDisableAuthorization.authorize(
+            SelfDisableReason.USER_CONFIRMED,
+            60_000L
+        )
         return State.DISABLED
     }
 
@@ -73,12 +101,21 @@ object AccessibilityControlManager {
         if (enabled) {
             setDesiredEnabled(context, true)
             ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_NEXT_DAY_AWAITING_PROMPT, false)
+                .apply()
             return
         }
 
-        if (TimeRuleManager.isInAdaptationPeriod(context)) {
+        val baselineActive = TimeRuleManager.getBaselineA11yServiceState(context)
+        if (TimeRuleManager.isInAdaptationPeriod(context) || !baselineActive) {
             setDesiredEnabled(context, false)
             ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+            A11ySelfDisableAuthorization.authorize(
+                SelfDisableReason.USER_CONFIRMED,
+                15_000L
+            )
             return
         }
 
@@ -90,9 +127,12 @@ object AccessibilityControlManager {
         )
     }
 
-    internal fun disableImmediatelyForAccessibilityUnavailable(context: Context) {
-        setDesiredEnabled(context, false)
-        ConfigPendingManager.clearPending(context, KEY_PENDING_DISABLE)
+    @Deprecated("No longer used: unbind/disconnect preserves desiredEnabled")
+    internal fun disableImmediatelyForAccessibilityUnavailable(
+        context: Context,
+        caller: String = "AccessibilityDependencyManager"
+    ) {
+        // No-op to preserve desiredEnabled across transient accessibility disconnects
     }
 
     fun getDisableEffectiveTime(context: Context): Long {

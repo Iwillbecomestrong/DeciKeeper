@@ -158,7 +158,12 @@ class CoreService : AccessibilityService() {
         // 🚀 [NEW] 静态运行标志，用于精准状态同步
         @Volatile var isServiceActive = false
         @Volatile var lastAccessibilitySignalTime = 0L
+        @Volatile var lastAccessibilityDispatchedTime = 0L
         @Volatile var lastVisiblePackagesFromWindows: Set<String> = emptySet()
+
+        fun hasRecentAccessibilityDispatchedSignal(nowMillis: Long, gracePeriodMs: Long): Boolean {
+            return nowMillis - lastAccessibilityDispatchedTime < gracePeriodMs
+        }
 
         // [WP-1] Accessibility generation — monotonic, non-persistent process-local counter.
         // Bumped ONLY in onServiceConnected(). Used by LockWindowManager to detect stale
@@ -252,7 +257,9 @@ class CoreService : AccessibilityService() {
                 android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ) ?: return "UNAVAILABLE"
             val ourName = ctx.packageName + "/" + CoreService::class.java.name
-            return if (!enabled.contains(ourName)) {
+            val listed = enabled.contains(ourName) ||
+                PermissionManager.isComponentListed(enabled, ctx.packageName, CoreService::class.java.name)
+            return if (!listed) {
                 "UNAVAILABLE"
             } else if (diagnosticsServiceConnected) {
                 "AVAILABLE"
@@ -489,10 +496,23 @@ class CoreService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        val uptime = android.os.SystemClock.uptimeMillis()
+        val lastSeqId = com.decikeeper.app.manager.ProtectionDiagnostics.lastUnbindSequenceId
+        val lastUnbindUptime = com.decikeeper.app.manager.ProtectionDiagnostics.lastUnbindUptimeMs
+        val gapMs = if (lastUnbindUptime > 0L) uptime - lastUnbindUptime else -1L
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+
+        if (lastSeqId != null) {
+            Log.w("CoreService", "[A11Y_RECONNECT] ${runIdTag}unbindSequenceId=$lastSeqId gapMs=$gapMs uptime=$uptime")
+        } else {
+            Log.i("CoreService", "[A11Y_RECONNECT] ${runIdTag}unbindSequenceId=NONE uptime=$uptime")
+        }
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "CoreService.onServiceConnected")
+
         Log.d("AntiUninstall", "CoreService (Anti-Uninstall) Connected")
         // [2026-06-25] 诊断日志：lifecycle 事件，便于排查无障碍 flapping 问题
         // 详见 Issue_AntiUninstallBootGap 尝试 7
-        Log.i("DeciKeeper", "[Lifecycle] onServiceConnected uptimeMs=${android.os.SystemClock.uptimeMillis()}")
+        Log.i("DeciKeeper", "[Lifecycle] onServiceConnected uptimeMs=$uptime")
         // [WP-1] Bump accessibility generation BEFORE any state change so any subsequent
         // MonitorService-snapshot request sees the new generation.
         val newGen = advanceAccessibilityGenerationForServiceConnected()
@@ -500,6 +520,21 @@ class CoreService : AccessibilityService() {
         isServiceActive = true
         lastAccessibilitySignalTime = System.currentTimeMillis()
         instance = this // 🚀 Capture instance
+
+        // 开机提速通道：无障碍由系统 Binder 直连，通常最先就绪。
+        // 放在 try 之前，避免后面的 CE 初始化异常跳过它。
+        // 只在进程出生于 Direct Boot（armed）时补挂，避免用户首次开启无障碍时误弹初始化遮罩。
+        try {
+            if (com.decikeeper.app.util.DirectBootState.isUserUnlocked(this)) {
+                if (StartupProtectionManager.isUnlockTriggerArmed()) {
+                    StartupProtectionManager.triggerBootFastLock(this, "a11y_connected")
+                }
+            } else {
+                com.decikeeper.app.manager.BootUnlockTrigger.armIfLocked(this)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "onServiceConnected: boot FastLock channel failed", e)
+        }
 
         emitServiceStateIfChanged("OK", "ON_SERVICE_CONNECTED")
         emitProtectionStateChangeIfChanged("accessibility", "INITIALIZING", "OK", "ON_SERVICE_CONNECTED")
@@ -520,6 +555,10 @@ class CoreService : AccessibilityService() {
             mLastLocale = resources.configuration.locales[0].toString() // Store initial locale
             ProtectionManager.init(this)
             AccessibilityProtection.markServiceConnected()
+            // 🚀 [A11y Fronting] 无障碍服务连接即刻激活无障碍防关保护（若处于 PENDING 待关闭则保留待关闭）
+            if (com.decikeeper.app.manager.AccessibilityControlManager.getState(this) == com.decikeeper.app.manager.AccessibilityControlManager.State.DISABLED) {
+                com.decikeeper.app.manager.AccessibilityControlManager.setEnabled(this, true)
+            }
             if (AccessibilityProtection.shouldReturnToAppAfterConnect()) {
                 mHandler.postDelayed({
                     try {
@@ -536,6 +575,7 @@ class CoreService : AccessibilityService() {
             }
             LockWindowManager.setCoreService(this)
             LockWindowManager.init(this)
+            LockWindowManager.reconcileTransientOverlaysForNewGeneration(newGen)
 
             // A11y reconnect invalidates TYPE_ACCESSIBILITY_OVERLAY ownership. If a
             // blacklist lock was already visible, resubmit the same lock under the new
@@ -578,15 +618,17 @@ class CoreService : AccessibilityService() {
             // 防止在用户刚解锁、CE 尚未可用时就关掉覆盖层留下真空期。
             mHandler.postDelayed(object : Runnable {
                 override fun run() {
+                    // Direct Boot 红线：必须先确认 CE 就绪，再读防卸载状态；
+                    // 否则锁屏期 shouldKeepInitialization=false 会误关 FastLock 且不再重试。
+                    if (!isCeStorageAvailable()) {
+                        Log.d("AntiUninstall", "CoreService: CE storage not ready, deferring FastLock handoff")
+                        mHandler.postDelayed(this, 2000L)
+                        return
+                    }
                     if (!StartupProtectionManager.shouldKeepInitialization(this@CoreService)) {
                         StartupProtectionManager.stopFastLock(this@CoreService)
                         LockWindowManager.dismissSystemInitOverlay("initialization_disabled")
                         Log.i("AntiUninstall", "CoreService: initialization no longer required, stopped FastLock")
-                        return
-                    }
-                    if (!isCeStorageAvailable()) {
-                        Log.d("AntiUninstall", "CoreService: CE storage not ready, deferring FastLock handoff")
-                        mHandler.postDelayed(this, 2000L)
                         return
                     }
                     try {
@@ -692,49 +734,6 @@ class CoreService : AccessibilityService() {
             }
         }.start()
         
-        // 🚀 [Phase 3] 延迟预热全局动作（需要服务完全就绪）
-        // ⚠️ 为避免授权后误触拉下通知栏，此阶段不再触发任何全局动作
-        mHandler.postDelayed({
-            try {
-                Log.d(TAG, "[Warmup] Phase 3: Accessibility node tree traversal...")
-                val root = rootInActiveWindow
-                if (root != null) {
-                    warmupAccessibilityNodeTree(root, 0)
-                    // root.recycle() — handled by warmupAccessibilityNodeTree's finally block
-                }
-                Log.d(TAG, "[Warmup] Phase 3 completed!")
-            } catch (e: Exception) {
-                Log.e(TAG, "Node traversal warmup error (non-fatal)", e)
-            }
-        }, 3000L)
-    }
-
-    /** 轻量遍历 AccessibilityNodeInfo 树，触发 JIT 编译节点访问方法（getChild/text/className 等）。 */
-    private fun warmupAccessibilityNodeTree(node: android.view.accessibility.AccessibilityNodeInfo, depth: Int) {
-        if (depth > 6) {
-            node.recycle()
-            return
-        }
-        try {
-            node.text
-            node.className
-            node.packageName
-            node.contentDescription
-            node.viewIdResourceName
-            node.isClickable
-            node.isEnabled
-            node.isFocusable
-            val count = node.childCount
-            for (i in 0 until minOf(count, 4)) {
-                val child = node.getChild(i) ?: continue
-                warmupAccessibilityNodeTree(child, depth + 1)
-                // child.recycle() — handled by recursive call's finally block
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Node warmup error (non-fatal)", e)
-        } finally {
-            node.recycle()
-        }
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -768,6 +767,12 @@ class CoreService : AccessibilityService() {
                 "navigation=${newConfig.navigation} " +
                 "touchscreen=${newConfig.touchscreen}"
         )
+
+        // Direct Boot 红线：未解锁时不得读 CE（防卸载状态等），mLastLocale 不更新，解锁后 locale 再变化仍会重新判定。
+        if (!com.decikeeper.app.util.DirectBootState.isUserUnlocked(this)) {
+            Log.i(TAG, "onConfigurationChanged: user locked (Direct Boot), skip CE-dependent protection")
+            return
+        }
 
         // 早期返回：locale 未变化时，不触发 FastLock，但记录详细的触发现场。
         // 原代码仅输出 "Orientation/Resize detected" 但在只有 locale 被追踪的前提下
@@ -881,8 +886,13 @@ class CoreService : AccessibilityService() {
         val srv = CoreService.instance
         if (pkgName != null && srv != null && CreditManager.isInputMethod(srv, pkgName)) return
 
-        // During lock-screen numeric input, pause accessibility heavy-path scanning to keep typing smooth.
-        if (LockWindowManager.isInputPanelOpen) return
+        // During lock-screen numeric input, pause non-critical event dispatching to keep typing smooth,
+        // but NEVER swallow events destined for ProtectionManager on critical system pages.
+        if (LockWindowManager.isInputPanelOpen &&
+            !com.decikeeper.app.protection.CoreServiceProtectionDispatchPolicy.shouldDispatchProtectionEvent(true, pkgName)
+        ) {
+            return
+        }
 
         // [Diagnostics-only] record the latest eligible (non-self, non-IME) event for ForegroundDiagnosticCycle.
         recordDiagnosticsEligibleEvent(pkgName, event.eventType.toString(), System.currentTimeMillis())
@@ -898,25 +908,18 @@ class CoreService : AccessibilityService() {
         if (LockWindowManager.isAlarmOverlayShowing && AlarmPowerOffProtectionManager.isEnabled(this)) {
             val className = event.className?.toString()
             val shutdownDialog = shouldHandleShutdownDialogEvent(event.eventType, pkgName, className)
-            val voiceAssistant = com.decikeeper.app.manager
-                .shouldDismissVoiceAssistantOverAlarm(event.eventType, pkgName)
-            if (shutdownDialog || voiceAssistant) {
-                val dialogKind = if (shutdownDialog) "shutdown" else "voice_assistant"
+            if (shutdownDialog) {
                 LogExporter.logEvent(
                     "SystemDialog",
-                    "[ALARM_BLOCK] kind=$dialogKind, type=${event.eventType}, pkg=$pkgName, class=$className"
+                    "[ALARM_BLOCK] kind=shutdown, type=${event.eventType}, pkg=$pkgName, class=$className"
                 )
-                // 内嵌模式下先切换到窗口模式，确保覆盖层能升至系统对话框之上
+                // 只处理真正的关机/重启菜单。vivo AI Copilot 等语音助手允许正常显示，
+                // 避免无关窗口事件触发覆盖层跨 WindowManager 重挂载并打断 CameraX 预览。
                 LockWindowManager.ensureAlarmOverlayInWindowMode()
-                LockWindowManager.reassertAlarmOverlayOverSystemDialog(
-                    if (shutdownDialog) "shutdown_dialog" else "voice_assistant"
-                )
-                // 锁屏 + 挑战覆盖层同时激活时，一并降级锁屏让系统对话框能被正确处理，
-                // 否则 isLocked 路径因本块提前 return 永远不会执行 onSystemDialogChanged(true)。
+                LockWindowManager.reassertAlarmOverlayOverSystemDialog("shutdown_dialog")
                 if (LockWindowManager.isLocked) {
                     LockWindowManager.onSystemDialogChanged(true)
                 }
-                // 语音助手会连续吐出大量事件，必须限流，否则 BACK 会被打成连发
                 val nowBlock = System.currentTimeMillis()
                 if (nowBlock - mLastSystemDialogBackAt >= SYSTEM_DIALOG_BACK_MIN_INTERVAL_MS) {
                     mLastSystemDialogBackAt = nowBlock
@@ -925,9 +928,7 @@ class CoreService : AccessibilityService() {
                     } catch (_: Exception) {
                     }
                     mHandler.postDelayed({
-                        LockWindowManager.reassertAlarmOverlayOverSystemDialog(
-                            if (shutdownDialog) "shutdown_dialog_after_back" else "voice_assistant_after_back"
-                        )
+                        LockWindowManager.reassertAlarmOverlayOverSystemDialog("shutdown_dialog_after_back")
                     }, 120L)
                 }
                 return
@@ -972,6 +973,8 @@ class CoreService : AccessibilityService() {
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
 
             val packageName = event.packageName?.toString().orEmpty()
+            // Filter before reading event text/source or requesting a window tree.
+            if (!ProtectionManager.shouldInspectContent(this, packageName)) return
             val className = event.className?.toString().orEmpty()
             val eventText = event.text?.toString().orEmpty()
 
@@ -1033,6 +1036,7 @@ class CoreService : AccessibilityService() {
             try {
                 // 2. Anti-Uninstall Protection (Delegated)
                 ProtectionManager.onAccessibilityEvent(this, event, root)
+                lastAccessibilityDispatchedTime = System.currentTimeMillis()
             } catch (e: Exception) {
                 Log.e(TAG, "!!! CoreService: ProtectionManager Crash !!!", e)
             } finally {
@@ -1082,17 +1086,12 @@ class CoreService : AccessibilityService() {
         
         val packageName = event.packageName?.toString() ?: return
         val eventClassName = event.className?.toString().orEmpty()
-        val eventText = buildString {
-            append(event.text?.joinToString(" ").orEmpty())
-            append(' ')
-            append(event.contentDescription?.toString().orEmpty())
-        }
-
         PwaBypassManager.observeAccessibilitySignal(
             context = context,
             packageName = packageName,
             className = eventClassName,
-            eventText = eventText
+            // Ordinary app text is outside the protection inspection boundary.
+            eventText = ""
         )
 
         if (PwaBypassManager.shouldBypassTopPackage(context, packageName)) {
@@ -1437,19 +1436,33 @@ class CoreService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        val uptime = android.os.SystemClock.uptimeMillis()
+        val now = System.currentTimeMillis()
+        val serviceActiveBefore = isServiceActive
+        val recentSignalAgeMs = if (lastAccessibilitySignalTime > 0L) now - lastAccessibilitySignalTime else -1L
+        val seqId = com.decikeeper.app.manager.ProtectionDiagnostics.nextUnbindSequenceId()
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        val lostCounter = com.decikeeper.app.manager.PermissionManager.getA11yLostConsecutiveCount()
+        val systemAccessibilityEnabled = com.decikeeper.app.manager.PermissionManager.isAccessibilityEnabled(this)
+
+        Log.w(
+            "CoreService",
+            "[A11Y_UNBIND] ${runIdTag}unbindSequenceId=$seqId uptime=$uptime systemEnabledImmediate=$systemAccessibilityEnabled serviceActiveBefore=$serviceActiveBefore recentSignalAgeMs=$recentSignalAgeMs lostCounter=$lostCounter"
+        )
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "CoreService.onUnbind($seqId)")
+
         Log.e(TAG, "CRITICAL: Accessibility Service Unbound/Terminated by System.")
         Log.e("DeciKeeper", "CRITICAL: CoreService Unbound (onUnbind). Check Settings.")
         // [2026-06-25] 诊断日志：lifecycle 事件，记录 unbind 前 isServiceActive 状态
         // 详见 Issue_AntiUninstallBootGap 尝试 7
-        Log.w("DeciKeeper", "[Lifecycle] onUnbind isServiceActive was=$isServiceActive uptimeMs=${android.os.SystemClock.uptimeMillis()}")
+        Log.w("DeciKeeper", "[Lifecycle] onUnbind isServiceActive was=$isServiceActive uptimeMs=$uptime")
         isServiceActive = false
         lastAccessibilitySignalTime = 0L
         instance = null
         stateInitialized = false
         emitServiceStateIfChanged("STOPPED", "ON_UNBIND")
         emitProtectionStateChangeIfChanged("accessibility", "OK", "REVOKED", "ON_UNBIND")
-        val systemAccessibilityEnabled = com.decikeeper.app.manager.PermissionManager.isAccessibilityEnabled(this)
-        AccessibilityDependencyManager.reconcile(this, systemAccessibilityEnabled)
+        AccessibilityDependencyManager.reconcile(this, systemAccessibilityEnabled, caller = "CoreService.onUnbind")
         // 无障碍服务已解绑时，初始化覆盖层没有继续存在的意义，立即释放，避免卡到超时。
         StartupProtectionManager.stopFastLock(this)
         LockWindowManager.dismissSystemInitOverlay("accessibility_unbound")
@@ -1470,11 +1483,20 @@ class CoreService : AccessibilityService() {
      */
     override fun onRebind(intent: Intent?) {
         super.onRebind(intent)
+        val uptime = android.os.SystemClock.uptimeMillis()
+        val lastSeqId = com.decikeeper.app.manager.ProtectionDiagnostics.lastUnbindSequenceId
+        val lastUnbindUptime = com.decikeeper.app.manager.ProtectionDiagnostics.lastUnbindUptimeMs
+        val gapMs = if (lastUnbindUptime > 0L) uptime - lastUnbindUptime else -1L
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+
+        Log.w("CoreService", "[A11Y_REBIND] ${runIdTag}unbindSequenceId=${lastSeqId ?: "NONE"} gapMs=$gapMs uptime=$uptime")
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "CoreService.onRebind")
+
         Log.i("DeciKeeper", "CoreService onRebind: Re-initializing after re-enable.")
         // [2026-06-25] 诊断日志：lifecycle 事件，标记服务重新绑定
         // 每次 onRebind 都会刷新 AccessibilityProtection.lastServiceConnectedTime，可能掩盖 flapping 问题
         // 详见 Issue_AntiUninstallBootGap 尝试 7
-        Log.i("DeciKeeper", "[Lifecycle] onRebind uptimeMs=${android.os.SystemClock.uptimeMillis()}")
+        Log.i("DeciKeeper", "[Lifecycle] onRebind uptimeMs=$uptime")
         // Perform full initialization just like onServiceConnected
         onServiceConnected()
     }
@@ -1486,6 +1508,11 @@ class CoreService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        val uptime = android.os.SystemClock.uptimeMillis()
+        val runIdTag = com.decikeeper.app.manager.ProtectionDiagnostics.currentTestRunId?.let { "runId=$it " } ?: ""
+        Log.w("CoreService", "[A11Y_DESTROY] ${runIdTag}uptime=$uptime")
+        com.decikeeper.app.manager.ProtectionDiagnostics.dumpSnapshot(this, trigger = "CoreService.onDestroy")
+
         Log.e(TAG, "CoreService Destroyed!")
         Log.e("DeciKeeper", "CRITICAL: CoreService Destroyed (onDestroy).")
         super.onDestroy()

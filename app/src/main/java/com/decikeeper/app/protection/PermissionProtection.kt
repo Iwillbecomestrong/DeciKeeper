@@ -38,8 +38,29 @@ class PermissionProtection(private val context: Context) {
         const val WARNING_DIALOG_ENABLED = false
         private var lastDetectionTime = 0L
 
+        // 同一次拦截后的静默窗口。拦截动作（BACK+HOME）本身约需百毫秒，
+        // 过长会让用户在窗口内重新进入页面时漏检。
+        internal const val DETECTION_DEBOUNCE_MS = 150L
+
+        // vivo「管理所有应用」的全局列表页（开关直接放在每一行里）。防关权限保护开启时，
+        // 页面一出现就退回，不等我们的那一行渲染出来——否则手快的用户能在识别前直接拨开关。
+        // 其他应用的应用详情页（SoftPermissionDetailActivity）不在此列，仍按「识别到决定守护才拦」。
+        internal val VIVO_GLOBAL_LIST_PAGE_CLASS_KEYWORDS = listOf(
+            "BgStartUpManager",      // 自启动 / 关联启动（后台启动管理）
+            "FloatWindowManager"     // 悬浮窗
+        )
+
+        internal fun isVivoGlobalListPage(pkg: String, className: String): Boolean {
+            if (!pkg.startsWith("com.vivo.permissionmanager")) return false
+            return VIVO_GLOBAL_LIST_PAGE_CLASS_KEYWORDS.any { className.contains(it, ignoreCase = true) }
+        }
+
+        // 当前应用的展示名：用系统原生的 findAccessibilityNodeInfosByText 做第一道快速命中，
+        // 避免在全局列表（滚动加载、层级很深）里手写递归遍历。历史改名的旧名仍走原有递归兜底。
+        internal val FAST_SEARCH_APP_NAMES = listOf("决定守护", "DeciKeeper")
+
         // Settings & permission manager packages — only intercept under these
-        private val SETTINGS_PACKAGES = setOf(
+        internal val SETTINGS_PACKAGES = setOf(
             "com.android.settings",
             "com.android.permissioncontroller",
             "com.google.android.permissioncontroller",
@@ -105,11 +126,11 @@ class PermissionProtection(private val context: Context) {
     }
 
     fun check(service: AccessibilityService, event: AccessibilityEvent, root: AccessibilityNodeInfo) {
-        // 🚫 [Gate] 仅防关权限保护 ACTIVE 或 PENDING 时才拦截
+        // 🚫 [Gate] 仅防卸载与防关权限保护 ACTIVE 或 PENDING 时才拦截
         // PENDING 表示"已申请关闭，次日生效"，生效前仍需保护
-        val permState = com.decikeeper.app.manager.AccessibilityControlManager.getState(context)
-        if (permState != com.decikeeper.app.manager.AccessibilityControlManager.State.ACTIVE &&
-            permState != com.decikeeper.app.manager.AccessibilityControlManager.State.PENDING) {
+        val permState = com.decikeeper.app.manager.AntiUninstallManager.getProtectionState(context)
+        if (permState != com.decikeeper.app.manager.AntiUninstallManager.State.ACTIVE &&
+            permState != com.decikeeper.app.manager.AntiUninstallManager.State.PENDING) {
             return
         }
 
@@ -121,6 +142,20 @@ class PermissionProtection(private val context: Context) {
 
         val eventText = event.text?.toString() ?: ""
         val eventClassName = event.className?.toString() ?: ""
+        val checkStartedAt = System.currentTimeMillis()
+
+        // 🚀 [Global List Page] 页面一出现就拦（仅窗口状态变化事件，零扫描）。
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            isVivoGlobalListPage(pkg, eventClassName)
+        ) {
+            Log.w(TAG, "!!! [GlobalListPage] block immediately: class=$eventClassName")
+            Log.i(TAG, "[Latency] globalListPage blocked immediately class=$eventClassName")
+            handleDetection(service)
+            return
+        }
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            lastWindowStateChangedAt = checkStartedAt
+        }
 
         // 🚀 [Class-Based Detection] Check FIRST — known permission page classes like
         // FloatWindowManagerActivity, PurviewActivity (vivo), SoftPermissionDetailActivity, AutoStartManagementActivity always manage permissions
@@ -160,9 +195,9 @@ class PermissionProtection(private val context: Context) {
             allText.append(" ").append(eventClassName)
         } else if (isPermissionPageClass) {
             // 🚀 [Targeted Search] Known permission page — use targeted deep search for app identity
-            // Much faster than collectAllText: stops immediately on first match
+            // 先用系统原生按文本查找（一次/每个名字），命中即停；未命中再走递归兜底（覆盖旧名称）。
             // Uses wider limits (depth=20, children=50) to reach RecyclerView items
-            hasAppName = hasProtectedAppName(root)
+            hasAppName = hasProtectedAppNameFast(root) || hasProtectedAppName(root)
             if (hasAppName) {
                 Log.v(TAG, "[TargetedScan] App identity found via targeted search in permission page class=$eventClassName")
                 // Only collect full text after confirming app presence
@@ -191,13 +226,19 @@ class PermissionProtection(private val context: Context) {
                 return
             }
             Log.w(TAG, "!!! Permission Revocation Attempt Detected: $content !!!")
+            Log.i(
+                TAG,
+                "[Latency] detect scanMs=${System.currentTimeMillis() - checkStartedAt} " +
+                    "sincePageOpenMs=${if (lastWindowStateChangedAt > 0L) System.currentTimeMillis() - lastWindowStateChangedAt else -1L} " +
+                    "class=$eventClassName type=${event.eventType}"
+            )
             handleDetection(service)
         }
     }
 
     private fun handleDetection(service: AccessibilityService) {
         val now = System.currentTimeMillis()
-        if (now - lastDetectionTime < 500L) return
+        if (now - lastDetectionTime < DETECTION_DEBOUNCE_MS) return
         lastDetectionTime = now
 
         service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
@@ -210,6 +251,23 @@ class PermissionProtection(private val context: Context) {
         if (!WARNING_DIALOG_ENABLED) {
             com.decikeeper.app.data.LogExporter.logEvent(TAG, "[Dialog] Suppressed: permission warning popup disabled")
         }
+    }
+
+    private var lastWindowStateChangedAt = 0L
+
+    /** 系统原生按文本查找：命中即返回，不做手写递归。 */
+    private fun hasProtectedAppNameFast(root: AccessibilityNodeInfo): Boolean {
+        for (name in FAST_SEARCH_APP_NAMES) {
+            val hits = try {
+                root.findAccessibilityNodeInfosByText(name)
+            } catch (_: Exception) {
+                null
+            }
+            val found = !hits.isNullOrEmpty()
+            hits?.forEach { try { it.recycle() } catch (_: Exception) {} }
+            if (found) return true
+        }
+        return false
     }
 
     /**
