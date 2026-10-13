@@ -26,14 +26,18 @@ function Find-SdkTool {
     param([string]$Name, [string]$SdkRoot, [string]$BuildTools)
     $command = Get-Command $Name -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
+    # Windows 带 .exe/.bat 后缀；Linux/macOS 的 SDK 工具没有后缀。
     $candidates = @(
         (Join-Path $BuildTools "$Name.exe"),
         (Join-Path $BuildTools "$Name.bat"),
+        (Join-Path $BuildTools $Name),
         (Join-Path $SdkRoot "cmdline-tools/latest/bin/$Name.bat"),
-        (Join-Path $SdkRoot "cmdline-tools/latest/bin/$Name.exe")
+        (Join-Path $SdkRoot "cmdline-tools/latest/bin/$Name.exe"),
+        (Join-Path $SdkRoot "cmdline-tools/latest/bin/$Name")
     )
+    # 目录同名也会命中 Test-Path，只接受文件。
     foreach ($candidate in $candidates) {
-        if (Test-Path -LiteralPath $candidate) { return (Resolve-Path -LiteralPath $candidate).Path }
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Resolve-Path -LiteralPath $candidate).Path }
     }
     throw "Android SDK tool not found: $Name"
 }
