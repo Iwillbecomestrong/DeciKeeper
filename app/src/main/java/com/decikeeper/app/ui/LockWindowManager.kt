@@ -103,6 +103,7 @@ import com.decikeeper.app.manager.shouldRouteEmergencyToTempAccess
 import com.decikeeper.app.manager.shouldShowStandaloneTemporaryAccess
 import com.decikeeper.app.service.CoreService
 import com.decikeeper.app.service.MonitorService
+import com.decikeeper.app.service.VisiblePackagesDiagnostic
 import com.decikeeper.app.util.ForegroundLockResultSettlementTracker
 import com.decikeeper.app.util.ForegroundNormalEventBridge
 import com.decikeeper.app.util.ForegroundTransition
@@ -1514,7 +1515,8 @@ object LockWindowManager {
         pendingReturnDesktopExit = PendingReturnDesktopExit(
             exitRequestId = nextLifecycleId("EXIT"),
             lockRequestId = lock.requestId,
-            fromPackage = fromPackage
+            fromPackage = fromPackage,
+            visibleAtRequest = VisiblePackagesDiagnostic.current()
         )
     }
 
@@ -1528,7 +1530,9 @@ object LockWindowManager {
             result = "FAILED",
             reason = "DESKTOP_NOT_CONFIRMED",
             evidence = evidence,
-            packageName = packageName
+            packageName = packageName,
+            visibleAtRequest = pending.visibleAtRequest,
+            visibleAtSettle = VisiblePackagesDiagnostic.current()
         )
     }
 
@@ -6774,7 +6778,9 @@ class LockLifecycleEventBridge(
         result: String,
         reason: String? = null,
         evidence: String,
-        packageName: String? = null
+        packageName: String? = null,
+        visibleAtRequest: String? = null,
+        visibleAtSettle: String? = null
     ) = event(
         "LOCK_EXIT",
         "exitRequestId" to exitRequestId,
@@ -6784,7 +6790,9 @@ class LockLifecycleEventBridge(
         "result" to result,
         *optional("reason", reason),
         *optional("packageName", packageName),
-        "evidence" to canonicalizeEvidence(evidence)
+        "evidence" to canonicalizeEvidence(evidence),
+        *optional("visibleAtRequest", visibleAtRequest),
+        *optional("visibleAtSettle", visibleAtSettle)
     )
 
     /** Launcher visibility is evidence for an explicit request, not an independent exit cause. */
@@ -7052,7 +7060,9 @@ internal data class ExpiryEvent(
 private data class PendingReturnDesktopExit(
     val exitRequestId: String,
     val lockRequestId: String,
-    val fromPackage: String
+    val fromPackage: String,
+    /** 点「回到桌面」那一刻的无障碍可见包集合诊断片段，只在失败时写进 LOCK_EXIT。 */
+    val visibleAtRequest: String
 )
 
 /** Shared production resolver used by rest and temporary-access terminal event adapters. */

@@ -275,6 +275,10 @@ class VisibleBlacklistPresenceTracker(
         return PresenceTrackerAction.NONE
     }
 
+    /** 诊断用：当前处于已关闭墓碑的包（只读快照，不改变任何状态）。 */
+    fun closedPackagesSnapshot(): Set<String> =
+        closedAtMap.keys.toList().filter { isPackageClosed(it) }.toSet()
+
     fun isPackageClosed(pkg: String): Boolean {
         val closedAt = closedAtMap[pkg] ?: 0L
         if (closedAt <= 0L) return false
