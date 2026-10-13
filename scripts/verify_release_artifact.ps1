@@ -157,3 +157,6 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -En
 Write-Output "Release artifact verified: $relativeApk"
 Write-Output "SHA-256: $hash"
 Write-Output "Manifest: $manifestPath"
+# 校验失败均已 throw；这里清掉 apksigner（无签名包）/git describe（无 tag）遗留的非零退出码，
+# 否则 CI 的 pwsh 步骤会因 $LASTEXITCODE 误判失败。
+exit 0
