@@ -160,6 +160,9 @@ class CoreService : AccessibilityService() {
         @Volatile var lastAccessibilitySignalTime = 0L
         @Volatile var lastAccessibilityDispatchedTime = 0L
         @Volatile var lastVisiblePackagesFromWindows: Set<String> = emptySet()
+        // 诊断：最近一次写入可见包集合的来源与时刻（两处写入口径不同，见 VisiblePackagesDiagnostic）
+        @Volatile var lastVisiblePackagesSource: String = VisiblePackagesDiagnostic.SRC_NONE
+        @Volatile var lastVisiblePackagesAtMs: Long = 0L
 
         fun hasRecentAccessibilityDispatchedSignal(nowMillis: Long, gracePeriodMs: Long): Boolean {
             return nowMillis - lastAccessibilityDispatchedTime < gracePeriodMs
@@ -348,6 +351,8 @@ class CoreService : AccessibilityService() {
                     }
 
                     lastVisiblePackagesFromWindows = currentVisiblePkgs
+                    lastVisiblePackagesSource = VisiblePackagesDiagnostic.SRC_ALL_WINDOWS_FUSED
+                    lastVisiblePackagesAtMs = nowMs
                     val status = if (unresolvedCount > 0) {
                         AccessibilityWindowSnapshotStatus.PARTIAL
                     } else {
@@ -1255,6 +1260,8 @@ class CoreService : AccessibilityService() {
                         }
                     }
                     lastVisiblePackagesFromWindows = currentVisiblePkgs
+                    lastVisiblePackagesSource = VisiblePackagesDiagnostic.SRC_ACTIVE_FOCUSED_SCAN
+                    lastVisiblePackagesAtMs = System.currentTimeMillis()
                 }
             }
         }

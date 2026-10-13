@@ -85,8 +85,29 @@ class LockLifecycleEventTest {
         )
         // Launcher visibility by itself is evidence, never a second exit cause.
         bridge.recordLauncherVisibilityEvidence("桌面")
+        bridge.recordReturnDesktopExit(
+            exitRequestId = "EXIT-003",
+            lockRequestId = "LOCK-003",
+            transition = ForegroundTransition("微信", "桌面"),
+            result = "FAILED",
+            reason = "DESKTOP_NOT_CONFIRMED",
+            evidence = "PENDING_TIMEOUT",
+            visibleAtRequest = "visible:com.tencent.mm(CLOSED);src:ACTIVE_FOCUSED_SCAN;ageMs:300;closed:com.tencent.mm",
+            visibleAtSettle = "visible:NONE;src:ALL_WINDOWS_FUSED;ageMs:20;closed:NONE"
+        )
 
-        assertEquals(listOf("LOCK_EXIT", "LOCK_EXIT"), captured.map { it.type })
+        assertEquals(listOf("LOCK_EXIT", "LOCK_EXIT", "LOCK_EXIT"), captured.map { it.type })
+        // 成功与未带诊断的失败不写诊断字段，旧调用方式输出不变
+        assertEquals(null, captured[0].fields["visibleAtRequest"])
+        assertEquals(null, captured[1].fields["visibleAtSettle"])
+        assertEquals(
+            "visible:com.tencent.mm(CLOSED);src:ACTIVE_FOCUSED_SCAN;ageMs:300;closed:com.tencent.mm",
+            captured[2].fields["visibleAtRequest"]
+        )
+        assertEquals(
+            "visible:NONE;src:ALL_WINDOWS_FUSED;ageMs:20;closed:NONE",
+            captured[2].fields["visibleAtSettle"]
+        )
         assertFields(
             captured[0],
             "exitRequestId" to "EXIT-001",

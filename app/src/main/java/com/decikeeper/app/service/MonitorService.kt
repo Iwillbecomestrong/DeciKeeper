@@ -1265,7 +1265,10 @@ class MonitorService : Service() {
         VisibleBlacklistPresenceTracker(
             desktopGraceDurationMs = 3000L,
             protectionContext = applicationContext
-        )
+        ).also { tracker ->
+            // 仅供日志诊断读取墓碑，不参与判定
+            VisiblePackagesDiagnostic.closedPackagesProvider = { tracker.closedPackagesSnapshot() }
+        }
     }
     // 🛡️ [High-Water Mark] 记录每个包最近处理过的事件时间戳与同毫秒事件签名集合，避免 30s UsageEvents 重复遍历导致旧事件重放
     private val mLastProcessedPresenceEventAtMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -3746,7 +3749,8 @@ class MonitorService : Service() {
             source.status.name + (source.unavailableReason?.takeIf { it.isNotBlank() }?.let { "($it)" } ?: "")
         return "[FG_SAMPLE] fg=${outcome.effectivePackageName ?: "NONE"} src=${mLastTopEvidence.name} " +
             "action=${outcome.businessAction.name} reason=${outcome.businessReason} allowance=${outcome.allowanceState} " +
-            "events=${status(cycle.usageEvents)} stats=${status(cycle.usageStats)} a11y=${status(cycle.accessibility)}"
+            "events=${status(cycle.usageEvents)} stats=${status(cycle.usageStats)} a11y=${status(cycle.accessibility)} " +
+            "a11yVisible=${VisiblePackagesDiagnostic.current()}"
     }
 
     /** A real existing pre-cycle package becomes a transition only when it actually changed. */
