@@ -53,12 +53,12 @@ object LegalDocumentRepository {
      */
     const val PENDING_LEGAL_REVIEW: String = "[待法务填写 vX.Y.Z]"
 
-    const val PRIVACY_POLICY_VERSION: String = "v0.4.0"
+    const val PRIVACY_POLICY_VERSION: String = "v0.4.1"
 
     /**
      * 客户端侧用户协议版本号。
      */
-    const val USER_AGREEMENT_VERSION: String = "v0.4.0"
+    const val USER_AGREEMENT_VERSION: String = "v0.4.1"
 
     // ── 首屏同意专用 ────────────────────────────────────────────────
     val USER_AGREEMENT: LegalDocument = LegalDocument(
