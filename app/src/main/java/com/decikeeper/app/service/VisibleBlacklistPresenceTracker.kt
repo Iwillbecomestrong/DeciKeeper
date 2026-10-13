@@ -55,6 +55,15 @@ class VisibleBlacklistPresenceTracker(
     val closedAtMap = mutableMapOf<String, Long>()
     val lastOpenedAtMap = mutableMapOf<String, Long>()
 
+    /**
+     * 每个包最近一次恢复到前台的 Activity 类名。
+     *
+     * 应用内部切换页面时，系统先恢复新页面（B RESUMED），随后才停止旧页面（A STOPPED）。
+     * 若不区分类名，这条 A STOPPED 会把仍在屏幕上的应用误标成「已关闭」：真机日志里微信
+     * 从聊天详情页回到主界面后，小窗还在，却被墓碑挡住长达约 30 秒不重新上锁。
+     */
+    private val lastResumedClassMap = mutableMapOf<String, String>()
+
     private val MOVE_TO_FG = 1
     private val MOVE_TO_BG = 2
     private val ACTIVITY_RESUMED = 15
@@ -235,9 +244,21 @@ class VisibleBlacklistPresenceTracker(
     /**
      * 收到 UsageEvent（MOVE_TO_FG / ACTIVITY_RESUMED / MOVE_TO_BG / ACTIVITY_PAUSED / ACTIVITY_STOPPED）
      */
-    fun onUsageEvent(pkg: String, eventType: Int, eventTimeMs: Long): PresenceTrackerAction {
+    fun onUsageEvent(
+        pkg: String,
+        eventType: Int,
+        eventTimeMs: Long,
+        className: String? = null
+    ): PresenceTrackerAction {
+        val cleanClass = className?.takeIf { it.isNotBlank() }
         when (eventType) {
             ACTIVITY_STOPPED -> {
+                // 同一应用内「新页面已恢复、旧页面才停止」不是关闭：应用仍在前台，不得写墓碑、不得清 Session。
+                // 只有停止的恰好是最近恢复的那个 Activity（或拿不到类名）时才按关闭处理。
+                val lastResumed = lastResumedClassMap[pkg]
+                if (cleanClass != null && lastResumed != null && lastResumed != cleanClass) {
+                    return PresenceTrackerAction.NONE
+                }
                 // ACTIVITY_STOPPED is authoritative lifecycle evidence that the Activity is no longer visible.
                 // A final Accessibility event commonly arrives immediately before STOPPED while a floating
                 // window is closing; that recent event must not suppress the close tombstone or revive Presence.
@@ -262,6 +283,9 @@ class VisibleBlacklistPresenceTracker(
                 }
             }
             MOVE_TO_FG, ACTIVITY_RESUMED -> {
+                if (cleanClass != null) {
+                    lastResumedClassMap[pkg] = cleanClass
+                }
                 val currentClosedAt = closedAtMap[pkg] ?: 0L
                 if (eventTimeMs > currentClosedAt) {
                     lastOpenedAtMap[pkg] = eventTimeMs

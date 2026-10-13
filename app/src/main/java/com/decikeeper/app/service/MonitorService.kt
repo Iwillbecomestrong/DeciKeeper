@@ -3228,7 +3228,7 @@ class MonitorService : Service() {
             if (shouldProcess) {
                 if (eventPkg.isNotBlank()) {
                     Log.d(TAG, "[UsageEvents] eventPkg=$eventPkg type=$type eventAt=${event.timeStamp}")
-                    mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp)
+                    mPresenceTracker.onUsageEvent(eventPkg, type, event.timeStamp, eventClass)
                     foregroundSessionTracker.onUsageEvent(eventPkg, type, event.timeStamp, eventClass)
                 }
             }

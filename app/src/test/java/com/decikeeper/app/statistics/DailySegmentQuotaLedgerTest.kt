@@ -135,9 +135,11 @@ class DailySegmentQuotaLedgerTest {
 
         TimeRuleManager.analyzeAndSaveTimeSegments(context, inProgress(enabled = true))
 
-        // 启用时刻到结束还剩 30 分钟，整段 endMin 分钟：额度 30 × 30 / endMin
+        // 启用时刻到结束还剩 30 分钟，整段 endMin 分钟：额度 30 × 30 / endMin。
+        // 折算结果按整分钟取整，所以与理论值最多差 0.5；夜里 endMin 很大、理论值不足 1 分钟时，
+        // 旧的 0.3 容差会让这条用例在 21:00 之后必然失败（CI 也一样）。
         val expected = 30.0 * 30.0 / endMin
-        assertEquals(expected, CreditManager.getRemainingMinutes(context), 0.3)
+        assertEquals(expected, CreditManager.getRemainingMinutes(context), 0.51)
         assertTrue(recalcRecords().single().reason.contains("启用"))
     }
 
