@@ -1,11 +1,11 @@
 === IRONWILL INTERNAL LOG (11 lines (最近 60s)) ===
 [INFO] Filtered: kept 9 of 1404 lines
-04-13 12:18:58.940 MonitorService: [BLOCK] Blacklist app: pkg=com.luna.music, label=汽水音乐, segment=Gap, freeTime=false, appWindow=[managed=true,allowed=false]
-04-13 12:18:58.942 LockScreen: [SHOW] Reason=Regular Lock, AntiUninstall=false, Blacklist=true, App=N/A, Pkg=com.luna.music
+04-13 12:18:58.940 MonitorService: [BLOCK] Blacklist app: pkg=com.example.music, label=示例音乐, segment=Gap, freeTime=false, appWindow=[managed=true,allowed=false]
+04-13 12:18:58.942 LockScreen: [SHOW] Reason=Regular Lock, AntiUninstall=false, Blacklist=true, App=N/A, Pkg=com.example.music
 04-13 12:18:58.960 Timer: [START] RefreshTimer started on thread=IronWill-Timer, tickMs=500, fullMs=2000
-04-13 12:18:58.961 LockScreen: [LOCKED] View attached, timer started, reason=Regular Lock, pkg=com.luna.music
+04-13 12:18:58.961 LockScreen: [LOCKED] View attached, timer started, reason=Regular Lock, pkg=com.example.music
 04-13 12:19:00.966 Timer: [FULL] tick=#4, thread=IronWill-Timer
-04-13 12:19:01.087 LockScreen: [HOME_CLICK] pkg=com.luna.music, graceMs=0
+04-13 12:19:01.087 LockScreen: [HOME_CLICK] pkg=com.example.music, graceMs=0
 04-13 12:19:01.093 LockScreen: [DISMISS] Force=true, WasAntiUninstall=false, WasBlacklist=true
 04-13 12:19:01.094 Timer: [STOP] RefreshTimer stopped explicitly
 04-13 12:19:01.269 AntiUninstall: [Event] Pkg=com.bbk.launcher2 Class=com.bbk.launcher2.Launcher Text=[系统桌面]
@@ -105,16 +105,16 @@
 04-13 12:18:58.940 15080 15190 I om.ironwill.app: AssetManager2(0xb40000780a09dd18) locale list changing from [] to [zh-CN]
 04-13 12:18:58.941 15080 15190 W LockWindowManager: ========================================
 04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] onBlacklistHit CALLED
-04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] pkg=com.luna.music
+04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] pkg=com.example.music
 04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] BEFORE: totalHits=1
 04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] isLocked=false
 04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] === VALID HIT - INCREMENTING COUNTS ===
 04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] totalSegmentBlacklistHits++ => 2
 04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] RESULT: Regular lock only (strict penalty disabled by user setting)
-04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] showLockScreen CALLED: reason=Regular Lock, app=null, pkg=com.luna.music, forceBypass=false
+04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] showLockScreen CALLED: reason=Regular Lock, app=null, pkg=com.example.music, forceBypass=false
 04-13 12:18:58.941 15080 15190 W LockWindowManager: [DEBUG] showLockScreen PASSED debounce checks
 04-13 12:18:58.942 15080 15190 W LockWindowManager: [DEBUG] showLockScreen ALLOWED: Gap/Rest but AppWindowBlocked=true, continue showing lock
-04-13 12:18:58.946 15080 15190 W LockWindowManager: [DEBUG] showLockScreen PRIORITY: Explicit Block Request for com.luna.music. Ignoring Safe Check (UsageStats lag).
+04-13 12:18:58.946 15080 15190 W LockWindowManager: [DEBUG] showLockScreen PRIORITY: Explicit Block Request for com.example.music. Ignoring Safe Check (UsageStats lag).
 04-13 12:18:58.946 15080 15190 W LockWindowManager: [DEBUG] showLockScreen EXECUTING NOW
 04-13 12:18:58.961 15080 15080 I LockWindowManager: Locked Screen for reason: Regular Lock
 04-13 12:18:58.971 15080 15129 W BLASTBufferQueue: Unable to open /proc/vivo_rsc/frame_set_priority: No such file or directory
@@ -122,7 +122,7 @@
 04-13 12:18:58.989 15080 15080 W WindowOnBackDispatcher: OnBackInvokedCallback is not enabled for the application.
 04-13 12:18:58.989 15080 15080 W WindowOnBackDispatcher: Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
 04-13 12:18:59.096 15080 15080 I ImeTracker: com.ironwill.app:11490013: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
-04-13 12:19:01.089 15080 15080 W LockWindowManager: [HOME_CLICK_RAW] pkg=com.luna.music, now=1776053941087, dismissUntil=1776053941087, graceMs=0, isLocked=true
+04-13 12:19:01.089 15080 15080 W LockWindowManager: [HOME_CLICK_RAW] pkg=com.example.music, now=1776053941087, dismissUntil=1776053941087, graceMs=0, isLocked=true
 04-13 12:19:01.092 15080 15129 I HWUI    : [destroy] CanvasContext will be destroyed.
 04-13 12:19:01.098 15080 15080 W WindowOnBackDispatcher: sendCancelIfRunning: isInProgress=false callback=android.view.ViewRootImpl$$ExternalSyntheticLambda13@407d8f3
 04-13 12:19:01.699 15080 15099 I om.ironwill.app: Compiler allocated 5083KB to compile void com.ironwill.app.protection.AntiUninstallProtection.check(android.accessibilityservice.AccessibilityService, android.view.accessibility.AccessibilityEvent, android.view.accessibility.AccessibilityNodeInfo)

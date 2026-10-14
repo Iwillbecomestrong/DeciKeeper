@@ -4,7 +4,7 @@
 
 修复 2026-10-12 真实流水中「下午次数归零，晚上发放 3 次却得到 4.5 次」。只调整次数扣费归属，不改时长、冷却、借用倍率，不回填历史数据。
 
-- 工作位置：`C:/Users/23248/.codex/worktrees/quota-ledger-gap/IronWill-OpenSource`
+- 工作位置：`<本地 worktree>/IronWill-OpenSource`
 - 分支：`codex/quota-ledger-gap`，基于两端最新 dev `94bf60b5`。
 - 涉及：`CreditManager.kt`、`LockWindowManager.kt`、`UsableCountCarryConsumptionTest.kt`、`docs/specs/focus.md`、`HISTORY.md`。
 

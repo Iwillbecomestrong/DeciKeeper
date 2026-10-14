@@ -7,7 +7,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 仓库 | `G:\IronWIl0329\IronWill-OpenSource` |
+| 仓库 | `<repo>` |
 | worktree | `.claude/worktrees/fix-rest-quota-refund`（分支 `worktree-fix-rest-quota-refund`，基于 dev） |
 | 提交 | `60fdd50 wip(quota)`（过程快照，待按主题拆分）→ `3ce5db4 merge`（合并 dev `2403926`） |
 | 工作区 | 干净；`local.properties` 是从主仓库复制来的签名配置，被 `.gitignore` 忽略，**不要提交、不要在对话里贴内容** |

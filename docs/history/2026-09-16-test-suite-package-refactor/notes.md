@@ -1,7 +1,7 @@
 # Notes: 六项专项计划实施记录
 
 ## Baseline
-- 工作区位于 `G:/IronWIl0329/IronWill-OpenSource`，当前分支为 `dev`，已有大量用户未提交 Android 与文档改动。
+- 工作区位于 `<repo>`，当前分支为 `dev`，已有大量用户未提交 Android 与文档改动。
 - 本文件只记录本次实施证据；不覆盖或重写既有用户改动。
 
 ## Findings

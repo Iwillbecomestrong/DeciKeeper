@@ -6,7 +6,7 @@
 
 ## 1. 当前工作树基线
 
-- 当前路径：`G:/IronWIl0329/IronWill-OpenSource`
+- 当前路径：`<repo>`
 - 当前分支：`dev`
 - 当前 HEAD：`5606b9ab45b5d5f2bd8e4a6be7bd85176aa1fe4a`（`5606b9a`）
 - 当前 worktree：与 `dev` 绑定；其他 worktree 为 `codex/docs-story-convergence` 和 `fix/stats-chart-axis-granularity`，不在本计划范围。

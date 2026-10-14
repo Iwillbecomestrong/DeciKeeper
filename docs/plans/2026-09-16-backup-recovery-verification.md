@@ -8,7 +8,7 @@
 
 核实自动备份实际落盘、启动时自动读取的触发条件与失败原因，再调整用户告知、控制入口和恢复流程，保障现有数据及旧备份兼容。
 
-本轮检查对象为 `G:/IronWIl0329/IronWill-OpenSource` 的 `dev` 工作区，HEAD 为 `5606b9a`，含既有未提交修改。该证据不能代表 `main`、公开 Release 或用户当前安装 APK。
+本轮检查对象为 `<repo>` 的 `dev` 工作区，HEAD 为 `5606b9a`，含既有未提交修改。该证据不能代表 `main`、公开 Release 或用户当前安装 APK。
 
 - `MyApplication` 存在 `AutoBackupManager.checkAndRestoreIfNeeded()` 调用。
 - `AutoBackupManager` 尝试向公共 `Documents/DeciKeeper/` 和私有 `files/auto_backup/` 写入当前及上一版快照。

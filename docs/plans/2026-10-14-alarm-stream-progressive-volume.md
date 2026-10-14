@@ -19,6 +19,6 @@ AlarmStreamVolumeLock.kt、AlarmAlertPolicy.kt、AlarmVibrationService.kt、Alar
 
 - RED：零音量起步测试失败，期望 1，实际 12（最高档 15）。实现完成，35 项针对性回归全部通过。
 - 全量命令：`gradlew.bat --console=plain --no-configuration-cache --continue --max-workers=2 :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease`；退出码 0，1950 项中 1939 通过、11 跳过，失败和错误均为 0。Debug 与 Release 构建成功，Release APK v2 验签通过，最终 Manifest 没有 INTERNET 或 ACCESS_NETWORK_STATE。
-- 当前 APK 仍为 versionName 0.4.1 / versionCode 4；本任务未升级版本、安装、提交、推送或发布。构建日志：`C:\Users\23248\AppData\Local\Temp\decikeeper-alarm-volume-full-verification.log`。
+- 当前 APK 仍为 versionName 0.4.1 / versionCode 4；本任务未升级版本、安装、提交、推送或发布。构建日志：`<临时目录>/decikeeper-alarm-volume-full-verification.log`。
 - 真机响度、系统时钟播放与振动、四季和滑块试听未验证；不根据软件档位推断实测声压。
 - AOCI 服务未连接，Overview 与索引维护不可执行，索引待对齐。
