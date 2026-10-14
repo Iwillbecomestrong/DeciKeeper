@@ -35,9 +35,9 @@ class PrivilegeWindowTest {
     private val prefs get() = context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)
 
     @Test
-    fun unsetWindowDefaultsToFollowTheRefreshTimeAndTwentyFourHundred() {
-        assertEquals("未设置：开始跟随生效时间", "06:00", TimeRuleManager.getPrivilegeWindowStart(context))
-        assertEquals("未设置：结束默认 24:00", "24:00", TimeRuleManager.getPrivilegeWindowEnd(context))
+    fun unsetWindowDefaultsToSevenThroughTwentyThree() {
+        assertEquals("未设置：开始默认 07:00", "07:00", TimeRuleManager.getPrivilegeWindowStart(context))
+        assertEquals("未设置：结束默认 23:00", "23:00", TimeRuleManager.getPrivilegeWindowEnd(context))
     }
 
     @Test

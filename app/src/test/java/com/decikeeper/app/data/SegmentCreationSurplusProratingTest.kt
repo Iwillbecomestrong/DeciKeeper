@@ -61,6 +61,7 @@ class SegmentCreationSurplusProratingTest {
 
         // 假定当天，刷新时间 08:00
         TimeRuleManager.saveRefreshTime(ctx, "08:00")
+        TimeRuleManager.setRefreshTimeSynced(ctx, false)
         val createTime = tsAt(y, m, d, 18, 0) // 18:00 一键设置
 
         // 上午: 08:15 - 12:00 (休息 30min, 7次)

@@ -67,16 +67,16 @@ class TimeRuleEditWindowPolicyTest {
             context,
             TimeRuleEditWindowPolicyManager.Policy.EFFECTIVE_TIME_TO_MIDNIGHT
         )
-        // Default refresh time is 08:00
-        assertEquals("08:00", TimeRuleManager.getRefreshTime(context))
+        // Default refresh time is 06:45
+        assertEquals("06:45", TimeRuleManager.getRefreshTime(context))
 
-        // Before 08:00 -> Locked
+        // Before 06:45 -> Locked
         assertTrue(TimeRuleManager.isTimeRuleEditLocked(context, makeCalendar(0, 0)))
         assertTrue(TimeRuleManager.isTimeRuleEditLocked(context, makeCalendar(5, 0)))
-        assertTrue(TimeRuleManager.isTimeRuleEditLocked(context, makeCalendar(7, 59)))
+        assertTrue(TimeRuleManager.isTimeRuleEditLocked(context, makeCalendar(6, 44)))
 
-        // From 08:00 onwards -> Unlocked
-        assertFalse(TimeRuleManager.isTimeRuleEditLocked(context, makeCalendar(8, 0)))
+        // From 06:45 onwards -> Unlocked
+        assertFalse(TimeRuleManager.isTimeRuleEditLocked(context, makeCalendar(6, 45)))
         assertFalse(TimeRuleManager.isTimeRuleEditLocked(context, makeCalendar(12, 30)))
         assertFalse(TimeRuleManager.isTimeRuleEditLocked(context, makeCalendar(23, 59)))
     }
@@ -212,10 +212,10 @@ class TimeRuleEditWindowPolicyTest {
         val result2 = TimeRuleManager.findRefreshTimeFromSegments(listOf(seg1, seg2Disabled, seg3, seg4))
         assertEquals("11:45", result2)
 
-        // If all in-range segments are disabled, fallback to 08:00
+        // If all in-range segments are disabled, use the default refresh time.
         val seg3Disabled = seg3.copy(isEnabled = false)
         val result3 = TimeRuleManager.findRefreshTimeFromSegments(listOf(seg1, seg2Disabled, seg3Disabled, seg4))
-        assertEquals("08:00", result3)
+        assertEquals("06:45", result3)
     }
 
     @Test

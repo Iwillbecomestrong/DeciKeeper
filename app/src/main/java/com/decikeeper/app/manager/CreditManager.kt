@@ -1041,10 +1041,10 @@ object CreditManager {
     fun getWeeklyPrivilegeLimit(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (prefs.contains(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT)) {
-            return prefs.getInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, 1)
+            return prefs.getInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, 2)
         }
 
-        val legacyLimit = prefs.getInt(KEY_LEGACY_WEEKLY_PRIVILEGE_COUNT_LIMIT, 1)
+        val legacyLimit = prefs.getInt(KEY_LEGACY_WEEKLY_PRIVILEGE_COUNT_LIMIT, 2)
         prefs.edit().putInt(KEY_WEEKLY_PRIVILEGE_COUNT_LIMIT, legacyLimit).apply()
         return legacyLimit
     }

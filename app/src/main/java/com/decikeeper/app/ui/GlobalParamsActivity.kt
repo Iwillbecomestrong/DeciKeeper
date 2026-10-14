@@ -122,9 +122,7 @@ class GlobalParamsActivity : AppCompatActivity() {
         val pendingPrivilegeDuration = if (CreditManager.hasPendingWeeklyPrivilegeLimit(this)) CreditManager.getPendingWeeklyPrivilegeDurationLimit(this) else currentPrivilegeDuration
         val pendingPrivWindowStart = TimeRuleManager.getPendingPrivilegeWindowStart(this) ?: currentPrivWindowStart
         val pendingPrivWindowEnd = TimeRuleManager.getPendingPrivilegeWindowEnd(this) ?: currentPrivWindowEnd
-        val hasCustomRefreshTime = getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE).contains("config_refresh_time")
-        val defaultRefreshTime = if (hasCustomRefreshTime) currentRefreshTime else "07:30"
-        val pendingRefresh = if (hasPending) TimeRuleManager.getPendingRefreshTime(this) ?: defaultRefreshTime else defaultRefreshTime
+        val pendingRefresh = if (hasPending) TimeRuleManager.getPendingRefreshTime(this) ?: currentRefreshTime else currentRefreshTime
         val pendingStrict = if (hasPending) TimeRuleManager.getPendingStrictPenaltyDurationSeconds(this) ?: currentStrict else currentStrict
 
         val rgEffectivePolicy = findViewById<android.widget.RadioGroup>(R.id.rg_effective_policy)

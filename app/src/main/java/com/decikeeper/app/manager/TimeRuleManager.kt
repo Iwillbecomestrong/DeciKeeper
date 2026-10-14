@@ -253,6 +253,7 @@ object TimeRuleManager {
     private const val KEY_CHANGE_LOG = "change_log_json"
     const val KEY_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = "temp_restricted_access_max_seconds"
     const val DEFAULT_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 180
+    private const val DEFAULT_REFRESH_TIME = "06:45"
     const val MAX_TEMP_RESTRICTED_ACCESS_MAX_SECONDS = 180
 
     // 🚀 [Logic] Adaptation Period Check
@@ -293,6 +294,16 @@ object TimeRuleManager {
         val json = prefs.getString(KEY_SEGMENTS_JSON, null)
         cachedSegments = if (json != null) parseSegmentsFromJson(json) else emptyList()
         return cachedSegments!!
+    }
+
+    fun createDefaultTimeSegments(now: Long): List<TimeSegment> {
+        val everyday = listOf(1, 2, 3, 4, 5, 6, 7)
+        return listOf(
+            TimeSegment(name = "深夜", startHour = 22, startMinute = 30, endHour = 6, endMinute = 45, limitMins = 10, daysOfWeek = everyday, usableCountLimitHalfUnits = 6, lastModified = now),
+            TimeSegment(name = "上午", startHour = 8, startMinute = 30, endHour = 12, endMinute = 0, limitMins = 30, daysOfWeek = everyday, usableCountLimitHalfUnits = 6, lastModified = now),
+            TimeSegment(name = "下午", startHour = 12, startMinute = 45, endHour = 17, endMinute = 0, limitMins = 30, daysOfWeek = everyday, usableCountLimitHalfUnits = 6, lastModified = now),
+            TimeSegment(name = "晚上", startHour = 17, startMinute = 45, endHour = 21, endMinute = 30, limitMins = 30, daysOfWeek = listOf(2, 3, 4, 5, 6), usableCountLimitHalfUnits = 6, lastModified = now)
+        )
     }
 
     private fun getPrefs(context: Context): SharedPreferences {
@@ -488,7 +499,7 @@ object TimeRuleManager {
     /**
      * 从 DND 时段中自动推导每日生效时间。
      * 规则：扫描所有启用时段，找结束时间落在 04:00-12:00 窗口内的时段，
-     * 取最早结束时间；若无匹配时段则默认 08:00。
+     * 取最早结束时间；若无匹配时段则使用默认刷新时间。
      */
     fun findRefreshTimeFromSegments(segments: List<TimeSegment>): String {
         val windowStart = 4 * 60  // 04:00
@@ -504,7 +515,7 @@ object TimeRuleManager {
             val earliestSeg = candidates.first().first
             String.format("%02d:%02d", earliestSeg.endHour, earliestSeg.endMinute)
         } else {
-            "08:00"
+            DEFAULT_REFRESH_TIME
         }
     }
 
@@ -660,8 +671,8 @@ object TimeRuleManager {
             getCoolDownGapSeconds(context)
         }
     }
-    fun getCoolDownRestSeconds(context: Context): Int = getPrefs(context).getInt("cool_down_rest_seconds", getPrefs(context).getInt("cool_down_seconds", 120))
-    fun getCoolDownGapSeconds(context: Context): Int = getPrefs(context).getInt("cool_down_gap_seconds", 120) // Gap Default 120s
+    fun getCoolDownRestSeconds(context: Context): Int = getPrefs(context).getInt("cool_down_rest_seconds", getPrefs(context).getInt("cool_down_seconds", 90))
+    fun getCoolDownGapSeconds(context: Context): Int = getPrefs(context).getInt("cool_down_gap_seconds", 90)
     fun getNotifyAdvanceMinutes(context: Context): Int = getPrefs(context).getInt("notify_advance_minutes", 20) // 🚀 Map to Far
     // 🚀 [NEW] Entry Warning: Far (Alias for advance)
     fun getNotifyEntryFarMinutes(context: Context): Int = getNotifyAdvanceMinutes(context)
@@ -979,7 +990,7 @@ object TimeRuleManager {
     private const val KEY_REFRESH_TIME_SYNCED = "is_refresh_time_synced"
     
     fun isRefreshTimeSynced(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_REFRESH_TIME_SYNCED, false)
+        return getPrefs(context).getBoolean(KEY_REFRESH_TIME_SYNCED, true)
     }
     
     fun setRefreshTimeSynced(context: Context, isSynced: Boolean) {
@@ -993,10 +1004,10 @@ object TimeRuleManager {
 
     /**
      * 获取特权可用窗口开始时间 (HH:MM 格式)
-     * 有效开始时间 = max(已存开始时间, 生效时间)；未设置时跟随生效时间。
+     * 有效开始时间 = max(已存开始时间, 生效时间)；未设置时默认 07:00。
      */
     fun getPrivilegeWindowStart(context: Context): String {
-        val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_START, null)
+        val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_START, "07:00")
         return PrivilegeWindowPolicy.effectiveStart(stored, getRefreshTime(context))
     }
 
@@ -1006,12 +1017,12 @@ object TimeRuleManager {
 
     /**
      * 获取特权可用窗口结束时间 (HH:MM 格式)
-     * 默认值："24:00"
+     * 默认值："23:00"
      */
     fun getPrivilegeWindowEnd(context: Context): String {
         val stored = getPrefs(context).getString(KEY_PRIVILEGE_WINDOW_END, null)
         if (stored != null) return stored
-        return PrivilegeWindowPolicy.DEFAULT_END
+        return "23:00"
     }
 
     /**
@@ -3055,7 +3066,7 @@ object TimeRuleManager {
     // 🚀 [NEW] Centralized Refresh Time Access
     fun getRefreshTime(context: Context): String {
         val prefs = context.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString("config_refresh_time", "08:00") ?: "08:00"
+        return prefs.getString("config_refresh_time", DEFAULT_REFRESH_TIME) ?: DEFAULT_REFRESH_TIME
     }
 
     /**
@@ -3255,10 +3266,10 @@ object TimeRuleManager {
         val basSegments = getBaselineSegments(context)
         
         // 🚀 [Auto Sync] Refresh Time Logic
-        // 规则：扫描启用时段，取结束时间在 04:00-12:00 的最早者；无匹配则默认 08:00
+        // 规则：扫描启用时段，取结束时间在 04:00-12:00 的最早者；无匹配则使用默认刷新时间。
         val curRefresh = getRefreshTime(context)
         val basPrefs = context.getSharedPreferences(PREFS_BASELINE, Context.MODE_PRIVATE)
-        val basRefresh = basPrefs.getString("config_refresh_time", "08:00") ?: "08:00"
+        val basRefresh = basPrefs.getString("config_refresh_time", curRefresh) ?: curRefresh
 
         var targetRefresh = curRefresh
         var isRefreshSynced = isRefreshTimeSynced(context)
