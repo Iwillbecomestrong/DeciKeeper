@@ -6,6 +6,17 @@ import org.junit.Test
 import java.io.File
 
 class AlarmReminderRedesignUiContractTest {
+
+    @Test
+    fun volumePreviewUsesTheSelectedModeAndTheSameGainAndChannelStepAsPlayback() {
+        val preview = source("src/main/java/com/decikeeper/app/ui/AlarmVolumePreview.kt")
+        val fragment = source("src/main/java/com/decikeeper/app/ui/AlarmFragment.kt")
+        assertTrue(preview.contains("mode == AlarmScheduler.VibrationMode.PROGRESSIVE"))
+        assertTrue(preview.contains("it.lock(level.toFloat())"))
+        assertTrue(preview.contains("AlarmAlertPolicy.ringGain(level.toFloat(), progressive)"))
+        assertTrue(fragment.contains("getConfig().ringtoneUri, level, getConfig().vibrationMode"))
+        assertTrue(fragment.contains("editS1Reminder.getConfig().ringtoneUri, level, getConfig().vibrationMode"))
+    }
     private fun source(path: String): String {
         val cwd = File(System.getProperty("user.dir"))
         val candidates = listOf(

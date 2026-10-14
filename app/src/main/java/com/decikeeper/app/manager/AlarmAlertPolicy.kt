@@ -53,10 +53,10 @@ object AlarmAlertPolicy {
         }
     }
 
-    /** 档位(1-10，可为浮点) → MediaPlayer 增益。三次方曲线：1→0.001, 2→0.008, 5→0.125, 7→0.343, 10→1.0。 */
-    fun ringGain(level: Float): Float {
+    /** 固定模式由通道控制音量，不再额外压低播放器；渐进模式仍使用平方增益。 */
+    fun ringGain(level: Float, progressive: Boolean = false): Float {
         val v = level.coerceIn(MIN_LEVEL.toFloat(), MAX_LEVEL.toFloat()) / MAX_LEVEL
-        return v * v * v
+        return if (progressive) v * v else 1f
     }
 
     /**

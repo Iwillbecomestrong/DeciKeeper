@@ -19,7 +19,7 @@ internal class AudioManagerStreamVolumeAccess(
 }
 
 /**
- * 闹钟专属通道的音量锁：响铃出声期间把通道锁在最大值的 80%，让系统音量键对闹钟失效；
+ * 闹钟专属通道的音量锁：按当前阶梯锁定通道，最高不超过最大值的 80%；
  * 释放时还原锁定前用户自己的音量。只作用于传入的通道，调用方必须传闹钟通道，
  * 绝不能是与音乐/视频共用的媒体通道。
  */
@@ -32,12 +32,11 @@ internal class AlarmStreamVolumeLock(
 
     val isLocked: Boolean get() = savedVolume != null
 
-    fun lock() {
-        if (isLocked) return
-        savedVolume = stream.get()
-        // 锁在 80% 而非 100%，给 MediaPlayer.setVolume() 留出足够动态范围。
-        targetVolume = (stream.maxVolume * lockFraction).toInt().coerceAtLeast(1)
-        stream.set(targetVolume)
+    fun lock(level: Float = 1f) {
+        if (!isLocked) savedVolume = stream.get()
+        val ceiling = (stream.maxVolume * lockFraction).toInt().coerceAtLeast(1)
+        targetVolume = (1 + (ceiling - 1) * (level.coerceIn(1f, 10f) - 1f) / 9f).toInt()
+        enforce()
     }
 
     /** 周期性调用：锁定期间用户把音量改了就立刻改回。 */

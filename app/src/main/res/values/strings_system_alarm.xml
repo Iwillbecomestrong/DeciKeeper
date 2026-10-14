@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="system_alarm_create">一键创建系统闹钟</string>
+    <string name="system_alarm_create_help">创建同时间的系统闹钟作为保底提醒，降低延迟或漏响影响当天计划的风险。请确认时间、重复日期和铃声并保存；两份闹钟修改或删除不会联动。\n\n怕影响他人，可将系统闹钟音量设为 0，确认系统闹钟已开启振动。决定守护响铃后，渐进模式逐步提高共享音量，固定模式按所选强度设置；结束后恢复原音量。\n\n系统闹钟不保证唤醒决定守护；音量为 0 时请先实测振动。</string>
+    <string name="system_alarm_create_help_vivo">vivo / iQOO 实测：关闭「睡眠待机优化」后能准时响铃，但该选项曾自行开启，原因尚未查明，后续可能咨询 vivo 官方。其他品牌情况未确认。</string>
+</resources>

@@ -9,6 +9,17 @@ import org.junit.Test
 
 class AlarmStreamVolumeLockTest {
 
+    @Test
+    fun `silent alarm stream starts at its lowest nonzero step and restores zero`() {
+        val stream = FakeStream(maxVolume = 15, volume = 0)
+        val lock = AlarmStreamVolumeLock(stream)
+
+        lock.lock()
+        assertEquals(1, stream.volume)
+        lock.release()
+        assertEquals(0, stream.volume)
+    }
+
     private class FakeStream(override val maxVolume: Int, var volume: Int) : StreamVolumeAccess {
         var writes = 0
         override fun get(): Int = volume
@@ -23,7 +34,7 @@ class AlarmStreamVolumeLockTest {
         val stream = FakeStream(maxVolume = 15, volume = 3)
         val lock = AlarmStreamVolumeLock(stream)
 
-        lock.lock()
+        lock.lock(10f)
         assertTrue(lock.isLocked)
         assertEquals(12, stream.volume)
 
@@ -36,12 +47,92 @@ class AlarmStreamVolumeLockTest {
     fun `enforce puts the volume back when the user lowers it while locked`() {
         val stream = FakeStream(maxVolume = 15, volume = 3)
         val lock = AlarmStreamVolumeLock(stream)
-        lock.lock()
+        lock.lock(10f)
 
         stream.volume = 1
         lock.enforce()
 
         assertEquals(12, stream.volume)
+    }
+
+    @Test
+    fun `changing the locked step keeps the original silent volume`() {
+        val stream = FakeStream(maxVolume = 15, volume = 0)
+        val lock = AlarmStreamVolumeLock(stream)
+
+        lock.lock(1f)
+        assertEquals(1, stream.volume)
+        lock.lock(3f)
+        assertEquals(3, stream.volume)
+        stream.volume = 0
+        lock.enforce()
+        assertEquals(3, stream.volume)
+        lock.lock(10f)
+        assertEquals(12, stream.volume)
+        lock.release()
+        assertEquals(0, stream.volume)
+    }
+
+    @Test
+    fun `progressive steps are monotonic bounded and respect fractional caps`() {
+        for (maxVolume in listOf(1, 7, 15, 25)) {
+            val stream = FakeStream(maxVolume, 0)
+            val lock = AlarmStreamVolumeLock(stream)
+            var previous = 0
+            for (step in 1..10) {
+                lock.lock(step.toFloat())
+                assertTrue(stream.volume >= previous)
+                assertTrue(stream.volume in 1..(maxVolume * 0.8f).toInt().coerceAtLeast(1))
+                if (step == 1) assertEquals(1, stream.volume)
+                previous = stream.volume
+            }
+            lock.lock(4.5f)
+            assertTrue(stream.volume <= previous)
+            lock.release()
+            assertEquals(0, stream.volume)
+        }
+    }
+
+    @Test
+    fun `silence and resume restart low without losing the zero volume`() {
+        val stream = FakeStream(maxVolume = 15, volume = 0)
+        val lock = AlarmStreamVolumeLock(stream)
+        lock.lock(10f)
+        lock.release()
+        lock.lock()
+        assertEquals(1, stream.volume)
+        lock.release()
+        assertEquals(0, stream.volume)
+    }
+
+    @Test
+    fun `service lowers the channel before playback and releases it on failure`() {
+        val service = source("app/src/main/java/com/decikeeper/app/service/AlarmVibrationService.kt")
+        val start = service.substringAfter("private fun startRingtone(").substringBefore("private fun releaseMediaPlayer()")
+        assertTrue(start.indexOf("startVolumeLock()") < start.indexOf("mediaPlayer?.start()"))
+        assertTrue(start.substringAfter("catch (e: Exception)").contains("stopVolumeLock()"))
+        val lock = service.substringAfter("private fun startVolumeLock()").substringBefore("private fun stopVolumeLock()")
+        assertTrue(lock.contains("AlarmAlertPolicy.ringLevelValue(policy, elapsedMs)"))
+        assertFalse(lock.contains("else 10f"))
+        assertTrue(lock.indexOf("lock.lock(level)") < lock.indexOf("if (wasLocked) return"))
+    }
+
+    @Test
+    fun `fixed level five uses a lower stream step and restores zero`() {
+        val stream = FakeStream(maxVolume = 15, volume = 0)
+        val lock = AlarmStreamVolumeLock(stream)
+        val policy = StageAlertPolicy(
+            AlarmScheduler.AlarmMode.RING_ONLY,
+            AlarmScheduler.VibrationMode.FIXED,
+            fixedVibrationIntensity = 1,
+            fixedRingVolume = 5
+        )
+        lock.lock(AlarmAlertPolicy.ringLevelValue(policy, 0L))
+        assertEquals(5, stream.volume)
+        lock.lock(AlarmAlertPolicy.ringLevelValue(policy, 300_000L))
+        assertEquals(5, stream.volume)
+        lock.release()
+        assertEquals(0, stream.volume)
     }
 
     @Test

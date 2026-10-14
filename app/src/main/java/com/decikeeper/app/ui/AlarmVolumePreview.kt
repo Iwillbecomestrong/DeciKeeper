@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.decikeeper.app.manager.AlarmAlertPolicy
+import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AlarmStreamVolumeLock
 import com.decikeeper.app.manager.AudioManagerStreamVolumeAccess
 import com.decikeeper.app.service.AlarmVibrationService
@@ -18,7 +19,7 @@ import com.decikeeper.app.service.AlarmVibrationService
  * 提醒设置里调「声音 / 最大声音」滑块后的短促试听。
  *
  * 与真实响铃保持一致：走闹钟通道（USAGE_ALARM），试听期间借 [AlarmStreamVolumeLock]
- * 临时把闹钟通道锁到 80%，结束或被打断后还原用户原来的闹钟音量。绝不碰媒体音量。
+ * 按所选模式与档位设置通道和播放器增益，结束或被打断后还原原来的音量。绝不碰媒体音量。
  * 真实闹钟正在响时不试听，避免干扰正在进行的提醒。
  */
 internal object AlarmVolumePreview {
@@ -31,7 +32,7 @@ internal object AlarmVolumePreview {
     private var stopRunnable: Runnable? = null
 
     /** 以 [level]（1-10）对应的响度试听 [ringtoneUri]；为空则用系统默认闹钟铃声。 */
-    fun play(context: Context, ringtoneUri: String?, level: Int) {
+    fun play(context: Context, ringtoneUri: String?, level: Int, mode: AlarmScheduler.VibrationMode) {
         if (AlarmVibrationService.isRunning) return
         stop()
         val app = context.applicationContext
@@ -40,10 +41,11 @@ internal object AlarmVolumePreview {
             ?: return
         try {
             val audio = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val progressive = mode == AlarmScheduler.VibrationMode.PROGRESSIVE
             volumeLock = AlarmStreamVolumeLock(
                 AudioManagerStreamVolumeAccess(audio, AudioManager.STREAM_ALARM)
-            ).also { it.lock() }
-            val gain = AlarmAlertPolicy.ringGain(level.toFloat())
+            ).also { it.lock(level.toFloat()) }
+            val gain = AlarmAlertPolicy.ringGain(level.toFloat(), progressive)
             player = MediaPlayer().apply {
                 setDataSource(app, uri)
                 setAudioAttributes(

@@ -266,7 +266,7 @@ class AlarmVibrationService : Service() {
     // [音量锁定] 铃声真正出声期间锁定「闹钟通道」音量，用户调小后立刻被还原，
     // 让系统音量键对闹钟铃声"失效"；静音/通话/结束时释放并还原用户原来的闹钟通道音量。
     // 绝不读写媒体音量：它与用户正在播放的音乐、视频共用。
-    // app 内 ringVolume (1-10) → setVolume() 仍是闹钟响度的唯一调节手段。
+    // 固定模式由共享通道控制响度；渐进模式由通道与播放器共同爬升。
     private var streamVolumeLock: AlarmStreamVolumeLock? = null
 
     private val screenOffReceiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -622,8 +622,11 @@ class AlarmVibrationService : Service() {
         Log.d(TAG, "Alarm vibration started/restarted (policy=$currentPolicy, intensity=$finalIntensity, amplitude=$stableAmplitude)")
     }
 
-    /** 铃声音量等级(1-10，渐进时为浮点档位) → MediaPlayer浮点音量，曲线见 [AlarmAlertPolicy.ringGain] */
-    private fun ringVolumeToFloat(level: Float): Float = AlarmAlertPolicy.ringGain(level)
+    private fun ringVolumeToFloat(policy: StageAlertPolicy, elapsedMs: Long): Float =
+        AlarmAlertPolicy.ringGain(
+            AlarmAlertPolicy.ringLevelValue(policy, elapsedMs),
+            policy.vibrationMode == AlarmScheduler.VibrationMode.PROGRESSIVE
+        )
 
     /** 更新铃声强度显示值 + 实际 MediaPlayer 音量（RING_ONLY 和 VIBRATE_AND_RING 都需要） */
     private fun updateRingVolumeDisplay(policy: StageAlertPolicy, elapsedMs: Long) {
@@ -635,7 +638,7 @@ class AlarmVibrationService : Service() {
         }
         val volume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)
         currentDisplayVolume = volume.coerceIn(1, 10)
-        val mpVol = ringVolumeToFloat(AlarmAlertPolicy.ringLevelValue(policy, elapsedMs))
+        val mpVol = ringVolumeToFloat(policy, elapsedMs)
         mediaPlayer?.setVolume(mpVol, mpVol)
         syncVolumeLock()
         Log.d(TAG, "[RING_VOL] display update: policy=$policy, elapsedMs=$elapsedMs, currentDisplayVolume=$currentDisplayVolume, mpVol=$mpVol")
@@ -677,7 +680,7 @@ class AlarmVibrationService : Service() {
 
         try {
             val initialVolume = AlarmAlertPolicy.ringLevel(policy, elapsedMs)
-            val vol = ringVolumeToFloat(AlarmAlertPolicy.ringLevelValue(policy, elapsedMs))
+            val vol = ringVolumeToFloat(policy, elapsedMs)
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(this@AlarmVibrationService, uri)
                 setAudioAttributes(
@@ -688,9 +691,11 @@ class AlarmVibrationService : Service() {
                 )
                 isLooping = true
                 setVolume(vol, vol)
-                prepare()
-                start()
             }
+            mediaPlayer?.prepare()
+            // 先压到当前阶梯再播放，避免原有高音量造成开头的瞬间大声。
+            startVolumeLock()
+            mediaPlayer?.start()
             Log.d(TAG, "[RING-DIAG] MediaPlayer created and started, initialVolume=$initialVolume, vol=$vol, uri=$uri")
             syncVolumeLock()
             // 铃声实际开始播放: 发射一次 ALARM_RING_START。startRingtone() 在
@@ -704,6 +709,7 @@ class AlarmVibrationService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "[RING-DIAG] Failed to start MediaPlayer: ${e.message}", e)
             releaseMediaPlayer()
+            stopVolumeLock()
         }
     }
 
@@ -759,12 +765,16 @@ class AlarmVibrationService : Service() {
     }
 
     private fun startVolumeLock() {
-        if (streamVolumeLock?.isLocked == true) return
         val audioMgr = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val lock = streamVolumeLock ?: AlarmStreamVolumeLock(
             AudioManagerStreamVolumeAccess(audioMgr, AudioManager.STREAM_ALARM)
         ).also { streamVolumeLock = it }
-        lock.lock()
+        val wasLocked = lock.isLocked
+        val policy = resolveCurrentStagePolicy()
+        val elapsedMs = (System.currentTimeMillis() - alertCycleStartTime).coerceAtLeast(0L)
+        val level = AlarmAlertPolicy.ringLevelValue(policy, elapsedMs)
+        lock.lock(level)
+        if (wasLocked) return
 
         val runnable = object : Runnable {
             override fun run() {

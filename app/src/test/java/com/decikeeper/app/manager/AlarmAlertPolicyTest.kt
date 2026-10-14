@@ -118,12 +118,21 @@ class AlarmAlertPolicyTest {
     }
 
     @Test
-    fun ringGain_isTheCubicCurveAndClampsOutOfRangeLevels() {
-        assertEquals(0.001f, AlarmAlertPolicy.ringGain(1f), 1e-6f)
-        assertEquals(0.125f, AlarmAlertPolicy.ringGain(5f), 1e-6f)
+    fun fixedRingGain_leavesVolumeControlToTheSelectedStreamStep() {
+        assertEquals(1f, AlarmAlertPolicy.ringGain(1f), 0f)
+        assertEquals(1f, AlarmAlertPolicy.ringGain(5f), 0f)
         assertEquals(1f, AlarmAlertPolicy.ringGain(10f), 0f)
-        assertEquals(0.001f, AlarmAlertPolicy.ringGain(-2f), 1e-6f)
+        assertEquals(1f, AlarmAlertPolicy.ringGain(-2f), 0f)
         assertEquals(1f, AlarmAlertPolicy.ringGain(42f), 0f)
+    }
+
+    @Test
+    fun progressivePlayerGainDoesNotStackTheFullCubicRampOnTheRisingStream() {
+        assertEquals(0.01f, AlarmAlertPolicy.ringGain(1f, progressive = true), 1e-6f)
+        assertEquals(0.25f, AlarmAlertPolicy.ringGain(5f, progressive = true), 1e-6f)
+        assertEquals(1f, AlarmAlertPolicy.ringGain(10f, progressive = true), 0f)
+        assertEquals(0.01f, AlarmAlertPolicy.ringGain(-1f, progressive = true), 1e-6f)
+        assertEquals(1f, AlarmAlertPolicy.ringGain(42f, progressive = true), 0f)
     }
 
     @Test

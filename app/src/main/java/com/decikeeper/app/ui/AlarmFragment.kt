@@ -218,7 +218,7 @@ class AlarmFragment : Fragment() {
             .show()
     }
 
-    private fun showAlarmKeepAliveGuideDialog() {
+    private fun showAlarmKeepAliveGuideDialog(onDismiss: (() -> Unit)? = null) {
         val ctx = context ?: return
         val density = ctx.resources.displayMetrics.density
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
@@ -384,6 +384,7 @@ class AlarmFragment : Fragment() {
             .setPositiveButton("完成", null)
             .setNegativeButton("取消", null)
             .create()
+        dialog.setOnDismissListener { onDismiss?.invoke() }
         dialog.show()
     }
 
@@ -424,8 +425,11 @@ class AlarmFragment : Fragment() {
         return false
     }
 
-    private fun maybeShowKeepAliveGuideOnFirstActiveAlarm() {
-        if (hasPromptedKeepaliveInSession) return
+    private fun maybeShowKeepAliveGuideOnFirstActiveAlarm(onDismiss: (() -> Unit)? = null) {
+        if (hasPromptedKeepaliveInSession) {
+            onDismiss?.invoke()
+            return
+        }
         val ctx = context ?: return
         val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
         val shown = prefs.getBoolean("alarm_keepalive_guide_shown", false) ||
@@ -433,7 +437,9 @@ class AlarmFragment : Fragment() {
             prefs.getBoolean("vivo_sleep_standby_guide_shown", false)
         if (!shown) {
             prefs.edit().putBoolean("alarm_keepalive_guide_shown", true).apply()
-            showAlarmKeepAliveGuideDialog()
+            showAlarmKeepAliveGuideDialog(onDismiss)
+        } else {
+            onDismiss?.invoke()
         }
     }
 
@@ -649,7 +655,7 @@ class AlarmFragment : Fragment() {
                 Toast.makeText(ctx, "系统闹钟 ${timeStr} 已确认 ✓", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("未保存") { _, _ ->
-                Toast.makeText(ctx, "请重新同步到系统闹钟", Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, "请重新创建系统闹钟", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
@@ -1091,7 +1097,7 @@ class AlarmFragment : Fragment() {
                         ?: AlarmScheduler.getDefaultProgressiveMaxIntensity(reminderCtx)
                 )
             )
-            onPreviewVolume = { level -> AlarmVolumePreview.play(reminderCtx, getConfig().ringtoneUri, level) }
+            onPreviewVolume = { level -> AlarmVolumePreview.play(reminderCtx, getConfig().ringtoneUri, level, getConfig().vibrationMode) }
             onPreviewVibration = { level -> AlarmVibrationPreview.play(reminderCtx, level) }
             onPickRingtone = {
                 onRingtonePickedCallback = { uri, _ -> setRingtone(uri) }
@@ -1143,7 +1149,7 @@ class AlarmFragment : Fragment() {
                 )
             )
             // 第二关卡片没有提示音选择，沿用第一关当前所选。
-            onPreviewVolume = { level -> AlarmVolumePreview.play(reminderCtx, editS1Reminder.getConfig().ringtoneUri, level) }
+            onPreviewVolume = { level -> AlarmVolumePreview.play(reminderCtx, editS1Reminder.getConfig().ringtoneUri, level, getConfig().vibrationMode) }
             onPreviewVibration = { level -> AlarmVibrationPreview.play(reminderCtx, level) }
         }
         editReminderSection.addView(editS2Reminder, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
@@ -1480,8 +1486,14 @@ class AlarmFragment : Fragment() {
                     stage2ProgressiveMaxIntensity = r2.progressiveMaxVibrationIntensity
                 )
             }
+            val isFirstAlarm = existing == null && alarms.isEmpty()
             upsertAlarm(entry)
             editDialog.dismiss()
+            if (entry.enabled) {
+                maybeShowKeepAliveGuideOnFirstActiveAlarm {
+                    if (isFirstAlarm && isAdded) maybeSuggestSystemAlarm(entry)
+                }
+            }
         }
     }
 
@@ -1493,9 +1505,6 @@ class AlarmFragment : Fragment() {
             alarms.add(entry)
         }
         persistAndRefresh()
-        if (entry.enabled) {
-            maybeShowKeepAliveGuideOnFirstActiveAlarm()
-        }
     }
 
     private fun updateAlarm(entry: AlarmScheduler.AlarmEntry) {
@@ -1524,13 +1533,34 @@ class AlarmFragment : Fragment() {
             .show()
     }
 
+    private fun systemAlarmCreationHelp(): String {
+        val common = getString(R.string.system_alarm_create_help)
+        return if (isVivoOrIqoo()) {
+            getString(R.string.system_alarm_create_help_vivo) + "\n\n" + common
+        } else common
+    }
+
     private fun showSystemBackupHelpDialog() {
         AlertDialog.Builder(requireContext())
-            .setTitle("同步到系统闹钟")
-            .setMessage("同步会把这个闹钟加入到系统闹钟，防止 决定守护 可能出现权限或者其他的问题影响你的正事。")
+            .setTitle(R.string.system_alarm_create)
+            .setMessage(systemAlarmCreationHelp())
             .setPositiveButton("知道了", null)
             .show()
 
+    }
+
+    private fun maybeSuggestSystemAlarm(alarm: AlarmScheduler.AlarmEntry) {
+        val ctx = context ?: return
+        val prefs = ctx.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("system_alarm_suggestion_shown", false)) return
+        val dialog = AlertDialog.Builder(ctx)
+            .setTitle("建议创建相同时间的系统闹钟")
+            .setMessage(systemAlarmCreationHelp())
+            .setPositiveButton("去创建") { _, _ -> addSystemAlarm(alarm) }
+            .setNegativeButton("稍后", null)
+            .create()
+        dialog.show()
+        prefs.edit().putBoolean("system_alarm_suggestion_shown", true).apply()
     }
 
     private fun addSystemAlarm(alarm: AlarmScheduler.AlarmEntry) {
@@ -1568,7 +1598,7 @@ class AlarmFragment : Fragment() {
 
         try {
             useCase.execute(ctx, plan)
-            // 记录同步状态，onResume 时校验
+            // 记录创建请求，保留既有偏好键以兼容旧版本。
             ctx.getSharedPreferences("alarm_sync_pending", android.content.Context.MODE_PRIVATE).edit()
                 .putBoolean("pending", true)
                 .putInt("expected_hour", alarm.hour)
@@ -1579,7 +1609,7 @@ class AlarmFragment : Fragment() {
             Toast.makeText(ctx, "已打开系统闹钟，请保存闹钟", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e(TAG, "[ALARM_SYNC] startActivity failed target=$targetPkg", e)
-            Toast.makeText(ctx, "同步失败，请手动添加: ${alarm.hour}:${String.format("%02d", alarm.minute)}", Toast.LENGTH_LONG).show()
+            Toast.makeText(ctx, "创建失败，请手动添加: ${alarm.hour}:${String.format("%02d", alarm.minute)}", Toast.LENGTH_LONG).show()
         }
     }
 
