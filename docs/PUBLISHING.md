@@ -63,10 +63,10 @@ APK=app/build/outputs/apk/release/app-release.apk
 
 # 构建后由脚本同时核对包名、版本、权限、签名和 SHA-256
 pwsh -File scripts/verify_release_artifact.ps1 `
-  -ApkPath $APK -ExpectedPackage com.decikeeper.app -ExpectedVersionName 0.4.1 `
+  -ApkPath $APK -ExpectedPackage com.decikeeper.app -ExpectedVersionName 0.4.2 `
   -TestStatus passed -RequireSigned
 
-# GitHub：在仓库 Releases 页点「Draft a new release」，tag 如 v0.4.1，上传 app-release.apk 与 sha256 文件
+# GitHub：在仓库 Releases 页点「Draft a new release」，tag 如 v0.4.2，上传 app-release.apk 与 sha256 文件
 # Gitee ：仓库「发行版」页点「创建发行版」，tag 保持一致，上传同名同版本 Release APK
 ```
 
