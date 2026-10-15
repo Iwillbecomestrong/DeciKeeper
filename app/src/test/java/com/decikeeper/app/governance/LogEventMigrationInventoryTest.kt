@@ -4,6 +4,7 @@ import com.decikeeper.app.data.ForegroundDetectionLogCompressor
 import com.decikeeper.app.data.ForegroundDetectionLogState
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -324,25 +325,9 @@ class LogEventMigrationInventoryTest {
             Regex("""LogExporter\.logEvent\(\s*"Penalty"\s*,\s*"惩罚:""").containsMatchIn(lockMgr)
         )
 
-        // 2. All return-home `[Penalty]` diagnostics must be inside the
-        //    `DefaultLogDebugConfig.quotaCalculation` gate (T4 gating).
-        val penaltyWindowTokens = listOf(
-            "Log.d(TAG, \"[Penalty] return-home click not eligible",
-            "Log.d(TAG, \"[Penalty] return-home window reset",
-            "Log.d(TAG, \"[Penalty] return-home increment"
-        )
-        penaltyWindowTokens.forEach { token ->
-            val tokenAt = lockMgr.indexOf(token)
-            assertTrue(
-                "$token must remain available for scoped diagnostics (or be fully removed)",
-                tokenAt >= 0
-            )
-            val prefix = lockMgr.substring((tokenAt - 200).coerceAtLeast(0), tokenAt)
-            assertTrue(
-                "$token must be guarded by `if (DefaultLogDebugConfig.quotaCalculation)` (audit §R2.2 row, T4 gating)",
-                prefix.contains("if (DefaultLogDebugConfig.quotaCalculation)")
-            )
-        }
+        // 返回扣减已被缓冲策略替换；旧扣费入口不得复活。
+        assertFalse(lockMgr.contains("issuePenaltyTransactionOnce("))
+        assertFalse(lockMgr.contains("[Penalty] return-home"))
 
         // 3. Each `EventLog.fgDecision(...)` call must be inside `foregroundRaw` gate.
         //    Bare (ungated) fgDecision calls are forbidden (audit §R2.2 rows, T4 gating).

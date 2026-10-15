@@ -85,7 +85,7 @@ import com.decikeeper.app.manager.AlarmChallengeManager
 import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AppWindowManager
 import com.decikeeper.app.manager.CreditManager
-import com.decikeeper.app.manager.FrequentReturnDeduction
+import com.decikeeper.app.manager.ReturnHomeBufferManager
 import com.decikeeper.app.manager.LockOverlayRestrictionMode
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.manager.statistics.QuotaGrantRecorder
@@ -500,9 +500,6 @@ object LockWindowManager {
     private var btnBackToHome: Button? = null
     private var btnTemporaryAccess: Button? = null
     private var btnTemporaryAccessHelp: ImageButton? = null
-    private var penaltyOverlay: View? = null
-    private var penaltyMessage: TextView? = null
-    private var penaltyOk: Button? = null
     // 🆕 新 UI 元素
     private var tvUsableCountBig: TextView? = null
     private var tvSurplusBorrowLine: TextView? = null
@@ -662,12 +659,6 @@ object LockWindowManager {
     /** 临时访问到期后需要重锁的目标包名 — 防止对非目标应用误锁 */
     var temporaryAccessFinalRelockTargetPkg: String? = null
         private set
-
-    // --- 频繁返回扣减（窗口/阈值/时长规则见 FrequentReturnDeduction） ---
-    private var mPenaltyWindowStart = 0L           // 当前窗口起始时间（首次返回桌面）
-    private var mPenaltyHitCount = 0               // 当前窗口内返回桌面次数
-    private var mPendingPenaltyMessage: String? = null  // 第5次点击生成的扣减回执，由点击处理器立即展示
-    private var mPendingReturnHomeAction: (() -> Unit)? = null  // 回执确认后才执行的回桌面动作
 
     // --- 空档期应用时间窗豁免 ---
     private val mGapAppWindowDismissCount = mutableMapOf<String, Int>()
@@ -829,17 +820,16 @@ object LockWindowManager {
     @Volatile
     private var homeClickPendingSetAt = 0L
     // 🚀 [回到桌面宽限] 返回桌面后 3s 内不因小窗/浮窗触发锁屏（用户要求 2026-08-15）
-    private const val DESKTOP_RETURN_GRACE_MS = 3000L
-    private var desktopReturnGraceUntil = 0L
-
-    /** 回到桌面：启动 3s 小窗锁宽限。 */
+    /** 同一次缓冲共享截止；严格状态下不创建缓冲。 */
     fun setDesktopReturnGrace(now: Long = System.currentTimeMillis()) {
-        desktopReturnGraceUntil = now + DESKTOP_RETURN_GRACE_MS
+        ReturnHomeBufferManager.beginGrace()
     }
 
-    /** 是否处于回到桌面后的 3s 小窗锁宽限期。 */
     fun isInDesktopReturnGrace(now: Long = System.currentTimeMillis()): Boolean =
-        now < desktopReturnGraceUntil
+        ReturnHomeBufferManager.graceRemainingMs() > 0L
+
+    fun getDesktopReturnGraceUntil(now: Long = System.currentTimeMillis()): Long =
+        now + ReturnHomeBufferManager.graceRemainingMs()
 
     // 🚀 Helper to check service state safely
     fun isServiceActive(): Boolean {
@@ -1084,6 +1074,7 @@ object LockWindowManager {
     fun init(context: Context) {
         if (mContext == null) {
             mContext = context.applicationContext
+            ReturnHomeBufferManager.init(mContext!!)
             mWindowManager = mContext?.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             restoreTemporaryAccessState(mContext!!)
         }
@@ -2022,8 +2013,10 @@ object LockWindowManager {
                     } catch (_: Throwable) {}
                 }
 
-                // Repeated-return-home penalty is user-action driven.
-                // Overlay attach/re-attach is a system action and never increments it.
+                // 新一次实际拦截只重置安静期，不增加返回次数。
+                if (!isAntiUninstall && (isBlacklist || effectiveIsAppWindowBlocked)) {
+                    ReturnHomeBufferManager.onRestriction()
+                }
 
                 updateStatus(context)
                 startLockRefreshTimer(context)
@@ -2053,105 +2046,6 @@ object LockWindowManager {
                 resetLockState("AddViewFailed")
             }
         }
-    }
-
-    /**
-     * Repeated-return-home penalty authority.
-     *
-     * Only the explicit RETURN_HOME button calls this method. Foreground detection,
-     * overlay attach/re-attach, Accessibility replay and OEM launcher noise have no
-     * authority to increment the counter.
-     */
-    private fun recordReturnHomePenaltyHit(
-        context: Context,
-        now: Long,
-        reason: String
-    ): Boolean {
-        // 黑名单锁与应用时间窗锁的「回到桌面」都计数，但必须处于勿扰时段内（空档期没有额度可扣）；防卸载锁不计
-        val isDndActive = (isBlacklistLock || _isAppWindowLock.get()) && TimeRuleManager.getCurrentSegment(context) != null
-                && now >= CreditManager.getFreeTimeEnd(context)
-        if (!isDndActive) {
-            if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] return-home click not eligible | blacklist=$isBlacklistLock, hasSegment=${TimeRuleManager.getCurrentSegment(context) != null}, freeTimeEnded=${now >= CreditManager.getFreeTimeEnd(context)}")
-            }
-            return false
-        }
-
-        if (now - mPenaltyWindowStart > FrequentReturnDeduction.WINDOW_MS) {
-            mPenaltyWindowStart = now
-            mPenaltyHitCount = 1
-            if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] return-home window reset, count=1/${FrequentReturnDeduction.THRESHOLD} | reason=$reason")
-            }
-        } else {
-            mPenaltyHitCount++
-            if (DefaultLogDebugConfig.quotaCalculation) {
-                Log.d(TAG, "[Penalty] return-home increment, count=$mPenaltyHitCount/${FrequentReturnDeduction.THRESHOLD} | reason=$reason")
-            }
-        }
-
-        // Threshold → exactly one transaction per cycle.
-        if (mPenaltyHitCount >= FrequentReturnDeduction.THRESHOLD) {
-            issuePenaltyTransactionOnce(context, now, reason)
-        }
-        return true
-    }
-
-    /**
-     * Issue exactly one penalty transaction per cycle. Extracted from
-     * [recordReturnHomePenaltyHit] so the one-transaction-per-threshold
-     * contract is visible at a glance.
-     */
-    private fun issuePenaltyTransactionOnce(context: Context, now: Long, reason: String) {
-        // 🚀 额度彻底用完且不可借 → 免惩罚（和空档期一致）
-        val remainingBefore = CreditManager.getRemainingMinutes(context)
-        val maxBorrowable = CreditManager.getMaxBorrowableMinutes(context)
-        if (remainingBefore <= 0.0 && maxBorrowable <= 0.0) {
-            mPenaltyWindowStart = 0L
-            mPenaltyHitCount = 0
-            Log.d(TAG, "[Penalty] quota exhausted (no borrow headroom), skipping penalty | reason=$reason")
-            return
-        }
-        val inCooling = CreditManager.isCooling(context)
-        val inTempCooling = getTemporaryReuseCooldownRemainingSeconds() > 0L
-        val isAnyCooling = inCooling || inTempCooling
-        val transactionId = "PENALTY-${now}-${mPenaltyHitCount}"
-        val chargeResult = CreditManager.consumePenaltySeconds(
-            context = context,
-            penaltySec = FrequentReturnDeduction.deductSeconds(isAnyCooling),
-            transactionId = transactionId,
-            isCooling = isAnyCooling
-        )
-        if (inCooling) {
-            val coolEnd = CreditManager.getCoolDownEnd(context)
-            val newEnd = coolEnd + FrequentReturnDeduction.COOL_EXTEND_MS
-            CreditManager.setCoolDownEnd(context, newEnd)
-        }
-        if (inTempCooling) {
-            temporaryReuseCooldownUntil += FrequentReturnDeduction.COOL_EXTEND_MS
-            saveTemporaryAccessState()
-        }
-
-        // 惩罚事件日志（合并扣费+冷却延长）
-        val coolExtendSec = FrequentReturnDeduction.COOL_EXTEND_MS / 1000
-        // Boundary 4 (T4) — payload-equivalence GREEN 后的退场：
-        // 删除 LogExporter 中文 Penalty 调用；retainedEvidence 由 PENALTY payload
-        // （11 字段，per REQ-010）取代 — 见 docs/ai/LOG_EVENT_MIGRATION.md row 71
-        // `══════ 每日状态播报 ══════` 行的 retainedEvidence 字段。
-
-        mPendingPenaltyMessage = FrequentReturnDeduction.receiptText(
-            result = chargeResult,
-            isAnyCooling = isAnyCooling,
-            inRestCooling = inCooling,
-            inTempCooling = inTempCooling,
-            coolExtendSec = coolExtendSec,
-            remainingTimeText = "${formatMinutesForLock(CreditManager.getRemainingMinutes(context))}min",
-            remainingCountText = "${formatUsableCountHalfUnits(CreditManager.getRemainingUsableCountHalfUnits(context))}次"
-        )
-
-        mPenaltyHitCount = 0
-        mPenaltyWindowStart = now
-        Log.d(TAG, "[Penalty] transaction issued (tx=$transactionId) | reason=$reason")
     }
 
     /**
@@ -2300,9 +2194,10 @@ object LockWindowManager {
 
         val now = System.currentTimeMillis()
 
-        val minGrace = now + 1000L
-        if (mDismissUntil < minGrace) {
-            mDismissUntil = minGrace
+        // 严格返回不额外赠送通用的 1 秒放行，其余出口保留原有防竞态宽限。
+        if (authority != LockDismissAuthority.RETURN_HOME || !ReturnHomeBufferManager.isStrict()) {
+            val minGrace = now + 1000L
+            if (mDismissUntil < minGrace) mDismissUntil = minGrace
         }
 
         val dismissAction = Runnable {
@@ -2475,9 +2370,6 @@ object LockWindowManager {
         btnTemporaryAccess = mLockView?.findViewById(R.id.btn_temporary_access)
         btnTemporaryAccessHelp = mLockView?.findViewById(R.id.btn_temporary_access_help)
         val statusBarPullZone = mLockView?.findViewById<View>(R.id.view_status_bar_pull_zone)
-        penaltyOverlay = mLockView?.findViewById(R.id.view_penalty_overlay)
-        penaltyMessage = mLockView?.findViewById(R.id.tv_penalty_message)
-        penaltyOk = mLockView?.findViewById(R.id.btn_penalty_ok)
 
         val layoutBgText = mLockView?.findViewById<View>(R.id.layout_background_text)
         val layoutBottomBtns = mLockView?.findViewById<View>(R.id.layout_bottom_buttons)
@@ -2493,14 +2385,6 @@ object LockWindowManager {
         tvSurplusBorrowLine = mLockView?.findViewById(R.id.tv_surplus_borrow_line)
         tvRestCountdownInCard = mLockView?.findViewById(R.id.tv_rest_countdown_in_card)
 
-        // 新锁屏视图：丢弃上一个视图遗留的“待回桌面”动作，避免陈旧回执确认后误触发
-        mPendingReturnHomeAction = null
-        penaltyOk?.setOnClickListener {
-            penaltyOverlay?.visibility = View.GONE
-            val action = mPendingReturnHomeAction
-            mPendingReturnHomeAction = null
-            action?.invoke()
-        }
         
         // 顶部下拉手势：仅临时放开焦点拉出通知/状态栏，不降层不透传
         statusBarPullZone?.setOnTouchListener(object : View.OnTouchListener {
@@ -2566,17 +2450,19 @@ object LockWindowManager {
 
         // Setup Listeners with Debounce
 
-        // 🏠 “回到桌面”真正执行体：第5次点击需先确认扣减回执，确认后才调用
+        // 返回始终立即执行；严格状态不产生任何使用缓冲。
         fun performReturnHome() {
             val now = System.currentTimeMillis()
 
-            // 正常模式：给予 3 秒宽限期处理小窗/浮窗
-            val graceTime = HOME_GRACE_PERIOD_MS
-            mDismissUntil = System.currentTimeMillis() + graceTime
-            homeClickPendingPackage = lastBlockedPackageName
-            homeClickPendingSetAt = now
-            // 🚀 [回到桌面宽限] 启动 3s 小窗锁宽限，期间不因小窗/浮窗再锁
             setDesktopReturnGrace(now)
+            val graceTime = ReturnHomeBufferManager.graceRemainingMs()
+            mDismissUntil = now + graceTime
+            if (ReturnHomeBufferManager.isStrict()) {
+                clearHomeClickPendingPackage()
+            } else {
+                homeClickPendingPackage = lastBlockedPackageName
+                homeClickPendingSetAt = now
+            }
             recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
             clearBlacklistHitDebounceForUserAction()
             Log.i(
@@ -2601,17 +2487,10 @@ object LockWindowManager {
         }
 
         btnBackToHome?.setSafeOnClickListener {
-            // 🏠 “回到桌面”按钮：先记一次返回；第5次会在此刻扣减并当场展示回执，确认后才回桌面
-            recordReturnHomePenaltyHit(context, System.currentTimeMillis(), "RETURN_HOME_BUTTON")
-            val receipt = mPendingPenaltyMessage
-            if (receipt != null) {
-                mPendingPenaltyMessage = null
-                mPendingReturnHomeAction = { performReturnHome() }
-                penaltyMessage?.text = receipt
-                penaltyOverlay?.visibility = View.VISIBLE
-            } else {
-                performReturnHome()
+            if (!isAntiUninstallLock && (isBlacklistLock || _isAppWindowLock.get())) {
+                ReturnHomeBufferManager.onReturnHome()
             }
+            performReturnHome()
         }
 
         // 🌟 纯粹三按钮架构点击逻辑 (Three-Button Architecture)
@@ -2957,13 +2836,10 @@ object LockWindowManager {
                     }
                 }
 
-                // 惩罚计数可视化（仅 DND 时段活跃时展示）
+                // 返回进度与严格状态不依赖额度或当前勿扰时段。
                 val tvPenaltyHitCount = view.findViewById<TextView>(R.id.tv_penalty_hit_count)
-                val nowPenalty = System.currentTimeMillis()
-                val isDndActiveNow = TimeRuleManager.getCurrentSegment(context) != null
-                        && System.currentTimeMillis() >= CreditManager.getFreeTimeEnd(context)
-                val penaltyHint = if (isDndActiveNow) {
-                    FrequentReturnDeduction.hintText(mPenaltyHitCount, mPenaltyWindowStart, nowPenalty)
+                val penaltyHint = if (!isAntiUninstallLock) {
+                    ReturnHomeBufferManager.hintText()
                 } else null
                 if (penaltyHint != null) {
                     tvPenaltyHitCount?.visibility = View.VISIBLE
@@ -3255,13 +3131,14 @@ object LockWindowManager {
             val now = System.currentTimeMillis()
             val view = mLockView ?: return
 
-            // 0. 频繁返回扣减进度：每 tick 刷新“距首次/窗口剩余”秒数；窗口过期自动隐藏
+            // 0. 只刷新文案；轮询本身不延长严格状态。
             view.findViewById<TextView>(R.id.tv_penalty_hit_count)?.let { hintView ->
-                if (hintView.visibility == View.VISIBLE) {
-                    val hint = FrequentReturnDeduction.hintText(mPenaltyHitCount, mPenaltyWindowStart, now)
+                if (!isAntiUninstallLock) {
+                    val hint = ReturnHomeBufferManager.hintText()
                     if (hint == null) {
                         hintView.visibility = View.GONE
-                    } else if (hintView.text?.toString() != hint) {
+                    } else {
+                        hintView.visibility = View.VISIBLE
                         hintView.text = hint
                     }
                 }

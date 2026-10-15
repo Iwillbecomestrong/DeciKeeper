@@ -34,6 +34,24 @@ class VisibleBlacklistPresenceTrackerTest {
     }
 
     @Test
+    fun sharedDeadlineCannotBeExtendedAndStrictModeCancelsRemainingGrace() {
+        tracker.onPresenceConfirmed(testPkg, 10_000L)
+        tracker.onDesktopReturn(11_000L, 14_000L)
+        tracker.onDesktopReturn(12_000L, 14_000L)
+        assertEquals(14_000L, tracker.graceUntilMs)
+        tracker.limitDesktopGrace(12_000L)
+        assertEquals(PresenceTrackerAction.LOCK, tracker.evaluate(12_000L))
+    }
+
+    @Test
+    fun cancellingGraceDoesNotInventPresenceAfterWindowClosed() {
+        tracker.onPresenceConfirmed(testPkg, 10_000L)
+        tracker.onDesktopReturn(11_000L, 11_000L)
+        CoreService.lastVisiblePackagesFromWindows = emptySet()
+        assertEquals(PresenceTrackerAction.NONE, tracker.evaluate(11_000L))
+    }
+
+    @Test
     fun `test 1 - first presence confirmation transitions to CONFIRMED_VISIBLE and triggers LOCK`() {
         val now = 10000L
         val action = tracker.onPresenceConfirmed(testPkg, now)

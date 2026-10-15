@@ -143,12 +143,22 @@ class VisibleBlacklistPresenceTracker(
     /**
      * 用户点击“回到桌面”或切回桌面，进入 Grace 宽限期。
      */
-    fun onDesktopReturn(nowMs: Long) {
+    fun onDesktopReturn(nowMs: Long, sharedGraceUntilMs: Long = nowMs + desktopGraceDurationMs) {
         if (state == PresenceTrackerState.CONFIRMED_VISIBLE || state == PresenceTrackerState.DESKTOP_GRACE) {
             val oldState = state
+            val deadline = if (state == PresenceTrackerState.DESKTOP_GRACE) {
+                minOf(graceUntilMs, sharedGraceUntilMs)
+            } else sharedGraceUntilMs
             state = PresenceTrackerState.DESKTOP_GRACE
-            graceUntilMs = nowMs + desktopGraceDurationMs
+            graceUntilMs = deadline
             logStateChange(currentPackage ?: "unknown", oldState, state, reason = "DESKTOP_RETURN")
+        }
+    }
+
+    /** 共享返回策略可撤销宽限，但不能制造可见性或新的锁屏理由。 */
+    fun limitDesktopGrace(sharedGraceUntilMs: Long) {
+        if (state == PresenceTrackerState.DESKTOP_GRACE) {
+            graceUntilMs = minOf(graceUntilMs, sharedGraceUntilMs)
         }
     }
 

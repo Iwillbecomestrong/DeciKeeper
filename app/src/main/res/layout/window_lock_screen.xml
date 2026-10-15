@@ -205,29 +205,6 @@
     </LinearLayout>
 
     <FrameLayout
-        android:id="@+id/view_penalty_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#52000000"
-        android:clickable="true"
-        android:elevation="30dp"
-        android:focusable="true"
-        android:visibility="gone">
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginHorizontal="24dp"
-            android:background="@drawable/bg_zz_card"
-            android:backgroundTint="?attr/zzSurface"
-            android:orientation="vertical"
-            android:padding="20dp">
-            <TextView android:id="@+id/tv_penalty_message" android:layout_width="match_parent" android:layout_height="wrap_content" android:lineSpacingExtra="4dp" android:textColor="?attr/zzText" android:textSize="14sp" />
-            <Button android:id="@+id/btn_penalty_ok" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="16dp" android:backgroundTint="?attr/zzAccent" android:text="确认并返回桌面" android:textAllCaps="false" android:textColor="@android:color/white" />
-        </LinearLayout>
-    </FrameLayout>
-
-    <FrameLayout
         android:id="@+id/view_borrow_confirm_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

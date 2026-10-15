@@ -1839,6 +1839,7 @@ class MonitorService : Service() {
             } else {
                 // 锁屏未显示：
                 // A. 优先评估 Tracker 当前动作（如 Grace 3s 到期仍无关闭证据，或处于 CONFIRMED_VISIBLE）
+                mPresenceTracker.limitDesktopGrace(LockWindowManager.getDesktopReturnGraceUntil(now))
                 val trackerAction = mPresenceTracker.evaluate(now)
                 val trackedPkg = mPresenceTracker.currentPackage
 
@@ -2043,9 +2044,9 @@ class MonitorService : Service() {
         // 已在宽限期内则不续期，防止桌面/误报抖动无限延长宽限）
         if (isEffLauncher && !lastEffectiveWasLauncher && !LockWindowManager.isInDesktopReturnGrace(now)) {
             LockWindowManager.setDesktopReturnGrace(now)
-            mPresenceTracker.onDesktopReturn(now)
+            mPresenceTracker.onDesktopReturn(now, LockWindowManager.getDesktopReturnGraceUntil(now))
         } else if (LockWindowManager.isInDesktopReturnGrace(now) && mPresenceTracker.state == PresenceTrackerState.CONFIRMED_VISIBLE) {
-            mPresenceTracker.onDesktopReturn(now)
+            mPresenceTracker.onDesktopReturn(now, LockWindowManager.getDesktopReturnGraceUntil(now))
         }
         lastEffectiveWasLauncher = isEffLauncher
 
