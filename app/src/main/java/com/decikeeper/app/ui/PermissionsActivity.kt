@@ -39,6 +39,18 @@ class PermissionsActivity : AppCompatActivity() {
         refreshAll()
     }
 
+    private var installedAppsRequestedAt = 0L
+
+    private val installedAppsPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        // 系统不再弹窗时会瞬间返回拒绝，此时转去应用详情页手动开启
+        if (!granted && System.currentTimeMillis() - installedAppsRequestedAt < 300) {
+            openAppDetailsSettings()
+        }
+        refreshAll()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.apply(this)
         super.onCreate(savedInstanceState)
@@ -129,7 +141,6 @@ class PermissionsActivity : AppCompatActivity() {
             override val desc: String,
             val actionLabel: String = "去设置",
             val checkboxText: String = "已开启",
-            val confirmedBadgeText: String = "已开启 ✓",
             val isConfirmed: (Context) -> Boolean,
             val onConfirmChanged: (Context, Boolean) -> Unit,
             val onAction: (Context) -> Unit
@@ -227,7 +238,6 @@ class PermissionsActivity : AppCompatActivity() {
                         desc = "防止系统一键清理后台任务时误杀决定守护",
                         actionLabel = "查看指引",
                         checkboxText = "已加锁",
-                        confirmedBadgeText = "已加锁 ✓",
                         isConfirmed = {
                             val prefs = it.getSharedPreferences(CreditManager.PREFS_NAME, Context.MODE_PRIVATE)
                             prefs.getBoolean("recents_lock_confirmed", false)
@@ -261,7 +271,6 @@ class PermissionsActivity : AppCompatActivity() {
                             desc = "关闭夜间深睡省电冻结，避免闹钟漏响或延迟",
                             actionLabel = "去关闭",
                             checkboxText = "已关闭",
-                            confirmedBadgeText = "已关闭 ✓",
                             isConfirmed = {
                                 val prefs = it.getSharedPreferences("decikeeper_oem_guide", Context.MODE_PRIVATE)
                                 prefs.getBoolean("sleep_standby_confirmed", false) || prefs.getBoolean("vivo_sleep_standby_confirmed", false)
@@ -312,10 +321,11 @@ class PermissionsActivity : AppCompatActivity() {
                     PermItem.Auto(
                         title = "读取应用列表",
                         desc = "配置时间规则时展示应用列表以供勾选，仅保存在本地",
-                        actionLabel = "去设置",
-                        isGranted = { true },
+                        actionLabel = "去开启",
+                        isGranted = { PermissionManager.hasInstalledAppsPermission(it) },
                         onAction = {
-                            openAppDetailsSettings()
+                            installedAppsRequestedAt = System.currentTimeMillis()
+                            installedAppsPermissionLauncher.launch(PermissionManager.PERMISSION_GET_INSTALLED_APPS)
                         }
                     )
                 )
@@ -525,15 +535,6 @@ class PermissionsActivity : AppCompatActivity() {
                             gravity = Gravity.CENTER_VERTICAL
                         }
 
-                        val tvBadge = TextView(ctx).apply {
-                            text = item.confirmedBadgeText
-                            textSize = 12f
-                            setTypeface(typeface, android.graphics.Typeface.BOLD)
-                            setTextColor(android.graphics.Color.parseColor("#388E3C"))
-                            setPadding((6 * density).toInt(), (3 * density).toInt(), (6 * density).toInt(), (3 * density).toInt())
-                            visibility = View.GONE
-                        }
-
                         val btnAction = MaterialButton(ctx).apply {
                             text = item.actionLabel
                             isAllCaps = false
@@ -564,11 +565,9 @@ class PermissionsActivity : AppCompatActivity() {
                                 if (isInternalUpdating) return@setOnCheckedChangeListener
                                 item.onConfirmChanged(ctx, isChecked)
                                 btnAction.visibility = if (isChecked) View.GONE else View.VISIBLE
-                                tvBadge.visibility = if (isChecked) View.VISIBLE else View.GONE
                             }
                         }
 
-                        actionsContainer.addView(tvBadge)
                         actionsContainer.addView(btnAction)
                         actionsContainer.addView(checkBox)
                         row.addView(actionsContainer)
@@ -578,7 +577,6 @@ class PermissionsActivity : AppCompatActivity() {
                             isInternalUpdating = true
                             checkBox.isChecked = confirmed
                             btnAction.visibility = if (confirmed) View.GONE else View.VISIBLE
-                            tvBadge.visibility = if (confirmed) View.VISIBLE else View.GONE
                             isInternalUpdating = false
                         }
                         refreshCallbacks.add(refreshItem)

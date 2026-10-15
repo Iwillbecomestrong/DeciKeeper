@@ -184,6 +184,21 @@ object PermissionManager {
         }
     }
     
+    const val PERMISSION_GET_INSTALLED_APPS = "com.android.permission.GET_INSTALLED_APPS"
+
+    /** 该 ROM 是否定义了「读取已安装应用列表」运行时权限（多数国产 ROM 有，AOSP 无）。 */
+    fun isInstalledAppsPermissionDefined(context: Context): Boolean = try {
+        context.packageManager.getPermissionInfo(PERMISSION_GET_INSTALLED_APPS, 0)
+        true
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
+    }
+
+    /** 读取应用列表：ROM 未定义该权限时无需授权，视为已具备。 */
+    fun hasInstalledAppsPermission(context: Context): Boolean =
+        !isInstalledAppsPermissionDefined(context) ||
+            context.checkSelfPermission(PERMISSION_GET_INSTALLED_APPS) == PackageManager.PERMISSION_GRANTED
+
     /**
      * 使用情况访问权限
      */
