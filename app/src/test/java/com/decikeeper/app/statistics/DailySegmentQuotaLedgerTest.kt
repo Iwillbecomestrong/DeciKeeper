@@ -38,6 +38,8 @@ class DailySegmentQuotaLedgerTest {
         }
         TimeRuleManager.invalidateSegmentsCache()
         TimeRuleManager.saveRefreshTime(context, "00:00")
+        // 默认「生效时间跟随时段」后，早间（结束时间落在 04:00–12:00）启用前段会改写生效时间；本测试只验额度账，固定为不跟随。
+        TimeRuleManager.setRefreshTimeSynced(context, false)
         CreditManager.markAdaptationEnded(context)
 
         val cal = Calendar.getInstance()
