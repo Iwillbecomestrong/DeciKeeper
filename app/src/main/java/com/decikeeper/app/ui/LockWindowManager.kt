@@ -86,6 +86,7 @@ import com.decikeeper.app.manager.AlarmScheduler
 import com.decikeeper.app.manager.AppWindowManager
 import com.decikeeper.app.manager.CreditManager
 import com.decikeeper.app.manager.ReturnHomeBufferManager
+import com.decikeeper.app.manager.ReturnHomeBufferPolicy
 import com.decikeeper.app.manager.LockOverlayRestrictionMode
 import com.decikeeper.app.manager.TimeRuleManager
 import com.decikeeper.app.manager.statistics.QuotaGrantRecorder
@@ -2458,7 +2459,7 @@ object LockWindowManager {
             val fullScreen = lastBlockedPackageName?.let { CoreService.instance?.isPackageFullScreen(it) } == true
             setDesktopReturnGrace(now, limited = !fullScreen)
             val graceTime = ReturnHomeBufferManager.graceRemainingMs()
-            mDismissUntil = now + graceTime
+            mDismissUntil = now + maxOf(graceTime, ReturnHomeBufferPolicy.MIN_VISIBLE_GAP_MS)
             // 全屏应用：用户已明确回桌面，系统前台事件会滞后，需抑制对同一应用的“陈旧前台”重锁，
             // 直到用户真正离开该应用；小窗在冷却内（无豁免）则必须清除，让它继续被拦。
             if (graceTime <= 0L && !fullScreen) {

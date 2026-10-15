@@ -5,6 +5,8 @@ internal class ReturnHomeBufferPolicy {
     companion object {
         const val GRACE_MS = 3_000L
         const val COOLDOWN_MS = 30_000L
+        /** 冷却内回桌面也先撤掉锁屏这么久再重锁，让用户看到界面切换；不放行使用。 */
+        const val MIN_VISIBLE_GAP_MS = 700L
 
         fun restore(snapshot: Snapshot, elapsedMs: Long, now: Long): ReturnHomeBufferPolicy {
             val elapsed = elapsedMs.coerceAtLeast(0L)
