@@ -12,8 +12,8 @@
     令牌只从环境变量读取，不写入仓库、不打印。
 
 .EXAMPLE
-    pwsh scripts/publish_release.ps1 -Tag v0.4.2 -DryRun
-    pwsh scripts/publish_release.ps1 -Tag v0.4.2
+    pwsh scripts/publish_release.ps1 -Tag v0.4.3 -DryRun
+    pwsh scripts/publish_release.ps1 -Tag v0.4.3
 #>
 [CmdletBinding()]
 param(

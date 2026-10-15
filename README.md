@@ -6,7 +6,7 @@
 
 时间规则 + 挑战闹钟｜开源内测中
 
-[⬇ 下载 v0.4.2 APK（国内 Gitee）](https://gitee.com/my_room_welcome_you/DeciKeeper/releases/download/v0.4.2/DeciKeeper-v0.4.2-arm64.apk) · [GitHub 下载](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.4.2/DeciKeeper-v0.4.2-arm64.apk) · [全部下载渠道](#下载) · [快速上手](docs/user/getting-started.md) · [功能指南](docs/user/guide.md) · [权限说明](docs/user/permissions.md) · [开发者指南](.github/CONTRIBUTING.md)
+[⬇ 下载 v0.4.3 APK（国内 Gitee）](https://gitee.com/my_room_welcome_you/DeciKeeper/releases/download/v0.4.3/DeciKeeper-v0.4.3-arm64.apk) · [GitHub 下载](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.4.3/DeciKeeper-v0.4.3-arm64.apk) · [全部下载渠道](#下载) · [快速上手](docs/user/getting-started.md) · [功能指南](docs/user/guide.md) · [权限说明](docs/user/permissions.md) · [开发者指南](.github/CONTRIBUTING.md)
 
 决定守护主要解决我自己长期遇到的两个问题：
 
@@ -53,8 +53,8 @@
 
 | 渠道 | 链接 |
 | --- | --- |
-| 国内用户（Gitee，无需翻墙） | [DeciKeeper-v0.4.2-arm64.apk](https://gitee.com/my_room_welcome_you/DeciKeeper/releases/download/v0.4.2/DeciKeeper-v0.4.2-arm64.apk) · [全部发行版](https://gitee.com/my_room_welcome_you/DeciKeeper/releases) |
-| GitHub Releases | [DeciKeeper-v0.4.2-arm64.apk](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.4.2/DeciKeeper-v0.4.2-arm64.apk) · [全部发行版与校验](https://github.com/Iwillbecomestrong/DeciKeeper/releases) |
+| 国内用户（Gitee，无需翻墙） | [DeciKeeper-v0.4.3-arm64.apk](https://gitee.com/my_room_welcome_you/DeciKeeper/releases/download/v0.4.3/DeciKeeper-v0.4.3-arm64.apk) · [全部发行版](https://gitee.com/my_room_welcome_you/DeciKeeper/releases) |
+| GitHub Releases | [DeciKeeper-v0.4.3-arm64.apk](https://github.com/Iwillbecomestrong/DeciKeeper/releases/download/v0.4.3/DeciKeeper-v0.4.3-arm64.apk) · [全部发行版与校验](https://github.com/Iwillbecomestrong/DeciKeeper/releases) |
 
 ## 反馈、贡献与开源
 

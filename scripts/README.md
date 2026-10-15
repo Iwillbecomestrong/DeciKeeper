@@ -12,7 +12,7 @@
 | `audit_log_export.py` | 运行日志导出取证审计与标签分类器（确保日志不泄露敏感信息且符合规范） | `python scripts/audit_log_export.py <log_file>` |
 | `_clean_cloze_opensource.py` | 开源合规发布工具：剥离 `cloze_pool.json` 中的商业版权内容（解析书逐字稿与来源文件） | `python scripts/_clean_cloze_opensource.py` |
 | `_gen_wordlist.py` | 内置词库处理与轻量化释义生成工具 | `python scripts/_gen_wordlist.py` |
-| `publish_release.ps1` | 把 `release_apks/` 中已校验的 APK 同步发布到 GitHub + Gitee Release（预检构建提交 = tag、哈希与 notes 一致；幂等；发布后验证下载链接）。需要 `gh` 登录与环境变量 `GITEE_TOKEN` | `pwsh scripts/publish_release.ps1 -Tag v0.4.2 -DryRun` 预演，去掉 `-DryRun` 正式发布 |
+| `publish_release.ps1` | 把 `release_apks/` 中已校验的 APK 同步发布到 GitHub + Gitee Release（预检构建提交 = tag、哈希与 notes 一致；幂等；发布后验证下载链接）。需要 `gh` 登录与环境变量 `GITEE_TOKEN` | `pwsh scripts/publish_release.ps1 -Tag v0.4.3 -DryRun` 预演，去掉 `-DryRun` 正式发布 |
 | `verify_markdown_links.py` | 校验 Markdown 本地链接；加 `--check-release-links` 联网确认 README 里的 Release 下载链接可下载 | `python scripts/verify_markdown_links.py --check-release-links` |
 | `archive/` | 历史补丁与单次迁移脚本归档 | 仅供历史审计参考 |
 
