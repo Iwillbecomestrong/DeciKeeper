@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -39,11 +41,38 @@ def check_file(path: Path, root: Path) -> list[str]:
     return errors
 
 
+def check_release_links(readme: Path) -> list[str]:
+    """README 中的 Release 下载链接必须真实可下载（发布前联网检查，默认不启用）。"""
+    errors: list[str] = []
+    urls = sorted(set(re.findall(r"https://[^\s)]+/releases/download/[^\s)]+", readme.read_text(encoding="utf-8"))))
+    for url in urls:
+        try:
+            request = urllib.request.Request(url, method="HEAD")
+            with urllib.request.urlopen(request, timeout=20) as response:
+                if response.status != 200:
+                    errors.append(f"{url}: HTTP {response.status}")
+        except urllib.error.URLError as error:
+            errors.append(f"{url}: {error}")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument(
+        "--check-release-links",
+        action="store_true",
+        help="联网请求 README.md 里的 releases/download 链接，发版后、推送 README 前使用",
+    )
     args = parser.parse_args()
     root = args.root.resolve()
+    if args.check_release_links:
+        errors = check_release_links(root / "README.md")
+        if errors:
+            print("README release link check failed:")
+            print("\n".join(errors))
+            return 1
+        print("README release links reachable")
     checked_paths = [
         path for path in iter_markdown(root)
         if "docs/archive" not in path.relative_to(root).as_posix()
