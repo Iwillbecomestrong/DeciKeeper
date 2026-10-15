@@ -821,15 +821,20 @@ object LockWindowManager {
     private var homeClickPendingSetAt = 0L
     // 🚀 [回到桌面宽限] 返回桌面后 3s 内不因小窗/浮窗触发锁屏（用户要求 2026-08-15）
     /** 放行共享同一截止；冷却内不创建放行。 */
-    fun setDesktopReturnGrace(now: Long = System.currentTimeMillis()) {
-        ReturnHomeBufferManager.beginGrace()
+    fun setDesktopReturnGrace(now: Long = System.currentTimeMillis(), limited: Boolean = true) {
+        ReturnHomeBufferManager.beginGrace(limited)
     }
 
     fun isInDesktopReturnGrace(now: Long = System.currentTimeMillis()): Boolean =
         ReturnHomeBufferManager.graceRemainingMs() > 0L
 
+    /** 存在性追踪是否处于“等待关闭确认”：含使用豁免和全屏应用回桌面的确认时间，只用于抑制误重锁。 */
+    fun isInDesktopReturnSettle(now: Long = System.currentTimeMillis()): Boolean =
+        ReturnHomeBufferManager.settleRemainingMs() > 0L
+
+    /** 仅供存在性追踪使用：含全屏应用回桌面的关闭确认时间，但不放行任何使用。 */
     fun getDesktopReturnGraceUntil(now: Long = System.currentTimeMillis()): Long =
-        now + ReturnHomeBufferManager.graceRemainingMs()
+        now + ReturnHomeBufferManager.settleRemainingMs()
 
     // 🚀 Helper to check service state safely
     fun isServiceActive(): Boolean {
@@ -2449,15 +2454,23 @@ object LockWindowManager {
         fun performReturnHome() {
             val now = System.currentTimeMillis()
 
-            setDesktopReturnGrace(now)
+            // 全屏应用回桌面后被桌面盖住，系统确认要 2–3 秒，只给确认时间、不进冷却；小窗才受冷却限制。
+            val fullScreen = lastBlockedPackageName?.let { CoreService.instance?.isPackageFullScreen(it) } == true
+            setDesktopReturnGrace(now, limited = !fullScreen)
             val graceTime = ReturnHomeBufferManager.graceRemainingMs()
             mDismissUntil = now + graceTime
-            if (graceTime <= 0L) {
+            // 全屏应用：用户已明确回桌面，系统前台事件会滞后，需抑制对同一应用的“陈旧前台”重锁，
+            // 直到用户真正离开该应用；小窗在冷却内（无豁免）则必须清除，让它继续被拦。
+            if (graceTime <= 0L && !fullScreen) {
                 clearHomeClickPendingPackage()
             } else {
                 homeClickPendingPackage = lastBlockedPackageName
                 homeClickPendingSetAt = now
             }
+            LogExporter.logEvent(
+                "LockScreen",
+                "[HOME_CLICK_DECISION] pkg=${lastBlockedPackageName ?: "unknown"} fullScreen=$fullScreen graceMs=$graceTime pending=${homeClickPendingPackage != null}"
+            )
             recordPendingReturnDesktopExit(lastBlockedPackageName ?: "unknown")
             clearBlacklistHitDebounceForUserAction()
             Log.i(
@@ -2466,7 +2479,7 @@ object LockWindowManager {
             )
 
             // 🏠 回到桌面 legacy lifecycle line retired; LOCK_EXIT normal event already records the outcome.
-            Log.w(TAG, "[HOME_CLICK_RAW] pkg=${homeClickPendingPackage ?: "N/A"}, now=$now, dismissUntil=$mDismissUntil, graceMs=$graceTime, isLocked=$isLocked")
+            Log.w(TAG, "[HOME_CLICK_RAW] pkg=${homeClickPendingPackage ?: "N/A"}, now=$now, dismissUntil=$mDismissUntil, graceMs=$graceTime, fullScreen=$fullScreen, isLocked=$isLocked")
 
             // Allow actions
             val homeIntent = Intent(Intent.ACTION_MAIN).apply {

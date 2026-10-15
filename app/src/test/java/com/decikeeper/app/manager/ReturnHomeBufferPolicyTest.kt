@@ -54,4 +54,18 @@ class ReturnHomeBufferPolicyTest {
         assertEquals(0L, backward.beginGrace(100_000L))
         assertEquals(3_000L, backward.beginGrace(130_000L))
     }
+
+    @Test fun fullScreenReturnOnlyWaitsForCloseEvidenceAndGrantsNoUsage() {
+        val policy = ReturnHomeBufferPolicy()
+        assertEquals("全屏返回不放行任何使用", 0L, policy.beginGrace(1_000L, limited = false))
+        assertEquals(3_000L, policy.settleRemainingMs(1_000L))
+        // 全屏返回不进入冷却：紧接着的小窗返回仍能拿到完整豁免。
+        assertEquals(3_000L, policy.beginGrace(5_000L, limited = true))
+        // 冷却内的全屏返回仍有关闭确认时间，但没有使用豁免。
+        assertEquals(0L, policy.beginGrace(10_000L, limited = true))
+        assertEquals(0L, policy.beginGrace(10_000L, limited = false))
+        assertEquals(3_000L, policy.settleRemainingMs(10_000L))
+        // 全屏确认时间不会续期冷却。
+        assertEquals(3_000L, policy.beginGrace(35_000L, limited = true))
+    }
 }

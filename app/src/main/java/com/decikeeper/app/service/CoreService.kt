@@ -501,6 +501,45 @@ class CoreService : AccessibilityService() {
         }
     }
 
+    /**
+     * 目标应用当前是否有近似全屏的应用窗口。全屏应用回桌面后被桌面盖住、无法使用，
+     * 小窗则会继续漂在桌面上；无法判断（无窗口信息）返回 null。
+     */
+    fun isPackageFullScreen(pkg: String): Boolean? {
+        val windowList = try { windows } catch (_: Throwable) { null }
+        if (windowList.isNullOrEmpty()) return null
+        val metrics = resources.displayMetrics
+        var seen = false
+        var unresolvedLarge = false
+        val dump = StringBuilder()
+        for (window in windowList) {
+            val bounds = Rect()
+            window.getBoundsInScreen(bounds)
+            val large = bounds.width() >= metrics.widthPixels * 0.9 && bounds.height() >= metrics.heightPixels * 0.8
+            val windowPkg = try { window.root?.packageName?.toString() } catch (_: Throwable) { null }
+            dump.append("[type=${window.type} pkg=$windowPkg $bounds] ")
+            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+            if (windowPkg == null) {
+                // 根节点取不到的大窗口：此刻锁屏盖在前台全屏应用上，窗口树常取不到它的根。
+                if (large) unresolvedLarge = true
+                continue
+            }
+            if (windowPkg != pkg) continue
+            seen = true
+            if (large) {
+                LogExporter.logEvent("CoreService", "[FULLSCREEN_PROBE] pkg=$pkg full=true windows=$dump")
+                return true
+            }
+        }
+        val result = when {
+            seen -> false
+            unresolvedLarge -> true
+            else -> null
+        }
+        LogExporter.logEvent("CoreService", "[FULLSCREEN_PROBE] pkg=$pkg full=$result seen=$seen unresolvedLarge=$unresolvedLarge windows=$dump")
+        return result
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         val uptime = android.os.SystemClock.uptimeMillis()

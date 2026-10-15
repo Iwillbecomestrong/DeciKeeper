@@ -1846,7 +1846,7 @@ class MonitorService : Service() {
                 if (trackerAction == PresenceTrackerAction.LOCK && trackedPkg != null) {
                     val hasTemporaryAccessForTarget =
                         LockWindowManager.getActiveTemporaryAccessTargetPackage() == trackedPkg
-                    val isGrace = LockWindowManager.isInDesktopReturnGrace(now) || (mPresenceTracker.state == PresenceTrackerState.DESKTOP_GRACE && now < mPresenceTracker.graceUntilMs)
+                    val isGrace = LockWindowManager.isInDesktopReturnSettle(now) || (mPresenceTracker.state == PresenceTrackerState.DESKTOP_GRACE && now < mPresenceTracker.graceUntilMs)
                     val canLock = shouldTriggerVisibleBlacklistLock(
                         VisibleBlacklistLockInput(
                             isDndLocked = isDndLocked,
@@ -1881,7 +1881,7 @@ class MonitorService : Service() {
                                     isDndLocked = isDndLocked,
                                     isPrivilegeActive = isPrivilege,
                                     isLockShowing = LockWindowManager.isLocked,
-                                    isDesktopReturnGrace = LockWindowManager.isInDesktopReturnGrace(now),
+                                    isDesktopReturnGrace = LockWindowManager.isInDesktopReturnSettle(now),
                                     hasTemporaryAccessForTarget = hasTemporaryAccessForTarget,
                                     presenceConfirmed = true
                                 )
@@ -1915,7 +1915,7 @@ class MonitorService : Service() {
         // 🚀 [NEW] Double-layer window matching:
         // If Accessibility is enabled, and a blacklisted app is actually visible on screen (e.g. as a small window/PIP),
         // we override resolvedPackageName with that blacklisted package BEFORE the null return check!
-        if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
+        if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnSettle(now)) {
             val visiblePkgs = CoreService.lastVisiblePackagesFromWindows
             val visibleBlacklistedPkg = visiblePkgs.firstOrNull { pkg ->
                 pkg != this.packageName &&
@@ -1985,7 +1985,7 @@ class MonitorService : Service() {
         // (detected via CoreService's live window set), then it's a real visible window (e.g. small window/PIP),
         // not a stale UsageStats lag event! In this case, we MUST clear the pending suppression immediately
         // so that the block is not bypassed, and the lock screen remains active.
-        if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnGrace(now)) {
+        if (CoreService.isServiceActive && !LockWindowManager.isInDesktopReturnSettle(now)) {
             val pendingPkg = LockWindowManager.homeClickPendingPackage
             if (pendingPkg != null && mPresenceTracker.isPhysicallyVisible(pendingPkg, CoreService.lastVisiblePackagesFromWindows)) {
                 Log.w(TAG, "[Anti-Deadlock] Pending pkg $pendingPkg is physically visible on screen, clearing suppression!")
@@ -2045,7 +2045,7 @@ class MonitorService : Service() {
         if (isEffLauncher && !lastEffectiveWasLauncher && !LockWindowManager.isInDesktopReturnGrace(now)) {
             LockWindowManager.setDesktopReturnGrace(now)
             mPresenceTracker.onDesktopReturn(now, LockWindowManager.getDesktopReturnGraceUntil(now))
-        } else if (LockWindowManager.isInDesktopReturnGrace(now) && mPresenceTracker.state == PresenceTrackerState.CONFIRMED_VISIBLE) {
+        } else if (LockWindowManager.isInDesktopReturnSettle(now) && mPresenceTracker.state == PresenceTrackerState.CONFIRMED_VISIBLE) {
             mPresenceTracker.onDesktopReturn(now, LockWindowManager.getDesktopReturnGraceUntil(now))
         }
         lastEffectiveWasLauncher = isEffLauncher

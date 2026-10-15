@@ -19,9 +19,16 @@ internal class ReturnHomeBufferPolicy {
 
     private var graceUntil = 0L
     private var cooldownUntil = 0L
+    private var settleUntil = 0L
 
     /** 豁免中共享同一截止；冷却内返回 0，冷却从放行开始计，不被重复请求续期。 */
-    fun beginGrace(now: Long): Long {
+    fun beginGrace(now: Long, limited: Boolean = true): Long {
+        if (!limited) {
+            // 全屏应用回桌面只给“等待关闭确认”的时间：只用于不让存在性追踪提前重锁，
+            // 不放行任何使用（重新打开仍会被拦），也不进入或消耗冷却。
+            settleUntil = maxOf(settleUntil, now + GRACE_MS)
+            return graceRemainingMs(now)
+        }
         if (now >= graceUntil && now >= cooldownUntil) {
             graceUntil = now + GRACE_MS
             cooldownUntil = now + COOLDOWN_MS
@@ -30,6 +37,9 @@ internal class ReturnHomeBufferPolicy {
     }
 
     fun graceRemainingMs(now: Long): Long = (graceUntil - now).coerceAtLeast(0L)
+
+    /** 存在性追踪等待关闭确认的剩余时间：豁免与全屏确认时间取较长者。 */
+    fun settleRemainingMs(now: Long): Long = (maxOf(graceUntil, settleUntil) - now).coerceAtLeast(0L)
 
     fun hintText(now: Long): String? {
         if (graceRemainingMs(now) > 0L || now >= cooldownUntil) return null

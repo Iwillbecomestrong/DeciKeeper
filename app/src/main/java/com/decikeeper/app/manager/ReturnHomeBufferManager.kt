@@ -28,13 +28,15 @@ internal object ReturnHomeBufferManager {
         prefs = storage
     }
 
-    @Synchronized fun beginGrace(): Long {
-        val remaining = policy.beginGrace(SystemClock.elapsedRealtime())
+    @Synchronized fun beginGrace(limited: Boolean = true): Long {
+        val remaining = policy.beginGrace(SystemClock.elapsedRealtime(), limited)
         save()
         return remaining
     }
 
     @Synchronized fun graceRemainingMs(): Long = policy.graceRemainingMs(SystemClock.elapsedRealtime())
+
+    @Synchronized fun settleRemainingMs(): Long = policy.settleRemainingMs(SystemClock.elapsedRealtime())
 
     @Synchronized fun hintText(): String? = policy.hintText(SystemClock.elapsedRealtime())
 
