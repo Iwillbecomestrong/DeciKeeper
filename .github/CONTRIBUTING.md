@@ -151,6 +151,20 @@ type: feat / fix / test / docs / chore / refactor
 4. PR 描述写清：改了什么、为什么、影响模块、生效规则、怎么验证。
 5. 如果 `dev` 在任务期间继续变化，先把最新 `dev` 同步到任务分支并处理冲突，再判断是否可合并。
 
+### 7.1 发版流程
+
+GitHub 的 `main` 受规则保护：禁止删除，且新提交必须先通过 CI 状态检查才能推送；Gitee 的 `main` 无此限制。因此顺序固定为：
+
+1. 任务分支合并到 `dev`，推送 `dev` 到 GitHub，等 `Build & Test` 变绿。
+2. 在 `dev` 上编译 Release 并装机，完整真机测试。
+3. 把 `dev`（已通过 CI 的提交）推到 `main`：`git push github dev:main`，再同步本地 `main`（`git fetch . dev:main`）并推送 `gitee main`。两边 `main` 必须是同一个提交。
+4. 在 `main` 当前提交上编译签名 Release 包，装机验收；之后不再追加提交。
+5. 在该提交上打 tag，先推 `main`、再推 tag 到两个远端。
+6. 运行 `pwsh scripts/publish_release.ps1 -Tag vX.Y.Z -DryRun` 预演，通过后去掉 `-DryRun` 发布到 GitHub 与 Gitee Release。脚本会校验 APK 哈希、构建提交 = tag、release notes 哈希一致，并验证两个下载链接。
+7. 发版后运行 `python scripts/verify_markdown_links.py --check-release-links`，确认 README 下载链接可下载。
+
+测试装机的必须是最终发布的那个 APK 文件，不要测完重新编译。
+
 ## 8. 关键文件地图
 
 | 想改… | 先读… |
