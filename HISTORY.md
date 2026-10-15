@@ -78,6 +78,13 @@
 - **防坑警告**：「日期与时间拦截」绝不能进豁免时段，否则每天留一个改时间的窗口，所有严立宽延失效；识别不得用「页面任意位置出现『日期与时间』」，设置首页有同名入口行；窗口改宽只靠次日生效延迟，不设上限意味着可被改成全天，这是用户明确接受的取舍。
 - **局限**：日期与时间拦截只挡设置页入口，adb（`settings put` / `date`）、快捷设置、第三方应用直达该页不在范围；真正的兜底是尚未实现的「时间跳变检测」（对比墙钟变化与 `elapsedRealtime` 变化），另立计划。豁免判定与时间规则同用 `System.currentTimeMillis()`，受同一风险影响。详见 `docs/plans/2026-10-11-dev-advanced-guard-exemption.md`。
 
+### [DECISION-49] 点扫码前必须保证 AlarmActivity 在前台，否则相机永远不开（2026-10-15）
+
+- **现象**：闹钟扫码界面一直停在「正在连接摄像头…」，相机始终不出画面。
+- **根因**：覆盖层是独立窗口，相机（CameraX）却绑定 AlarmActivity 的生命周期。在应急白名单应用（如短信）里熄屏再亮屏，覆盖层重新显示在锁屏上，而 AlarmActivity 仍被白名单应用盖在后面（STOPPED）；此时点扫码只会让 CameraX 排队等待 Activity 回到前台，相机服务全程没有连接记录。
+- **决策**：`launchQrScan` 发现 Activity 未 RESUMED 时，先用 `REORDER_TO_FRONT` 带 `start_scan` 把它拉回前台，由 `onNewIntent`/`onResume` 在真正回到前台后再进入扫码；另加 4 秒预览看门狗，超时仍无出帧时，Activity 不在前台就拉回前台，否则重绑相机（最多 2 次），并记录 `SCAN_HOST_NOT_FOREGROUND` / `SCAN_PREVIEW_TIMEOUT` 日志。
+- **防回归**：不要在 Activity 非 RESUMED 时启用扫码取景孔或绑定相机；`onNewIntent` 先于 `onStart`/`onResume`，不能在其中直接 `startScanMode()`；熄屏亮屏恢复覆盖层的逻辑本身不改。契约见 `AlarmScanCutoutContractTest`。
+
 ### [DECISION-48] 闹钟扫码预览迁入覆盖层并保留相机恢复链（2026-10-11）
 
 - **根因与决策**：全屏覆盖层的透明孔依赖下层 Activity 的预览位置，分屏后两者坐标不一致。改为同窗口不透明 TextureView 取景器，保留 dev 的硬重绑、绑定代际和会话检查。

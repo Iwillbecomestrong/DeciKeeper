@@ -265,4 +265,47 @@ class AlarmScanCutoutContractTest {
                 onResumeMethod.contains("finishAndRemoveTask()")
         )
     }
+    /**
+     * 真机复现（2026-10-15）：白名单应用（短信）盖住 AlarmActivity 后熄屏再亮屏，
+     * 覆盖层重新显示在锁屏上，Activity 仍是 STOPPED；此时点扫码，CameraX 绑定的生命周期
+     * 不会开相机，界面永远停在“正在连接摄像头…”。
+     */
+    @Test
+    fun scanClickBringsBackgroundedActivityToFrontBeforeBindingCamera() {
+        val launchMethod = activitySource.substring(
+            activitySource.indexOf("override fun launchQrScan()"),
+            activitySource.indexOf("private fun dismissKeyguardAndRequestCameraPermission")
+        )
+        assertTrue(
+            "launchQrScan 在 Activity 未 RESUMED 时必须先拉回前台，不得直接 startScanMode",
+            launchMethod.contains("isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)") &&
+                launchMethod.contains("deferScanUntilForeground")
+        )
+        val deferMethod = activitySource.substring(
+            activitySource.indexOf("private fun deferScanUntilForeground"),
+            activitySource.indexOf("private fun scheduleScanWatchdog")
+        )
+        assertTrue(
+            "拉回前台必须用 REORDER_TO_FRONT 并携带 start_scan",
+            deferMethod.contains("FLAG_ACTIVITY_REORDER_TO_FRONT") &&
+                deferMethod.contains("\"start_scan\", true")
+        )
+        val resumeMethod = activitySource.substring(
+            activitySource.indexOf("override fun onResume()"),
+            activitySource.indexOf("private fun finishExternalOverlayHostIfNeeded")
+        )
+        assertTrue(
+            "回到前台后必须由 onResume 补做扫码",
+            resumeMethod.contains("pendingScanStartOnResume") && resumeMethod.contains("startScanMode()")
+        )
+    }
+
+    @Test
+    fun scanPreviewWatchdogRecoversFromStuckConnecting() {
+        assertTrue(
+            "必须有预览超时看门狗，避免永远停在“正在连接摄像头…”",
+            activitySource.contains("SCAN_PREVIEW_TIMEOUT") &&
+                activitySource.contains("scheduleScanWatchdog()")
+        )
+    }
 }

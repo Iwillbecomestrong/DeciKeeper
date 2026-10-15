@@ -47,6 +47,10 @@ internal fun shouldAnalyzeAlarmQrPreview(
     overlayReady: Boolean
 ): Boolean = isScanMode && streaming && activityReady && !restartPending && overlayReady
 
+// 进入扫码后超过该时长仍无预览帧，视为卡在“正在连接摄像头…”。
+private const val SCAN_PREVIEW_TIMEOUT_MS = 4000L
+private const val SCAN_PREVIEW_MAX_RETRIES = 2
+
 
 
 
@@ -72,6 +76,10 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     private var scanGeneration = 0L
     private var scanSessionToken = ""
     private var scanNeedsCameraRestartOnResume = false
+    private var pendingScanStartOnResume = false
+    private var scanWatchdogRetries = 0
+    private val scanWatchdogHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val scanWatchdog = Runnable { onScanWatchdogFired() }
 
     private val alarmProtectionNormalEventLogger by lazy {
         NormalEventLogger(
@@ -166,6 +174,8 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
                 totalSteps = 1
             )
         }
+        scanWatchdogRetries = 0
+        scheduleScanWatchdog()
         manager.start(previewView) { result ->
             if (!shouldAnalyzeAlarmQrPreview(
                     isScanMode,
@@ -243,6 +253,66 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         }
     }
 
+    /**
+     * 覆盖层是独立窗口，AlarmActivity 却可能被白名单应用（如短信）盖在后面：
+     * 熄屏再亮屏后覆盖层会重新显示在锁屏上，而 Activity 仍是 STOPPED，CameraX 绑定它的生命周期，
+     * 相机永远不会打开（界面停在“正在连接摄像头…”）。此时必须先把 Activity 拉回前台，
+     * 由 onResume 再进入扫码。
+     */
+    private fun deferScanUntilForeground(reason: String) {
+        pendingScanStartOnResume = true
+        LogExporter.logEvent(
+            "AlarmOverlay",
+            "SCAN_HOST_NOT_FOREGROUND id=$alarmId reason=$reason state=${lifecycle.currentState}"
+        )
+        val intent = Intent(this, AlarmActivity::class.java).apply {
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
+            putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
+            putExtra("is_locked_screen", isLockedScreenMode)
+            putExtra("start_scan", true)
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            pendingScanStartOnResume = false
+            Log.e("AlarmActivity", "deferScanUntilForeground: bring-to-front failed", e)
+            LogExporter.logEvent(
+                "AlarmOverlay",
+                "SCAN_BRING_TO_FRONT_FAILED id=$alarmId error=${e.javaClass.simpleName}:${e.message}"
+            )
+        }
+    }
+
+    private fun scheduleScanWatchdog() {
+        scanWatchdogHandler.removeCallbacks(scanWatchdog)
+        scanWatchdogHandler.postDelayed(scanWatchdog, SCAN_PREVIEW_TIMEOUT_MS)
+    }
+
+    private fun onScanWatchdogFired() {
+        val manager = barcodeView
+        if (!isScanMode || manager == null || manager.isPreviewStreaming()) return
+        val state = lifecycle.currentState
+        LogExporter.logEvent(
+            "AlarmOverlay",
+            "SCAN_PREVIEW_TIMEOUT id=$alarmId state=$state retries=$scanWatchdogRetries"
+        )
+        if (!state.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+            // 退出扫码态，露出挑战界面，并把 Activity 拉回前台后重新进入扫码。
+            manager.pause()
+            isScanMode = false
+            LockWindowManager.setAlarmOverlayPassthrough(false)
+            deferScanUntilForeground("WATCHDOG")
+        } else if (scanWatchdogRetries < SCAN_PREVIEW_MAX_RETRIES) {
+            scanWatchdogRetries++
+            manager.restart()
+            scheduleScanWatchdog()
+        }
+    }
+
     private fun updateScanCutoutForPreview(streaming: Boolean) {
         if (!isScanMode) return
         val view = LockWindowManager.getAlarmView()
@@ -264,6 +334,8 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     override fun onScanCancel() {
         scanNeedsCameraRestartOnResume = false
+        pendingScanStartOnResume = false
+        scanWatchdogHandler.removeCallbacks(scanWatchdog)
         android.util.Log.i("AlarmActivity", "onScanCancel: isLockedScreenMode=$isLockedScreenMode")
         if (torchOn) {
             torchOn = false
@@ -395,8 +467,12 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
     override fun launchQrScan() {
         val hasPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         android.util.Log.d("AlarmActivity", "launchQrScan: hasPermission=$hasPermission")
-        LogExporter.logEvent("AlarmOverlay", "ACTIVITY_LAUNCH_QR_SCAN hasPermission=$hasPermission")
+        LogExporter.logEvent("AlarmOverlay", "ACTIVITY_LAUNCH_QR_SCAN hasPermission=$hasPermission state=${lifecycle.currentState}")
         if (hasPermission) {
+            if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+                deferScanUntilForeground("LAUNCH")
+                return
+            }
             startScanMode()
             return
         }
@@ -542,9 +618,15 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         }
 
         if (intent.getBooleanExtra("start_scan", false)) {
-            // SINGLE_TOP 下收到扫码请求：直接进入扫码模式
+            // SINGLE_TOP 下收到扫码请求：直接进入扫码模式。
+            // Activity 若仍在后台（onNewIntent 先于 onStart/onResume），此刻绑相机只会排队不开，
+            // 等回到前台由 onResume 再进入扫码。
             LockWindowManager.reattachAlarmController(this)
-            startScanMode()
+            if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+                startScanMode()
+            } else {
+                pendingScanStartOnResume = true
+            }
             return
         }
         if (intent.getBooleanExtra("request_camera_permission", false)) {
@@ -592,7 +674,11 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         }
         if (finishExternalOverlayHostIfNeeded()) return
         LockWindowManager.reattachAlarmController(this)
-        if (isScanMode) {
+        if (pendingScanStartOnResume) {
+            pendingScanStartOnResume = false
+            LogExporter.logEvent("AlarmOverlay", "SCAN_START_ON_RESUME id=$alarmId")
+            startScanMode()
+        } else if (isScanMode) {
             // Activity 曾因系统窗口/锁屏离开前台时，必须重绑 CameraX Preview；
             // 单纯 resume() 只会恢复二维码分析标志，无法修复失效的 Surface/Preview。
             LockWindowManager.setAlarmOverlayPassthrough(true)
@@ -643,6 +729,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
 
     override fun onDestroy() {
         super.onDestroy()
+        scanWatchdogHandler.removeCallbacksAndMessages(null)
         scanGeneration++
         scanNeedsCameraRestartOnResume = false
         barcodeView?.pause()
