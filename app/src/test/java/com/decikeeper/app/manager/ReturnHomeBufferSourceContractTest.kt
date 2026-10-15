@@ -9,20 +9,18 @@ class ReturnHomeBufferSourceContractTest {
         generateSequence(File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
             .map { File(it, path) }.first { it.isFile }.readText()
 
-    @Test fun returnButtonOnlyCountsExplicitRestrictedReturnsAndAlwaysExitsWithoutCharge() {
+    @Test fun returnButtonAlwaysExitsWithoutCountingOrCharge() {
         val lock = source("app/src/main/java/com/decikeeper/app/ui/LockWindowManager.kt")
         val start = lock.indexOf("btnBackToHome?.setSafeOnClickListener")
         val end = lock.indexOf("纯粹三按钮架构点击逻辑", start)
         val click = lock.substring(start, end)
-        assertTrue(click.contains("!isAntiUninstallLock && (isBlacklistLock || _isAppWindowLock.get())"))
-        assertTrue(click.contains("ReturnHomeBufferManager.onReturnHome()"))
         assertTrue(click.contains("performReturnHome()"))
-        assertEquals(1, Regex("ReturnHomeBufferManager.onReturnHome\\(\\)").findAll(lock).count())
+        listOf("onReturnHome", "StrictExit", "isStrict", "onRestriction").forEach {
+            assertFalse("返回只放行一次并冷却，不再计数或续期: $it", lock.contains(it))
+        }
         listOf("consumePenaltySeconds(", "issuePenaltyTransactionOnce", "mPendingReturnHomeAction", "FrequentReturnDeduction").forEach {
             assertFalse("obsolete return charge path: $it", lock.contains(it))
         }
-        assertTrue(lock.contains("authority != LockDismissAuthority.RETURN_HOME || !ReturnHomeBufferManager.isStrict()"))
-        assertTrue(lock.contains("ReturnHomeBufferManager.onRestriction()"))
     }
 
     @Test fun monitorAndPresenceUseTheSharedDeadlineAndCanCancelExistingGrace() {
@@ -32,5 +30,6 @@ class ReturnHomeBufferSourceContractTest {
         assertTrue(monitor.contains("mPresenceTracker.limitDesktopGrace(LockWindowManager.getDesktopReturnGraceUntil(now))"))
         val layout = source("app/src/main/res/layout/window_lock_screen.xml")
         assertFalse(layout.contains("view_penalty_overlay"))
+        assertFalse(layout.contains("btn_strict_exit"))
     }
 }

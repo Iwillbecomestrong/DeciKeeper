@@ -820,7 +820,7 @@ object LockWindowManager {
     @Volatile
     private var homeClickPendingSetAt = 0L
     // 🚀 [回到桌面宽限] 返回桌面后 3s 内不因小窗/浮窗触发锁屏（用户要求 2026-08-15）
-    /** 同一次缓冲共享截止；严格状态下不创建缓冲。 */
+    /** 放行共享同一截止；冷却内不创建放行。 */
     fun setDesktopReturnGrace(now: Long = System.currentTimeMillis()) {
         ReturnHomeBufferManager.beginGrace()
     }
@@ -2013,11 +2013,6 @@ object LockWindowManager {
                     } catch (_: Throwable) {}
                 }
 
-                // 新一次实际拦截只重置安静期，不增加返回次数。
-                if (!isAntiUninstall && (isBlacklist || effectiveIsAppWindowBlocked)) {
-                    ReturnHomeBufferManager.onRestriction()
-                }
-
                 updateStatus(context)
                 startLockRefreshTimer(context)
 
@@ -2194,8 +2189,8 @@ object LockWindowManager {
 
         val now = System.currentTimeMillis()
 
-        // 严格返回不额外赠送通用的 1 秒放行，其余出口保留原有防竞态宽限。
-        if (authority != LockDismissAuthority.RETURN_HOME || !ReturnHomeBufferManager.isStrict()) {
+        // 冷却内的返回不额外赠送通用的 1 秒放行，其余出口保留原有防竞态宽限。
+        if (authority != LockDismissAuthority.RETURN_HOME || ReturnHomeBufferManager.graceRemainingMs() > 0L) {
             val minGrace = now + 1000L
             if (mDismissUntil < minGrace) mDismissUntil = minGrace
         }
@@ -2450,14 +2445,14 @@ object LockWindowManager {
 
         // Setup Listeners with Debounce
 
-        // 返回始终立即执行；严格状态不产生任何使用缓冲。
+        // 返回始终立即执行；冷却内不产生放行。
         fun performReturnHome() {
             val now = System.currentTimeMillis()
 
             setDesktopReturnGrace(now)
             val graceTime = ReturnHomeBufferManager.graceRemainingMs()
             mDismissUntil = now + graceTime
-            if (ReturnHomeBufferManager.isStrict()) {
+            if (graceTime <= 0L) {
                 clearHomeClickPendingPackage()
             } else {
                 homeClickPendingPackage = lastBlockedPackageName
@@ -2487,9 +2482,6 @@ object LockWindowManager {
         }
 
         btnBackToHome?.setSafeOnClickListener {
-            if (!isAntiUninstallLock && (isBlacklistLock || _isAppWindowLock.get())) {
-                ReturnHomeBufferManager.onReturnHome()
-            }
             performReturnHome()
         }
 

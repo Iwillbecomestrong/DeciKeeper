@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import android.os.SystemClock
 import android.provider.Settings
 
-/** 只持久化短期缓冲状态，历史额度与扣减账本不变。 */
+/** 只持久化短期豁免状态，历史额度与扣减账本不变。 */
 internal object ReturnHomeBufferManager {
     private var policy = ReturnHomeBufferPolicy()
     private var prefs: SharedPreferences? = null
@@ -22,28 +22,11 @@ internal object ReturnHomeBufferManager {
             System.currentTimeMillis() - storage.getLong("wall", System.currentTimeMillis())
         }
         policy = ReturnHomeBufferPolicy.restore(
-            ReturnHomeBufferPolicy.Snapshot(
-                storage.getString("clicks", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() },
-                storage.getLong("strict", 0L), storage.getLong("grace", 0L)
-            ), elapsed, now
+            ReturnHomeBufferPolicy.Snapshot(storage.getLong("grace", 0L), storage.getLong("cooldown", 0L)),
+            elapsed, now
         )
         prefs = storage
     }
-
-    @Synchronized fun onReturnHome() {
-        policy.onReturnHome(SystemClock.elapsedRealtime())
-        save()
-    }
-
-    @Synchronized fun onRestriction() {
-        val now = SystemClock.elapsedRealtime()
-        if (policy.isStrict(now)) {
-            policy.onRestriction(now)
-            save()
-        }
-    }
-
-    @Synchronized fun isStrict(): Boolean = policy.isStrict(SystemClock.elapsedRealtime())
 
     @Synchronized fun beginGrace(): Long {
         val remaining = policy.beginGrace(SystemClock.elapsedRealtime())
@@ -58,11 +41,10 @@ internal object ReturnHomeBufferManager {
     private fun save() {
         val now = SystemClock.elapsedRealtime()
         val state = policy.snapshot(now)
-        // 同步落盘确保点击后紧接着进程重启也不会重新获得一轮缓冲。
+        // 同步落盘确保紧接着的进程重启也不会重新获得一次豁免。
         prefs?.edit()?.putInt("boot", bootCount)?.putLong("elapsed", now)
-            ?.putLong("wall", System.currentTimeMillis())?.remove("count")?.remove("window")
-            ?.putString("clicks", state.clickAgesMs.joinToString(","))
-            ?.putLong("strict", state.strictRemainingMs)
-            ?.putLong("grace", state.graceRemainingMs)?.commit()
+            ?.putLong("wall", System.currentTimeMillis())
+            ?.remove("count")?.remove("window")?.remove("clicks")?.remove("strict")?.remove("exit_used")
+            ?.putLong("grace", state.graceRemainingMs)?.putLong("cooldown", state.cooldownRemainingMs)?.commit()
     }
 }

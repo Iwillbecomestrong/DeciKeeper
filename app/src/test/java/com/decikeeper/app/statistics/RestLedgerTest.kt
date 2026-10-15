@@ -74,7 +74,10 @@ class RestLedgerTest {
     fun otherKindsHaveTheirOwnFilter() {
         assertEquals(setOf(LedgerFilter.QUOTA_GRANT), matching(record("GRANT")))
         assertEquals(setOf(LedgerFilter.REFUND), matching(record("REFUND")))
-        assertEquals(setOf(LedgerFilter.DEDUCTION), matching(record("PENALTY")))
+        // 历史「频繁返回扣减」记录不再有专属筛选，仍计入出流。
+        val penalty = record("PENALTY", costMinutes = 0.5, costCount = 0.5)
+        assertEquals(emptySet<LedgerFilter>(), matching(penalty))
+        assertEquals(setOf(LedgerFilter.OUTFLOW), flows(penalty))
         assertEquals(setOf(LedgerFilter.PRIVILEGE), matching(record("PRIVILEGE")))
     }
 
@@ -110,7 +113,7 @@ class RestLedgerTest {
         assertEquals(
             listOf(
                 "全部", "入流（额度增加）", "出流（额度减少）",
-                "额度发放", "提前退还", "重算增加", "常规", "借用", "冷却中", "频繁返回扣减", "重算减少", "特权"
+                "额度发放", "提前退还", "重算增加", "常规", "借用", "冷却中", "重算减少", "特权"
             ),
             LedgerFilter.entries.map { it.displayName }
         )

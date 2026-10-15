@@ -7,7 +7,7 @@ import com.decikeeper.app.data.statistics.RestUsageRecord
  *
  * 先按去向分：[INFLOW] 入流（额度增加）、[OUTFLOW] 出流（额度减少），再按类型细分。
  * 入流 = [QUOTA_GRANT]、[REFUND]、[RECALC_INCREASE]；
- * 出流 = 休息 / 临时解锁（[NORMAL]、[BORROW]、[COOLING]）、[DEDUCTION]、[RECALC_DECREASE]，
+ * 出流 = 休息 / 临时解锁（[NORMAL]、[BORROW]、[COOLING]）、历史「频繁返回扣减」记录（只读）、[RECALC_DECREASE]，
  * 只有真的减少了额度才算（空档期 / 休息中的免费操作不动额度，不算出流）。
  * 「额度重算」按结余的实际变化划分：时长或次数增加归 [RECALC_INCREASE]，减少归 [RECALC_DECREASE]，
  * 一增一减的重算两边都能筛到，列表里按筛选的方向只显示对应那一项的变动（见 [displayedDelta]）。
@@ -27,7 +27,6 @@ enum class LedgerFilter(val displayName: String) {
     NORMAL("常规"),
     BORROW("借用"),
     COOLING("冷却中"),
-    DEDUCTION("频繁返回扣减"),
     RECALC_DECREASE("重算减少"),
     PRIVILEGE("特权")
 }
@@ -147,7 +146,6 @@ object RestLedger {
             (record.costMinutes < -FLOW_EPSILON || costCountInTimes(record) < -FLOW_EPSILON)
         LedgerFilter.RECALC_DECREASE -> record.type == TYPE_RECALC &&
             (record.costMinutes > FLOW_EPSILON || costCountInTimes(record) > FLOW_EPSILON)
-        LedgerFilter.DEDUCTION -> record.type == TYPE_PENALTY
         LedgerFilter.PRIVILEGE -> record.type == TYPE_PRIVILEGE
         LedgerFilter.NORMAL -> isRestLike(record) && !isBorrow(record) && !isCooling(record)
         LedgerFilter.BORROW -> isRestLike(record) && isBorrow(record)
@@ -292,7 +290,7 @@ object RestLedger {
     /** 类型弹窗右列（出流）下的细分类型。 */
     val outflowTypeFilters = listOf(
         LedgerFilter.NORMAL, LedgerFilter.BORROW, LedgerFilter.COOLING,
-        LedgerFilter.DEDUCTION, LedgerFilter.RECALC_DECREASE
+        LedgerFilter.RECALC_DECREASE
     )
 
     /** 分栏对照用：入流在左、出流在右；两边都不动额度的（免费休息、特权等）只计数。一增一减的重算两栏都有。 */
