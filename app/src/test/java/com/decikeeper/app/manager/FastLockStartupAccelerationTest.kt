@@ -35,6 +35,7 @@ class FastLockStartupAccelerationTest {
         BootUnlockTrigger.resetForTest(app)
         Shadows.shadowOf(userManager).setUserUnlocked(true)
         StartupA11yCache.setA11yWasEnabled(app, true)
+        setSystemA11y(true)
         setAntiUninstall(true)
     }
 
@@ -46,6 +47,14 @@ class FastLockStartupAccelerationTest {
         StartupProtectionManager.resetBootFastLockStateForTest()
         BootUnlockTrigger.resetForTest(app)
         setAntiUninstall(false)
+    }
+
+    private fun setSystemA11y(enabled: Boolean) {
+        android.provider.Settings.Secure.putString(
+            app.contentResolver,
+            android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+            if (enabled) "${app.packageName}/com.decikeeper.app.service.CoreService" else ""
+        )
     }
 
     private fun setAntiUninstall(enabled: Boolean) {
@@ -150,6 +159,27 @@ class FastLockStartupAccelerationTest {
         Shadows.shadowOf(userManager).setUserUnlocked(true)
         app.sendBroadcast(Intent(Intent.ACTION_USER_UNLOCKED))
         Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(StartupProtectionManager.earlyBootOverlayView)
+    }
+
+    @Test
+    fun `system a11y off with stale cache dismisses overlay and corrects cache`() {
+        setSystemA11y(false)
+        StartupProtectionManager.triggerBootFastLock(app, "app_on_create")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(StartupProtectionManager.earlyBootOverlayView)
+        assertFalse(StartupA11yCache.isA11yWasEnabledForStartup(app))
+    }
+
+    @Test
+    fun `a11y turned off while overlay is showing dismisses it on the next tick`() {
+        assertTrue(StartupProtectionManager.triggerBootFastLock(app, "app_on_create"))
+        assertNotNull(StartupProtectionManager.earlyBootOverlayView)
+
+        setSystemA11y(false)
+        Shadows.shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
 
         assertNull(StartupProtectionManager.earlyBootOverlayView)
     }

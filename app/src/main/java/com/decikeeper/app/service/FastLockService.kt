@@ -386,6 +386,12 @@ class FastLockService : Service() {
     private fun onCountdownTickFired() {
         mPendingCountdownCount = 0
         mCountdownRunnable = null
+        // 展示期间无障碍被关闭 / 掉线：立即退出，不等倒计时走完。
+        if (!StartupProtectionManager.shouldKeepInitialization(this)) {
+            Log.i(TAG, "FastLockService: initialization lost during countdown, stopping immediately")
+            stopSelf()
+            return
+        }
         updateCountdownDisplay()
         if (mLastDisplayedSeconds <= 0) return
         val next = Runnable { onCountdownTickFired() }

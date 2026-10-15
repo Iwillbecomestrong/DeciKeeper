@@ -157,6 +157,8 @@ class CoreService : AccessibilityService() {
         
         // 🚀 [NEW] 静态运行标志，用于精准状态同步
         @Volatile var isServiceActive = false
+        /** 本进程内无障碍至少连接过一次；用于区分「重启后尚未连接」与「连接后掉线」。 */
+        @Volatile var hasConnectedThisProcess = false
         @Volatile var lastAccessibilitySignalTime = 0L
         @Volatile var lastAccessibilityDispatchedTime = 0L
         @Volatile var lastVisiblePackagesFromWindows: Set<String> = emptySet()
@@ -523,6 +525,7 @@ class CoreService : AccessibilityService() {
         val newGen = advanceAccessibilityGenerationForServiceConnected()
         Log.i("DeciKeeper", "[Lifecycle] onServiceConnected generation=$newGen")
         isServiceActive = true
+        hasConnectedThisProcess = true
         lastAccessibilitySignalTime = System.currentTimeMillis()
         instance = this // 🚀 Capture instance
 
@@ -804,6 +807,13 @@ class CoreService : AccessibilityService() {
         val antiUninstallState = AntiUninstallManager.getProtectionState(this)
         if (!AntiUninstallManager.shouldShowInitialization(antiUninstallState)) {
             Log.i(TAG, "ConfigChange: anti-uninstall initialization is disabled, skip protection overlay")
+            ProtectionManager.resetCache(this)
+            return
+        }
+
+        // 无障碍已掉线/暂停时不出现初始化界面（重启后尚未连接的窗口不经过这里）。
+        if (!isServiceActive) {
+            Log.i(TAG, "ConfigChange: accessibility not active, skip protection overlay")
             ProtectionManager.resetCache(this)
             return
         }
@@ -1470,6 +1480,11 @@ class CoreService : AccessibilityService() {
         emitServiceStateIfChanged("STOPPED", "ON_UNBIND")
         emitProtectionStateChangeIfChanged("accessibility", "OK", "REVOKED", "ON_UNBIND")
         AccessibilityDependencyManager.reconcile(this, systemAccessibilityEnabled, caller = "CoreService.onUnbind")
+        // 用户在系统里关闭了无障碍：同步启动缓存，避免下次重启凭旧缓存弹出初始化界面。
+        // 关机/崩溃造成的解绑系统开关仍是开启，缓存必须保留。
+        if (!systemAccessibilityEnabled) {
+            StartupA11yCache.setA11yWasEnabled(this, false)
+        }
         // 无障碍服务已解绑时，初始化覆盖层没有继续存在的意义，立即释放，避免卡到超时。
         StartupProtectionManager.stopFastLock(this)
         LockWindowManager.dismissSystemInitOverlay("accessibility_unbound")

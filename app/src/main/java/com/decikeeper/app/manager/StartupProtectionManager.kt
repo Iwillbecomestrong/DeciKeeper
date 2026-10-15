@@ -144,7 +144,7 @@ object StartupProtectionManager {
         earlyBootOverlayAttachedAtMs = attachedAt
         // 启动独立主线程倒计时调度链，防止 Service 未能接管时秒数静止
         val countdownTv = view.findViewById<android.widget.TextView>(R.id.countdown_text)
-        startEarlyBootCountdown(countdownTv, attachedAt, FAST_LOCK_MAX_VISIBLE_MS)
+        startEarlyBootCountdown(context, countdownTv, attachedAt, FAST_LOCK_MAX_VISIBLE_MS)
         // 设定最大超时安全兜底（10s），防止 Service 未启动或被系统拦截时永久卡死在屏幕上
         scheduleEarlyBootTimeout(context, FAST_LOCK_MAX_VISIBLE_MS)
     }
@@ -360,19 +360,20 @@ object StartupProtectionManager {
     }
 
     private fun startEarlyBootCountdown(
+        appContext: Context,
         textView: android.widget.TextView?,
         attachedAtMs: Long,
         maxVisibleMs: Long
     ) {
         cancelEarlyBootTasks()
-        if (textView == null) return
         val deadlineMs = attachedAtMs + maxVisibleMs
         val ceilingSeconds = ((maxVisibleMs + 999L) / 1000L).toInt()
 
         fun updateUi(): Boolean {
+            dismissIfInitializationLost(appContext)
             val now = System.currentTimeMillis()
             val seconds = remainingCountdownSecondsFromDeadline(deadlineMs, now, ceilingSeconds)
-            textView.text = "剩余 $seconds 秒"
+            textView?.text = "剩余 $seconds 秒"
             return seconds > 0
         }
 
@@ -411,7 +412,33 @@ object StartupProtectionManager {
         if (!DirectBootState.isUserUnlocked(context)) return false
         return AntiUninstallManager.shouldShowInitialization(
             AntiUninstallManager.getProtectionState(context)
-        ) && PermissionManager.isAccessibilityEnabled(context)
+        ) && PermissionManager.isAccessibilityEnabled(context) && !isAccessibilityDroppedAfterConnect()
+    }
+
+    /**
+     * 本进程内无障碍连接过又掉线（崩溃 / 被暂停 / 被关闭）。重启后尚未连接不算掉线，
+     * 否则会误关开机初始化界面。
+     */
+    internal fun isAccessibilityDroppedAfterConnect(): Boolean =
+        com.decikeeper.app.service.CoreService.hasConnectedThisProcess &&
+            !com.decikeeper.app.service.CoreService.isServiceActive
+
+    /** 初始化界面已无存在意义（保护关闭 / 无障碍关闭或掉线）：立即撤掉开机早期覆盖层。 */
+    private fun dismissIfInitializationLost(context: Context) {
+        if (earlyBootOverlayView == null || earlyBootPreAttached) return
+        if (shouldKeepInitialization(context)) return
+        syncA11yCacheWithSystem(context)
+        dismissEarlyBootOverlay(context, "initialization_lost")
+    }
+
+    /** 系统无障碍开关已关闭而启动缓存仍为 true 时纠正缓存（需 CE 已解锁）。 */
+    private fun syncA11yCacheWithSystem(context: Context) {
+        if (!DirectBootState.isUserUnlocked(context)) return
+        if (!PermissionManager.isAccessibilityEnabled(context) &&
+            StartupA11yCache.isA11yWasEnabledForStartup(context)
+        ) {
+            StartupA11yCache.setA11yWasEnabled(context, false)
+        }
     }
 
     fun shouldStartFastLock(
@@ -626,6 +653,9 @@ object StartupProtectionManager {
     fun startFastLock(context: Context, maxVisibleMs: Long = FAST_LOCK_MAX_VISIBLE_MS) {
         if (!shouldKeepInitialization(context)) {
             Log.i("DeciKeeper", "StartupProtectionManager: anti-uninstall initialization disabled, skip FastLock service")
+            // 早期覆盖层已先行挂出但不会再有服务接管，不能等 10 秒兜底超时。
+            syncA11yCacheWithSystem(context)
+            dismissEarlyBootOverlay(context, "initialization_not_required")
             return
         }
         // [2026-07-06 REQ-2 诊断] 记录 startFastLock 入口上下文：
