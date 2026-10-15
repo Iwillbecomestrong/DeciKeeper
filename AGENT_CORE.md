@@ -195,6 +195,15 @@ PR → dev
 
 不要在 `main` / `dev` 上直接进行高风险试错。
 
+### 6.1.1 发版红线
+
+发版（合并 `main`、打 tag、发 Release）必须按 [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) 第 7.1 节执行，其中不得违反：
+
+- GitHub `main` 受保护：新提交必须先在 `dev` 上通过 CI 才能推到 `main`；禁止强推；Gitee `main` 与 GitHub `main` 必须是同一个提交；
+- 先推 `main` 和 tag，再创建 Release；Release 只能用 `scripts/publish_release.ps1` 发布（预检 APK 哈希、构建提交 = tag）；
+- 真机验收装的必须是最终发布的那个 APK 文件，测完不得重新编译；
+- 发版前后用 `python scripts/verify_markdown_links.py --check-release-links` 确认 README 下载链接可下载。
+
 ### 6.2 Commit
 
 ```text
