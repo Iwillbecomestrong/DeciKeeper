@@ -24,4 +24,9 @@
     <attr name="zzSurfaceStrong" format="color" />
     <attr name="zzLineStrong" format="color" />
     <attr name="zzNavBg" format="color" />
+
+    <!-- 团子赶路进度条：mascotBob=false 时不做常驻起伏动画（悬浮窗等对重绘敏感的场景） -->
+    <declare-styleable name="MascotJourneyView">
+        <attr name="mascotBob" format="boolean" />
+    </declare-styleable>
 </resources>
