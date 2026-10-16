@@ -266,4 +266,22 @@ class AlarmEmergencyExitPolicyTest {
         val merged = AlarmEmergencyExitPolicy.mergeFromBackup(local, backup, 10L, false, 99L)
         assertEquals(0, merged.active)
     }
+
+    @Test
+    fun mergeCarriesNotYetEffectivePendingValueFromBackup() {
+        val local = State(active = 1, baseline = 1, monthKey = "202610")
+        val backup = State(active = 1, baseline = 1, monthKey = "202610", pendingValue = 3, pendingEffectiveAt = 1_000L)
+        val merged = AlarmEmergencyExitPolicy.mergeFromBackup(local, backup, 10L, false, 1_000L)
+        assertEquals(1, merged.active)
+        assertEquals(3, merged.pendingValue)
+        assertEquals(1_000L, merged.pendingEffectiveAt)
+    }
+
+    @Test
+    fun mergeDoesNotCarryAlreadyDuePendingValue() {
+        val local = State(active = 1, baseline = 1, monthKey = "202610")
+        val backup = State(active = 1, baseline = 1, monthKey = "202610", pendingValue = 3, pendingEffectiveAt = 5L)
+        val merged = AlarmEmergencyExitPolicy.mergeFromBackup(local, backup, 10L, false, 1_000L)
+        assertNull(merged.pendingValue)
+    }
 }

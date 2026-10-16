@@ -98,7 +98,7 @@ internal object AlarmEmergencyExitPolicy {
 
     /**
      * 导入备份时与本机状态合并（两边都应已 rollover 到当前业务月）：
-     * - 每月次数沿用「加严立即、放宽延期」，直接走 [requestChange]；
+     * - 每月次数沿用「加严立即、放宽延期」，直接走 [requestChange]；备份里尚未到期的待生效值同样带过来；
      * - 已用次数只增不减：同一业务月取较大值，备份来自其它月份则不计入，
      *   避免用「重装 + 导入旧备份」把当月额度刷回来。
      */
@@ -109,13 +109,18 @@ internal object AlarmEmergencyExitPolicy {
         inAdaptation: Boolean,
         nextEffectiveAt: Long
     ): State {
-        val withConfig = requestChange(local, backup.active, now, inAdaptation, nextEffectiveAt)
+        var merged = requestChange(local, backup.active, now, inAdaptation, nextEffectiveAt)
+        // 备份里尚未到期的待生效值也要带过来：已到期的在 rollover 时已并入 active。
+        val pending = backup.pendingValue
+        if (pending != null && backup.pendingEffectiveAt > now) {
+            merged = requestChange(merged, pending, now, inAdaptation, nextEffectiveAt)
+        }
         val used = if (local.monthKey == backup.monthKey) {
             maxOf(local.usedThisMonth, backup.usedThisMonth)
         } else {
             local.usedThisMonth
         }
-        return withConfig.copy(usedThisMonth = used)
+        return merged.copy(usedThisMonth = used)
     }
 
     /** 额度可用时扣 1 次，否则返回 null。 */
