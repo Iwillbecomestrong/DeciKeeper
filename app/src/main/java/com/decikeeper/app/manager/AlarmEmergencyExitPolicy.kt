@@ -96,6 +96,28 @@ internal object AlarmEmergencyExitPolicy {
     fun remaining(state: State): Int =
         (minOf(state.active, state.monthStartConfig) - state.usedThisMonth).coerceAtLeast(0)
 
+    /**
+     * 导入备份时与本机状态合并（两边都应已 rollover 到当前业务月）：
+     * - 每月次数沿用「加严立即、放宽延期」，直接走 [requestChange]；
+     * - 已用次数只增不减：同一业务月取较大值，备份来自其它月份则不计入，
+     *   避免用「重装 + 导入旧备份」把当月额度刷回来。
+     */
+    fun mergeFromBackup(
+        local: State,
+        backup: State,
+        now: Long,
+        inAdaptation: Boolean,
+        nextEffectiveAt: Long
+    ): State {
+        val withConfig = requestChange(local, backup.active, now, inAdaptation, nextEffectiveAt)
+        val used = if (local.monthKey == backup.monthKey) {
+            maxOf(local.usedThisMonth, backup.usedThisMonth)
+        } else {
+            local.usedThisMonth
+        }
+        return withConfig.copy(usedThisMonth = used)
+    }
+
     /** 额度可用时扣 1 次，否则返回 null。 */
     fun consume(state: State): State? =
         if (remaining(state) > 0) state.copy(usedThisMonth = state.usedThisMonth + 1) else null

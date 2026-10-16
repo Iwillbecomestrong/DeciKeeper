@@ -219,4 +219,51 @@ class AlarmEmergencyExitPolicyTest {
         assertNull(AlarmEmergencyExitPolicy.consume(State(active = 0, monthStartConfig = 1)))
         assertTrue(AlarmEmergencyExitPolicy.remaining(State(active = 0, monthStartConfig = 1)) == 0)
     }
+
+    // ---------- 导入备份合并 ----------
+
+    @Test
+    fun mergeTakesLargerUsedCountInSameMonth() {
+        val local = State(monthKey = "202610", usedThisMonth = 0)
+        val backup = State(monthKey = "202610", usedThisMonth = 1)
+        assertEquals(1, AlarmEmergencyExitPolicy.mergeFromBackup(local, backup, 0L, false, 99L).usedThisMonth)
+        assertEquals(
+            1,
+            AlarmEmergencyExitPolicy.mergeFromBackup(backup, local, 0L, false, 99L).usedThisMonth
+        )
+    }
+
+    @Test
+    fun mergeIgnoresUsedCountFromOtherMonth() {
+        val local = State(monthKey = "202610", usedThisMonth = 0)
+        val backup = State(monthKey = "202609", usedThisMonth = 1)
+        assertEquals(0, AlarmEmergencyExitPolicy.mergeFromBackup(local, backup, 0L, false, 99L).usedThisMonth)
+    }
+
+    @Test
+    fun mergeDelaysLoosenedMonthlyLimitOutsideAdaptation() {
+        val local = State(active = 1, baseline = 1, monthKey = "202610")
+        val backup = State(active = 3, baseline = 3, monthKey = "202610")
+        val merged = AlarmEmergencyExitPolicy.mergeFromBackup(local, backup, 10L, false, 99L)
+        assertEquals(1, merged.active)
+        assertEquals(3, merged.pendingValue)
+        assertEquals(99L, merged.pendingEffectiveAt)
+    }
+
+    @Test
+    fun mergeAppliesLoosenedMonthlyLimitImmediatelyInAdaptation() {
+        val local = State(active = 1, baseline = 1, monthKey = "202610")
+        val backup = State(active = 3, baseline = 3, monthKey = "202610")
+        val merged = AlarmEmergencyExitPolicy.mergeFromBackup(local, backup, 10L, true, 99L)
+        assertEquals(3, merged.active)
+        assertNull(merged.pendingValue)
+    }
+
+    @Test
+    fun mergeAppliesTightenedMonthlyLimitImmediately() {
+        val local = State(active = 2, baseline = 2, monthKey = "202610", monthStartConfig = 2)
+        val backup = State(active = 0, baseline = 0, monthKey = "202610")
+        val merged = AlarmEmergencyExitPolicy.mergeFromBackup(local, backup, 10L, false, 99L)
+        assertEquals(0, merged.active)
+    }
 }

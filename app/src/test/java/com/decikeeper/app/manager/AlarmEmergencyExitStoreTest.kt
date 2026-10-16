@@ -11,7 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-/** 应急退出持久化：默认 1 次/月、扣减、调参立即/待生效、独立于设置备份白名单。 */
+/** 应急退出持久化：默认 1 次/月、扣减、调参立即/待生效。备份导入合并见 SettingsBackupAlarmCoverageTest。 */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class AlarmEmergencyExitStoreTest {
@@ -60,13 +60,5 @@ class AlarmEmergencyExitStoreTest {
         assertEquals(1, s.active)
         assertEquals(3, s.pendingValue)
         assertTrue(s.pendingEffectiveAt > now)
-    }
-
-    @Test
-    fun storeIsNotPartOfSettingsBackupWhitelist() {
-        val src = generateSequence(java.io.File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
-            .map { java.io.File(it, "app/src/main/java/com/decikeeper/app/manager/SettingsBackupManager.kt") }
-            .firstOrNull { it.isFile }?.readText() ?: error("cannot find SettingsBackupManager.kt")
-        assertFalse(src.contains(AlarmEmergencyExitStore.PREFS_NAME))
     }
 }

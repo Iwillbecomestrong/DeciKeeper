@@ -78,7 +78,12 @@ object SettingsBackupManager {
         BackupCategory.BLACKLIST to listOf(
             "decikeeper_pending_apps"
         ),
-        BackupCategory.ALARM to emptyList(), // 闹钟数据在共享文件中管理
+        BackupCategory.ALARM to listOf(
+            // 应急白名单：导入后由 AlarmChallengeEmergencyWhitelist.getPackages 按本机已安装应用过滤
+            "alarm_challenge_emergency_whitelist",
+            // 应急退出额度：导入走 AlarmEmergencyExitStore.mergeFromBackup，不整文件覆盖
+            AlarmEmergencyExitStore.PREFS_NAME
+        ),
         BackupCategory.GLOBAL_PARAMS to listOf(
             "pending_config_prefs"
         ),
@@ -94,6 +99,12 @@ object SettingsBackupManager {
     @androidx.annotation.VisibleForTesting
     internal fun getExclusiveFilesForCategory(category: BackupCategory): List<String> =
         CATEGORY_EXCLUSIVE_FILES[category].orEmpty()
+
+    /** 所有分类涉及的 prefs 文件名（独占 + 共享），供分类表一致性测试使用。 */
+    @androidx.annotation.VisibleForTesting
+    internal fun allCategoryFileNames(): Set<String> =
+        CATEGORY_EXCLUSIVE_FILES.values.flatten().toSet() +
+            CATEGORY_SHARED_FILE_KEYS.values.flatMap { it.keys }
 
     @androidx.annotation.VisibleForTesting
     internal fun getSharedKeysForCategory(category: BackupCategory, fileName: String): List<String> =
@@ -117,7 +128,15 @@ object SettingsBackupManager {
                 "default_progressive_vibration_max", "default_stage2_progressive_vibration_max",
                 "default_math_count", "default_poem_count", "default_word_count",
                 "default_unlock_mode",
-                "default_stage1_types", "default_stage2_types"
+                "default_stage1_types", "default_stage2_types",
+                // 新建闹钟时的默认值（原先只有全选导入才会带上）
+                "default_progressive_min_intensity", "default_cloze_count", "default_custom_count",
+                "custom_bank_count_*", "default_stage_cooldown_seconds", "default_auto_escalate",
+                "default_stage2_independent_alert", "default_stage2_alarm_mode",
+                "default_stage2_vibration_mode", "default_stage2_vibration_intensity",
+                "default_stage2_ring_volume", "default_ringtone_uri", "default_alarm_mode",
+                "default_ring_volume", "default_vibration_mode",
+                "default_stage1_custom_banks", "default_stage2_custom_banks"
             ),
             "alarm_bookmarks" to listOf(
                 "bookmarked_poems", "bookmarked_words", "bookmarked_clozes"
@@ -185,6 +204,22 @@ object SettingsBackupManager {
         "manual_permission_settings_visit_at_assoc_start",
         "manual_permission_settings_visit_at_bg_battery"
     )
+
+    /**
+     * alarm_prefs 里属于“本次响铃进行中”的运行状态：既不导出也不导入，
+     * 否则恢复备份会让新环境误以为有闹钟正在响，或带入过期的重试/贪睡计数。
+     */
+    private val ALARM_PREFS_RUNTIME_KEYS = setOf(
+        "alarm_active", "active_alarm_id", "active_first_stage_passed", "first_stage_passed_at",
+        "active_completion_cooldown_until", "active_challenge_completed", "active_alarm_attenuated",
+        "active_review_data", "active_schedule_token",
+        "vibration_locked_intensity", "vibration_start_time"
+    )
+    private val ALARM_PREFS_RUNTIME_PREFIXES = listOf("snooze_used_", "alarm_recovery_count_")
+
+    internal fun isRuntimeOnlyKey(fileName: String, key: String): Boolean =
+        fileName == "alarm_prefs" &&
+            (key in ALARM_PREFS_RUNTIME_KEYS || ALARM_PREFS_RUNTIME_PREFIXES.any { key.startsWith(it) })
 
     private val CORE_PREF_NAMES = listOf(
         "decikeeper_rules",
@@ -325,7 +360,7 @@ object SettingsBackupManager {
                 allValues.filter { (key, _) -> key !in EXCLUDED_KEYS }
             } else {
                 filterKeys(allValues, allowed)
-            }).let { map ->
+            }).filterKeys { !isRuntimeOnlyKey(name, it) }.let { map ->
                 if (name == "decikeeper_ledger") {
                     val effectiveTime = (map["weekly_privilege_limit_effective_time"] as? Long) ?: 0L
                     val isAdaptation = TimeRuleManager.isInAdaptationPeriod(context)
@@ -617,6 +652,17 @@ object SettingsBackupManager {
                 continue
             }
 
+            if (name == AlarmEmergencyExitStore.PREFS_NAME) {
+                val backupValues = try { decodeEntries(file.getJSONObject("entries")) } catch (_: Exception) { continue }
+                val merged = AlarmEmergencyExitStore.mergeFromBackup(context, backupValues)
+                fileCount++; entryCount += backupValues.size
+                LogExporter.logEvent(
+                    "Import",
+                    "[MERGE] ${AlarmEmergencyExitStore.PREFS_NAME}: used=${merged.usedThisMonth} active=${merged.active}"
+                )
+                continue
+            }
+
             val targetName = if (isAdaptation) name
             else resolveDelayedTargetName(name) ?: continue
 
@@ -627,7 +673,7 @@ object SettingsBackupManager {
                 filterKeys(rawDecoded, allowedFileKeys[name]!!)
             } else {
                 rawDecoded
-            }).filterKeys { it !in EXCLUDED_KEYS }
+            }).filterKeys { it !in EXCLUDED_KEYS && !isRuntimeOnlyKey(name, it) }
             if (rawValues.isEmpty()) continue
 
             fileCount++
