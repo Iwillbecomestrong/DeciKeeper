@@ -41,6 +41,7 @@
         </intent>
     </queries>
 
+    <!-- 公式库自带的启动初始化 Provider 会在进程启动时加载，改为首次显示公式时再初始化 -->
     <application
         android:name=".MyApplication"
         android:allowBackup="true"
@@ -341,6 +342,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <provider
+            android:name="ru.noties.jlatexmath.JLatexMathInitProvider"
+            android:authorities="${applicationId}.jlatexmathinitprovider"
+            tools:node="remove" />
 
     </application>
 
