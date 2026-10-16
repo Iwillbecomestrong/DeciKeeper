@@ -1,5 +1,6 @@
 package com.decikeeper.app.ui
 
+import com.decikeeper.app.ui.questionbank.MathTextFormatter
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -715,7 +716,7 @@ class BookmarkActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER_VERTICAL
             }
             topRow.addView(TextView(this).apply {
-                text = q.stem
+                text = MathTextFormatter.format(q.stem)
                 textSize = 13f
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(attrColor(R.attr.zzText))
@@ -743,7 +744,7 @@ class BookmarkActivity : AppCompatActivity() {
                     "$label. $opt"
                 }.joinToString("   ")
                 layout.addView(TextView(this).apply {
-                    text = optText
+                    text = MathTextFormatter.format(optText)
                     textSize = 12f
                     setTextColor(attrColor(R.attr.zzMuted))
                     setPadding(0, dp(4), 0, 0)
@@ -751,14 +752,14 @@ class BookmarkActivity : AppCompatActivity() {
             }
 
             layout.addView(TextView(this).apply {
-                text = "答案: ${q.answer}" + if (q.getAnswerContent().isNotEmpty()) ". ${q.getAnswerContent()}" else ""
+                text = MathTextFormatter.format("答案: ${q.answer}" + if (q.getAnswerContent().isNotEmpty()) ". ${q.getAnswerContent()}" else "")
                 textSize = 12f
                 setTextColor(attrColor(R.attr.zzAccent))
                 setPadding(0, dp(4), 0, 0)
             })
             if (q.explanation.isNotBlank()) {
                 layout.addView(TextView(this).apply {
-                    text = "解析: ${q.explanation}"
+                    text = MathTextFormatter.format("解析: ${q.explanation}")
                     textSize = 11f
                     setTextColor(attrColor(R.attr.zzMuted))
                     setPadding(0, dp(2), 0, 0)

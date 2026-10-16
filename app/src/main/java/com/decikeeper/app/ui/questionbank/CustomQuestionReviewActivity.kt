@@ -248,7 +248,7 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
 
         // 2. Stem
         val tvStem = TextView(this).apply {
-            text = q.stem
+            text = MathTextFormatter.format(q.stem)
             textSize = 14f
             setTypeface(null, Typeface.BOLD)
             setTextColor(attrColor(R.attr.zzText))
@@ -266,7 +266,7 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
             val optColor = if (isCorrect) attrColor(R.attr.zzSuccess) else attrColor(R.attr.zzMuted)
 
             val tvOption = TextView(this).apply {
-                text = "$letter. $optText$marker"
+                text = MathTextFormatter.format("$letter. $optText$marker")
                 textSize = 13f
                 setTypeface(null, if (isCorrect) Typeface.BOLD else Typeface.NORMAL)
                 setTextColor(optColor)
@@ -287,7 +287,7 @@ class CustomQuestionReviewActivity : AppCompatActivity() {
 
         if (q.explanation.isNotBlank()) {
             val tvExplanation = TextView(this).apply {
-                text = "💡 解析：${q.explanation}"
+                text = MathTextFormatter.format("💡 解析：${q.explanation}")
                 textSize = 12f
                 setTextColor(attrColor(R.attr.zzMuted))
                 setLineSpacing(0f, 1.2f)

@@ -19,6 +19,7 @@
  */
 package com.decikeeper.app.ui
 
+import com.decikeeper.app.ui.questionbank.MathTextFormatter
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
@@ -1354,7 +1355,7 @@ internal object LockAlarmOverlayController {
             val q = currentCustomQuestion
             // 提示隔离铁律：仅当明确存在 hint 且非空时展示 hint，绝不展示答案或解析
             if (q != null && q.hint.isNotBlank() && tvCustomHint != null) {
-                tvCustomHint.text = "💡 提示：${q.hint}"
+                tvCustomHint.text = MathTextFormatter.format("💡 提示：${q.hint}")
                 tvCustomHint.visibility = View.VISIBLE
             }
         }
@@ -1650,7 +1651,7 @@ internal object LockAlarmOverlayController {
         val bankName = bankId?.let { com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.getBank(ctx, it)?.title } ?: "自定义题库"
         val typeTag = if (q.isMultipleChoice) "【多选】" else "【单选】"
         view.findViewById<TextView>(R.id.tv_custom_progress)?.text = "$bankName $typeTag ($currentCustomIndex/$targetCustomCount)"
-        view.findViewById<TextView>(R.id.tv_custom_stem)?.text = q.stem
+        view.findViewById<TextView>(R.id.tv_custom_stem)?.text = MathTextFormatter.format(q.stem)
 
         // 提示安全隔离铁律：仅当明确存在 hint 且非空时显示提示按钮
         val btnHint = view.findViewById<Button>(R.id.btn_custom_hint)
@@ -1665,12 +1666,12 @@ internal object LockAlarmOverlayController {
         val btnB = view.findViewById<Button>(R.id.btn_custom_b)
         val btnC = view.findViewById<Button>(R.id.btn_custom_c)
         val btnD = view.findViewById<Button>(R.id.btn_custom_d)
-        btnA?.text = "A. ${q.options.getOrNull(0) ?: ""}"
-        btnB?.text = "B. ${q.options.getOrNull(1) ?: ""}"
-        btnC?.text = "C. ${q.options.getOrNull(2) ?: ""}"
+        btnA?.text = MathTextFormatter.format("A. ${q.options.getOrNull(0) ?: ""}")
+        btnB?.text = MathTextFormatter.format("B. ${q.options.getOrNull(1) ?: ""}")
+        btnC?.text = MathTextFormatter.format("C. ${q.options.getOrNull(2) ?: ""}")
         if (q.options.size >= 4) {
             btnD?.visibility = View.VISIBLE
-            btnD?.text = "D. ${q.options.getOrNull(3) ?: ""}"
+            btnD?.text = MathTextFormatter.format("D. ${q.options.getOrNull(3) ?: ""}")
             btnD?.isEnabled = true
         } else {
             btnD?.visibility = View.GONE
@@ -2500,7 +2501,7 @@ internal object LockAlarmOverlayController {
 
             // 2. 题干
             addView(TextView(ctx).apply {
-                text = q.stem
+                text = MathTextFormatter.format(q.stem)
                 textSize = 14f
                 setTextColor(textColor)
                 setLineSpacing(0f, 1.2f)
@@ -2524,7 +2525,7 @@ internal object LockAlarmOverlayController {
                     else -> textColor
                 }
                 addView(TextView(ctx).apply {
-                    text = "$letter. $optText$marker"
+                    text = MathTextFormatter.format("$letter. $optText$marker")
                     textSize = 13f
                     setTypeface(null, if (isCorrect || isUserWrongPick) Typeface.BOLD else Typeface.NORMAL)
                     setTextColor(optColor)
@@ -2545,7 +2546,7 @@ internal object LockAlarmOverlayController {
             // 5. 解析（若有）
             if (q.explanation.isNotBlank()) {
                 addView(TextView(ctx).apply {
-                    text = "💡 解析：${q.explanation}"
+                    text = MathTextFormatter.format("💡 解析：${q.explanation}")
                     textSize = 12f
                     setTextColor(mutedColor)
                     setPadding(0, (2 * d).toInt(), 0, (2 * d).toInt())
