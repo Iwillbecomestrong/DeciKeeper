@@ -282,7 +282,7 @@ internal object LockAlarmOverlayController {
         targetCustomCount = if (isTest) (if (effectiveUseCustom) (testCfg?.customCount ?: 3) else 0) else (if (effectiveUseCustom) (entry?.customCount ?: 3) else 0)
         alarmStage1CustomBanks = if (isTest) (testCfg?.stage1CustomBanks ?: emptyMap()) else (entry?.stage1CustomBanks ?: emptyMap())
         alarmStage2CustomBanks = if (isTest) (testCfg?.stage2CustomBanks ?: emptyMap()) else (entry?.stage2CustomBanks ?: emptyMap())
-        rebuildCustomQueue()
+        rebuildCustomQueue(keepProgress = true)
 
         // Store vibration mode for AlarmVibrationService to read
         testVibrationMode = if (isTest) (testCfg?.vibrationMode ?: AlarmScheduler.VibrationMode.PROGRESSIVE) else null
@@ -344,7 +344,6 @@ internal object LockAlarmOverlayController {
                 currentPoem = null
                 currentWord = null
                 currentCloze = null
-                currentCustomQuestion = null
             }
             initAlarmUI()
             syncChallengeUiByStage()
@@ -471,18 +470,35 @@ internal object LockAlarmOverlayController {
     private var targetCustomCount = 0
     private var alarmStage1CustomBanks: Map<String, Int> = emptyMap()
     private var alarmStage2CustomBanks: Map<String, Int> = emptyMap()
-    private val customBankQueue = mutableListOf<String?>()
 
-    private fun rebuildCustomQueue() {
-        customBankQueue.clear()
+    /** 每个勾选的自定义题库一张独立卡片：各自的题数、进度、当前题目与已选选项互不共用。 */
+    private class CustomCardState(val bankId: String?, val target: Int) {
+        var index = 0
+        var question: com.decikeeper.app.data.questionbank.CustomQuestion? = null
+        val selected = mutableSetOf<String>()
+        var cardView: View? = null
+    }
+
+    private val customCards = mutableListOf<CustomCardState>()
+
+    private fun customRemaining(): Boolean = customCards.any { it.index < it.target }
+
+    /**
+     * 按当前关卡的题库配置重建每个题库的卡片状态（不触碰视图）。
+     * keepProgress=true 时按题库 ID 沿用已有进度（同一会话重入覆盖层）；阶段切换/新会话传 false 清零。
+     */
+    private fun rebuildCustomQueue(keepProgress: Boolean = false) {
+        val previous = if (keepProgress) customCards.associate { it.bankId to it.index } else emptyMap()
+        customCards.clear()
         val bankMap = if (!isAlarmFirstStagePassed) alarmStage1CustomBanks else alarmStage2CustomBanks
         if (bankMap.isNotEmpty()) {
             for ((bId, count) in bankMap) {
-                repeat(count) { customBankQueue.add(bId) }
+                if (count <= 0) continue
+                customCards.add(CustomCardState(bId, count).also { it.index = (previous[bId] ?: 0).coerceAtMost(count) })
             }
-            targetCustomCount = customBankQueue.size
-        } else {
-            repeat(targetCustomCount) { customBankQueue.add(null) }
+            targetCustomCount = customCards.sumOf { it.target }
+        } else if (targetCustomCount > 0) {
+            customCards.add(CustomCardState(null, targetCustomCount).also { it.index = (previous[null] ?: 0).coerceAtMost(targetCustomCount) })
         }
     }
     private var isQrEnabled = true
@@ -491,7 +507,6 @@ internal object LockAlarmOverlayController {
     private var currentPoemIndex = 0
     private var currentWordIndex = 0
     private var currentClozeIndex = 0
-    private var currentCustomIndex = 0
 
     private var currentMathAnswer = 0
     private var currentPoemAnswer = ""
@@ -500,8 +515,6 @@ internal object LockAlarmOverlayController {
     private var currentWordPhonetic = ""
     private var currentWord: AlarmChallengeManager.Word? = null
     private var currentCloze: AlarmChallengeManager.ClozeQuestion? = null
-    private var currentCustomQuestion: com.decikeeper.app.data.questionbank.CustomQuestion? = null
-    private val selectedCustomOptions = mutableSetOf<String>()
     private var currentPoemHint = ""
     private var isAlarmFirstStagePassed = false
     private var alarmStageCooldownSeconds: Int = 0
@@ -612,13 +625,10 @@ internal object LockAlarmOverlayController {
         currentWordAnswer = ""
         currentWordPhonetic = ""
         currentCloze = null
-        currentCustomQuestion = null
-        selectedCustomOptions.clear()
         currentMathIndex = 0
         currentPoemIndex = 0
         currentWordIndex = 0
         currentClozeIndex = 0
-        currentCustomIndex = 0
         rebuildCustomQueue()
     }
 
@@ -654,12 +664,12 @@ internal object LockAlarmOverlayController {
         currentCloze = null
     }
 
-    private fun settleCurrentCustom(status: String, userAnswer: String? = null) {
-        val q = currentCustomQuestion ?: return
+    private fun settleCurrentCustom(state: CustomCardState, status: String, userAnswer: String? = null) {
+        val q = state.question ?: return
         LockWindowManager.getSessionCustomQuestions().add(LockWindowManager.SessionCustomQuestionEntry(q, status, userAnswer))
         persistSessionReviewData()
         Log.i(TAG, "settleCurrentCustom: status=$status, total=${LockWindowManager.getSessionCustomQuestions().size}, answer=${q.answer}")
-        currentCustomQuestion = null
+        state.question = null
     }
 
     private fun persistSessionReviewData() {
@@ -856,7 +866,6 @@ internal object LockAlarmOverlayController {
             R.id.cv_alarm_poem,
             R.id.cv_alarm_word,
             R.id.cv_alarm_cloze,
-            R.id.cv_alarm_custom,
             R.id.cv_alarm_qr
         ).forEach { id ->
             (view.findViewById<View>(id) as? androidx.cardview.widget.CardView)?.setCardBackgroundColor(surfaceBg)
@@ -943,27 +952,8 @@ internal object LockAlarmOverlayController {
             }
         }
 
-        // 8. 自定义题库内部组件
-        view.findViewById<TextView>(R.id.tv_custom_progress)?.setTextColor(accentColor)
-        view.findViewById<TextView>(R.id.tv_custom_stem)?.setTextColor(textColor)
-        view.findViewById<Button>(R.id.btn_custom_hint)?.apply {
-            backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
-            setTextColor(textColor)
-        }
-        view.findViewById<TextView>(R.id.tv_custom_hint)?.apply {
-            setTextColor(mutedColor)
-            setBackgroundColor(surface2Bg)
-        }
-        listOf(R.id.btn_custom_a, R.id.btn_custom_b, R.id.btn_custom_c, R.id.btn_custom_d, R.id.btn_custom_skip).forEach { id ->
-            view.findViewById<Button>(id)?.apply {
-                backgroundTintList = android.content.res.ColorStateList.valueOf(surface2Bg)
-                setTextColor(textColor)
-            }
-        }
-        view.findViewById<Button>(R.id.btn_custom_submit)?.apply {
-            backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
-            setTextColor(Color.WHITE)
-        }
+        // 8. 自定义题库卡片（动态实例化，逐张着色）
+        customCards.forEach { state -> state.cardView?.let { applyThemeToCustomCard(it, state) } }
 
         // 9. 扫码按钮
         view.findViewById<Button>(R.id.btn_alarm_scan)?.apply {
@@ -1277,87 +1267,8 @@ internal object LockAlarmOverlayController {
             }
         }
 
-        // --- Custom (自定义题库) ---
-        val btnCustomA = view.findViewById<Button>(R.id.btn_custom_a)
-        val btnCustomB = view.findViewById<Button>(R.id.btn_custom_b)
-        val btnCustomC = view.findViewById<Button>(R.id.btn_custom_c)
-        val btnCustomD = view.findViewById<Button>(R.id.btn_custom_d)
-        val btnCustomSkip = view.findViewById<Button>(R.id.btn_custom_skip)
-        val btnCustomSubmit = view.findViewById<Button>(R.id.btn_custom_submit)
-        val btnCustomHint = view.findViewById<Button>(R.id.btn_custom_hint)
-        val tvCustomHint = view.findViewById<TextView>(R.id.tv_custom_hint)
-
-        view.findViewById<TextView>(R.id.tv_custom_progress)?.text = "自定义题库 (0/$targetCustomCount)"
-        if (targetCustomCount > 0) rollCustom()
-
-        fun onCustomOptionClicked(idx: Int) {
-            val q = currentCustomQuestion ?: return
-            val letter = when (idx) { 0 -> "A"; 1 -> "B"; 2 -> "C"; else -> "D" }
-            if (q.isMultipleChoice) {
-                if (selectedCustomOptions.contains(letter)) {
-                    selectedCustomOptions.remove(letter)
-                } else {
-                    selectedCustomOptions.add(letter)
-                }
-            } else {
-                selectedCustomOptions.clear()
-                selectedCustomOptions.add(letter)
-            }
-            updateCustomOptionStyles(view)
-        }
-        btnCustomA?.setOnClickListener { onCustomOptionClicked(0) }
-        btnCustomB?.setOnClickListener { onCustomOptionClicked(1) }
-        btnCustomC?.setOnClickListener { onCustomOptionClicked(2) }
-        btnCustomD?.setOnClickListener { onCustomOptionClicked(3) }
-
-        btnCustomSubmit?.setOnClickListener {
-            val q = currentCustomQuestion ?: return@setOnClickListener
-            val ctx = LockWindowManager.getAlarmContext()
-            if (selectedCustomOptions.isEmpty()) {
-                if (ctx != null) Toast.makeText(ctx, "请先选择答案后再提交", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val userAnswer = selectedCustomOptions.sorted().joinToString("")
-            val isCorrect = userAnswer.equals(q.answer, ignoreCase = true)
-
-            if (isCorrect) {
-                settleCurrentCustom("correct", userAnswer)
-                if (ctx != null) {
-                    com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.recordAttempt(
-                        ctx, q.bankId, q.id, isCorrect = true, pickedOption = userAnswer
-                    )
-                }
-                currentCustomIndex++
-                if (currentCustomIndex >= targetCustomCount) {
-                    onAnyChallengePassed()
-                } else {
-                    rollCustom()
-                }
-            } else {
-                settleCurrentCustom("wrong", userAnswer)
-                if (ctx != null) {
-                    com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.recordAttempt(
-                        ctx, q.bankId, q.id, isCorrect = false, pickedOption = userAnswer
-                    )
-                    Toast.makeText(ctx, "答案不正确，已记录到错题本，换下一题", Toast.LENGTH_SHORT).show()
-                }
-                rollCustom()
-            }
-        }
-
-        btnCustomSkip?.setOnClickListener {
-            val picked = if (selectedCustomOptions.isNotEmpty()) selectedCustomOptions.sorted().joinToString("") else null
-            settleCurrentCustom("skipped", picked)
-            rollCustom()
-        }
-        btnCustomHint?.setOnClickListener {
-            val q = currentCustomQuestion
-            // 提示隔离铁律：仅当明确存在 hint 且非空时展示 hint，绝不展示答案或解析
-            if (q != null && q.hint.isNotBlank() && tvCustomHint != null) {
-                tvCustomHint.text = "💡 提示：${q.hint}"
-                tvCustomHint.visibility = View.VISIBLE
-            }
-        }
+        // --- Custom (自定义题库)：每个勾选的题库各自一张卡片 ---
+        renderCustomCards(view)
 
         showAlarmActionPanel(view.findViewById(R.id.layout_alarm_actions), view.findViewById(R.id.btn_alarm_close), btnSnooze, forceHide = true)
     }
@@ -1607,21 +1518,21 @@ internal object LockAlarmOverlayController {
         btnD.isEnabled = true
     }
 
-    private fun updateCustomOptionStyles(view: View) {
-        val ctx = view.context
+    private fun updateCustomOptionStyles(card: View, state: CustomCardState) {
+        val ctx = card.context
         val surface2Bg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface2)
         val accentColor = ThemeManager.getColorAttr(ctx, R.attr.zzAccent)
         val textColor = ThemeManager.getColorAttr(ctx, R.attr.zzText)
 
         val map = mapOf(
-            "A" to view.findViewById<Button>(R.id.btn_custom_a),
-            "B" to view.findViewById<Button>(R.id.btn_custom_b),
-            "C" to view.findViewById<Button>(R.id.btn_custom_c),
-            "D" to view.findViewById<Button>(R.id.btn_custom_d)
+            "A" to card.findViewById<Button>(R.id.btn_custom_a),
+            "B" to card.findViewById<Button>(R.id.btn_custom_b),
+            "C" to card.findViewById<Button>(R.id.btn_custom_c),
+            "D" to card.findViewById<Button>(R.id.btn_custom_d)
         )
         map.forEach { (letter, btn) ->
             if (btn != null) {
-                val isSelected = selectedCustomOptions.contains(letter)
+                val isSelected = state.selected.contains(letter)
                 if (isSelected) {
                     btn.backgroundTintList = ColorStateList.valueOf(accentColor)
                     btn.setTextColor(Color.WHITE)
@@ -1633,38 +1544,158 @@ internal object LockAlarmOverlayController {
         }
     }
 
-    private fun rollCustom() {
-        val view = LockWindowManager.getAlarmView() ?: return
+    /** 自定义题库卡片内部组件的主题着色（卡片由代码动态实例化，不在 applyThemeToAlarmView 的静态 id 列表里）。 */
+    private fun applyThemeToCustomCard(card: View, state: CustomCardState) {
+        val ctx = card.context
+        val surfaceBg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface)
+        val surface2Bg = ThemeManager.getColorAttr(ctx, R.attr.zzSurface2)
+        val accentColor = ThemeManager.getColorAttr(ctx, R.attr.zzAccent)
+        val textColor = ThemeManager.getColorAttr(ctx, R.attr.zzText)
+        val mutedColor = ThemeManager.getColorAttr(ctx, R.attr.zzMuted)
+
+        (card as? androidx.cardview.widget.CardView)?.setCardBackgroundColor(surfaceBg)
+        card.findViewById<TextView>(R.id.tv_custom_progress)?.setTextColor(accentColor)
+        card.findViewById<TextView>(R.id.tv_custom_stem)?.setTextColor(textColor)
+        card.findViewById<Button>(R.id.btn_custom_hint)?.apply {
+            backgroundTintList = ColorStateList.valueOf(surface2Bg)
+            setTextColor(textColor)
+        }
+        card.findViewById<TextView>(R.id.tv_custom_hint)?.apply {
+            setTextColor(mutedColor)
+            setBackgroundColor(surface2Bg)
+        }
+        card.findViewById<Button>(R.id.btn_custom_skip)?.apply {
+            backgroundTintList = ColorStateList.valueOf(surface2Bg)
+            setTextColor(textColor)
+        }
+        card.findViewById<Button>(R.id.btn_custom_submit)?.apply {
+            backgroundTintList = ColorStateList.valueOf(accentColor)
+            setTextColor(Color.WHITE)
+        }
+        updateCustomOptionStyles(card, state)
+    }
+
+    /**
+     * 按 customCards 重建容器里的题库卡片并为每张卡片出第一题。
+     * 阶段切换后题库集合可能不同，所以每次都整体重建，而不是复用旧视图。
+     */
+    private fun renderCustomCards(view: View) {
+        val container = view.findViewById<LinearLayout>(R.id.cv_alarm_custom) ?: return
+        container.removeAllViews()
+        val inflater = android.view.LayoutInflater.from(view.context)
+        for (state in customCards) {
+            val card = inflater.inflate(R.layout.item_alarm_custom_card, container, false)
+            state.cardView = card
+            state.question = null
+            state.selected.clear()
+            container.addView(card)
+            bindCustomCard(card, state)
+            applyThemeToCustomCard(card, state)
+            rollCustom(state)
+        }
+    }
+
+    private fun bindCustomCard(card: View, state: CustomCardState) {
+        val tvCustomHint = card.findViewById<TextView>(R.id.tv_custom_hint)
+        card.findViewById<TextView>(R.id.tv_custom_progress)?.text = "自定义题库 (0/${state.target})"
+
+        fun onOptionClicked(idx: Int) {
+            val q = state.question ?: return
+            val letter = when (idx) { 0 -> "A"; 1 -> "B"; 2 -> "C"; else -> "D" }
+            if (q.isMultipleChoice) {
+                if (!state.selected.remove(letter)) state.selected.add(letter)
+            } else {
+                state.selected.clear()
+                state.selected.add(letter)
+            }
+            updateCustomOptionStyles(card, state)
+        }
+        card.findViewById<Button>(R.id.btn_custom_a)?.setOnClickListener { onOptionClicked(0) }
+        card.findViewById<Button>(R.id.btn_custom_b)?.setOnClickListener { onOptionClicked(1) }
+        card.findViewById<Button>(R.id.btn_custom_c)?.setOnClickListener { onOptionClicked(2) }
+        card.findViewById<Button>(R.id.btn_custom_d)?.setOnClickListener { onOptionClicked(3) }
+
+        card.findViewById<Button>(R.id.btn_custom_submit)?.setOnClickListener {
+            val q = state.question ?: return@setOnClickListener
+            val ctx = LockWindowManager.getAlarmContext()
+            if (state.selected.isEmpty()) {
+                if (ctx != null) Toast.makeText(ctx, "请先选择答案后再提交", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val userAnswer = state.selected.sorted().joinToString("")
+            val isCorrect = userAnswer.equals(q.answer, ignoreCase = true)
+
+            if (isCorrect) {
+                settleCurrentCustom(state, "correct", userAnswer)
+                if (ctx != null) {
+                    com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.recordAttempt(
+                        ctx, q.bankId, q.id, isCorrect = true, pickedOption = userAnswer
+                    )
+                }
+                state.index++
+                if (state.index >= state.target) {
+                    onAnyChallengePassed()
+                } else {
+                    rollCustom(state)
+                }
+            } else {
+                settleCurrentCustom(state, "wrong", userAnswer)
+                if (ctx != null) {
+                    com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.recordAttempt(
+                        ctx, q.bankId, q.id, isCorrect = false, pickedOption = userAnswer
+                    )
+                    Toast.makeText(ctx, "答案不正确，已记录到错题本，换下一题", Toast.LENGTH_SHORT).show()
+                }
+                rollCustom(state)
+            }
+        }
+
+        card.findViewById<Button>(R.id.btn_custom_skip)?.setOnClickListener {
+            val picked = if (state.selected.isNotEmpty()) state.selected.sorted().joinToString("") else null
+            settleCurrentCustom(state, "skipped", picked)
+            rollCustom(state)
+        }
+        card.findViewById<Button>(R.id.btn_custom_hint)?.setOnClickListener {
+            val q = state.question
+            // 提示隔离铁律：仅当明确存在 hint 且非空时展示 hint，绝不展示答案或解析
+            if (q != null && q.hint.isNotBlank() && tvCustomHint != null) {
+                tvCustomHint.text = "💡 提示：${q.hint}"
+                tvCustomHint.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun rollCustom(state: CustomCardState) {
+        val card = state.cardView ?: return
         val ctx = LockWindowManager.getAlarmContext() ?: return
-        val bankId = customBankQueue.getOrNull(currentCustomIndex)
+        val bankId = state.bankId
         val q = com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.getRandomQuestion(ctx, bankId)
             ?: com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.getRandomQuestion(ctx)
         if (q == null) {
             Toast.makeText(ctx, "未找到可用自定义题目，已自动完成该项", Toast.LENGTH_SHORT).show()
-            currentCustomIndex = targetCustomCount
+            state.index = state.target
             onAnyChallengePassed()
             return
         }
-        currentCustomQuestion = q
-        selectedCustomOptions.clear()
-        val bankName = bankId?.let { com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.getBank(ctx, it)?.title } ?: "自定义题库"
+        state.question = q
+        state.selected.clear()
+        val bankName = com.decikeeper.app.manager.questionbank.CustomQuestionBankManager.getBank(ctx, q.bankId)?.title ?: "自定义题库"
         val typeTag = if (q.isMultipleChoice) "【多选】" else "【单选】"
-        view.findViewById<TextView>(R.id.tv_custom_progress)?.text = "$bankName $typeTag ($currentCustomIndex/$targetCustomCount)"
-        view.findViewById<TextView>(R.id.tv_custom_stem)?.text = q.stem
+        card.findViewById<TextView>(R.id.tv_custom_progress)?.text = "$bankName $typeTag (${state.index}/${state.target})"
+        card.findViewById<TextView>(R.id.tv_custom_stem)?.text = q.stem
 
         // 提示安全隔离铁律：仅当明确存在 hint 且非空时显示提示按钮
-        val btnHint = view.findViewById<Button>(R.id.btn_custom_hint)
-        val hasHint = q.hint.isNotBlank()
-        btnHint?.visibility = if (hasHint) View.VISIBLE else View.GONE
-        view.findViewById<TextView>(R.id.tv_custom_hint)?.apply {
+        val btnHint = card.findViewById<Button>(R.id.btn_custom_hint)
+        btnHint?.visibility = if (q.hint.isNotBlank()) View.VISIBLE else View.GONE
+        card.findViewById<TextView>(R.id.tv_custom_hint)?.apply {
             visibility = View.GONE
             text = ""
         }
 
-        val btnA = view.findViewById<Button>(R.id.btn_custom_a)
-        val btnB = view.findViewById<Button>(R.id.btn_custom_b)
-        val btnC = view.findViewById<Button>(R.id.btn_custom_c)
-        val btnD = view.findViewById<Button>(R.id.btn_custom_d)
+        val btnA = card.findViewById<Button>(R.id.btn_custom_a)
+        val btnB = card.findViewById<Button>(R.id.btn_custom_b)
+        val btnC = card.findViewById<Button>(R.id.btn_custom_c)
+        val btnD = card.findViewById<Button>(R.id.btn_custom_d)
         btnA?.text = "A. ${q.options.getOrNull(0) ?: ""}"
         btnB?.text = "B. ${q.options.getOrNull(1) ?: ""}"
         btnC?.text = "C. ${q.options.getOrNull(2) ?: ""}"
@@ -1678,7 +1709,7 @@ internal object LockAlarmOverlayController {
         btnA?.isEnabled = true
         btnB?.isEnabled = true
         btnC?.isEnabled = true
-        updateCustomOptionStyles(view)
+        updateCustomOptionStyles(card, state)
     }
 
     private fun disablePaste(editText: EditText) {
@@ -1844,7 +1875,7 @@ internal object LockAlarmOverlayController {
                 if ("poem" in alarmStage2Types && targetPoemCount > 0) rollPoem()
                 if ("word" in alarmStage2Types && targetWordCount > 0) rollWord()
                 if ("cloze" in alarmStage2Types && targetClozeCount > 0) rollCloze()
-                if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
+                if ("custom" in alarmStage2Types && targetCustomCount > 0) renderCustomCards(v)
             }
             syncChallengeUiByStage()
             AlarmVibrationService.startStage2AlertCycle(ctx, alarmId)
@@ -2631,7 +2662,7 @@ internal object LockAlarmOverlayController {
                             if ("poem" in alarmStage2Types && targetPoemCount > 0) rollPoem()
                             if ("word" in alarmStage2Types && targetWordCount > 0) rollWord()
                             if ("cloze" in alarmStage2Types && targetClozeCount > 0) rollCloze()
-                            if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
+                            if ("custom" in alarmStage2Types && targetCustomCount > 0) renderCustomCards(v)
                         }
                         syncChallengeUiByStage()
                         Toast.makeText(ctx, "延迟结束，请完成第二关", Toast.LENGTH_SHORT).show()
@@ -2815,10 +2846,10 @@ internal object LockAlarmOverlayController {
         // Req-4 fix: 第二关冷却结束后按 stage2 配置显隐选词填空
         val clozeRemaining = "cloze" in s2 && targetClozeCount > 0 && currentClozeIndex < targetClozeCount
         view.findViewById<View>(R.id.cv_alarm_cloze)?.visibility = if (clozeRemaining) View.VISIBLE else View.GONE
-        val customRemaining = "custom" in s2 && targetCustomCount > 0 && currentCustomIndex < targetCustomCount
-        view.findViewById<View>(R.id.cv_alarm_custom)?.visibility = if (customRemaining) View.VISIBLE else View.GONE
+        val customStillRemaining = "custom" in s2 && targetCustomCount > 0 && customRemaining()
+        view.findViewById<View>(R.id.cv_alarm_custom)?.visibility = if (customStillRemaining) View.VISIBLE else View.GONE
 
-        val hasAnyStage2 = stage2QrVisible || mathRemaining || poemRemaining || wordRemaining || clozeRemaining || customRemaining
+        val hasAnyStage2 = stage2QrVisible || mathRemaining || poemRemaining || wordRemaining || clozeRemaining || customStillRemaining
         if (!hasAnyStage2) {
             Log.i(TAG, "syncChallengeUiByStage: no stage 2 challenge remaining, advancing to passed")
             onAnyChallengePassed()
@@ -2890,7 +2921,7 @@ internal object LockAlarmOverlayController {
                 if ("poem" in alarmStage2Types && targetPoemCount > 0) rollPoem()
                 if ("word" in alarmStage2Types && targetWordCount > 0) rollWord()
                 if ("cloze" in alarmStage2Types && targetClozeCount > 0) rollCloze()
-                if ("custom" in alarmStage2Types && targetCustomCount > 0) rollCustom()
+                if ("custom" in alarmStage2Types && targetCustomCount > 0) renderCustomCards(v)
             }
             syncChallengeUiByStage()
             AlarmVibrationService.startStage2AlertCycle(ctx, alarmId)
@@ -3490,7 +3521,7 @@ internal object LockAlarmOverlayController {
             (targetPoemCount > 0 && currentPoemIndex < targetPoemCount) ||
             (targetWordCount > 0 && currentWordIndex < targetWordCount) ||
             (targetClozeCount > 0 && currentClozeIndex < targetClozeCount) ||
-            (targetCustomCount > 0 && currentCustomIndex < targetCustomCount)
+            (targetCustomCount > 0 && customRemaining())
 
         if (!otherChallengesActive) {
             targetMathCount = 3
