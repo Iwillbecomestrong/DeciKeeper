@@ -87,20 +87,26 @@ internal object BackupPrefsClassification {
         "baseline_one_time_repairs" to BackupDecision.SKIP_RUNTIME,
         "version_fingerprint" to BackupDecision.SKIP_RUNTIME,
         "return_home_buffer" to BackupDecision.SKIP_RUNTIME,
+        // 已展示过的预警等级（按时段去重），不是设置
+        "reminder_alerts" to BackupDecision.SKIP_RUNTIME,
+        // 旧版“观察期/晋升”遗留：代码只会清除这些标记，已无功能
+        "decikeeper_probation" to BackupDecision.SKIP_RUNTIME,
+        "decikeeper_promotion" to BackupDecision.SKIP_RUNTIME,
+        "app_window_promotion" to BackupDecision.SKIP_RUNTIME,
 
-        // ── 待评审：状态机/日志/本机资源/界面偏好，逐项看清再决定 ──
-        "decikeeper_probation" to BackupDecision.PENDING_REVIEW,
-        "decikeeper_changelog" to BackupDecision.PENDING_REVIEW,
-        "decikeeper_promotion" to BackupDecision.PENDING_REVIEW,
-        "app_window_promotion" to BackupDecision.PENDING_REVIEW,
+        // ── 待评审：用户设置或日志，值得导入但需要先设计，不是“决定不导入” ──
+        // 生效策略本身是规则参数，导入必须遵守“加严立即、放宽延期”
         "effective_activation_policy" to BackupDecision.PENDING_REVIEW,
-        "rule_change_ledger" to BackupDecision.PENDING_REVIEW,
-        "decikeeper_rules_log" to BackupDecision.PENDING_REVIEW,
+        // 只存条目 JSON，音频文件在应用内部目录且不在备份里，单导入会指向不存在的文件
         "alarm_custom_ringtones_prefs" to BackupDecision.PENDING_REVIEW,
-        "bookmark_settings" to BackupDecision.PENDING_REVIEW,
+        // 界面主题：单个字符串，无风险，但不属于现有六个备份分类，需要决定放哪
         "decikeeper_ui_theme" to BackupDecision.PENDING_REVIEW,
-        "reminder_alerts" to BackupDecision.PENDING_REVIEW,
-        "baseline_prefs" to BackupDecision.PENDING_REVIEW
+        "bookmark_settings" to BackupDecision.PENDING_REVIEW,
+        "baseline_prefs" to BackupDecision.PENDING_REVIEW,
+        // 规则变更日志/记录：描述的是原设备上发生过的变更，带生效时间，导入后会与新设备的真实待生效状态混在一起
+        "decikeeper_changelog" to BackupDecision.PENDING_REVIEW,
+        "decikeeper_rules_log" to BackupDecision.PENDING_REVIEW,
+        "rule_change_ledger" to BackupDecision.PENDING_REVIEW
     )
 
     fun decisionOf(prefsName: String): BackupDecision? = decisions[prefsName]
