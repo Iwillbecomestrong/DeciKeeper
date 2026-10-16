@@ -6,7 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 团子赶路的进度计算：等待 / 行进 / 到达 / 无时段，含跨午夜与重叠。纯 JVM。 */
+/** 团团赶路的进度计算：等待 / 行进 / 到达 / 无时段，含跨午夜与重叠。纯 JVM。 */
 class MascotJourneyTest {
 
     private fun hm(h: Int, m: Int = 0) = h * 60 + m
@@ -113,8 +113,8 @@ class MascotJourneyTest {
     @Test
     fun captionsReadNaturally() {
         assertEquals("", MascotJourney.caption(State.None))
-        assertEquals("团子在打盹，30 分钟后出发", MascotJourney.caption(State.Waiting(30)))
-        assertEquals("团子在赶路，还剩 1 小时 30 分", MascotJourney.caption(State.Walking(0.5f, 90)))
+        assertEquals("团团在打盹，30 分钟后出发", MascotJourney.caption(State.Waiting(30)))
+        assertEquals("团团在赶路，还剩 1 小时 30 分", MascotJourney.caption(State.Walking(0.5f, 90)))
         assertEquals("到啦！这一段守住了", MascotJourney.caption(State.Arrived(2)))
     }
 

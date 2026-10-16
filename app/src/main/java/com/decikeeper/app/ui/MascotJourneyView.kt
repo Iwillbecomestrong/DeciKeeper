@@ -16,7 +16,7 @@ import kotlin.math.abs
 import kotlin.math.sin
 
 /**
- * 团子赶路：勿扰时段内，一条进度条上团子随时间往终点走，到了就欢呼。
+ * 团团赶路：勿扰时段内，一条进度条上团团随时间往终点走，到了就欢呼。
  *
  * 自己按需读取当天受限时段（每 30 秒一次），没有可用时段时自动隐藏，
  * 因此首页和锁屏页只需要在布局里放一个即可，不用额外接线。
@@ -34,7 +34,10 @@ class MascotJourneyView @JvmOverloads constructor(
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val flagPath = Path()
     private val trackRect = RectF()
-    private val mascot = ContextCompat.getDrawable(context, R.drawable.mascot_tuantuan)?.mutate()
+    // 同一个角色的三种姿势：赶路 / 打盹 / 欢呼（与宣传 MV 里的团团是同一个形象）
+    private val walkPose = ContextCompat.getDrawable(context, R.drawable.mascot_walk)?.mutate()
+    private val sleepPose = ContextCompat.getDrawable(context, R.drawable.mascot_sleep)?.mutate()
+    private val happyPose = ContextCompat.getDrawable(context, R.drawable.mascot_happy)?.mutate()
 
     private var state: MascotJourney.State = MascotJourney.State.None
     private var bobOffset = 0f        // 0..1，常驻起伏
@@ -193,18 +196,24 @@ class MascotJourneyView @JvmOverloads constructor(
         flagPath.close()
         canvas.drawPath(flagPath, paint)
 
-        // 团子
-        val drawable = mascot ?: return
-        val mh = dp(MASCOT_HEIGHT_DP)
-        val ratio = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight.coerceAtLeast(1)
-        val mw = mh * ratio
+        // 团团：按状态换姿势，并缩放进同一个限制框里，保证三种姿势看起来大小相当
+        val drawable = when (s) {
+            is MascotJourney.State.Waiting -> sleepPose
+            is MascotJourney.State.Arrived -> happyPose
+            else -> walkPose
+        } ?: return
+        val maxW = dp(MASCOT_MAX_WIDTH_DP)
+        val maxH = dp(MASCOT_MAX_HEIGHT_DP)
+        val iw = drawable.intrinsicWidth.toFloat().coerceAtLeast(1f)
+        val ih = drawable.intrinsicHeight.toFloat().coerceAtLeast(1f)
+        val fit = minOf(maxW / iw, maxH / ih)
+        val mw = iw * fit
+        val mh = ih * fit
         val bob = -bobOffset * dp(2f)
         val hopLift = abs(sin(hop * Math.PI * 3)).toFloat() * (1f - hop) * dp(14f)
-        val squash = if (s is MascotJourney.State.Waiting) 0.92f else 1f
         val bottom = trackY - trackH / 2 - dp(1f) + bob - hopLift
-        val top = bottom - mh * squash
+        val top = bottom - mh
         val cx = mascotX.coerceIn(trackLeft + mw / 2, trackRight - mw / 2 - dp(4f))
-        drawable.alpha = if (s is MascotJourney.State.Waiting) 215 else 255
         drawable.setBounds((cx - mw / 2).toInt(), top.toInt(), (cx + mw / 2).toInt(), bottom.toInt())
         drawable.draw(canvas)
 
@@ -212,7 +221,7 @@ class MascotJourneyView @JvmOverloads constructor(
         if (s is MascotJourney.State.Waiting) {
             textPaint.color = muted
             textPaint.textSize = sp(12f)
-            canvas.drawText("zZ", cx + mw / 2 + dp(2f), top + dp(8f), textPaint)
+            canvas.drawText("zZ", cx + mw / 2 + dp(2f), top + dp(6f), textPaint)
         }
         // 欢呼的小星星
         if (s is MascotJourney.State.Arrived && hop > 0f && hop < 1f) {
@@ -226,6 +235,7 @@ class MascotJourneyView @JvmOverloads constructor(
     private companion object {
         const val REFRESH_MS = 30_000L
         const val HEIGHT_DP = 76f
-        const val MASCOT_HEIGHT_DP = 40f
+        const val MASCOT_MAX_WIDTH_DP = 52f
+        const val MASCOT_MAX_HEIGHT_DP = 40f
     }
 }

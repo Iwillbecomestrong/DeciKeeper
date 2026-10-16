@@ -251,7 +251,7 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 团子赶路：当天有受限时段时才显示，没有时段会自动隐藏 -->
+        <!-- 团团赶路：当天有受限时段时才显示，没有时段会自动隐藏 -->
         <com.decikeeper.app.ui.MascotJourneyView
             android:id="@+id/view_mascot_journey_home"
             android:layout_width="match_parent"

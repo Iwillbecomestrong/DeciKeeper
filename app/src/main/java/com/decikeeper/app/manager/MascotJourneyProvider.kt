@@ -6,7 +6,7 @@ import java.util.Calendar
 /**
  * 把「当天生效且真正受限」的时段交给 [MascotJourney] 计算。
  * 生效判断沿用 `TimeSegment.isActiveToday`（含逻辑日与启用状态）；
- * 额度大于时段时长的是免费时段，不受限，团子不为它赶路。
+ * 额度大于时段时长的是免费时段，不受限，团团不为它赶路。
  */
 internal object MascotJourneyProvider {
 

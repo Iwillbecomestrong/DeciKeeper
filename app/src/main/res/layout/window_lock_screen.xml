@@ -57,7 +57,7 @@
                 android:textColor="?attr/zzMuted"
                 android:textSize="13sp" />
 
-            <!-- 团子赶路：悬浮窗内保持静止（不做常驻动画），没有受限时段时自动隐藏 -->
+            <!-- 团团赶路：悬浮窗内保持静止（不做常驻动画），没有受限时段时自动隐藏 -->
             <com.decikeeper.app.ui.MascotJourneyView
                 android:id="@+id/view_mascot_journey_lock"
                 android:layout_width="match_parent"
