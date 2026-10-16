@@ -110,4 +110,13 @@ internal object BackupPrefsClassification {
     )
 
     fun decisionOf(prefsName: String): BackupDecision? = decisions[prefsName]
+
+    /**
+     * 全选导出是否写出该文件：导入、合并，以及待评审（日后评审通过即可直接导入，不必重新导出）。
+     * 不导入的类别与未登记的文件一律不写出。
+     */
+    fun isExported(prefsName: String): Boolean = when (decisions[prefsName]) {
+        BackupDecision.IMPORT, BackupDecision.MERGE, BackupDecision.PENDING_REVIEW -> true
+        else -> false
+    }
 }

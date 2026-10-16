@@ -343,9 +343,10 @@ object SettingsBackupManager {
             }
         }
 
-        // 如果全选，直接导出全部 pref 文件（保持原有行为）
+        // 全选时导出本机发现的 pref 文件，但只写分类表里“导入/合并/待评审”的文件：
+        // 权限与无障碍状态、防卸载、隐私同意、运行状态不进入备份文件。
         val names = if (allSelected) {
-            discoverPreferenceNames(context)
+            discoverPreferenceNames(context).filter { BackupPrefsClassification.isExported(it) }
         } else {
             allowedFiles.keys.toList()
         }

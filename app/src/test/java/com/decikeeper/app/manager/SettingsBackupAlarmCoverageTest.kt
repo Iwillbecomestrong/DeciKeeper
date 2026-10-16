@@ -213,4 +213,24 @@ class SettingsBackupAlarmCoverageTest {
         assertFalse(alarmPrefs.has("alarm_active"))
         assertFalse(alarmPrefs.has("snooze_used_3"))
     }
+
+    @Test
+    fun fullExportOnlyWritesFilesThatAreImportedMergedOrPendingReview() {
+        listOf(
+            "privacy_consent_prefs", "accessibility_control_prefs", "anti_uninstall_prefs",
+            "reminder_alerts", "decikeeper_ui_theme", AlarmEmergencyExitStore.PREFS_NAME
+        ).forEach {
+            context.getSharedPreferences(it, Context.MODE_PRIVATE).edit().putString("k", "v").commit()
+        }
+
+        val files = JSONObject(SettingsBackupManager.buildBackupJson(context)).getJSONArray("preferenceFiles")
+        val names = (0 until files.length()).map { files.getJSONObject(it).getString("name") }.toSet()
+
+        assertFalse("隐私同意不得进备份", "privacy_consent_prefs" in names)
+        assertFalse("无障碍状态不得进备份", "accessibility_control_prefs" in names)
+        assertFalse("防卸载状态不得进备份", "anti_uninstall_prefs" in names)
+        assertFalse("运行状态不得进备份", "reminder_alerts" in names)
+        assertTrue("待评审文件仍随全选导出", "decikeeper_ui_theme" in names)
+        assertTrue(AlarmEmergencyExitStore.PREFS_NAME in names)
+    }
 }
