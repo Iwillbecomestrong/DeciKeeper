@@ -201,6 +201,8 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.barcode.scanning)
+    // 离线公式排版（GPL-2.0-or-later + 链接例外，与本项目 GPL-3.0 兼容）
+    implementation(libs.jlatexmath.android)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     // 用户手册继续使用 docs/user/ 单一来源；App 内通过 Markwon 真正渲染 Markdown。
     implementation("io.noties.markwon:core:4.6.2")

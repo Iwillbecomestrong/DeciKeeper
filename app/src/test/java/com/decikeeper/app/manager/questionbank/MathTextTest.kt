@@ -159,4 +159,53 @@ class MathTextTest {
         assertTrue(MathText.needsFormatting("x^2"))
         assertEquals("", fmt(""))
     }
+
+    // ── 公式段落切分 ──
+
+    private fun segs(s: String) = MathText.splitFormulas(s).map {
+        when (it) {
+            is MathText.Segment.Text -> "T:" + it.text
+            is MathText.Segment.Formula -> "F:" + it.latex
+        }
+    }
+
+    @Test
+    fun splitInlineDollarFormula() {
+        assertEquals(listOf("T:求 ", "F:\\frac{1}{2}", "T: 的值"), segs("求 \$\\frac{1}{2}\$ 的值"))
+    }
+
+    @Test
+    fun splitDoubleDollarAndParens() {
+        assertEquals(listOf("F:x^2"), segs("\$\$x^2\$\$"))
+        assertEquals(listOf("T:设 ", "F:a_n", "T: 为"), segs("设 \\(a_n\\) 为"))
+        assertEquals(listOf("F:\\sum_{i=1}^n i"), segs("\\[\\sum_{i=1}^n i\\]"))
+    }
+
+    @Test
+    fun splitSeveralFormulasInOneLine() {
+        assertEquals(listOf("F:a", "T: 与 ", "F:b"), segs("\$a\$ 与 \$b\$"))
+    }
+
+    @Test
+    fun currencyAndLonelyDollarsStayText() {
+        assertEquals(listOf("T:价格 \$5 和 \$6"), segs("价格 \$5 和 \$6"))
+        assertEquals(listOf("T:只有一个 \$ 符号"), segs("只有一个 \$ 符号"))
+    }
+
+    @Test
+    fun escapedDollarIsNotADelimiter() {
+        assertEquals(listOf("T:\\\$5 和 \\\$6"), segs("\\\$5 和 \\\$6"))
+    }
+
+    @Test
+    fun textWithoutDelimitersIsASingleTextSegment() {
+        assertEquals(listOf("T:e^2"), segs("e^2"))
+    }
+
+    @Test
+    fun formulasWithChineseAreNotEngineEligible() {
+        assertTrue(MathText.isEngineEligible("\\frac{1}{2}"))
+        assertFalse(MathText.isEngineEligible("\\text{速度}"))
+        assertFalse(MathText.isEngineEligible("x，y"))
+    }
 }

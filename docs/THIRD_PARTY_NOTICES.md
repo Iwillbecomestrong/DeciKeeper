@@ -14,6 +14,7 @@
 | AndroidX CameraX | 1.3.4 | Apache License 2.0 | 相机驱动与生命周期绑定（闹钟扫码挑战） |
 | Google ML Kit Barcode Scanning | 17.3.0 | Apache License 2.0 | 使用 bundled 模型；[官方 Android 文档](https://developers.google.com/ml-kit/vision/barcode-scanning/android)确认扫码在设备本地处理；依赖通用说明另见[官方条款](https://developers.google.com/ml-kit/terms) |
 | Markwon Core / Tables | 4.6.2 | Apache License 2.0 | [官方仓库](https://github.com/noties/Markwon) |
+| JLatexMath Android（ru.noties:jlatexmath-android） | 0.2.0 | GPL-2.0-or-later，含链接例外（与本项目 GPL-3.0 兼容） | 离线公式排版（自定义题库中 `$...$` 公式）；纯 Java，无网络与权限需求；[官方仓库](https://github.com/noties/jlatexmath-android) |
 
 ## 测试依赖（仅构建测试用，不随 APK 分发）
 

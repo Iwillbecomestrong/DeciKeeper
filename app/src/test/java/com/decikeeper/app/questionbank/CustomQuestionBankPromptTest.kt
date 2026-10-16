@@ -38,7 +38,8 @@ class CustomQuestionBankPromptTest {
             assertTrue(prompt.contains("e^{-x^2}"))
             assertTrue(prompt.contains("\\frac{分子}{分母}"))
             assertTrue(prompt.contains("\\lim_{x\\to\\infty}"))
-            assertTrue(prompt.contains("不要使用美元符号包裹"))
+            assertTrue(prompt.contains("必须用一对美元符号包裹"))
+            assertTrue(prompt.contains("包裹的公式里不要写中文"))
             assertTrue(prompt.contains("看图或看表"))
         }
     }

@@ -39,6 +39,75 @@ internal object MathText {
         }
     }
 
+    // ── 公式段落：$...$ $$...$$ \(...\) \[...\] ─────────────────────────────
+
+    sealed class Segment {
+        data class Text(val text: String) : Segment()
+        data class Formula(val latex: String) : Segment()
+    }
+
+    /**
+     * 按定界符把文字切成“普通文字”和“公式”两种段落。
+     * 写法不明确的美元符号（如 `$5 和 $6`：内部以空白开头或结尾、或没有配对）一律当作普通文字。
+     */
+    fun splitFormulas(input: String): List<Segment> {
+        if (input.indexOf('$') < 0 && !input.contains("\\(") && !input.contains("\\[")) {
+            return listOf(Segment.Text(input))
+        }
+        val out = mutableListOf<Segment>()
+        val buf = StringBuilder()
+        fun flush() { if (buf.isNotEmpty()) { out.add(Segment.Text(buf.toString())); buf.setLength(0) } }
+        var i = 0
+        while (i < input.length) {
+            val c = input[i]
+            if (c == '\\' && i + 1 < input.length) {
+                val n = input[i + 1]
+                val close = when (n) { '(' -> "\\)"; '[' -> "\\]"; else -> null }
+                if (close != null) {
+                    val end = input.indexOf(close, i + 2)
+                    if (end > i + 2 && input.substring(i + 2, end).isNotBlank()) {
+                        flush(); out.add(Segment.Formula(input.substring(i + 2, end).trim())); i = end + 2; continue
+                    }
+                }
+                // 其它转义（含 \$）原样保留，并整体跳过，避免把 \$ 当成定界符
+                buf.append(c).append(n); i += 2; continue
+            }
+            if (c == '$') {
+                val double = i + 1 < input.length && input[i + 1] == '$'
+                val open = if (double) 2 else 1
+                val closeToken = if (double) "$$" else "$"
+                val end = findClosingDollar(input, i + open, closeToken)
+                if (end > 0) {
+                    val inner = input.substring(i + open, end)
+                    if (isValidDollarInner(inner)) {
+                        flush(); out.add(Segment.Formula(inner.trim())); i = end + closeToken.length; continue
+                    }
+                }
+            }
+            buf.append(c); i++
+        }
+        flush()
+        return out
+    }
+
+    private fun findClosingDollar(s: String, from: Int, token: String): Int {
+        var k = from
+        while (k < s.length) {
+            if (s[k] == '\\') { k += 2; continue }
+            if (s.startsWith(token, k)) return k
+            k++
+        }
+        return -1
+    }
+
+    private fun isValidDollarInner(inner: String): Boolean =
+        inner.isNotEmpty() && !inner.first().isWhitespace() && !inner.last().isWhitespace()
+
+    /** 排版引擎的字体里没有中文：含中日韩字符的公式退回轻量显示。 */
+    fun isEngineEligible(latex: String): Boolean = latex.none {
+        it.code in 0x2E80..0x9FFF || it.code in 0xFF00..0xFFEF || it.code in 0x3000..0x303F
+    }
+
     // ── 分隔符：$...$、$$...$$、\( \)、\[ \] ───────────────────────────────
 
     private fun stripMathDelimiters(text: String): String {

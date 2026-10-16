@@ -14,17 +14,38 @@ import com.decikeeper.app.manager.questionbank.MathText
 object MathTextFormatter {
 
     private const val SCRIPT_SCALE = 0.72f
+    private const val PLACEHOLDER = "￼"
 
     fun format(text: CharSequence?): CharSequence {
         if (text == null) return ""
         if (!MathText.needsFormatting(text)) return text
-        val pieces = MathText.parse(text.toString())
-        // 解析后只有一段原样文字：直接返回原文，避免无谓的 Spannable
-        val only = pieces.singleOrNull()
-        if (only is MathText.Piece.Plain) return only.text
         val out = SpannableStringBuilder()
-        append(out, pieces)
-        return out
+        var styled = false
+        MathText.splitFormulas(text.toString()).forEach { segment ->
+            when (segment) {
+                is MathText.Segment.Text -> {
+                    val pieces = MathText.parse(segment.text)
+                    if (pieces.any { it !is MathText.Piece.Plain }) styled = true
+                    append(out, pieces)
+                }
+                is MathText.Segment.Formula -> {
+                    if (MathText.isEngineEligible(segment.latex) && MathEngine.isReady()) {
+                        // 用对象替换字符占位，整段公式由排版引擎画成一个“字”
+                        val start = out.length
+                        out.append(PLACEHOLDER)
+                        out.setSpan(MathFormulaSpan(segment.latex), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        styled = true
+                    } else {
+                        // 含中文或引擎不可用：退回轻量上下标显示
+                        val pieces = MathText.parse(segment.latex)
+                        if (pieces.any { it !is MathText.Piece.Plain }) styled = true
+                        append(out, pieces)
+                    }
+                }
+            }
+        }
+        // 没有任何样式：直接返回纯文字，避免无谓的 Spannable
+        return if (styled) out else out.toString()
     }
 
     private fun append(out: SpannableStringBuilder, pieces: List<MathText.Piece>) {

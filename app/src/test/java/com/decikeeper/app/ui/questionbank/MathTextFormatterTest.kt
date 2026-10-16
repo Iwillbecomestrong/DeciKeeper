@@ -50,6 +50,25 @@ class MathTextFormatterTest {
     }
 
     @Test
+    fun formulaWithChineseFallsBackToLightweightText() {
+        val out = MathTextFormatter.format("求 \$x^2，速度\$ 的值") as Spanned
+        assertEquals("求 x2，速度 的值", out.toString())
+        assertTrue(out.getSpans(0, out.length, MathFormulaSpan::class.java).isEmpty())
+    }
+
+    @Test
+    fun delimitedFormulaUsesEngineSpanOrFallsBackWithoutDollarSigns() {
+        val out = MathTextFormatter.format("求 \$\\frac{1}{2}\$ 的值")
+        // 不论排版引擎在当前环境是否可用，都不得把美元符号留在文字里
+        assertTrue(!out.toString().contains("\$"))
+        if (out is Spanned && out.getSpans(0, out.length, MathFormulaSpan::class.java).isNotEmpty()) {
+            assertEquals("求 ￼ 的值", out.toString())
+        } else {
+            assertEquals("求 1/2 的值", out.toString())
+        }
+    }
+
+    @Test
     fun optionPrefixDoesNotBreakFormatting() {
         val out = MathTextFormatter.format("A. e^2") as Spanned
         assertEquals("A. e2", out.toString())
