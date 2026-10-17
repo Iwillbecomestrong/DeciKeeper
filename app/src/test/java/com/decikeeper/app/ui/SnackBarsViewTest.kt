@@ -63,6 +63,26 @@ class SnackBarsViewTest {
         assertEquals(View.GONE, scan.visibility)
         assertEquals(View.GONE, normal.visibility)
     }
+
+    @Test fun mascotJourneyViewRespondsToTapsAndFifthTapTriggersSurprise() {
+        val view = MascotJourneyView(context)
+        view.showState(com.decikeeper.app.manager.MascotJourney.State.Walking(0.5f, 90))
+        assertNull(view.tapReactionText)
+        assertFalse(view.tapSurprise)
+
+        // 首次点击：冒泡并弹跳
+        view.performClick()
+        assertNotNull(view.tapReactionText)
+        assertFalse(view.tapSurprise)
+
+        // 连续点击触发第 5 次彩蛋
+        for (i in 2..5) {
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(250))
+            view.performClick()
+        }
+        assertTrue(view.tapSurprise)
+        assertTrue(view.tapReactionText?.contains("被你发现啦") == true)
+    }
 }
 
 /** 现有 JVM classpath 不带二进制资源；仅替代图像加载，真实 View 的测量、文本和事件照常执行。 */
