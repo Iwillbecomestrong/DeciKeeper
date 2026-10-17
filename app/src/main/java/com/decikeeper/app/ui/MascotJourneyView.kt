@@ -45,6 +45,7 @@ class MascotJourneyView @JvmOverloads constructor(
     private val bobEnabled: Boolean
 
     private var initialized = false
+    private var externallyDriven = false
     private var bobAnimator: ValueAnimator? = null
     private var hopAnimator: ValueAnimator? = null
     private val refreshRunnable = object : Runnable {
@@ -73,6 +74,20 @@ class MascotJourneyView @JvmOverloads constructor(
 
     /** 直接指定状态（预览与测试用）。 */
     internal fun showState(newState: MascotJourney.State) = applyState(newState)
+
+    /** 锁屏跟随同一次额度刷新选中的当前段，避免重叠时段各自挑选。 */
+    internal fun bindSegment(segment: com.decikeeper.app.data.TimeSegment?, now: Long) {
+        externallyDriven = true
+        removeCallbacks(refreshRunnable)
+        if (segment == null || segment.limitMins > segment.getDurationMinutes()) {
+            applyState(MascotJourneyProvider.current(context, now)); return
+        }
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = now }
+        val minute = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60.0 + cal.get(java.util.Calendar.MINUTE) +
+            cal.get(java.util.Calendar.SECOND) / 60.0
+        applyState(MascotJourney.compute(minute, listOf(MascotJourney.Segment(
+            segment.startHour * 60 + segment.startMinute, segment.endHour * 60 + segment.endMinute))))
+    }
 
     private fun applyState(newState: MascotJourney.State) {
         val old = state
@@ -118,9 +133,11 @@ class MascotJourneyView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        refresh()
-        removeCallbacks(refreshRunnable)
-        postDelayed(refreshRunnable, REFRESH_MS)
+        if (!externallyDriven) {
+            refresh()
+            removeCallbacks(refreshRunnable)
+            postDelayed(refreshRunnable, REFRESH_MS)
+        }
         updateBob()
     }
 

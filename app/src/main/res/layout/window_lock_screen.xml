@@ -66,6 +66,13 @@
                 android:background="@drawable/bg_zz_card"
                 app:mascotBob="false" />
 
+            <com.decikeeper.app.ui.SnackBarsView
+                android:id="@+id/view_snack_bars"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
+
             <androidx.cardview.widget.CardView
                 android:id="@+id/layout_quota_bubble"
                 android:layout_width="match_parent"

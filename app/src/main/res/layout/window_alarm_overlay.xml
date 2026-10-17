@@ -50,6 +50,16 @@
             android:layout_marginBottom="8dp"
             android:text="" />
 
+        <ImageView
+            android:id="@+id/image_alarm_mascot"
+            android:layout_width="48dp"
+            android:layout_height="40dp"
+            android:layout_gravity="end"
+            android:clickable="false"
+            android:focusable="false"
+            android:importantForAccessibility="no"
+            android:visibility="gone" />
+
         <!-- 任务列表容器（动态隐藏/显示各选项） -->
         <ScrollView
             android:id="@+id/sv_alarm_challenges"
@@ -1153,6 +1163,17 @@
                         android:text="正在连接摄像头…"
                         android:textColor="?attr/zzText"
                         android:textSize="14sp" />
+
+                      <ImageView
+                          android:id="@+id/image_alarm_scan_mascot"
+                          android:layout_width="48dp"
+                          android:layout_height="48dp"
+                          android:layout_gravity="top|end"
+                          android:layout_margin="12dp"
+                          android:clickable="false"
+                          android:focusable="false"
+                          android:importantForAccessibility="no"
+                          android:visibility="gone" />
                 </FrameLayout>
 
                 <View

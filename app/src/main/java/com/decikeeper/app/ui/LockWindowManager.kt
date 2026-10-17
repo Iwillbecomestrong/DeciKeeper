@@ -2695,6 +2695,27 @@ object LockWindowManager {
     // Updates UI elements based on current state (Full Data Binding)
     private var mLastBorrowTickKey: String? = null
 
+    private var lastSnackDetailsAt = 0L
+
+    private fun updateSnackDisplay(context: Context, view: View, full: Boolean, now: Long,
+        current: com.decikeeper.app.data.TimeSegment?, remaining: Double, count: Int) {
+        val snack = view.findViewById<SnackBarsView>(R.id.view_snack_bars) ?: return
+        view.findViewById<MascotJourneyView>(R.id.view_mascot_journey_lock)?.bindSegment(current, now)
+        if (isAntiUninstallLock || current == null || current.limitMins > current.getDurationMinutes()) {
+            snack.render(null, now)
+            lastSnackDetailsAt = 0L
+            return
+        }
+        val identity = com.decikeeper.app.manager.SnackJarProvider.identity(context, current)
+        if (full || lastSnackDetailsAt == 0L || now - lastSnackDetailsAt >= 30_000L ||
+            snack.needsSnapshot || snack.snapshotIdentity != identity) {
+            snack.render(com.decikeeper.app.manager.SnackJarProvider.read(context, current, remaining, count), now)
+            lastSnackDetailsAt = now
+        } else {
+            snack.updateBalance(remaining, count, now)
+        }
+    }
+
     fun updateStatus(context: Context) {
         val view = mLockView ?: return
 
@@ -2898,6 +2919,9 @@ object LockWindowManager {
                     tvNextInfo?.visibility = View.VISIBLE
                 }
                 
+                updateSnackDisplay(context, view, full = true, now = now, current = currentSeg,
+                    remaining = remaining, count = CreditManager.getRemainingUsableCountHalfUnits(context))
+
                 // 5. 🚀 [UI] Status Text Logic - 显示强制锁机倒计时
 
                 val pkgName = lastBlockedPackageName
@@ -3248,6 +3272,8 @@ object LockWindowManager {
             }
 
             // 3. 按钮状态（含冷却倒计时）
+            updateSnackDisplay(ctx, view, full = false, now = now, current = currentSeg,
+                remaining = remaining, count = CreditManager.getRemainingUsableCountHalfUnits(ctx))
             updateLockViewUI()
         } catch (e: Exception) {
             // Silently ignore - next full update will fix any issues

@@ -155,7 +155,9 @@ class StatisticsHardeningTest {
 
     @Test
     fun restRecentRecords_followTheSelectedDateRange() {
-        val now = System.currentTimeMillis()
+        // 固定在本日中午，避免零点首小时把“一小时前”错误当作今天的数据。
+        val reference = LocalDate.now(zoneId).atTime(12, 0)
+        val now = reference.atZone(zoneId).toInstant().toEpochMilli()
         RestStatsRecorder.record(
             context = context,
             type = "NORMAL",
@@ -171,7 +173,7 @@ class StatisticsHardeningTest {
             timestamp = now - 60 * 60 * 1000L
         )
 
-        val resolved = StatsDateRangeResolver.resolveRange(StatsDateRange.Today, LocalDateTime.now(zoneId), zoneId)
+        val resolved = StatsDateRangeResolver.resolveRange(StatsDateRange.Today, reference, zoneId)
         val summary = StatisticsRepository.getExitStats(context, StatsDateRange.Today, resolved, WeekdayFilter.ALL)
 
         assertEquals(listOf(current.id), summary.recentRecords.map { it.id })

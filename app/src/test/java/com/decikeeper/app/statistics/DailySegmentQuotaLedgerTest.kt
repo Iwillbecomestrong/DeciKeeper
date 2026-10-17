@@ -44,7 +44,8 @@ class DailySegmentQuotaLedgerTest {
 
         val cal = Calendar.getInstance()
         val nowMin = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
-        assumeTrue(nowMin in 30..(23 * 60 + 50))
+        // 前段额度 30 分钟必须不超过时段长度的一半，否则它是免费段，不具备本测试的滚存前提。
+        assumeTrue(nowMin in 70..(23 * 60 + 50))
         splitMinute = nowMin - 10
     }
 

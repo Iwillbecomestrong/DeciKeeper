@@ -2659,6 +2659,8 @@ internal object LockAlarmOverlayController {
 
     private fun updateCooldownDisplay(ctx: Context) {
         val view = LockWindowManager.getAlarmView() ?: return
+        AlarmMascotPresenter.render(view, cooling = stageCooldownRemainingSeconds > 0,
+            connecting = false, completed = view.findViewById<View>(R.id.btn_alarm_close)?.visibility == View.VISIBLE)
         val tvCooldown = view.findViewById<TextView>(R.id.tv_stage_cooldown)
         if (stageCooldownRemainingSeconds > 0) {
             val cooldownText = if (isTwoStageUnlock) {
@@ -3100,6 +3102,7 @@ internal object LockAlarmOverlayController {
      * 关闭：原样还原上述背景与可见性。
      */
     private fun applyScanCutoutLayers(view: View, enable: Boolean) {
+        AlarmMascotPresenter.render(view, cooling = false, connecting = enable, completed = false)
         val root = view.findViewById<View>(R.id.root_container)
         val content = view.findViewById<View>(R.id.root_content_layout)
         val scanLayout = view.findViewById<View>(R.id.layout_alarm_scan)
@@ -3216,6 +3219,10 @@ internal object LockAlarmOverlayController {
         btnSnooze?.visibility = if (canSnooze) View.VISIBLE else View.GONE
         btnSnooze?.isEnabled = canSnooze
         btnSnooze?.text = if (canSnooze) "静音 ${alarmSnoozeMinutes} 分钟（挑战继续）" else "稍后再响 (0)"
+        layoutActions?.rootView?.let {
+            AlarmMascotPresenter.render(it, cooling = stageCooldownRemainingSeconds > 0,
+                connecting = false, completed = !forceHide)
+        }
         // 应急退出只在挑战未完成时出现；完成后直接用「关闭闹钟」
         layoutActions?.rootView?.findViewById<View>(R.id.layout_alarm_emergency_exit)?.visibility =
             if (forceHide) View.VISIBLE else View.GONE

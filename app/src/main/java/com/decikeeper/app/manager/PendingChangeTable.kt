@@ -49,7 +49,9 @@ object PendingChangeTable {
         val direction: Direction,
         val revocable: Boolean = true,
         /** 不能单独撤销时的原因，弹窗里替代撤销按钮显示。 */
-        val unrevocableHint: String? = null
+        val unrevocableHint: String? = null,
+        /** 只给时段时长/次数放宽提供结构化显示数据，不影响 pending 判定。 */
+        val snackParcel: SnackJarPresentation.Parcel? = null
     )
 
     fun items(context: Context): List<Item> = Scope.entries.flatMap { items(context, it) }
@@ -173,7 +175,11 @@ object PendingChangeTable {
                         "修改 · ${a.name} ${a.formatTimeRange()}",
                         diff.joinToString("\n") { it.message.trim().removePrefix("•").trim().let { m -> "• $m" } }
                             .ifBlank { "• 内容有调整" },
-                        effective, if (adverse) Direction.LOOSER else Direction.STRICTER
+                        effective, if (adverse) Direction.LOOSER else Direction.STRICTER,
+                        snackParcel = if (p.limitMins > a.limitMins ||
+                            p.getEffectiveUsableCountLimitHalfUnits() > a.getEffectiveUsableCountLimitHalfUnits()
+                        ) SnackJarPresentation.Parcel(a.name, p.limitMins,
+                            p.getEffectiveUsableCountLimitHalfUnits(), effective, p.name) else null
                     )
                 }
             }
