@@ -2264,6 +2264,28 @@ object CreditManager {
         return ((nextSegment.limitMins * 60 - nextUsedSeconds).coerceAtLeast(0)) / 60.0
     }
 
+    /** 下一罐的只读快照，使用现有今日额度和真实用量；下一业务日只展示配置额。 */
+    internal fun getSegmentSnackQuota(context: Context, segment: TimeSegment, nextBusinessDay: Boolean): SnackJarPresentation.Quota {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        // 展示不能提前落账或迁移键；缺少今日账时复用原有纯计算，留给业务路径正式初始化。
+        val entitlement = if (nextBusinessDay) null else {
+            readEntitlement(prefs, entitlementKey(context, segment))
+                ?: computeSegmentProration(context, segment, System.currentTimeMillis())
+        }
+        val minutes = entitlement?.effectiveLimitMins ?: segment.limitMins.toDouble()
+        val count = entitlement?.effectiveUsableCountHalfUnits ?: segment.getEffectiveUsableCountLimitHalfUnits()
+        val remainingMinutes = if (nextBusinessDay) minutes else (minutes - getUsedSecondsForSegment(context, segment) / 60.0).coerceAtLeast(0.0)
+        val suffix = "${getSegmentBusinessDateString(context, segment)}_${generateSegmentKey(segment)}"
+        val currentKey = "count_usage_half_units_v2_$suffix"
+        val legacyKey = "count_usage_$suffix"
+        val usedCount = UsableCountLedgerMigration.migratedHalfUnits(
+            if (prefs.contains(currentKey)) prefs.getInt(currentKey, 0) else null,
+            if (prefs.contains(legacyKey)) prefs.getInt(legacyKey, 0) else null
+        ) ?: 0
+        val remainingCount = if (nextBusinessDay) count else (count.toLong() - usedCount).coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+        return SnackJarPresentation.Quota(remainingMinutes, minutes, remainingCount, count)
+    }
+
     fun getNextSegmentName(context: Context): String {
         val segments = TimeRuleManager.getTimeSegments(context)
         val currentIndex = TimeRuleManager.getCurrentSegmentIndex(context)

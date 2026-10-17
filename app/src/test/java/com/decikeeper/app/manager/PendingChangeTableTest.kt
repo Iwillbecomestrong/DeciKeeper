@@ -27,6 +27,63 @@ import org.robolectric.annotation.Config
 @Config(sdk = [33])
 class PendingChangeTableTest {
 
+    @Test fun quotaExpansionHasStructuredParcelWithoutParsingDisplayText() {
+        saveSegments { list -> list.map { if (it.name == "上午") it.copy(limitMins = 60) else it } }
+        val parcel = item(Scope.SEGMENT, "上午").snackParcel
+        assertNotNull(parcel)
+        assertEquals("上午", parcel!!.segmentName)
+        assertEquals(60, parcel.targetMinutes)
+        assertEquals(14, parcel.targetHalfUnits)
+    }
+
+    @Test fun timeOnlyOrBlacklistChangesDoNotBecomeSnackParcels() {
+        saveSegments { list -> list.map { if (it.name == "上午") it.copy(startHour = 10) else it } }
+        assertNull(item(Scope.SEGMENT, "上午").snackParcel)
+    }
+
+    @Test fun stricterQuotaUnderUnifiedDelayIsNotAnIncomingParcel() {
+        EffectiveActivationPolicyManager.setPolicy(context, EffectiveActivationPolicyManager.Policy.ALL_NEXT_DAY)
+        saveSegments { list -> list.map { if (it.name == "上午") it.copy(limitMins = 10) else it } }
+        assertNull(item(Scope.SEGMENT, "上午").snackParcel)
+    }
+
+    @Test fun nextJarReadsDeductedLedgerAndTomorrowDoesNotReuseTodaysUsage() {
+        val segment = baseline[1]
+        val date = CreditManager.getBusinessDateString(context)
+        val key = CreditManager.generateSegmentKey(segment)
+        val timeKey = "usage_${date}_$key"
+        val countKey = "count_usage_half_units_v2_${date}_$key"
+        ledgerPrefs.edit().putString("quota_entitle_${date}_$key", "35.0;14;1;1.0")
+            .putInt(timeKey, 600).putInt(countKey, 3).commit()
+        val today = CreditManager.getSegmentSnackQuota(context, segment, nextBusinessDay = false)
+        assertEquals(25.0, today.remainingMinutes, 0.0001)
+        assertEquals(11, today.remainingHalfUnits)
+        val tomorrow = CreditManager.getSegmentSnackQuota(context, segment, nextBusinessDay = true)
+        assertEquals(35.0, tomorrow.remainingMinutes, 0.0001)
+        assertEquals(14, tomorrow.remainingHalfUnits)
+        assertEquals(600, ledgerPrefs.getInt(timeKey, -1))
+        assertEquals(3, ledgerPrefs.getInt(countKey, -1))
+    }
+
+    @Test fun snapshotKeepsTheSameBalanceSuppliedToLockScreenNumbers() {
+        val display = SnackJarProvider.read(context, baseline[0], 4.5, 3)
+        assertEquals(4.5, display.quota.remainingMinutes, 0.0)
+        assertEquals(3, display.quota.remainingHalfUnits)
+    }
+
+    @Test fun viewingNextJarDoesNotCreateEntitlementsOrMigrateCountLedger() {
+        val segment = baseline[1]
+        val date = CreditManager.getBusinessDateString(context)
+        val key = CreditManager.generateSegmentKey(segment)
+        ledgerPrefs.edit().remove("quota_entitle_${date}_$key")
+            .remove("count_usage_half_units_v2_${date}_$key")
+            .putInt("count_usage_${date}_$key", 1).commit()
+        val before = ledgerPrefs.all.toMap()
+        val display = CreditManager.getSegmentSnackQuota(context, segment, nextBusinessDay = false)
+        assertEquals(before, ledgerPrefs.all)
+        assertEquals(12, display.remainingHalfUnits)
+    }
+
     private lateinit var context: Context
 
     private val rulesPrefs get() = context.getSharedPreferences("decikeeper_rules", Context.MODE_PRIVATE)

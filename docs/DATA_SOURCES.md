@@ -33,3 +33,9 @@
 - 词汇/翻译数据（vocabulary_kaoyan / vocab_merged / wordlist / passage_words / 考研词汇.txt）保留简短自产释义/翻译。
 
 > 任何 PR 不得新增来自商业出版物或未经授权 API 抓取的解析/数据。正式 Release 时必须为随包真题保留来源说明，为项目生成内容标注“项目生成/AI 辅助生成”，并明确发布渠道；不要把“源码开源”和“第三方渠道允许无条件再分发原题面”混写成同一个结论。
+
+## 四、图形素材
+
+- **团团零食罐与场景姿势**（2026-10-16）：`mascot_jar_full.webp`、`mascot_jar_empty.webp`（无眼泪、轻嘟嘴）、`mascot_eat.webp`、`mascot_parcel_open.webp`、`mascot_peek.webp`、`mascot_reach.webp`，以及 `obj_cookie.webp`、`obj_jar.webp`、`obj_parcel.webp`，均为沿用团团定妆、开心和走路参考图的 GPT 辅助生成素材。原流水线使用绿幕；本次保留原图，去绿边、裁透明边距后转换为最长边不超过 320px、质量 90 的透明 WebP。无泪空罐由内置图像编辑工具修改表情并保留原生透明背景。`mascot_waking.webp` 与 `mascot_brushing.webp` 选自同角色已有宣传素材，按相同尺寸与格式处理。上述文件均随包保存于 `app/src/main/res/drawable-nodpi/`，不需要运行时联网。
+
+- **吉祥物「团团」**（`app/src/main/res/drawable-nodpi/mascot_walk.webp`、`mascot_sleep.webp`、`mascot_happy.webp`）：由项目作者使用 GPT 图像生成，与宣传视频里的角色是同一个形象；从已抠好透明底的姿势图中选取三个，裁边并缩小为最长边 320px 的 WebP 后随包发布。素材按生成工具条款（输出内容归使用者、允许商用）使用；AI 生成图像在部分法域可能不享有著作权保护，因此不要求他人不得复制，但不得冒用「决定守护」名义。fork 或再分发时请保留本说明。

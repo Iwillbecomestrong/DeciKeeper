@@ -25,6 +25,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -87,7 +88,8 @@ object PendingChangesDialog {
                         val ok = PendingChangeTable.revoke(context, item)
                         Toast.makeText(
                             context,
-                            if (ok) "已撤销：${item.title}" else "该项已不在待生效列表中",
+                            if (ok && item.snackParcel != null) "包裹已退回：${item.title}"
+                            else if (ok) "已撤销：${item.title}" else "该项已不在待生效列表中",
                             Toast.LENGTH_SHORT
                         ).show()
                         if (ok) sendRefresh(context)
@@ -100,6 +102,15 @@ object PendingChangesDialog {
 
         render()
         dialog.show()
+        val refresh = object : Runnable {
+            override fun run() {
+                if (!dialog.isShowing) return
+                render()
+                view.postDelayed(this, 60_000L)
+            }
+        }
+        view.postDelayed(refresh, 60_000L)
+        dialog.setOnDismissListener { view.removeCallbacks(refresh) }
     }
 
     private fun bindRow(
@@ -125,6 +136,16 @@ object PendingChangesDialog {
             visibility = if (item.detail.isBlank()) View.GONE else View.VISIBLE
         }
         row.findViewById<TextView>(R.id.tv_pending_item_effective).text = "⏳ ${formatTime(item.effectiveMillis)} 生效"
+        item.snackParcel?.let {
+            val minutes = ((it.effectiveMillis - System.currentTimeMillis() + 59_999) / 60_000).coerceAtLeast(0)
+            row.findViewById<TextView>(R.id.tv_pending_item_effective).text =
+                "新罐子 ${formatTime(it.effectiveMillis)} 送到 · " +
+                    if (minutes > 0) "还剩 ${minutes / 60}时${minutes % 60}分" else "等待规则生效"
+            (row as? LinearLayout)?.addView(ImageView(context).apply {
+                setImageResource(R.drawable.obj_parcel)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, 0, LinearLayout.LayoutParams(dp(context, 28), dp(context, 32)).apply { marginEnd = dp(context, 8) })
+        }
 
         val btn = row.findViewById<Button>(R.id.btn_pending_item_revoke)
         when {

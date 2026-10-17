@@ -324,6 +324,7 @@ class AlarmActivity : AppCompatActivity(), LockWindowManager.AlarmOverlayControl
         )
         view?.findViewById<TextView>(R.id.tv_alarm_scan_preview_status)?.visibility =
             if (ready) View.GONE else View.VISIBLE
+        view?.let { AlarmMascotPresenter.render(it, cooling = false, connecting = !ready, completed = false) }
         if (ready) {
             barcodeView?.resume()
             LogExporter.logEvent("AlarmOverlay", "SCAN_PREVIEW_STREAMING host=OVERLAY")
