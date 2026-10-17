@@ -80,7 +80,7 @@
             <Button
                 android:id="@+id/btn_custom_a"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:minHeight="48dp"
                 android:layout_weight="1"
                 android:text="A"
@@ -94,7 +94,7 @@
             <Button
                 android:id="@+id/btn_custom_b"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:minHeight="48dp"
                 android:layout_weight="1"
                 android:text="B"
@@ -114,7 +114,7 @@
             <Button
                 android:id="@+id/btn_custom_c"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:minHeight="48dp"
                 android:layout_weight="1"
                 android:text="C"
@@ -128,7 +128,7 @@
             <Button
                 android:id="@+id/btn_custom_d"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:minHeight="48dp"
                 android:layout_weight="1"
                 android:text="D"
